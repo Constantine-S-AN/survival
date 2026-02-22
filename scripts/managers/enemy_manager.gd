@@ -47,9 +47,26 @@ var boss_id: String = ""
 var boss_node: Node = null
 var boss_phase_index: int = -1
 var boss_summon_timer: float = 0.0
+var pool_manager: Node = null
+var enemy_pool_key: String = "enemy"
+var enemy_pool_enabled: bool = false
+
+
+func setup_pool(pool_manager_ref: Node, key: String = "enemy", prewarm_size: int = 72) -> void:
+	pool_manager = pool_manager_ref
+	enemy_pool_key = key
+	enemy_pool_enabled = (
+		pool_manager != null
+		and pool_manager.has_method("ensure_pool")
+		and pool_manager.has_method("checkout")
+		and pool_manager.has_method("recycle")
+	)
+	if enemy_pool_enabled:
+		pool_manager.ensure_pool(enemy_pool_key, enemy_scene, self, maxi(0, prewarm_size))
 
 
 func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
+	_clear_all_active_enemies()
 	player = player_ref
 	rng = run_rng
 	elapsed_time = 0.0
@@ -160,6 +177,7 @@ func get_alive_enemy_count() -> int:
 
 
 func get_noise_debug_snapshot() -> Dictionary:
+	var enemy_pool_stats := get_enemy_pool_stats()
 	return {
 		"spawn_rate_multiplier": current_spawn_rate_multiplier,
 		"spawn_cap_multiplier": current_spawn_cap_multiplier,
@@ -183,7 +201,22 @@ func get_noise_debug_snapshot() -> Dictionary:
 		"boss_state": boss_state,
 		"boss_id": boss_id,
 		"boss_spawn_rate_multiplier": boss_spawn_rate_multiplier,
-		"elite_jam_multiplier": elite_jam_multiplier_runtime
+		"elite_jam_multiplier": elite_jam_multiplier_runtime,
+		"enemy_pool_hit_rate": float(enemy_pool_stats.get("hit_rate", -1.0)),
+		"enemy_pool_hits": int(enemy_pool_stats.get("hits", 0)),
+		"enemy_pool_misses": int(enemy_pool_stats.get("misses", 0))
+	}
+
+
+func get_enemy_pool_stats() -> Dictionary:
+	if pool_manager != null and pool_manager.has_method("get_stats_for_key"):
+		return pool_manager.get_stats_for_key(enemy_pool_key)
+	return {
+		"key": enemy_pool_key,
+		"hits": 0,
+		"misses": 0,
+		"total": 0,
+		"hit_rate": -1.0
 	}
 
 
@@ -310,11 +343,17 @@ func _get_alive_enemy_count() -> int:
 func _bind_enemy_signals(enemy: Node) -> void:
 	if enemy == null:
 		return
-	enemy.died.connect(_on_enemy_died.bind(enemy))
+	var died_callable := Callable(self, "_on_enemy_died").bind(enemy)
+	if enemy.has_signal("died") and not enemy.is_connected("died", died_callable):
+		enemy.connect("died", died_callable)
 	if enemy.has_signal("summon_requested"):
-		enemy.connect("summon_requested", Callable(self, "_on_enemy_summon_requested"))
+		var summon_callable := Callable(self, "_on_enemy_summon_requested")
+		if not enemy.is_connected("summon_requested", summon_callable):
+			enemy.connect("summon_requested", summon_callable)
 	if enemy.has_signal("explosion_requested"):
-		enemy.connect("explosion_requested", Callable(self, "_on_enemy_explosion_requested"))
+		var explosion_callable := Callable(self, "_on_enemy_explosion_requested")
+		if not enemy.is_connected("explosion_requested", explosion_callable):
+			enemy.connect("explosion_requested", explosion_callable)
 
 
 func _on_enemy_summon_requested(enemy_type_id: String, count: int, world_position: Vector2) -> void:
@@ -338,8 +377,14 @@ func _on_enemy_explosion_requested(world_position: Vector2, radius: float, damag
 
 
 func _spawn_enemy_node(enemy_id: String, definition: Dictionary, world_position: Vector2, allow_elite: bool) -> Node:
-	var enemy = enemy_scene.instantiate()
-	add_child(enemy)
+	var enemy: Node = null
+	if enemy_pool_enabled and pool_manager != null and pool_manager.has_method("checkout"):
+		enemy = pool_manager.checkout(enemy_pool_key, self)
+	if enemy == null:
+		enemy = enemy_scene.instantiate()
+		add_child(enemy)
+	if enemy.has_method("set_recycle_handler"):
+		enemy.set_recycle_handler(Callable(self, "_on_enemy_recycle_requested"))
 	enemy.global_position = world_position
 	var runtime_modifiers := {
 		"speed_mult": current_enemy_speed_multiplier
@@ -350,6 +395,10 @@ func _spawn_enemy_node(enemy_id: String, definition: Dictionary, world_position:
 	_bind_enemy_signals(enemy)
 	active_enemies.append(enemy)
 	return enemy
+
+
+func _on_enemy_recycle_requested(enemy: Node) -> void:
+	_recycle_enemy(enemy)
 
 
 func _can_become_elite(definition: Dictionary) -> bool:
@@ -389,9 +438,11 @@ func _refresh_live_enemy_counters() -> void:
 	elite_pursuer_bonus_runtime = 0.0
 	elite_jam_multiplier_runtime = 1.0
 	var player_pos := player.global_position if player != null and is_instance_valid(player) else Vector2.ZERO
+	var compact: Array = []
 	for enemy in active_enemies:
 		if enemy == null or not is_instance_valid(enemy):
 			continue
+		compact.append(enemy)
 		if bool(enemy.get("is_elite")):
 			active_elite_count += 1
 			if enemy.has_method("get_pursuer_bonus"):
@@ -400,6 +451,7 @@ func _refresh_live_enemy_counters() -> void:
 				elite_jam_multiplier_runtime *= clampf(float(enemy.get_elite_jam_multiplier(player_pos)), 0.25, 1.0)
 		if enemy.is_in_group("pursuer"):
 			active_pursuer_count += 1
+	active_enemies = compact
 
 
 func _update_next_pursuer_eta() -> void:
@@ -547,3 +599,40 @@ func _get_boss_phase(index: int) -> Dictionary:
 	if phase_variant is Dictionary:
 		return (phase_variant as Dictionary).duplicate(true)
 	return {}
+
+
+func _clear_all_active_enemies() -> void:
+	var seen: Dictionary = {}
+	for enemy in active_enemies:
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		seen[int(enemy.get_instance_id())] = true
+		_recycle_enemy(enemy)
+	for child in get_children():
+		if child == null or not is_instance_valid(child):
+			continue
+		if not child.is_in_group("enemy"):
+			continue
+		if seen.has(int(child.get_instance_id())):
+			continue
+		_recycle_enemy(child)
+	active_enemies.clear()
+	active_elite_count = 0
+	active_pursuer_count = 0
+	elite_pursuer_bonus_runtime = 0.0
+	elite_jam_multiplier_runtime = 1.0
+
+
+func _recycle_enemy(enemy: Node) -> void:
+	if enemy == null or not is_instance_valid(enemy):
+		return
+	active_enemies.erase(enemy)
+	if enemy == boss_node:
+		boss_node = null
+		boss_phase_index = -1
+		boss_state = "idle"
+		boss_spawn_rate_multiplier = 1.0
+	if enemy_pool_enabled and pool_manager != null and pool_manager.has_method("recycle"):
+		pool_manager.recycle(enemy_pool_key, enemy)
+	else:
+		enemy.queue_free()

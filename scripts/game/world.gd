@@ -35,8 +35,10 @@ var last_hazard_active: bool = false
 var last_hazard_warning_active: bool = false
 const PROJECTILE_POOL_KEY := "projectile"
 const PICKUP_POOL_KEY := "pickup"
+const ENEMY_POOL_KEY := "enemy"
 const PROJECTILE_POOL_PREWARM := 72
 const PICKUP_POOL_PREWARM := 48
+const ENEMY_POOL_PREWARM := 120
 
 
 func _ready() -> void:
@@ -183,6 +185,18 @@ func get_pool_stats() -> Dictionary:
 	if pool_manager != null and pool_manager.has_method("get_stats"):
 		return pool_manager.get_stats()
 	return {
+		"hits": 0,
+		"misses": 0,
+		"total": 0,
+		"hit_rate": -1.0
+	}
+
+
+func get_enemy_pool_stats() -> Dictionary:
+	if enemy_manager != null and enemy_manager.has_method("get_enemy_pool_stats"):
+		return enemy_manager.get_enemy_pool_stats()
+	return {
+		"key": ENEMY_POOL_KEY,
 		"hits": 0,
 		"misses": 0,
 		"total": 0,
@@ -526,6 +540,8 @@ func _setup_pools() -> void:
 		return
 	if projectile_manager != null and projectile_manager.has_method("setup_pool"):
 		projectile_manager.setup_pool(pool_manager, PROJECTILE_POOL_KEY, PROJECTILE_POOL_PREWARM)
+	if enemy_manager != null and enemy_manager.has_method("setup_pool"):
+		enemy_manager.setup_pool(pool_manager, ENEMY_POOL_KEY, ENEMY_POOL_PREWARM)
 	if xp_pickup_scene != null and pool_manager.has_method("ensure_pool"):
 		pool_manager.ensure_pool(PICKUP_POOL_KEY, xp_pickup_scene, pickup_layer, PICKUP_POOL_PREWARM)
 

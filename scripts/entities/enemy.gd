@@ -87,13 +87,28 @@ var boss_hidden_damage_multiplier: float = 0.35
 var boss_fake_echoes: int = 0
 var boss_phase_spawn_rate_mult: float = 1.0
 var boss_phase_fog_radius_mult: float = 1.0
+var recycle_handler: Callable = Callable()
+var pooled_active: bool = false
+var default_collision_layer: int = 2
+var default_collision_mask: int = 0
 
 @onready var outline_visual: Polygon2D = $Outline
 @onready var body_visual: Polygon2D = $Body
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 
 
+func _ready() -> void:
+	default_collision_layer = collision_layer
+	default_collision_mask = collision_mask
+	on_pool_recycle()
+
+
+func set_recycle_handler(handler: Callable) -> void:
+	recycle_handler = handler
+
+
 func setup(new_enemy_id: String, definition: Dictionary, player_target: Node2D, runtime_modifiers: Dictionary = {}) -> void:
+	on_pool_spawned()
 	enemy_id = new_enemy_id
 	enemy_name = String(definition.get("name", new_enemy_id))
 	behavior = String(definition.get("behavior", "drifter")).strip_edges().to_lower()
@@ -207,6 +222,8 @@ func setup(new_enemy_id: String, definition: Dictionary, player_target: Node2D, 
 
 
 func _physics_process(delta: float) -> void:
+	if not pooled_active:
+		return
 	if target == null or not is_instance_valid(target):
 		return
 
@@ -437,12 +454,14 @@ func take_hit(damage: float, impulse: Vector2 = Vector2.ZERO) -> bool:
 
 
 func _on_death(from_explosion: bool) -> bool:
+	if not pooled_active:
+		return false
 	if split_on_death and not split_into_id.is_empty() and split_count > 0:
 		summon_requested.emit(split_into_id, split_count, global_position)
 	if behavior == "bloater" and not from_explosion and explode_radius > 0.0 and explode_damage > 0.0:
 		explosion_requested.emit(global_position, explode_radius, explode_damage, enemy_id)
 	died.emit(enemy_id, xp_reward)
-	queue_free()
+	_request_recycle()
 	return true
 
 
@@ -610,3 +629,68 @@ func _apply_boss_aura(delta: float) -> void:
 		return
 	if boss_requires_reveal_lock:
 		target.add_noise_delta(0.8 * delta)
+
+
+func on_pool_spawned() -> void:
+	pooled_active = true
+	collision_layer = default_collision_layer
+	collision_mask = default_collision_mask
+	visible = true
+	set_physics_process(true)
+
+
+func on_pool_recycle() -> void:
+	pooled_active = false
+	target = null
+	velocity = Vector2.ZERO
+	knockback_velocity = Vector2.ZERO
+	contact_timer = 0.0
+	reveal_until = 0.0
+	stagger_timer = 0.0
+	rage_timer = 0.0
+	dash_cooldown_remaining = 0.0
+	dash_windup_remaining = 0.0
+	dash_active_remaining = 0.0
+	ranged_cooldown_remaining = 0.0
+	summon_timer = 0.0
+	explode_timer = 0.0
+	explode_primed = false
+	is_elite = false
+	elite_affix_id = ""
+	damage_reduction = 0.0
+	elite_noise_aura_add = 0.0
+	elite_pursuer_bonus = 0.0
+	elite_reveal_duration_mult = 1.0
+	elite_jam_radius = 0.0
+	elite_xp_siphon_rate = 0.0
+	elite_siphon_radius = 0.0
+	shield_hp = 0.0
+	shield_max_hp = 0.0
+	boss_phase_id = ""
+	boss_phase_label = ""
+	boss_requires_reveal_lock = false
+	boss_fake_echoes = 0
+	remove_from_group("enemy")
+	remove_from_group("pursuer")
+	remove_from_group("elite")
+	remove_from_group("boss")
+	collision_layer = 0
+	collision_mask = 0
+	visible = false
+	set_physics_process(false)
+	_update_reveal_visual()
+
+
+func _request_recycle() -> void:
+	if not pooled_active:
+		return
+	pooled_active = false
+	set_physics_process(false)
+	call_deferred("_dispatch_recycle_request")
+
+
+func _dispatch_recycle_request() -> void:
+	if recycle_handler.is_valid():
+		recycle_handler.call(self)
+		return
+	queue_free()
