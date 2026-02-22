@@ -184,10 +184,16 @@ func _push_debug_snapshot() -> void:
 	var snapshot: Dictionary = world.player.get_hud_data()
 	var noise_tier_debug: Dictionary = DataRegistry.get_noise_tier(world.player.noise)
 	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
+	var entity_counts: Dictionary = world.get_runtime_entity_counts()
 	snapshot["noise_tier_name"] = String(noise_tier_debug.get("name", "静默"))
 	snapshot["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
 	snapshot["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
 	snapshot["revealed_count"] = world.get_revealed_enemy_count()
+	snapshot["fps"] = Engine.get_frames_per_second()
+	snapshot["enemy_count"] = int(entity_counts.get("enemies", 0))
+	snapshot["projectile_count"] = int(entity_counts.get("projectiles", 0))
+	snapshot["pickup_count"] = int(entity_counts.get("pickups", 0))
+	snapshot["pool_hit_rate"] = -1.0
 	snapshot["timeline_progress"] = DataRegistry.get_timeline_progress(elapsed_time)
 	snapshot["fixed_noise_enabled"] = fixed_noise_enabled
 	snapshot["fixed_noise_value"] = fixed_noise_value

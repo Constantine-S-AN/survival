@@ -105,6 +105,18 @@ func get_revealed_enemy_count() -> int:
 	return int(sonar_manager.get_revealed_enemy_count())
 
 
+func get_runtime_entity_counts() -> Dictionary:
+	var pickups := 0
+	if pickup_layer != null:
+		pickups = pickup_layer.get_child_count()
+	return {
+		"enemies": enemy_manager.get_alive_enemy_count(),
+		"projectiles": int(projectile_manager.active_projectiles),
+		"pickups": pickups,
+		"revealed": get_revealed_enemy_count()
+	}
+
+
 func spawn_xp_pickup(world_position: Vector2, xp_amount: int) -> void:
 	if xp_pickup_scene == null:
 		player.gain_xp(xp_amount)

@@ -186,6 +186,13 @@ func update_debug_data(data: Dictionary) -> void:
 		return
 	debug_label.text = "\n".join([
 		"DEBUG (F1)",
+		"fps: %d" % int(data.get("fps", 0)),
+		"entities: enemy=%d projectile=%d pickup=%d" % [
+			int(data.get("enemy_count", 0)),
+			int(data.get("projectile_count", 0)),
+			int(data.get("pickup_count", 0))
+		],
+		"pool_hit_rate: %s" % ("N/A" if float(data.get("pool_hit_rate", -1.0)) < 0.0 else "%.2f" % float(data.get("pool_hit_rate", 0.0))),
 		"noise: %.1f" % float(data.get("noise", 0.0)),
 		"noise_tier: %s" % String(data.get("noise_tier_name", "静默")),
 		"spawn_rate_multiplier: %.2f" % float(data.get("spawn_rate_multiplier", 1.0)),
