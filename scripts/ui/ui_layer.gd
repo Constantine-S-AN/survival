@@ -10,6 +10,103 @@ signal unlock_all_debug_requested
 
 const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
 const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
+const TAG_DISPLAY_NAMES: Dictionary = {
+	"sonar": "Sonar",
+	"silence": "Silence",
+	"heat": "Heat",
+	"crit": "Crit",
+	"pierce": "Pierce",
+	"chain": "Chain",
+	"aoe": "AOE",
+	"pickup": "Pickup",
+	"shield": "Shield",
+	"speed": "Speed",
+	"trap": "Trap",
+	"control": "Control",
+	"summon": "Summon",
+	"economy": "Economy",
+	"damage": "Damage",
+	"weapon": "Weapon",
+	"tempo": "Tempo",
+	"noise": "Noise",
+	"mobility": "Mobility",
+	"defense": "Defense",
+	"hull": "Hull"
+}
+const UPGRADE_STAT_DISPLAY_NAMES: Dictionary = {
+	"damage_mult": "Damage",
+	"attack_speed_mult": "Attack Speed",
+	"projectile_speed_mult": "Projectile Speed",
+	"projectile_count_bonus": "Projectile Count",
+	"pierce_bonus": "Pierce",
+	"move_speed_bonus": "Move Speed",
+	"dash_cooldown_reduction": "Dash Cooldown",
+	"max_hp": "Max HP",
+	"heal": "Heal",
+	"regen_per_second": "Regen",
+	"xp_gain_mult": "XP Gain",
+	"noise_generation_mult": "Noise Gain",
+	"noise_decay_bonus": "Noise Decay",
+	"dash_noise_mult": "Dash Noise",
+	"sonar_reveal_duration_mult": "Reveal Duration",
+	"revealed_damage_mult": "Revealed Target Damage",
+	"low_noise_damage_mult": "Low-Noise Damage",
+	"pickup_radius_mult": "Pickup Radius",
+	"summon_cap_bonus": "Summon Cap",
+	"summon_resistance": "Summon Resistance",
+	"weapon_level_up": "Weapon Level",
+	"weapon_level_up_active": "Active Weapon Level",
+	"weapon_damage_mult": "Weapon Damage",
+	"weapon_attack_rate_mult": "Weapon Attack Rate",
+	"weapon_range_mult": "Weapon Range",
+	"weapon_projectile_speed_mult": "Weapon Projectile Speed",
+	"weapon_pierce_bonus": "Weapon Pierce",
+	"weapon_crit_chance_add": "Weapon Crit Chance",
+	"weapon_crit_multiplier_add": "Weapon Crit Multiplier",
+	"weapon_aoe_radius_mult": "Weapon AOE Radius",
+	"weapon_noise_mult": "Weapon Noise",
+	"weapon_noise_add": "Weapon Noise Flat",
+	"weapon_projectile_count_bonus": "Weapon Projectile Count",
+	"weapon_reveal_bonus_add": "Weapon Reveal Bonus",
+	"weapon_summon_cap_bonus": "Weapon Summon Cap",
+	"chain_bonus": "Chain Chance"
+}
+const PERCENT_STAT_KEYS: Dictionary = {
+	"damage_mult": true,
+	"attack_speed_mult": true,
+	"projectile_speed_mult": true,
+	"dash_cooldown_reduction": true,
+	"xp_gain_mult": true,
+	"noise_generation_mult": true,
+	"dash_noise_mult": true,
+	"sonar_reveal_duration_mult": true,
+	"revealed_damage_mult": true,
+	"low_noise_damage_mult": true,
+	"pickup_radius_mult": true,
+	"summon_resistance": true,
+	"weapon_damage_mult": true,
+	"weapon_attack_rate_mult": true,
+	"weapon_range_mult": true,
+	"weapon_projectile_speed_mult": true,
+	"weapon_crit_chance_add": true,
+	"weapon_crit_multiplier_add": true,
+	"weapon_aoe_radius_mult": true,
+	"weapon_noise_mult": true,
+	"chain_bonus": true
+}
+const INT_STAT_KEYS: Dictionary = {
+	"projectile_count_bonus": true,
+	"pierce_bonus": true,
+	"summon_cap_bonus": true,
+	"weapon_level_up": true,
+	"weapon_level_up_active": true,
+	"weapon_pierce_bonus": true,
+	"weapon_projectile_count_bonus": true,
+	"weapon_summon_cap_bonus": true
+}
+const SECONDS_STAT_KEYS: Dictionary = {
+	"weapon_reveal_bonus_add": true
+}
 
 @onready var root: Control = $Root
 @onready var stats_box: VBoxContainer = $Root/HUD/Stats
@@ -351,6 +448,12 @@ func update_debug_data(data: Dictionary) -> void:
 		"weapon_tags: %s" % str(data.get("weapon_tags", [])),
 		"weapon_dps~: %.1f" % float(data.get("weapon_dps_estimate", 0.0)),
 		"weapon_noise_rate: %.2f/s" % float(data.get("weapon_noise_rate", 0.0)),
+		"chain: %s chance=%.2f hops=%d" % [
+			"ON" if bool(data.get("chain_enabled", false)) else "OFF",
+			float(data.get("chain_chance", 0.0)),
+			int(data.get("chain_max_hops", 0))
+		],
+		"summon_resistance: %.2f" % float(data.get("summon_resistance", 0.0)),
 		"character: %s" % String(data.get("selected_character", "")),
 		"noise: %.1f" % float(data.get("noise", 0.0)),
 		"noise_tier: %s" % String(data.get("noise_tier_name", "静默")),
@@ -548,10 +651,10 @@ func _format_tags_text(tags_variant: Variant) -> String:
 	var tags: Array = tags_variant
 	var out: Array[String] = []
 	for tag_variant in tags:
-		var tag := String(tag_variant).strip_edges()
+		var tag := String(tag_variant).strip_edges().to_lower()
 		if tag.is_empty():
 			continue
-		out.append(tag)
+		out.append(String(TAG_DISPLAY_NAMES.get(tag, tag)))
 	if out.is_empty():
 		return "-"
 	return ", ".join(out)
@@ -566,20 +669,47 @@ func _format_upgrade_effects(effects_variant: Variant) -> String:
 		if not (effect_variant is Dictionary):
 			continue
 		var effect: Dictionary = effect_variant
-		var stat := String(effect.get("stat", ""))
-		var add_value := float(effect.get("add", 0.0))
-		var sign := "+" if add_value >= 0.0 else ""
-		var target_text := "Global"
-		var target_variant: Variant = effect.get("target", null)
-		if target_variant is Dictionary:
-			var target: Dictionary = target_variant
-			var target_type := String(target.get("type", ""))
-			var target_value := String(target.get("value", ""))
-			if target_type == "tag":
-				target_text = "Tag:%s" % target_value
-			elif target_type == "weapon_id":
-				target_text = "Weapon:%s" % target_value
-		lines.append("%s %s%.2f (%s)" % [stat, sign, add_value, target_text])
+		lines.append(_format_upgrade_effect_line(effect))
 	if lines.is_empty():
 		return "Affects: -"
 	return "Affects: %s" % " | ".join(lines)
+
+
+func _format_upgrade_effect_line(effect: Dictionary) -> String:
+	var stat := String(effect.get("stat", "")).strip_edges()
+	var stat_name := String(UPGRADE_STAT_DISPLAY_NAMES.get(stat, "Attribute"))
+	var add_value := float(effect.get("add", 0.0))
+	var value_text := _format_upgrade_effect_value(stat, add_value)
+	var target_text := _format_upgrade_target(effect)
+	return "%s %s (%s)" % [stat_name, value_text, target_text]
+
+
+func _format_upgrade_effect_value(stat: String, add_value: float) -> String:
+	var sign := "+" if add_value >= 0.0 else ""
+	if PERCENT_STAT_KEYS.has(stat):
+		return "%s%d%%" % [sign, int(round(add_value * 100.0))]
+	if INT_STAT_KEYS.has(stat):
+		return "%s%d" % [sign, int(round(add_value))]
+	if SECONDS_STAT_KEYS.has(stat):
+		return "%s%.2fs" % [sign, add_value]
+	if stat == "noise_decay_bonus":
+		return "%s%.2f/s" % [sign, add_value]
+	if stat == "move_speed_bonus" or stat == "max_hp" or stat == "heal":
+		return "%s%d" % [sign, int(round(add_value))]
+	return "%s%.2f" % [sign, add_value]
+
+
+func _format_upgrade_target(effect: Dictionary) -> String:
+	var target_variant: Variant = effect.get("target", null)
+	if not (target_variant is Dictionary):
+		return "Target: Global"
+	var target: Dictionary = target_variant
+	var target_type := String(target.get("type", "")).strip_edges().to_lower()
+	var target_value := String(target.get("value", "")).strip_edges().to_lower()
+	if target_type == "weapon_id":
+		var weapon_name := String(DataRegistry.get_weapon(target_value).get("name", target_value))
+		return "Target: %s" % weapon_name
+	if target_type == "tag":
+		var tag_name := String(TAG_DISPLAY_NAMES.get(target_value, target_value))
+		return "Target: Tag %s" % tag_name
+	return "Target: Global"
