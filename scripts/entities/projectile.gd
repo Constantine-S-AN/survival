@@ -8,6 +8,10 @@ var remaining_range := 600.0
 var radius := 6.0
 var pierce := 0
 var hit_count := 0
+var crit_chance := 0.0
+var crit_multiplier := 1.5
+var reveal_bonus_duration := 0.0
+var weapon_tags: Array = []
 var source_owner: Node = null
 var recycle_handler: Callable = Callable()
 var active: bool = false
@@ -33,6 +37,11 @@ func configure(origin: Vector2, fire_direction: Vector2, projectile_data: Dictio
 	remaining_range = float(projectile_data.get("range", remaining_range))
 	pierce = int(projectile_data.get("pierce", pierce))
 	radius = float(projectile_data.get("radius", radius))
+	crit_chance = float(projectile_data.get("crit_chance", 0.0))
+	crit_multiplier = float(projectile_data.get("crit_multiplier", 1.5))
+	reveal_bonus_duration = float(projectile_data.get("reveal_bonus_duration", 0.0))
+	var tags_variant: Variant = projectile_data.get("tags", [])
+	weapon_tags = tags_variant if tags_variant is Array else []
 	source_owner = owner_ref
 
 	var shape := collision_shape.shape
@@ -60,8 +69,18 @@ func _on_body_entered(body: Node) -> void:
 	if body == source_owner:
 		return
 	if body.is_in_group("enemy") and body.has_method("take_hit"):
-		var killed := bool(body.take_hit(damage, direction * 180.0))
-		var intensity := clampf((damage / 34.0) + (0.07 if killed else 0.0), 0.08, 0.34)
+		var final_damage := damage
+		var is_crit := false
+		if source_owner != null and source_owner.has_method("compute_hit_payload"):
+			var payload_variant: Variant = source_owner.compute_hit_payload(body, damage, crit_chance, crit_multiplier)
+			if payload_variant is Dictionary:
+				var payload: Dictionary = payload_variant
+				final_damage = float(payload.get("damage", damage))
+				is_crit = bool(payload.get("crit", false))
+		var killed := bool(body.take_hit(final_damage, direction * 180.0))
+		if reveal_bonus_duration > 0.0 and body.has_method("set_revealed"):
+			body.set_revealed(reveal_bonus_duration)
+		var intensity := clampf((final_damage / 34.0) + (0.07 if killed else 0.0) + (0.05 if is_crit else 0.0), 0.08, 0.36)
 		FeedbackBus.emit_hit(global_position, intensity, killed)
 		hit_count += 1
 		if hit_count > pierce:

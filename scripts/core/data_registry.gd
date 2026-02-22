@@ -95,6 +95,37 @@ const WEAPON_ALLOWED_TAGS: Dictionary = {
 	"kinetic": true
 }
 
+const UPGRADE_ALLOWED_TAGS: Dictionary = {
+	"sonar": true,
+	"silence": true,
+	"heat": true,
+	"crit": true,
+	"pierce": true,
+	"chain": true,
+	"aoe": true,
+	"pickup": true,
+	"shield": true,
+	"speed": true,
+	"trap": true,
+	"control": true,
+	"summon": true,
+	"economy": true,
+	"damage": true,
+	"weapon": true,
+	"tempo": true,
+	"noise": true,
+	"mobility": true,
+	"defense": true,
+	"hull": true,
+	"starter": true,
+	"kinetic": true
+}
+
+const UPGRADE_EFFECT_TARGET_TYPES: Dictionary = {
+	"weapon_id": true,
+	"tag": true
+}
+
 var weapons: Dictionary = {}
 var enemies: Dictionary = {}
 var upgrades: Array = []
@@ -551,6 +582,8 @@ func _validate_enemies() -> void:
 
 
 func _validate_upgrades() -> void:
+	if upgrades.size() < 20:
+		validation_errors.append("[upgrades] expected at least 20 entries, found %d" % upgrades.size())
 	for i in range(upgrades.size()):
 		var upgrade_variant: Variant = upgrades[i]
 		if not (upgrade_variant is Dictionary):
@@ -565,6 +598,20 @@ func _validate_upgrades() -> void:
 		var rarity: String = String(upgrade.get("rarity", "common"))
 		if not RARITY_WEIGHT.has(rarity):
 			validation_errors.append("[upgrades:%d] unknown rarity '%s'" % [i, rarity])
+		var tags_variant: Variant = upgrade.get("tags", [])
+		if not (tags_variant is Array):
+			validation_errors.append("[upgrades:%d] tags must be an array" % i)
+		else:
+			var tags: Array = tags_variant
+			if tags.is_empty():
+				validation_errors.append("[upgrades:%d] tags must not be empty" % i)
+			for tag_variant in tags:
+				var tag := String(tag_variant).strip_edges().to_lower()
+				if tag.is_empty():
+					validation_errors.append("[upgrades:%d] tags cannot contain empty values" % i)
+					continue
+				if not _is_known_upgrade_tag(tag):
+					validation_errors.append("[upgrades:%d] unknown tag '%s'" % [i, tag])
 		var effects_variant: Variant = upgrade.get("effects", [])
 		if not (effects_variant is Array):
 			validation_errors.append("[upgrades:%d] effects must be an array" % i)
@@ -580,6 +627,26 @@ func _validate_upgrades() -> void:
 				continue
 			var effect: Dictionary = effect_variant
 			_validate_required_keys(effect, ["stat", "add"], "upgrades:%d:effect:%d" % [i, e_index])
+			var target_variant: Variant = effect.get("target", null)
+			if target_variant == null:
+				continue
+			if not (target_variant is Dictionary):
+				validation_errors.append("[upgrades:%d] effect %d target must be dictionary" % [i, e_index])
+				continue
+			var target: Dictionary = target_variant
+			_validate_required_keys(target, ["type", "value"], "upgrades:%d:effect:%d:target" % [i, e_index])
+			var target_type := String(target.get("type", "")).strip_edges()
+			var target_value := String(target.get("value", "")).strip_edges().to_lower()
+			if not UPGRADE_EFFECT_TARGET_TYPES.has(target_type):
+				validation_errors.append("[upgrades:%d] effect %d target type '%s' is unsupported" % [i, e_index, target_type])
+				continue
+			if target_value.is_empty():
+				validation_errors.append("[upgrades:%d] effect %d target value must be non-empty" % [i, e_index])
+				continue
+			if target_type == "weapon_id" and not weapons.has(target_value):
+				validation_errors.append("[upgrades:%d] effect %d unknown target weapon_id '%s'" % [i, e_index, target_value])
+			elif target_type == "tag" and not _is_known_upgrade_tag(target_value):
+				validation_errors.append("[upgrades:%d] effect %d unknown target tag '%s'" % [i, e_index, target_value])
 
 
 func _validate_spawn_curve() -> void:
@@ -779,6 +846,10 @@ func _validate_required_keys(payload: Dictionary, required_keys: Array, label: S
 	for key in required_keys:
 		if not payload.has(key):
 			validation_errors.append("[%s] missing key '%s'" % [label, key])
+
+
+func _is_known_upgrade_tag(tag: String) -> bool:
+	return UPGRADE_ALLOWED_TAGS.has(tag) or WEAPON_ALLOWED_TAGS.has(tag)
 
 
 func _get_spawn_profile(elapsed_time: float) -> Dictionary:

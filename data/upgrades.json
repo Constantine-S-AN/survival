@@ -1,122 +1,351 @@
 [
   {
-    "id": "u_damage_coil_1",
-    "name": "Overclock Coil",
-    "description": "Weapon damage +12%.",
-    "rarity": "common",
-    "max_stacks": 5,
-    "tags": ["weapon", "damage", "sonar"],
-    "effects": [{ "stat": "damage_mult", "add": 0.12 }]
-  },
-  {
-    "id": "u_damage_coil_2",
-    "name": "Focused Harmonics",
-    "description": "Weapon damage +18%.",
-    "rarity": "uncommon",
-    "max_stacks": 3,
-    "tags": ["weapon", "damage", "sonar"],
-    "effects": [{ "stat": "damage_mult", "add": 0.18 }]
-  },
-  {
-    "id": "u_attack_speed_1",
-    "name": "Rapid Capacitor",
-    "description": "Attack speed +16%.",
+    "id": "u_sonar_scope_matrix",
+    "name": "Sonar Scope Matrix",
+    "description": "[Tag: sonar] Range +12%.",
     "rarity": "common",
     "max_stacks": 4,
-    "tags": ["weapon", "tempo"],
-    "effects": [{ "stat": "attack_speed_mult", "add": 0.16 }]
-  },
-  {
-    "id": "u_attack_speed_2",
-    "name": "Pulse Sequencer",
-    "description": "Attack speed +26%.",
-    "rarity": "rare",
-    "max_stacks": 2,
-    "tags": ["weapon", "tempo", "sonar"],
-    "effects": [{ "stat": "attack_speed_mult", "add": 0.26 }]
-  },
-  {
-    "id": "u_move_speed_1",
-    "name": "Vector Fins",
-    "description": "Move speed +35.",
-    "rarity": "common",
-    "max_stacks": 3,
-    "tags": ["mobility"],
-    "effects": [{ "stat": "move_speed_bonus", "add": 35.0 }]
-  },
-  {
-    "id": "u_dash_reset",
-    "name": "Afterimage Thruster",
-    "description": "Dash cooldown -18%.",
-    "rarity": "uncommon",
-    "max_stacks": 3,
-    "tags": ["mobility", "silence"],
-    "effects": [{ "stat": "dash_cooldown_reduction", "add": 0.18 }]
-  },
-  {
-    "id": "u_projectile_speed",
-    "name": "Linear Injector",
-    "description": "Projectile speed +24%.",
-    "rarity": "common",
-    "max_stacks": 3,
-    "tags": ["weapon", "pierce"],
-    "effects": [{ "stat": "projectile_speed_mult", "add": 0.24 }]
-  },
-  {
-    "id": "u_plus_pierce",
-    "name": "Drill Wave",
-    "description": "Projectiles pierce +1.",
-    "rarity": "uncommon",
-    "max_stacks": 2,
-    "tags": ["weapon", "pierce"],
-    "effects": [{ "stat": "pierce_bonus", "add": 1 }]
-  },
-  {
-    "id": "u_multishot",
-    "name": "Triad Emitter",
-    "description": "+1 extra projectile with spread.",
-    "rarity": "rare",
-    "max_stacks": 1,
-    "tags": ["weapon", "aoe"],
-    "effects": [{ "stat": "projectile_count_bonus", "add": 1 }]
-  },
-  {
-    "id": "u_hp_boost",
-    "name": "Hull Reinforcement",
-    "description": "Max HP +25 and heal 25.",
-    "rarity": "common",
-    "max_stacks": 4,
-    "tags": ["defense", "hull"],
+    "tags": ["sonar", "speed"],
     "effects": [
-      { "stat": "max_hp", "add": 25.0 },
-      { "stat": "heal", "add": 25.0 }
+      { "stat": "weapon_range_mult", "add": 0.12, "target": { "type": "tag", "value": "sonar" } }
     ]
   },
   {
-    "id": "u_regen",
-    "name": "Repair Nanites",
-    "description": "HP regen +1.5/sec.",
+    "id": "u_echo_stabilizer",
+    "name": "Echo Stabilizer",
+    "description": "Sonar reveal duration +14%.",
     "rarity": "uncommon",
-    "max_stacks": 2,
-    "tags": ["defense", "economy"],
-    "effects": [{ "stat": "regen_per_second", "add": 1.5 }]
+    "max_stacks": 3,
+    "tags": ["sonar", "silence"],
+    "effects": [
+      { "stat": "sonar_reveal_duration_mult", "add": 0.14 }
+    ]
   },
   {
-    "id": "u_xp_gain",
-    "name": "Adaptive Analytics",
-    "description": "XP gain +18%.",
+    "id": "u_exposed_breaker",
+    "name": "Exposed Breaker",
+    "description": "Damage to revealed enemies +18%.",
+    "rarity": "rare",
+    "max_stacks": 2,
+    "tags": ["sonar", "damage"],
+    "effects": [
+      { "stat": "revealed_damage_mult", "add": 0.18 }
+    ]
+  },
+  {
+    "id": "u_ping_accelerant",
+    "name": "Ping Accelerant",
+    "description": "[Tag: sonar] Attack rate +10%.",
+    "rarity": "common",
+    "max_stacks": 3,
+    "tags": ["sonar", "speed"],
+    "effects": [
+      { "stat": "weapon_attack_rate_mult", "add": 0.10, "target": { "type": "tag", "value": "sonar" } }
+    ]
+  },
+  {
+    "id": "u_silent_baffles",
+    "name": "Silent Baffles",
+    "description": "Noise generation -14%.",
     "rarity": "common",
     "max_stacks": 4,
-    "tags": ["economy", "pickup"],
-    "effects": [{ "stat": "xp_gain_mult", "add": 0.18 }]
+    "tags": ["silence", "noise"],
+    "effects": [
+      { "stat": "noise_generation_mult", "add": -0.14 }
+    ]
   },
   {
-    "id": "u_noise_cut",
-    "name": "Silent Baffles",
-    "description": "Noise generation -16%.",
+    "id": "u_thermal_sink",
+    "name": "Thermal Sink",
+    "description": "Noise decay +1.6/s.",
+    "rarity": "uncommon",
+    "max_stacks": 3,
+    "tags": ["silence", "noise"],
+    "effects": [
+      { "stat": "noise_decay_bonus", "add": 1.6 }
+    ]
+  },
+  {
+    "id": "u_quiet_stride",
+    "name": "Quiet Stride",
+    "description": "Dash noise -25%.",
+    "rarity": "uncommon",
+    "max_stacks": 2,
+    "tags": ["silence", "speed"],
+    "effects": [
+      { "stat": "dash_noise_mult", "add": -0.25 }
+    ]
+  },
+  {
+    "id": "u_low_profile_processor",
+    "name": "Low Profile Processor",
+    "description": "When Noise<=25, damage +17%.",
+    "rarity": "rare",
+    "max_stacks": 2,
+    "tags": ["silence", "damage"],
+    "effects": [
+      { "stat": "low_noise_damage_mult", "add": 0.17 }
+    ]
+  },
+  {
+    "id": "u_hardlight_core",
+    "name": "Hardlight Core",
+    "description": "Global damage +10%.",
+    "rarity": "common",
+    "max_stacks": 5,
+    "tags": ["damage", "crit"],
+    "effects": [
+      { "stat": "damage_mult", "add": 0.10 }
+    ]
+  },
+  {
+    "id": "u_critical_lens",
+    "name": "Critical Lens",
+    "description": "[Tag: crit] Crit chance +5%.",
     "rarity": "uncommon",
     "max_stacks": 4,
+    "tags": ["crit", "weapon"],
+    "effects": [
+      { "stat": "weapon_crit_chance_add", "add": 0.05, "target": { "type": "tag", "value": "crit" } }
+    ]
+  },
+  {
+    "id": "u_overdrive_prism",
+    "name": "Overdrive Prism",
+    "description": "[Tag: crit] Crit multiplier +0.28.",
+    "rarity": "rare",
+    "max_stacks": 3,
+    "tags": ["crit", "damage"],
+    "effects": [
+      { "stat": "weapon_crit_multiplier_add", "add": 0.28, "target": { "type": "tag", "value": "crit" } }
+    ]
+  },
+  {
+    "id": "u_heat_sink_ammo",
+    "name": "Heat Sink Ammo",
+    "description": "[Tag: heat] Damage +14%.",
+    "rarity": "uncommon",
+    "max_stacks": 3,
+    "tags": ["heat", "damage"],
+    "effects": [
+      { "stat": "weapon_damage_mult", "add": 0.14, "target": { "type": "tag", "value": "heat" } }
+    ]
+  },
+  {
+    "id": "u_drill_wake",
+    "name": "Drill Wake",
+    "description": "[Tag: pierce] Pierce +1.",
+    "rarity": "uncommon",
+    "max_stacks": 3,
+    "tags": ["pierce", "damage"],
+    "effects": [
+      { "stat": "weapon_pierce_bonus", "add": 1, "target": { "type": "tag", "value": "pierce" } }
+    ]
+  },
+  {
+    "id": "u_chain_conductor",
+    "name": "Chain Conductor",
+    "description": "[Tag: chain] Damage +12%.",
+    "rarity": "uncommon",
+    "max_stacks": 3,
+    "tags": ["chain", "control"],
+    "effects": [
+      { "stat": "weapon_damage_mult", "add": 0.12, "target": { "type": "tag", "value": "chain" } }
+    ]
+  },
+  {
+    "id": "u_chain_velocity",
+    "name": "Chain Velocity",
+    "description": "[Tag: chain] Attack rate +10%.",
+    "rarity": "common",
+    "max_stacks": 4,
+    "tags": ["chain", "speed"],
+    "effects": [
+      { "stat": "weapon_attack_rate_mult", "add": 0.10, "target": { "type": "tag", "value": "chain" } }
+    ]
+  },
+  {
+    "id": "u_aoe_expander",
+    "name": "AOE Expander",
+    "description": "[Tag: aoe] Radius +18%.",
+    "rarity": "uncommon",
+    "max_stacks": 3,
+    "tags": ["aoe", "damage"],
+    "effects": [
+      { "stat": "weapon_aoe_radius_mult", "add": 0.18, "target": { "type": "tag", "value": "aoe" } }
+    ]
+  },
+  {
+    "id": "u_blast_density",
+    "name": "Blast Density",
+    "description": "[Tag: aoe] Damage +11%.",
+    "rarity": "rare",
+    "max_stacks": 2,
+    "tags": ["aoe", "crit"],
+    "effects": [
+      { "stat": "weapon_damage_mult", "add": 0.11, "target": { "type": "tag", "value": "aoe" } }
+    ]
+  },
+  {
+    "id": "u_drone_bay",
+    "name": "Drone Bay",
+    "description": "Summon cap +1.",
+    "rarity": "rare",
+    "max_stacks": 2,
+    "tags": ["summon", "control"],
+    "effects": [
+      { "stat": "summon_cap_bonus", "add": 1 }
+    ]
+  },
+  {
+    "id": "u_summon_link",
+    "name": "Summon Link",
+    "description": "[Tag: summon] Damage +14%.",
+    "rarity": "uncommon",
+    "max_stacks": 4,
+    "tags": ["summon", "damage"],
+    "effects": [
+      { "stat": "weapon_damage_mult", "add": 0.14, "target": { "type": "tag", "value": "summon" } }
+    ]
+  },
+  {
+    "id": "u_summon_clock",
+    "name": "Summon Clock",
+    "description": "[Tag: summon] Attack rate +13%.",
+    "rarity": "uncommon",
+    "max_stacks": 3,
+    "tags": ["summon", "speed"],
+    "effects": [
+      { "stat": "weapon_attack_rate_mult", "add": 0.13, "target": { "type": "tag", "value": "summon" } }
+    ]
+  },
+  {
+    "id": "u_summon_screen",
+    "name": "Summon Screen",
+    "description": "Summon damage resistance +18% (future hook).",
+    "rarity": "common",
+    "max_stacks": 3,
+    "tags": ["summon", "shield"],
+    "effects": [
+      { "stat": "summon_resistance", "add": 0.18 }
+    ]
+  },
+  {
+    "id": "u_salvage_loop",
+    "name": "Salvage Loop",
+    "description": "XP gain +16%.",
+    "rarity": "common",
+    "max_stacks": 4,
+    "tags": ["pickup", "economy"],
+    "effects": [
+      { "stat": "xp_gain_mult", "add": 0.16 }
+    ]
+  },
+  {
+    "id": "u_magnet_fins",
+    "name": "Magnet Fins",
+    "description": "Pickup radius +16%.",
+    "rarity": "common",
+    "max_stacks": 3,
+    "tags": ["pickup", "sonar"],
+    "effects": [
+      { "stat": "pickup_radius_mult", "add": 0.16 }
+    ]
+  },
+  {
+    "id": "u_precision_dart_matrix",
+    "name": "Precision Dart Matrix",
+    "description": "[Weapon: silence_dart] Damage +22%, reveal bonus +0.25s.",
+    "rarity": "rare",
+    "max_stacks": 2,
     "tags": ["silence", "sonar"],
-    "effects": [{ "stat": "noise_generation_mult", "add": -0.16 }]
+    "effects": [
+      { "stat": "weapon_damage_mult", "add": 0.22, "target": { "type": "weapon_id", "value": "silence_dart" } },
+      { "stat": "weapon_reveal_bonus_add", "add": 0.25, "target": { "type": "weapon_id", "value": "silence_dart" } }
+    ]
+  },
+  {
+    "id": "u_lancer_rail_matrix",
+    "name": "Lancer Rail Matrix",
+    "description": "[Weapon: needle_rifle] Attack rate +12%, pierce +1.",
+    "rarity": "rare",
+    "max_stacks": 2,
+    "tags": ["pierce", "sonar"],
+    "effects": [
+      { "stat": "weapon_attack_rate_mult", "add": 0.12, "target": { "type": "weapon_id", "value": "needle_rifle" } },
+      { "stat": "weapon_pierce_bonus", "add": 1, "target": { "type": "weapon_id", "value": "needle_rifle" } }
+    ]
+  },
+  {
+    "id": "u_burst_vent_tuning",
+    "name": "Burst Vent Tuning",
+    "description": "[Weapon: burst_smg] Damage +10%, noise/shot -12%.",
+    "rarity": "uncommon",
+    "max_stacks": 3,
+    "tags": ["heat", "crit"],
+    "effects": [
+      { "stat": "weapon_damage_mult", "add": 0.10, "target": { "type": "weapon_id", "value": "burst_smg" } },
+      { "stat": "weapon_noise_mult", "add": -0.12, "target": { "type": "weapon_id", "value": "burst_smg" } }
+    ]
+  },
+  {
+    "id": "u_shock_harmonics",
+    "name": "Shock Harmonics",
+    "description": "[Weapon: shock_pulse] Radius +20%, attack rate +8%.",
+    "rarity": "uncommon",
+    "max_stacks": 3,
+    "tags": ["aoe", "sonar"],
+    "effects": [
+      { "stat": "weapon_aoe_radius_mult", "add": 0.20, "target": { "type": "weapon_id", "value": "shock_pulse" } },
+      { "stat": "weapon_attack_rate_mult", "add": 0.08, "target": { "type": "weapon_id", "value": "shock_pulse" } }
+    ]
+  },
+  {
+    "id": "u_mine_chain_relay",
+    "name": "Mine Chain Relay",
+    "description": "[Weapon: abyss_mine] Damage +20%, radius +12%.",
+    "rarity": "uncommon",
+    "max_stacks": 3,
+    "tags": ["trap", "aoe"],
+    "effects": [
+      { "stat": "weapon_damage_mult", "add": 0.20, "target": { "type": "weapon_id", "value": "abyss_mine" } },
+      { "stat": "weapon_aoe_radius_mult", "add": 0.12, "target": { "type": "weapon_id", "value": "abyss_mine" } }
+    ]
+  },
+  {
+    "id": "u_tether_focus",
+    "name": "Tether Focus",
+    "description": "[Weapon: tether_beam] Damage +15%, range +12%.",
+    "rarity": "uncommon",
+    "max_stacks": 3,
+    "tags": ["chain", "control"],
+    "effects": [
+      { "stat": "weapon_damage_mult", "add": 0.15, "target": { "type": "weapon_id", "value": "tether_beam" } },
+      { "stat": "weapon_range_mult", "add": 0.12, "target": { "type": "weapon_id", "value": "tether_beam" } }
+    ]
+  },
+  {
+    "id": "u_drone_cluster_ai",
+    "name": "Drone Cluster AI",
+    "description": "[Weapon: orbital_drone] Summon +1, attack rate +10%.",
+    "rarity": "rare",
+    "max_stacks": 2,
+    "tags": ["summon", "speed"],
+    "effects": [
+      { "stat": "weapon_summon_cap_bonus", "add": 1, "target": { "type": "weapon_id", "value": "orbital_drone" } },
+      { "stat": "weapon_attack_rate_mult", "add": 0.10, "target": { "type": "weapon_id", "value": "orbital_drone" } }
+    ]
+  },
+  {
+    "id": "u_blade_resonance",
+    "name": "Blade Resonance",
+    "description": "[Weapon: sonar_blade] Damage +16%, attack rate +12%.",
+    "rarity": "rare",
+    "max_stacks": 2,
+    "tags": ["sonar", "speed"],
+    "effects": [
+      { "stat": "weapon_damage_mult", "add": 0.16, "target": { "type": "weapon_id", "value": "sonar_blade" } },
+      { "stat": "weapon_attack_rate_mult", "add": 0.12, "target": { "type": "weapon_id", "value": "sonar_blade" } }
+    ]
   }
 ]
