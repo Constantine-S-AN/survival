@@ -3,6 +3,8 @@ class_name World
 
 @onready var projectile_manager = $ProjectileManager
 @onready var enemy_manager = $EnemyManager
+@onready var sonar_manager = $SonarManager
+@onready var pickup_layer: Node2D = $PickupLayer
 @onready var player = $Player
 @onready var camera = $Player/Camera2D
 @onready var fog_darkness: CanvasModulate = $FogDarkness
@@ -10,6 +12,7 @@ class_name World
 @onready var hit_sfx = $HitSfx
 @onready var shot_sfx = $ShotSfx
 
+var xp_pickup_scene := preload("res://scenes/pickup/XPPickup.tscn")
 var sfx_rng := RandomNumberGenerator.new()
 var fog_enabled: bool = true
 var fog_config: Dictionary = {}
@@ -21,6 +24,7 @@ func _ready() -> void:
 	_configure_synth_player(shot_sfx)
 	apply_fog_config(DataRegistry.get_fog_config())
 	set_fog_enabled(bool(fog_config.get("enabled", true)))
+	apply_sonar_config(DataRegistry.get_sonar_config())
 	FeedbackBus.hit_landed.connect(_on_hit_landed)
 	FeedbackBus.shot_fired.connect(_on_shot_fired)
 	queue_redraw()
@@ -29,6 +33,7 @@ func _ready() -> void:
 func setup_run(run_rng: RandomNumberGenerator) -> void:
 	player.setup(enemy_manager, projectile_manager, run_rng)
 	enemy_manager.setup(player, run_rng)
+	apply_sonar_config(DataRegistry.get_sonar_config())
 
 
 func apply_screen_shake(amount: float) -> void:
@@ -78,9 +83,45 @@ func _build_fog_light_texture() -> Texture2D:
 	return texture
 
 
+func apply_sonar_config(config: Dictionary) -> void:
+	if sonar_manager != null and sonar_manager.has_method("apply_config"):
+		sonar_manager.apply_config(config)
+
+
+func set_sonar_visual_enabled(enabled: bool) -> void:
+	if sonar_manager != null and sonar_manager.has_method("set_visual_enabled"):
+		sonar_manager.set_visual_enabled(enabled)
+
+
+func is_sonar_visual_enabled() -> bool:
+	if sonar_manager == null or not sonar_manager.has_method("is_visual_enabled"):
+		return false
+	return bool(sonar_manager.is_visual_enabled())
+
+
+func get_revealed_enemy_count() -> int:
+	if sonar_manager == null or not sonar_manager.has_method("get_revealed_enemy_count"):
+		return 0
+	return int(sonar_manager.get_revealed_enemy_count())
+
+
+func spawn_xp_pickup(world_position: Vector2, xp_amount: int) -> void:
+	if xp_pickup_scene == null:
+		player.gain_xp(xp_amount)
+		return
+	var pickup = xp_pickup_scene.instantiate()
+	pickup_layer.add_child(pickup)
+	pickup.global_position = world_position
+	pickup.setup(xp_amount, player)
+
+
 func _on_hit_landed(world_position: Vector2, intensity: float, killed: bool) -> void:
 	_spawn_hit_particles(world_position, intensity, killed)
 	_play_hit_sfx(intensity, killed)
+	FeedbackBus.emit_sonar_pulse(world_position, {
+		"source": "hit",
+		"strength": intensity
+	})
 
 
 func _on_shot_fired(_world_position: Vector2, intensity: float) -> void:

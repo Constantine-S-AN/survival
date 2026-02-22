@@ -15,7 +15,9 @@ var body_radius := 14.0
 var knockback_velocity := Vector2.ZERO
 var contact_timer := 0.0
 var target: Node2D
+var reveal_until: float = 0.0
 
+@onready var outline_visual: Polygon2D = $Outline
 @onready var body_visual: Polygon2D = $Body
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 
@@ -33,11 +35,14 @@ func setup(new_enemy_id: String, definition: Dictionary, player_target: Node2D) 
 	body_radius = float(definition.get("size", body_radius))
 	var color_text := String(definition.get("color", "#38e7ff"))
 	body_visual.color = Color.from_string(color_text, Color(0.22, 0.9, 1.0, 1.0))
+	outline_visual.color = Color.from_string(color_text, Color(0.22, 0.9, 1.0, 1.0)).lightened(0.45)
 
 	var shape := collision_shape.shape
 	if shape is CircleShape2D:
 		shape.radius = body_radius
 	body_visual.scale = Vector2.ONE * (body_radius / 15.0)
+	outline_visual.scale = Vector2.ONE * ((body_radius / 15.0) * 1.24)
+	_update_reveal_visual()
 
 	add_to_group("enemy")
 
@@ -53,6 +58,7 @@ func _physics_process(delta: float) -> void:
 	velocity = (dir * speed) + knockback_velocity
 	knockback_velocity = knockback_velocity.move_toward(Vector2.ZERO, 640.0 * delta)
 	move_and_slide()
+	_update_reveal_visual()
 
 	if to_target.length() <= body_radius + 13.0 and contact_timer <= 0.0:
 		if target.has_method("take_damage"):
@@ -80,3 +86,23 @@ func _flash_hit() -> void:
 	body_visual.modulate = Color(1.6, 1.6, 1.6, 1.0)
 	var tween := create_tween()
 	tween.tween_property(body_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.08)
+
+
+func set_revealed(duration_sec: float) -> void:
+	var now_sec := float(Time.get_ticks_msec()) * 0.001
+	reveal_until = maxf(reveal_until, now_sec + duration_sec)
+	_update_reveal_visual()
+
+
+func is_revealed() -> bool:
+	var now_sec := float(Time.get_ticks_msec()) * 0.001
+	return now_sec < reveal_until
+
+
+func _update_reveal_visual() -> void:
+	var revealed := is_revealed()
+	outline_visual.visible = revealed
+	if revealed:
+		body_visual.modulate = Color(1.12, 1.12, 1.16, 1.0)
+	else:
+		body_visual.modulate = Color(1.0, 1.0, 1.0, 1.0)

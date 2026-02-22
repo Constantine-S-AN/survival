@@ -60,9 +60,9 @@ func _process(delta: float) -> void:
 	_refresh_hud()
 
 
-func _on_enemy_killed(_enemy_id: String, xp_reward: int) -> void:
+func _on_enemy_killed(_enemy_id: String, xp_reward: int, world_position: Vector2) -> void:
 	kills += 1
-	world.player.gain_xp(xp_reward)
+	world.spawn_xp_pickup(world_position, xp_reward)
 
 
 func _on_player_level_up_requested(options: Array) -> void:
@@ -136,6 +136,7 @@ func _refresh_hud() -> void:
 	hud["kills"] = kills
 	hud["seed"] = run_seed
 	hud["enemy_count"] = world.enemy_manager.get_alive_enemy_count()
+	hud["revealed_count"] = world.get_revealed_enemy_count()
 	hud["state"] = run_state
 	ui.update_hud(hud)
 

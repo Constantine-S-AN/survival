@@ -5,7 +5,8 @@ const DATA_FILES: Dictionary = {
 	"enemies": "res://data/enemies.json",
 	"upgrades": "res://data/upgrades.json",
 	"spawn_curve": "res://data/spawn_curve.json",
-	"fog": "res://data/fog.json"
+	"fog": "res://data/fog.json",
+	"sonar": "res://data/sonar.json"
 }
 
 const RARITY_WEIGHT: Dictionary = {
@@ -20,6 +21,7 @@ var enemies: Dictionary = {}
 var upgrades: Array = []
 var spawn_curve: Array = []
 var fog_config: Dictionary = {}
+var sonar_config: Dictionary = {}
 var validation_errors: Array[String] = []
 var loaded: bool = false
 
@@ -36,12 +38,14 @@ func load_all() -> bool:
 	upgrades = _load_array_of_dictionaries(DATA_FILES["upgrades"], "upgrades")
 	spawn_curve = _load_array_of_dictionaries(DATA_FILES["spawn_curve"], "spawn_curve")
 	fog_config = _load_dictionary(DATA_FILES["fog"], "fog")
+	sonar_config = _load_dictionary(DATA_FILES["sonar"], "sonar")
 
 	_validate_weapons()
 	_validate_enemies()
 	_validate_upgrades()
 	_validate_spawn_curve()
 	_validate_fog()
+	_validate_sonar()
 
 	loaded = validation_errors.is_empty()
 	if not loaded:
@@ -71,11 +75,19 @@ func get_data_version(key: String) -> int:
 	match key:
 		"fog":
 			payload = fog_config
+		"sonar":
+			payload = sonar_config
 		_:
 			return -1
 	if payload is Dictionary:
 		return int((payload as Dictionary).get("schema_version", -1))
 	return -1
+
+
+func get_sonar_config() -> Dictionary:
+	if sonar_config.is_empty():
+		return {}
+	return sonar_config.duplicate(true)
 
 
 func get_weapon(weapon_id: String) -> Dictionary:
@@ -321,6 +333,29 @@ func _validate_fog() -> void:
 			"pulse_speed"
 		],
 		"fog"
+	)
+
+
+func _validate_sonar() -> void:
+	_validate_required_keys(
+		sonar_config,
+		[
+			"schema_version",
+			"enabled",
+			"wave_speed",
+			"max_radius",
+			"line_width",
+			"glow_intensity",
+			"reveal_duration",
+			"color",
+			"hit_strength",
+			"pickup_strength",
+			"skill_strength",
+			"hit_radius_scale",
+			"pickup_radius_scale",
+			"skill_radius_scale"
+		],
+		"sonar"
 	)
 
 

@@ -99,7 +99,10 @@ func update_hud(data: Dictionary) -> void:
 	mode_label.text = "Attack: %s" % String(data.get("attack_mode", "AUTO"))
 	time_label.text = "Time: %s" % _format_time(float(data.get("elapsed_time", 0.0)))
 	kills_label.text = "Kills: %d" % int(data.get("kills", 0))
-	enemies_label.text = "Enemies: %d" % int(data.get("enemy_count", 0))
+	enemies_label.text = "Enemies: %d  Revealed: %d" % [
+		int(data.get("enemy_count", 0)),
+		int(data.get("revealed_count", 0))
+	]
 
 
 func show_level_up(options: Array) -> void:

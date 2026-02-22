@@ -1,7 +1,7 @@
 extends Node2D
 class_name EnemyManager
 
-signal enemy_killed(enemy_id: String, xp_reward: int)
+signal enemy_killed(enemy_id: String, xp_reward: int, world_position: Vector2)
 
 var enemy_scene := preload("res://scenes/enemy/Enemy.tscn")
 
@@ -82,8 +82,11 @@ func _pick_spawn_position() -> Vector2:
 
 
 func _on_enemy_died(enemy_id: String, xp_reward: int, enemy: Node) -> void:
+	var position: Vector2 = Vector2.ZERO
+	if enemy != null and is_instance_valid(enemy):
+		position = enemy.global_position
 	active_enemies.erase(enemy)
-	enemy_killed.emit(enemy_id, xp_reward)
+	enemy_killed.emit(enemy_id, xp_reward, position)
 
 
 func _get_alive_enemy_count() -> int:
