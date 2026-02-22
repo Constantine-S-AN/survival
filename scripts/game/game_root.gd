@@ -31,6 +31,7 @@ var selected_contract_ids: Array[String] = []
 var last_fog_overlay_signature: String = ""
 var run_started: bool = false
 var run_stats = RunStatsClass.new()
+var telegraph_last_emit_by_key: Dictionary = {}
 
 
 func _ready() -> void:
@@ -75,12 +76,15 @@ func _ready() -> void:
 	world.enemy_manager.boss_spawned.connect(_on_boss_spawned)
 	world.enemy_manager.boss_phase_changed.connect(_on_boss_phase_changed)
 	world.enemy_manager.boss_defeated.connect(_on_boss_defeated)
+	world.enemy_manager.boss_telegraph_requested.connect(_on_boss_attack_telegraph_requested)
 	world.enemy_manager.boss_echoes_spawned.connect(_on_boss_echoes_spawned)
 	world.enemy_manager.boss_true_form_revealed.connect(_on_boss_true_form_revealed)
 	world.map_event_triggered.connect(_on_map_event_triggered)
 	world.hazard_state_changed.connect(_on_hazard_state_changed)
 	FeedbackBus.hit_landed.connect(_on_hit_landed)
 	FeedbackBus.pickup_collected.connect(_on_pickup_collected)
+	if not TelegraphBus.warning_emitted.is_connected(_on_telegraph_warning_emitted):
+		TelegraphBus.warning_emitted.connect(_on_telegraph_warning_emitted)
 
 	ui.upgrade_selected.connect(_on_upgrade_selected)
 	ui.retry_requested.connect(_on_retry_requested)
@@ -158,25 +162,64 @@ func _on_pickup_collected(_world_position: Vector2, _amount: int) -> void:
 func _on_pursuer_spawned(_enemy_id: String, _world_position: Vector2, spawned_total: int, next_eta: float) -> void:
 	if run_state != STATE_PLAYING:
 		return
-	ui.show_system_message("Pursuer inbound! (%d) next ETA %.1fs" % [spawned_total, next_eta], true)
-	world.play_pursuer_warning_sfx()
+	_emit_telegraph_warning(
+		"pursuer",
+		1.75,
+		2.2,
+		"pursuer_inbound",
+		{
+			"spawned_total": spawned_total,
+			"next_eta": next_eta
+		}
+	)
 
 
 func _on_boss_spawned(_boss_id: String, _phase_id: String, telegraph_text: String) -> void:
 	if run_state != STATE_PLAYING:
 		return
-	ui.show_system_message(telegraph_text if not telegraph_text.is_empty() else "Boss detected", true)
-	world.play_boss_warning_sfx()
+	_emit_telegraph_warning(
+		"boss",
+		2.1,
+		2.4,
+		"boss_spawn",
+		{
+			"telegraph_text": telegraph_text
+		}
+	)
 
 
 func _on_boss_phase_changed(_boss_id: String, _phase_id: String, telegraph_text: String) -> void:
 	if run_state != STATE_PLAYING:
 		return
-	ui.show_system_message(telegraph_text if not telegraph_text.is_empty() else "Boss phase shift", true)
-	if _phase_id == "phase_2":
-		world.play_boss_phase2_sfx()
-	else:
-		world.play_boss_warning_sfx()
+	_emit_telegraph_warning(
+		"boss",
+		2.45 if _phase_id == "phase_2" else 2.0,
+		2.2,
+		"boss_phase_shift",
+		{
+			"telegraph_text": telegraph_text,
+			"phase_id": _phase_id
+		}
+	)
+
+
+func _on_boss_attack_telegraph_requested(telegraph_type: String, _payload: Dictionary) -> void:
+	if run_state != STATE_PLAYING:
+		return
+	var kind := telegraph_type.strip_edges().to_lower()
+	if kind != "line" and kind != "cone":
+		return
+	_emit_telegraph_warning(
+		"boss_attack",
+		2.05,
+		1.0,
+		"boss_attack_warning",
+		{
+			"telegraph_type": kind
+		},
+		"boss_attack_major",
+		0.9
+	)
 
 
 func _on_boss_defeated(_boss_id: String) -> void:
@@ -188,13 +231,27 @@ func _on_boss_defeated(_boss_id: String) -> void:
 func _on_boss_echoes_spawned(_boss_id: String, count: int, _world_position: Vector2) -> void:
 	if run_state != STATE_PLAYING:
 		return
-	ui.show_system_message("False echoes deployed: %d" % count, true)
+	_emit_telegraph_warning(
+		"boss",
+		2.25,
+		1.9,
+		"boss_echoes",
+		{
+			"count": count
+		}
+	)
 
 
 func _on_boss_true_form_revealed(_boss_id: String, _world_position: Vector2) -> void:
 	if run_state != STATE_PLAYING:
 		return
-	ui.show_system_message("True core exposed. Push damage now.", false)
+	_emit_telegraph_warning(
+		"boss",
+		2.35,
+		1.8,
+		"boss_true_form_revealed",
+		{}
+	)
 
 
 func _on_player_level_up_requested(options: Array) -> void:
@@ -236,10 +293,15 @@ func _on_hazard_state_changed(active: bool, warning_text: String) -> void:
 	var text := warning_text.strip_edges()
 	if text.is_empty():
 		text = "Hazard shift"
-	if active:
-		ui.show_system_message("%s (ACTIVE)" % text, true)
-	else:
-		ui.show_system_message(text, false)
+	_emit_telegraph_warning(
+		"hazard",
+		1.85 if active else 1.2,
+		2.0 if active else 1.4,
+		"hazard_active" if active else "hazard_warning",
+		{
+			"warning_text": text
+		}
+	)
 
 
 func _apply_hitstop(duration: float) -> void:
@@ -364,6 +426,7 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 	kills = 0
 	run_started = true
 	run_stats.reset(run_seed)
+	telegraph_last_emit_by_key.clear()
 
 	var character_def := DataRegistry.get_character(selected_character_id)
 	world.setup_run(rng, character_def, selected_map_id, run_seed, contract_modifiers, selected_contract_ids)
@@ -556,6 +619,39 @@ func _reload_runtime_data() -> void:
 		DataRegistry.get_contract_max_select()
 	)
 	ui.show_system_message("Data reloaded (fog/sonar/noise/maps).", false)
+
+
+func _emit_telegraph_warning(
+	warning_type: String,
+	severity: float,
+	duration: float,
+	text_key: String,
+	context: Dictionary = {},
+	throttle_key: String = "",
+	throttle_seconds: float = 0.0
+) -> void:
+	var effective_key := throttle_key.strip_edges()
+	if throttle_seconds > 0.0 and not effective_key.is_empty():
+		var now_sec := float(Time.get_ticks_msec()) * 0.001
+		var last_emit := float(telegraph_last_emit_by_key.get(effective_key, -9999.0))
+		if now_sec - last_emit < throttle_seconds:
+			return
+		telegraph_last_emit_by_key[effective_key] = now_sec
+	TelegraphBus.emit_warning(warning_type, severity, duration, text_key, context)
+
+
+func _on_telegraph_warning_emitted(payload: Dictionary) -> void:
+	if run_state != STATE_PLAYING:
+		return
+	var message := String(payload.get("message", "")).strip_edges()
+	if message.is_empty():
+		message = TelegraphBus.resolve_text(payload)
+	ui.show_telegraph_warning(payload, message)
+	world.play_telegraph_sfx(
+		String(payload.get("sfx_bucket", "warning")),
+		float(payload.get("severity", 1.0)),
+		String(payload.get("text_key", ""))
+	)
 
 
 func _exit_tree() -> void:

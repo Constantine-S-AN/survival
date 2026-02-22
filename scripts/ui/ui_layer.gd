@@ -141,6 +141,9 @@ var current_options: Array = []
 var fog_overlay: ColorRect
 var fog_overlay_material: ShaderMaterial
 var fog_overlay_allowed: bool = true
+var fog_line_strength_base: float = 0.08
+var fog_noise_strength_base: float = 0.05
+var fog_pulse_speed_base: float = 0.65
 var noise_bar: ProgressBar
 var noise_tier_label: Label
 var weapon_label: Label
@@ -157,11 +160,14 @@ var character_select_panel: CanvasItem
 var map_select_panel: CanvasItem
 var contract_select_panel: CanvasItem
 var unlock_toast_label: Label
+var telegraph_flash_overlay: ColorRect
+var telegraph_flash_tween: Tween
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	_create_fog_overlay()
+	_create_telegraph_flash_overlay()
 	apply_fog_overlay_config(DataRegistry.get_fog_config())
 	set_fog_overlay_enabled(bool(DataRegistry.get_fog_config().get("enabled", true)))
 	_create_runtime_hud_widgets()
@@ -201,6 +207,21 @@ func _create_fog_overlay() -> void:
 
 	root.add_child(fog_overlay)
 	root.move_child(fog_overlay, 0)
+
+
+func _create_telegraph_flash_overlay() -> void:
+	telegraph_flash_overlay = ColorRect.new()
+	telegraph_flash_overlay.name = "TelegraphFlashOverlay"
+	telegraph_flash_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	telegraph_flash_overlay.offset_left = 0.0
+	telegraph_flash_overlay.offset_top = 0.0
+	telegraph_flash_overlay.offset_right = 0.0
+	telegraph_flash_overlay.offset_bottom = 0.0
+	telegraph_flash_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	telegraph_flash_overlay.visible = false
+	telegraph_flash_overlay.color = Color(0.72, 0.95, 1.0, 0.0)
+	root.add_child(telegraph_flash_overlay)
+	root.move_child(telegraph_flash_overlay, 1)
 
 
 func _create_runtime_hud_widgets() -> void:
@@ -425,13 +446,16 @@ func apply_fog_overlay_config(config: Dictionary) -> void:
 	if fog_overlay_material == null:
 		return
 	fog_overlay_allowed = bool(config.get("scanline_enabled", true))
+	fog_line_strength_base = float(config.get("scanline_strength", 0.08))
+	fog_noise_strength_base = float(config.get("noise_strength", 0.05))
+	fog_pulse_speed_base = float(config.get("pulse_speed", 0.65))
 	var tint_color := Color.from_string(String(config.get("tint_color", "#0b1a2a")), Color(0.05, 0.10, 0.16))
 	fog_overlay_material.set_shader_parameter("line_density", float(config.get("scanline_density", 320.0)))
-	fog_overlay_material.set_shader_parameter("line_strength", float(config.get("scanline_strength", 0.08)))
-	fog_overlay_material.set_shader_parameter("noise_strength", float(config.get("noise_strength", 0.05)))
+	fog_overlay_material.set_shader_parameter("line_strength", fog_line_strength_base)
+	fog_overlay_material.set_shader_parameter("noise_strength", fog_noise_strength_base)
 	fog_overlay_material.set_shader_parameter("tint_color", tint_color)
 	fog_overlay_material.set_shader_parameter("tint_alpha", float(config.get("tint_alpha", 0.30)))
-	fog_overlay_material.set_shader_parameter("pulse_speed", float(config.get("pulse_speed", 0.65)))
+	fog_overlay_material.set_shader_parameter("pulse_speed", fog_pulse_speed_base)
 	fog_overlay_material.set_shader_parameter("effect_enabled", fog_overlay_allowed)
 	fog_overlay.visible = fog_overlay_allowed
 
@@ -603,6 +627,64 @@ func show_system_message(text: String, is_error: bool = false) -> void:
 	system_msg_label.visible = true
 	if system_msg_timer != null:
 		system_msg_timer.start(2.0)
+
+
+func show_telegraph_warning(payload: Dictionary, message: String = "") -> void:
+	var severity := clampf(float(payload.get("severity", 1.0)), 0.1, 3.0)
+	var sfx_bucket := String(payload.get("sfx_bucket", "warning")).strip_edges().to_lower()
+	var resolved_text := message.strip_edges()
+	if resolved_text.is_empty():
+		resolved_text = String(payload.get("message", "")).strip_edges()
+	if not resolved_text.is_empty():
+		show_system_message(resolved_text, severity >= 1.75)
+	_play_telegraph_flash(severity, sfx_bucket)
+
+
+func _play_telegraph_flash(severity: float, bucket: String) -> void:
+	var bucket_color := _get_telegraph_bucket_color(bucket)
+	if telegraph_flash_overlay != null:
+		telegraph_flash_overlay.visible = true
+		telegraph_flash_overlay.color = bucket_color
+		telegraph_flash_overlay.modulate.a = 0.0
+	if telegraph_flash_tween != null and is_instance_valid(telegraph_flash_tween):
+		telegraph_flash_tween.kill()
+	telegraph_flash_tween = create_tween()
+	if telegraph_flash_overlay != null:
+		var peak_alpha := clampf(0.05 + severity * 0.045, 0.08, 0.18)
+		telegraph_flash_tween.tween_property(telegraph_flash_overlay, "modulate:a", peak_alpha, 0.07)
+		telegraph_flash_tween.tween_property(telegraph_flash_overlay, "modulate:a", 0.0, 0.20)
+		telegraph_flash_tween.finished.connect(func() -> void:
+			if telegraph_flash_overlay != null:
+				telegraph_flash_overlay.visible = false
+		)
+	if fog_overlay_material != null and fog_overlay_allowed:
+		var line_peak := fog_line_strength_base + 0.02 * severity
+		var noise_peak := fog_noise_strength_base + 0.02 * severity
+		var pulse_peak := fog_pulse_speed_base + 0.12 * severity
+		fog_overlay_material.set_shader_parameter("line_strength", line_peak)
+		fog_overlay_material.set_shader_parameter("noise_strength", noise_peak)
+		fog_overlay_material.set_shader_parameter("pulse_speed", pulse_peak)
+		telegraph_flash_tween.parallel().tween_method(
+			func(v: float) -> void:
+				if fog_overlay_material == null:
+					return
+				fog_overlay_material.set_shader_parameter("line_strength", lerpf(line_peak, fog_line_strength_base, v))
+				fog_overlay_material.set_shader_parameter("noise_strength", lerpf(noise_peak, fog_noise_strength_base, v))
+				fog_overlay_material.set_shader_parameter("pulse_speed", lerpf(pulse_peak, fog_pulse_speed_base, v)),
+			0.0,
+			1.0,
+			0.24
+		)
+
+
+func _get_telegraph_bucket_color(bucket: String) -> Color:
+	match bucket:
+		"boss":
+			return Color(1.0, 0.68, 0.82, 1.0)
+		"alert":
+			return Color(1.0, 0.76, 0.52, 1.0)
+		_:
+			return Color(0.72, 0.95, 1.0, 1.0)
 
 
 func _play_noise_tier_change(tier_color: Color) -> void:

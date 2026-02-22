@@ -478,7 +478,6 @@ func _on_boss_telegraph_requested(telegraph_type: String, payload: Dictionary) -
 
 
 func _on_boss_echoes_spawned(_boss_id: String, count: int, world_position: Vector2) -> void:
-	play_boss_echo_spawn_sfx()
 	spawn_boss_telegraph("ring", {
 		"origin": world_position,
 		"radius": 92.0 + float(count) * 22.0,
@@ -489,7 +488,6 @@ func _on_boss_echoes_spawned(_boss_id: String, count: int, world_position: Vecto
 
 
 func _on_boss_true_form_revealed(_boss_id: String, world_position: Vector2) -> void:
-	play_boss_true_reveal_sfx()
 	spawn_boss_telegraph("cone", {
 		"origin": world_position,
 		"radius": 220.0,
@@ -578,6 +576,44 @@ func play_pursuer_warning_sfx() -> void:
 			var env := exp(-t * 11.0)
 			var sweep := 560.0 + 320.0 * sin(t * TAU * 4.0)
 			var sample := sin(TAU * sweep * t) * env * 0.20
+			generator.push_frame(Vector2(sample, sample))
+
+
+func play_telegraph_sfx(bucket: String, severity: float = 1.0, text_key: String = "") -> void:
+	var normalized_bucket := bucket.strip_edges().to_lower()
+	var normalized_key := text_key.strip_edges().to_lower()
+	match normalized_bucket:
+		"boss":
+			match normalized_key:
+				"boss_phase_shift":
+					if severity >= 2.3:
+						play_boss_phase2_sfx()
+					else:
+						play_boss_warning_sfx()
+				"boss_echoes":
+					play_boss_echo_spawn_sfx()
+				"boss_true_form_revealed":
+					play_boss_true_reveal_sfx()
+				_:
+					play_boss_warning_sfx()
+		"alert":
+			play_pursuer_warning_sfx()
+		_:
+			play_warning_ping_sfx(severity)
+
+
+func play_warning_ping_sfx(severity: float = 1.0) -> void:
+	shot_sfx.play()
+	var playback = shot_sfx.get_stream_playback()
+	if playback is AudioStreamGeneratorPlayback:
+		var generator: AudioStreamGeneratorPlayback = playback
+		var sample_rate := 44100.0
+		var length := 0.08 + clampf(severity, 0.1, 3.0) * 0.02
+		var freq := 720.0 + 60.0 * clampf(severity, 0.1, 3.0)
+		for i in range(int(sample_rate * length)):
+			var t := float(i) / sample_rate
+			var env := exp(-t * 21.0)
+			var sample := sin(TAU * freq * t) * env * 0.12
 			generator.push_frame(Vector2(sample, sample))
 
 
