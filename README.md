@@ -1,8 +1,8 @@
 # Survive: Neon Sonar (Godot 4.x)
 
-2D 俯视角幸存者游戏原型。当前完成 **M3 / P0-D**：在 M2 + P0-C 基础上加入 `升级规则系统（稀有度/前置/互斥/依赖）+ 升级UI可读化 + 占位字段修复`。
+2D 俯视角幸存者游戏原型。当前完成 **M3 / P0-E**：在 M2 + P0-D 基础上加入 `两张地图/生物群落 + 环境危害 + 事件表 + 地图选择流程`。
 
-## 当前里程碑状态（M3 / P0-D）
+## 当前里程碑状态（M3 / P0-E）
 - 已实现：移动、冲刺、自动/指向攻击切换、刷怪、击杀得经验、升级三选一、死亡结算、重开。
 - 已实现：`GameRoot / World / Player / EnemyManager / ProjectileManager / UI` 场景分层。
 - 已实现：`DataRegistry` 统一加载 JSON（武器/敌人/升级/刷怪曲线）并做基础 schema 校验。
@@ -19,6 +19,9 @@
 - 已实现（P0-D）：升级抽取权重 `rarity * base_weight * tag_weights`，并兼容角色 tag 倾向。
 - 已实现（P0-D）：升级卡面文本可读化（显示友好属性名、目标武器名/Tag名、关键数值变化）。
 - 已实现（P0-D）：`summon_resistance` 与 `character_chain_bonus` 不再占位，已接入实际战斗参数。
+- 已实现（P0-E）：2 张地图（`map_trench_lab` / `map_black_tide`）+ 各自危害与事件表，运行时按 seed 可复现。
+- 已实现（P0-E）：开局流程扩展为 `Main Menu -> CharacterSelect -> MapSelect -> Start`，地图选择写入 profile。
+- 已实现（P0-E）：地图参数偏移联动 Fog/Sonar/Noise/Spawner/Rewards；Debug 面板显示当前地图、危害计时、最近事件、地图倍率。
 - 还未实现：M3 后续内容量（2地图、10敌人、1Boss、契约扩展等）与导出脚本。
 
 ## 运行
@@ -44,7 +47,7 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `Tab`：切换攻击模式
 - 自动模式 `AUTO`：自动锁定威胁最高敌人
 - 指向模式 `AIM`：朝鼠标方向自动射击
-- 开局流程：Main Menu -> `Start Run` -> CharacterSelect -> `Start`
+- 开局流程：Main Menu -> `Start Run` -> CharacterSelect -> MapSelect -> `Start`
 
 ## Characters（P0-B）
 - `diver` / Silent Diver：控噪+延长揭示。解锁：单局生存 420 秒。
@@ -67,6 +70,21 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `sonar_blade`：近战高收益挥击并强化声呐。噪声：中低。
 
 武器配置文件：`/Users/shijiean/Desktop/project/survive/data/weapons.json`
+
+## Maps（P0-E）
+- `map_trench_lab` / Trench Lab  
+  - 危害：`Magnetic Interference`（30s 周期，8s 持续）  
+  - 效果：声呐揭示时长降低、噪点增强、噪声增长与追猎概率上升  
+  - 事件表：Supply Pod / Abyss Rift / Quiet Pocket
+- `map_black_tide` / Black Tide  
+  - 危害：`Black Tide Surge`（25s 周期，6s 持续）  
+  - 效果：视野半径缩小、刷怪节奏提高，同时经验倍率上升（高风险高收益）  
+  - 事件表：Supply Pod / Abyss Rift / Quiet Pocket
+
+事件机制（数据化）：
+- 每张地图绑定一个 `event_table`，事件包含 `weight/cooldown/min_time/max_time/duration/effects/immediate`。
+- 固定 seed 下触发顺序可复现（便于复盘与分享）。
+- `immediate` 当前支持：`spawn_pickups`、`pickup_xp`、`noise_delta`、`message`。
 
 ## 武器 Tag 与升级 Tag 协同
 - 升级支持两类作用域：
@@ -140,6 +158,7 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `F8`：固定噪声值 +10
 - CharacterSelect 调试：Debug 构建下提供 `Unlock All (Debug)` 按钮（默认关闭，不在发行版启用）。
 - Debug 面板新增：`current_weapon(s)`、`weapon_tags`、`weapon_dps~`、`weapon_noise_rate`。
+- Debug 面板新增（P0-E）：`current_map_id`、`hazard_active/timer`、`last_event_triggered`、`map_spawn_multiplier`、`fog_radius`、`map_noise_gain_multiplier`。
 
 ## 数据调参入口
 - 武器：`/Users/shijiean/Desktop/project/survive/data/weapons.json`
@@ -150,6 +169,9 @@ godot --path /Users/shijiean/Desktop/project/survive
 - Sonar：`/Users/shijiean/Desktop/project/survive/data/sonar.json`
 - Noise：`/Users/shijiean/Desktop/project/survive/data/noise.json`
 - Characters：`/Users/shijiean/Desktop/project/survive/data/characters.json`
+- Maps：`/Users/shijiean/Desktop/project/survive/data/maps.json`
+- Hazards：`/Users/shijiean/Desktop/project/survive/data/hazards.json`
+- Events：`/Users/shijiean/Desktop/project/survive/data/events.json`
 - 数据加载与校验：`/Users/shijiean/Desktop/project/survive/scripts/core/data_registry.gd`
 - Profile 存储与迁移：`/Users/shijiean/Desktop/project/survive/scripts/core/profile_store.gd`
 
@@ -158,6 +180,7 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `schema_version`
 - `unlocked_characters`
 - `last_selected_character_id`
+- `last_selected_map_id`
 - `progress`：
   - `total_kills`
   - `pickups_collected`
@@ -168,7 +191,7 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `run_count`
 
 ## 自动化测试（当前）
-M3 测试场景（包含 Pool + Fog/Sonar/Noise + Character/Profile + Weapon回归 + Upgrade Rules + 占位字段修复回归）：
+M3 测试场景（包含 Pool + Fog/Sonar/Noise + Character/Profile + Weapon回归 + Upgrade Rules + Maps/Hazards/Events 回归）：
 ```bash
 godot --headless --path /Users/shijiean/Desktop/project/survive --scene res://tests/TestRunner.tscn --quit-after 3600
 ```

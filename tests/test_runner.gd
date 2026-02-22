@@ -66,6 +66,7 @@ func _ready() -> void:
 	await _run_weapon_system_tests()
 	await _run_upgrade_rules_tests()
 	await _run_m2_system_tests()
+	await _run_map_biome_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
 	get_tree().quit(failed)
@@ -912,6 +913,199 @@ func _run_m2_system_tests() -> void:
 	_assert_true(game.world.is_fog_enabled() != fog_before, "fog toggle F2 switches state without error")
 	game.queue_free()
 	await get_tree().process_frame
+
+	registry.free()
+
+
+func _run_map_biome_tests() -> void:
+	var registry_script: Script = load("res://scripts/core/data_registry.gd")
+	var registry = registry_script.new()
+	_assert_true(registry.load_all(), "map biome registry load succeeds")
+
+	var maps: Array = registry.get_maps()
+	_assert_true(maps.size() >= 2, "maps data includes at least 2 maps")
+	var default_map_id: String = registry.get_default_map_id()
+	_assert_true(registry.has_map(default_map_id), "default map id exists in maps registry")
+
+	var trench_map: Dictionary = registry.get_map("map_trench_lab")
+	var tide_map: Dictionary = registry.get_map("map_black_tide")
+	_assert_true(not trench_map.is_empty(), "map_trench_lab exists")
+	_assert_true(not tide_map.is_empty(), "map_black_tide exists")
+
+	var trench_hazard := String(trench_map.get("hazard_id", ""))
+	var trench_table := String(trench_map.get("event_table_id", ""))
+	_assert_true(not registry.get_hazard(trench_hazard).is_empty(), "trench hazard reference resolves")
+	_assert_true(not registry.get_event_table(trench_table).is_empty(), "trench event table reference resolves")
+
+	var map_runtime_script: Script = load("res://scripts/core/map_runtime.gd")
+	var hazard_cycles = map_runtime_script.new()
+	hazard_cycles.setup(
+		trench_map,
+		registry.get_hazard(trench_hazard),
+		registry.get_event_table(trench_table),
+		7744
+	)
+	var saw_warning := false
+	var saw_active := false
+	var saw_recover := false
+	var active_seen_once := false
+	for step in range(0, 240):
+		var snapshot: Dictionary = hazard_cycles.update(0.25)
+		if bool(snapshot.get("hazard_warning_active", false)):
+			saw_warning = true
+		if bool(snapshot.get("hazard_active", false)):
+			saw_active = true
+			active_seen_once = true
+		elif active_seen_once:
+			saw_recover = true
+			break
+	_assert_true(saw_warning, "hazard telegraph warning becomes active before hazard starts")
+	_assert_true(saw_active, "hazard active state triggers during runtime")
+	_assert_true(saw_recover, "hazard returns to inactive state after active window")
+
+	var deterministic_a = map_runtime_script.new()
+	deterministic_a.setup(
+		registry.get_map("map_black_tide"),
+		registry.get_hazard(String(registry.get_map("map_black_tide").get("hazard_id", ""))),
+		registry.get_event_table(String(registry.get_map("map_black_tide").get("event_table_id", ""))),
+		9911
+	)
+	var deterministic_b = map_runtime_script.new()
+	deterministic_b.setup(
+		registry.get_map("map_black_tide"),
+		registry.get_hazard(String(registry.get_map("map_black_tide").get("hazard_id", ""))),
+		registry.get_event_table(String(registry.get_map("map_black_tide").get("event_table_id", ""))),
+		9911
+	)
+	var events_a: Array[String] = []
+	var events_b: Array[String] = []
+	for step in range(0, 220):
+		var snap_a: Dictionary = deterministic_a.update(0.5)
+		var snap_b: Dictionary = deterministic_b.update(0.5)
+		var trig_a_variant: Variant = snap_a.get("triggered_events", [])
+		var trig_b_variant: Variant = snap_b.get("triggered_events", [])
+		if trig_a_variant is Array:
+			for event_variant in (trig_a_variant as Array):
+				if event_variant is Dictionary:
+					events_a.append(String((event_variant as Dictionary).get("id", "")))
+		if trig_b_variant is Array:
+			for event_variant in (trig_b_variant as Array):
+				if event_variant is Dictionary:
+					events_b.append(String((event_variant as Dictionary).get("id", "")))
+	_assert_true(events_a.size() > 0, "map runtime emits at least one event in test window")
+	_assert_equal(events_a, events_b, "event order is deterministic with fixed seed")
+
+	var world_scene: PackedScene = load("res://scenes/world/World.tscn")
+	var world = world_scene.instantiate()
+	get_tree().root.add_child.call_deferred(world)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var run_rng := RandomNumberGenerator.new()
+	run_rng.seed = 1441
+	world.setup_run(run_rng, registry.get_character("diver"), "map_black_tide", 1441)
+	var world_debug_black: Dictionary = world.get_map_debug_snapshot()
+	_assert_equal(String(world_debug_black.get("current_map_id", "")), "map_black_tide", "world applies selected map id")
+	var base_fog_radius := float(DataRegistry.get_fog_config().get("vision_radius", 440.0))
+	_assert_true(float(world_debug_black.get("fog_radius", base_fog_radius)) < base_fog_radius, "map modifier changes fog radius")
+
+	var player: Node = world.player
+	player.set_noise_value(0.0)
+	player._add_noise_source("attack", 1.0)
+	var black_noise_after_attack := float(player.noise)
+	world.set_current_map("map_trench_lab", 1441)
+	player.set_noise_value(0.0)
+	player._add_noise_source("attack", 1.0)
+	var trench_noise_after_attack := float(player.noise)
+	_assert_true(black_noise_after_attack > trench_noise_after_attack, "map noise gain modifier affects attack noise")
+
+	var world_debug_trench: Dictionary = world.get_map_debug_snapshot()
+	_assert_true(
+		float(world_debug_black.get("map_spawn_multiplier", 1.0)) > float(world_debug_trench.get("map_spawn_multiplier", 1.0)),
+		"map spawn multiplier differs between biomes"
+	)
+	world.queue_free()
+	await get_tree().process_frame
+
+	var tmp_dir := "user://tmp"
+	DirAccess.make_dir_recursive_absolute(tmp_dir)
+	var maps_text := FileAccess.get_file_as_string("res://data/maps.json")
+	var maps_json: Variant = JSON.parse_string(maps_text)
+	if maps_json is Dictionary:
+		var broken_hazard := (maps_json as Dictionary).duplicate(true)
+		var rows_variant: Variant = broken_hazard.get("maps", [])
+		if rows_variant is Array and not (rows_variant as Array).is_empty():
+			var rows: Array = (rows_variant as Array).duplicate(true)
+			var first_variant: Variant = rows[0]
+			if first_variant is Dictionary:
+				var first_map := (first_variant as Dictionary).duplicate(true)
+				first_map["hazard_id"] = "ghost_hazard"
+				rows[0] = first_map
+				broken_hazard["maps"] = rows
+				var broken_hazard_path := "%s/maps_broken_hazard.json" % tmp_dir
+				_write_json_value(broken_hazard_path, broken_hazard)
+				var broken_hazard_registry = registry_script.new()
+				var broken_hazard_ok: bool = broken_hazard_registry.load_all(false, {"maps": broken_hazard_path})
+				var broken_hazard_errors: Array[String] = broken_hazard_registry.get_validation_errors()
+				_assert_true(not broken_hazard_ok, "schema validation fails for unknown hazard reference")
+				_assert_true(_array_contains_text(broken_hazard_errors, "unknown hazard_id 'ghost_hazard'"), "map schema reports unknown hazard reference")
+				_remove_file_if_exists(broken_hazard_path)
+				broken_hazard_registry.free()
+	else:
+		_assert_true(false, "maps json parse for hazard reference test")
+
+	var maps_json_event: Variant = JSON.parse_string(maps_text)
+	if maps_json_event is Dictionary:
+		var broken_event := (maps_json_event as Dictionary).duplicate(true)
+		var rows_variant_event: Variant = broken_event.get("maps", [])
+		if rows_variant_event is Array and not (rows_variant_event as Array).is_empty():
+			var rows_event: Array = (rows_variant_event as Array).duplicate(true)
+			var first_event_variant: Variant = rows_event[0]
+			if first_event_variant is Dictionary:
+				var first_event_map := (first_event_variant as Dictionary).duplicate(true)
+				first_event_map["event_table_id"] = "ghost_table"
+				rows_event[0] = first_event_map
+				broken_event["maps"] = rows_event
+				var broken_event_path := "%s/maps_broken_event.json" % tmp_dir
+				_write_json_value(broken_event_path, broken_event)
+				var broken_event_registry = registry_script.new()
+				var broken_event_ok: bool = broken_event_registry.load_all(false, {"maps": broken_event_path})
+				var broken_event_errors: Array[String] = broken_event_registry.get_validation_errors()
+				_assert_true(not broken_event_ok, "schema validation fails for unknown event table reference")
+				_assert_true(_array_contains_text(broken_event_errors, "unknown event_table_id 'ghost_table'"), "map schema reports unknown event table reference")
+				_remove_file_if_exists(broken_event_path)
+				broken_event_registry.free()
+	else:
+		_assert_true(false, "maps json parse for event table reference test")
+
+	var profile_path := "user://profile.json"
+	var had_profile_backup := FileAccess.file_exists(profile_path)
+	var profile_backup_content := FileAccess.get_file_as_string(profile_path) if had_profile_backup else ""
+	var profile_script: Script = load("res://scripts/core/profile_store.gd")
+	var profile_store_map: Node = profile_script.new()
+	get_tree().root.add_child.call_deferred(profile_store_map)
+	await get_tree().process_frame
+	profile_store_map.load_profile("diver", "map_trench_lab")
+	profile_store_map.set_selected_map_id("map_black_tide")
+	profile_store_map.save_profile()
+	var profile_store_map_reload: Node = profile_script.new()
+	get_tree().root.add_child.call_deferred(profile_store_map_reload)
+	await get_tree().process_frame
+	profile_store_map_reload.load_profile("diver", "map_trench_lab")
+	_assert_equal(
+		profile_store_map_reload.get_selected_map_id("map_trench_lab"),
+		"map_black_tide",
+		"profile stores and reloads last_selected_map_id"
+	)
+	profile_store_map.queue_free()
+	profile_store_map_reload.queue_free()
+	await get_tree().process_frame
+	if had_profile_backup:
+		var restore_profile := FileAccess.open(profile_path, FileAccess.WRITE)
+		restore_profile.store_string(profile_backup_content)
+		restore_profile.flush()
+		restore_profile = null
+	elif FileAccess.file_exists(profile_path):
+		DirAccess.remove_absolute(profile_path)
 
 	registry.free()
 
