@@ -68,6 +68,10 @@ func _ready() -> void:
 	world.player.level_up_requested.connect(_on_player_level_up_requested)
 	world.player.attack_mode_changed.connect(_on_player_attack_mode_changed)
 	world.enemy_manager.enemy_killed.connect(_on_enemy_killed)
+	world.enemy_manager.pursuer_spawned.connect(_on_pursuer_spawned)
+	world.enemy_manager.boss_spawned.connect(_on_boss_spawned)
+	world.enemy_manager.boss_phase_changed.connect(_on_boss_phase_changed)
+	world.enemy_manager.boss_defeated.connect(_on_boss_defeated)
 	world.map_event_triggered.connect(_on_map_event_triggered)
 	world.hazard_state_changed.connect(_on_hazard_state_changed)
 	FeedbackBus.hit_landed.connect(_on_hit_landed)
@@ -119,7 +123,7 @@ func _process(delta: float) -> void:
 	_push_debug_snapshot()
 
 
-func _on_enemy_killed(enemy_id: String, xp_reward: int, world_position: Vector2) -> void:
+func _on_enemy_killed(enemy_id: String, xp_reward: int, world_position: Vector2, meta: Dictionary = {}) -> void:
 	kills += 1
 	run_stats.total_kills += 1
 	var enemy_def := DataRegistry.get_enemy(enemy_id)
@@ -128,13 +132,42 @@ func _on_enemy_killed(enemy_id: String, xp_reward: int, world_position: Vector2)
 		var tags: Array = tags_variant
 		if tags.has("elite") or tags.has("pursuer"):
 			run_stats.elite_or_pursuer_kills += 1
-	if enemy_id.find("pursuer") >= 0:
+	if bool(meta.get("is_elite", false)) or bool(meta.get("is_pursuer", false)):
+		run_stats.elite_or_pursuer_kills += 1
+	if enemy_id.find("pursuer") >= 0 or bool(meta.get("is_pursuer", false)):
 		run_stats.elite_or_pursuer_kills += 1
 	world.call_deferred("spawn_xp_pickup", world_position, xp_reward)
 
 
 func _on_pickup_collected(_world_position: Vector2, _amount: int) -> void:
 	run_stats.pickups_collected += 1
+
+
+func _on_pursuer_spawned(_enemy_id: String, _world_position: Vector2, spawned_total: int, next_eta: float) -> void:
+	if run_state != STATE_PLAYING:
+		return
+	ui.show_system_message("Pursuer inbound! (%d) next ETA %.1fs" % [spawned_total, next_eta], true)
+	world.play_pursuer_warning_sfx()
+
+
+func _on_boss_spawned(_boss_id: String, _phase_id: String, telegraph_text: String) -> void:
+	if run_state != STATE_PLAYING:
+		return
+	ui.show_system_message(telegraph_text if not telegraph_text.is_empty() else "Boss detected", true)
+	world.play_boss_warning_sfx()
+
+
+func _on_boss_phase_changed(_boss_id: String, _phase_id: String, telegraph_text: String) -> void:
+	if run_state != STATE_PLAYING:
+		return
+	ui.show_system_message(telegraph_text if not telegraph_text.is_empty() else "Boss phase shift", true)
+	world.play_boss_warning_sfx()
+
+
+func _on_boss_defeated(_boss_id: String) -> void:
+	if run_state != STATE_PLAYING:
+		return
+	ui.show_system_message("Boss eliminated. Signal field stabilizing.", false)
 
 
 func _on_player_level_up_requested(options: Array) -> void:
@@ -351,6 +384,10 @@ func _refresh_hud() -> void:
 	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
 	hud["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
 	hud["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
+	hud["elite_count"] = int(noise_debug.get("elite_count", 0))
+	hud["pursuer_count"] = int(noise_debug.get("pursuer_count", 0))
+	hud["pursuer_spawned_total"] = int(noise_debug.get("pursuer_spawned_total", 0))
+	hud["boss_state"] = String(noise_debug.get("boss_state", "idle"))
 	hud["noise_spawn_rate_multiplier"] = float(noise_debug.get("noise_spawn_rate_multiplier", 1.0))
 	hud["map_spawn_rate_multiplier"] = float(noise_debug.get("map_spawn_rate_multiplier", 1.0))
 	hud["contract_spawn_rate_multiplier"] = float(noise_debug.get("contract_spawn_rate_multiplier", 1.0))
@@ -368,6 +405,13 @@ func _push_debug_snapshot() -> void:
 	snapshot["noise_tier_name"] = String(noise_tier_debug.get("name", "静默"))
 	snapshot["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
 	snapshot["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
+	snapshot["elite_count"] = int(noise_debug.get("elite_count", 0))
+	snapshot["pursuer_count"] = int(noise_debug.get("pursuer_count", 0))
+	snapshot["pursuer_spawned_total"] = int(noise_debug.get("pursuer_spawned_total", 0))
+	snapshot["next_pursuer_eta"] = float(noise_debug.get("next_pursuer_eta", -1.0))
+	snapshot["boss_state"] = String(noise_debug.get("boss_state", "idle"))
+	snapshot["boss_id"] = String(noise_debug.get("boss_id", ""))
+	snapshot["elite_chance"] = float(noise_debug.get("elite_chance", 0.0))
 	snapshot["noise_spawn_rate_multiplier"] = float(noise_debug.get("noise_spawn_rate_multiplier", 1.0))
 	snapshot["map_spawn_rate_multiplier"] = float(noise_debug.get("map_spawn_rate_multiplier", 1.0))
 	snapshot["contract_spawn_rate_multiplier"] = float(noise_debug.get("contract_spawn_rate_multiplier", 1.0))

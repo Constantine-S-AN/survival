@@ -442,6 +442,36 @@ func _play_hit_sfx(intensity: float, killed: bool) -> void:
 			generator.push_frame(Vector2(sample, sample))
 
 
+func play_pursuer_warning_sfx() -> void:
+	shot_sfx.play()
+	var playback = shot_sfx.get_stream_playback()
+	if playback is AudioStreamGeneratorPlayback:
+		var generator: AudioStreamGeneratorPlayback = playback
+		var sample_rate := 44100.0
+		var length := 0.16
+		for i in range(int(sample_rate * length)):
+			var t := float(i) / sample_rate
+			var env := exp(-t * 11.0)
+			var sweep := 560.0 + 320.0 * sin(t * TAU * 4.0)
+			var sample := sin(TAU * sweep * t) * env * 0.20
+			generator.push_frame(Vector2(sample, sample))
+
+
+func play_boss_warning_sfx() -> void:
+	hit_sfx.play()
+	var playback = hit_sfx.get_stream_playback()
+	if playback is AudioStreamGeneratorPlayback:
+		var generator: AudioStreamGeneratorPlayback = playback
+		var sample_rate := 44100.0
+		var length := 0.28
+		for i in range(int(sample_rate * length)):
+			var t := float(i) / sample_rate
+			var env := exp(-t * 7.6)
+			var freq := 210.0 + 70.0 * sin(t * TAU * 2.0)
+			var sample := sin(TAU * freq * t) * env * 0.27
+			generator.push_frame(Vector2(sample, sample))
+
+
 func _draw() -> void:
 	draw_rect(Rect2(Vector2(-4200.0, -4200.0), Vector2(8400.0, 8400.0)), Color(0.015, 0.03, 0.055, 1.0), true)
 	for i in range(-30, 31):

@@ -435,6 +435,10 @@ func update_hud(data: Dictionary) -> void:
 		int(data.get("enemy_count", 0)),
 		int(data.get("revealed_count", 0))
 	]
+	var elite_count := int(data.get("elite_count", 0))
+	var pursuer_count := int(data.get("pursuer_count", 0))
+	if elite_count > 0 or pursuer_count > 0:
+		enemies_label.text += "  Elite:%d Pursuer:%d" % [elite_count, pursuer_count]
 	if weapon_label != null:
 		weapon_label.text = "Weapon: %s Lv.%d (%s)" % [
 			String(data.get("active_weapon_name", String(data.get("active_weapon_id", "--")))),
@@ -492,7 +496,20 @@ func update_debug_data(data: Dictionary) -> void:
 			float(data.get("contract_spawn_rate_multiplier", 1.0))
 		],
 		"pursuer_chance: %.3f" % float(data.get("pursuer_chance", 0.0)),
+		"elite_chance: %.3f  elite_count: %d" % [
+			float(data.get("elite_chance", 0.0)),
+			int(data.get("elite_count", 0))
+		],
+		"pursuer_count: %d  spawned_total: %d  next_eta: %.1fs" % [
+			int(data.get("pursuer_count", 0)),
+			int(data.get("pursuer_spawned_total", 0)),
+			float(data.get("next_pursuer_eta", -1.0))
+		],
 		"map_spawn_multiplier: %.2f" % float(data.get("map_spawn_multiplier", 1.0)),
+		"boss_state: %s (%s)" % [
+			String(data.get("boss_state", "idle")),
+			String(data.get("boss_id", ""))
+		],
 		"revealed_count: %d" % int(data.get("revealed_count", 0)),
 		"timeline_progress: %.2f" % float(data.get("timeline_progress", 0.0)),
 		"map_id: %s" % String(data.get("current_map_id", "")),
