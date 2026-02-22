@@ -173,6 +173,7 @@ func _refresh_hud() -> void:
 	var noise_tier: Dictionary = DataRegistry.get_noise_tier(world.player.noise)
 	hud["noise_tier_name"] = String(noise_tier.get("name", "静默"))
 	hud["noise_tier_color"] = String(noise_tier.get("hud_color", "#74e7ff"))
+	hud["noise_tier_id"] = String(noise_tier.get("id", "silent"))
 	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
 	hud["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
 	hud["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
@@ -210,6 +211,11 @@ func _push_debug_snapshot() -> void:
 
 func _reload_runtime_data() -> void:
 	if not DataRegistry.reload_in_debug():
+		var errs: Array[String] = DataRegistry.get_validation_errors()
+		var msg := "Data reload failed."
+		if not errs.is_empty():
+			msg += " " + errs[0]
+		ui.show_system_message(msg, true)
 		return
 	world.player.apply_noise_config(DataRegistry.get_noise_config())
 	var fog_cfg: Dictionary = DataRegistry.get_fog_config()
@@ -220,6 +226,7 @@ func _reload_runtime_data() -> void:
 	var sonar_cfg: Dictionary = DataRegistry.get_sonar_config()
 	world.apply_sonar_config(sonar_cfg)
 	world.set_sonar_visual_enabled(sonar_visual_enabled)
+	ui.show_system_message("Data reloaded (fog/sonar/noise).", false)
 
 
 func _exit_tree() -> void:

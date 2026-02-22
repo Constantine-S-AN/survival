@@ -37,6 +37,9 @@ var noise_bar: ProgressBar
 var noise_tier_label: Label
 var debug_panel: Panel
 var debug_label: RichTextLabel
+var system_msg_label: Label
+var system_msg_timer: Timer
+var last_noise_tier_id: String = ""
 
 
 func _ready() -> void:
@@ -46,6 +49,7 @@ func _ready() -> void:
 	set_fog_overlay_enabled(bool(DataRegistry.get_fog_config().get("enabled", true)))
 	_create_runtime_hud_widgets()
 	_create_debug_panel()
+	_create_system_message_widget()
 	set_debug_visible(false)
 
 	level_up_panel.visible = false
@@ -120,6 +124,31 @@ func _create_debug_panel() -> void:
 	root.add_child(debug_panel)
 
 
+func _create_system_message_widget() -> void:
+	system_msg_label = Label.new()
+	system_msg_label.name = "SystemMessage"
+	system_msg_label.visible = false
+	system_msg_label.position = Vector2(560.0, 16.0)
+	system_msg_label.size = Vector2(480.0, 30.0)
+	system_msg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	system_msg_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	system_msg_label.modulate = Color(0.72, 0.96, 1.0, 0.0)
+	root.add_child(system_msg_label)
+
+	system_msg_timer = Timer.new()
+	system_msg_timer.one_shot = true
+	system_msg_timer.timeout.connect(func() -> void:
+		if system_msg_label == null:
+			return
+		var tween := create_tween()
+		tween.tween_property(system_msg_label, "modulate:a", 0.0, 0.28)
+		tween.finished.connect(func() -> void:
+			system_msg_label.visible = false
+		)
+	)
+	add_child(system_msg_timer)
+
+
 func apply_fog_overlay_config(config: Dictionary) -> void:
 	if fog_overlay_material == null:
 		return
@@ -158,6 +187,10 @@ func update_hud(data: Dictionary) -> void:
 	var tier_color := Color.from_string(String(data.get("noise_tier_color", "#74e7ff")), Color(0.45, 0.9, 1.0, 1.0))
 	noise_tier_label.modulate = tier_color
 	noise_bar.modulate = tier_color
+	var current_tier_id := String(data.get("noise_tier_id", noise_tier_name))
+	if current_tier_id != last_noise_tier_id:
+		_play_noise_tier_change(tier_color)
+		last_noise_tier_id = current_tier_id
 
 	mode_label.text = "Attack: %s" % String(data.get("attack_mode", "AUTO"))
 	time_label.text = "Time: %s" % _format_time(float(data.get("elapsed_time", 0.0)))
@@ -213,7 +246,29 @@ func update_debug_data(data: Dictionary) -> void:
 		"hot reload: F5",
 		"fixed noise: F6 toggle, F7 -, F8 +",
 		"fog F2, sonar visual F3"
-	])
+		])
+
+
+func show_system_message(text: String, is_error: bool = false) -> void:
+	if system_msg_label == null:
+		return
+	system_msg_label.text = text
+	system_msg_label.modulate = Color(1.0, 0.72, 0.72, 1.0) if is_error else Color(0.72, 0.96, 1.0, 1.0)
+	system_msg_label.visible = true
+	if system_msg_timer != null:
+		system_msg_timer.start(2.0)
+
+
+func _play_noise_tier_change(tier_color: Color) -> void:
+	if noise_bar == null or noise_tier_label == null:
+		return
+	noise_bar.scale = Vector2(1.0, 1.0)
+	var tween := create_tween()
+	tween.tween_property(noise_bar, "scale", Vector2(1.03, 1.18), 0.08)
+	tween.tween_property(noise_bar, "scale", Vector2(1.0, 1.0), 0.16)
+	var label_tween := create_tween()
+	label_tween.tween_property(noise_tier_label, "modulate", tier_color.lightened(0.24), 0.07)
+	label_tween.tween_property(noise_tier_label, "modulate", tier_color, 0.16)
 
 
 func show_level_up(options: Array) -> void:

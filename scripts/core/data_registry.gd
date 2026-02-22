@@ -33,7 +33,7 @@ func _ready() -> void:
 		load_all()
 
 
-func load_all() -> bool:
+func load_all(log_errors: bool = true) -> bool:
 	validation_errors.clear()
 	weapons = _load_dictionary(DATA_FILES["weapons"], "weapons")
 	enemies = _load_dictionary(DATA_FILES["enemies"], "enemies")
@@ -52,7 +52,7 @@ func load_all() -> bool:
 	_validate_noise()
 
 	loaded = validation_errors.is_empty()
-	if not loaded:
+	if not loaded and log_errors:
 		for error_text in validation_errors:
 			push_error(error_text)
 	return loaded
@@ -62,6 +62,10 @@ func reload_in_debug() -> bool:
 	if not OS.is_debug_build():
 		return loaded
 	return load_all()
+
+
+func get_validation_errors() -> Array[String]:
+	return validation_errors.duplicate()
 
 
 func get_fog_config() -> Dictionary:
@@ -139,6 +143,12 @@ func get_noise_spawn_modifiers(noise_value: float) -> Dictionary:
 		"tier_id": String(tier.get("id", "unknown")),
 		"hud_color": String(tier.get("hud_color", "#ffffff"))
 	}
+
+
+func clamp_noise_value(value: float) -> float:
+	var min_value := float(noise_config.get("min", 0.0))
+	var max_value := float(noise_config.get("max", 100.0))
+	return clampf(value, min_value, max_value)
 
 
 func get_timeline_progress(elapsed_time: float) -> float:
