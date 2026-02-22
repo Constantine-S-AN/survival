@@ -6,6 +6,9 @@ signal pursuer_spawned(enemy_id: String, world_position: Vector2, spawned_total:
 signal boss_spawned(boss_id: String, phase_id: String, telegraph_text: String)
 signal boss_phase_changed(boss_id: String, phase_id: String, telegraph_text: String)
 signal boss_defeated(boss_id: String)
+signal boss_telegraph_requested(telegraph_type: String, payload: Dictionary)
+signal boss_echoes_spawned(boss_id: String, count: int, world_position: Vector2)
+signal boss_true_form_revealed(boss_id: String, world_position: Vector2)
 
 var enemy_scene := preload("res://scenes/enemy/Enemy.tscn")
 
@@ -200,6 +203,8 @@ func get_noise_debug_snapshot() -> Dictionary:
 		"next_pursuer_eta": next_pursuer_eta,
 		"boss_state": boss_state,
 		"boss_id": boss_id,
+		"boss_decoy_count": get_boss_decoy_count(),
+		"boss_true_form_revealed": is_boss_true_form_revealed(),
 		"boss_spawn_rate_multiplier": boss_spawn_rate_multiplier,
 		"elite_jam_multiplier": elite_jam_multiplier_runtime,
 		"enemy_pool_hit_rate": float(enemy_pool_stats.get("hit_rate", -1.0)),
@@ -218,6 +223,22 @@ func get_enemy_pool_stats() -> Dictionary:
 		"total": 0,
 		"hit_rate": -1.0
 	}
+
+
+func get_boss_decoy_count() -> int:
+	if boss_node == null or not is_instance_valid(boss_node):
+		return 0
+	if boss_node.has_method("get_boss_decoy_count"):
+		return int(boss_node.get_boss_decoy_count())
+	return 0
+
+
+func is_boss_true_form_revealed() -> bool:
+	if boss_node == null or not is_instance_valid(boss_node):
+		return false
+	if boss_node.has_method("is_boss_true_form_revealed"):
+		return bool(boss_node.is_boss_true_form_revealed())
+	return false
 
 
 func set_map_spawn_modifiers(modifiers: Dictionary) -> void:
@@ -354,6 +375,18 @@ func _bind_enemy_signals(enemy: Node) -> void:
 		var explosion_callable := Callable(self, "_on_enemy_explosion_requested")
 		if not enemy.is_connected("explosion_requested", explosion_callable):
 			enemy.connect("explosion_requested", explosion_callable)
+	if enemy.has_signal("boss_telegraph_requested"):
+		var telegraph_callable := Callable(self, "_on_boss_telegraph_requested")
+		if not enemy.is_connected("boss_telegraph_requested", telegraph_callable):
+			enemy.connect("boss_telegraph_requested", telegraph_callable)
+	if enemy.has_signal("boss_echoes_spawned"):
+		var echo_callable := Callable(self, "_on_boss_echoes_spawned")
+		if not enemy.is_connected("boss_echoes_spawned", echo_callable):
+			enemy.connect("boss_echoes_spawned", echo_callable)
+	if enemy.has_signal("boss_true_form_revealed"):
+		var reveal_callable := Callable(self, "_on_boss_true_form_revealed")
+		if not enemy.is_connected("boss_true_form_revealed", reveal_callable):
+			enemy.connect("boss_true_form_revealed", reveal_callable)
 
 
 func _on_enemy_summon_requested(enemy_type_id: String, count: int, world_position: Vector2) -> void:
@@ -376,6 +409,22 @@ func _on_enemy_explosion_requested(world_position: Vector2, radius: float, damag
 		player.take_damage(damage)
 
 
+func _on_boss_telegraph_requested(telegraph_type: String, payload: Dictionary) -> void:
+	boss_telegraph_requested.emit(telegraph_type, payload.duplicate(true))
+
+
+func _on_boss_echoes_spawned(count: int, world_position: Vector2) -> void:
+	if boss_id.is_empty():
+		return
+	boss_echoes_spawned.emit(boss_id, maxi(0, count), world_position)
+
+
+func _on_boss_true_form_revealed(world_position: Vector2) -> void:
+	if boss_id.is_empty():
+		return
+	boss_true_form_revealed.emit(boss_id, world_position)
+
+
 func _spawn_enemy_node(enemy_id: String, definition: Dictionary, world_position: Vector2, allow_elite: bool) -> Node:
 	var enemy: Node = null
 	if enemy_pool_enabled and pool_manager != null and pool_manager.has_method("checkout"):
@@ -386,13 +435,13 @@ func _spawn_enemy_node(enemy_id: String, definition: Dictionary, world_position:
 	if enemy.has_method("set_recycle_handler"):
 		enemy.set_recycle_handler(Callable(self, "_on_enemy_recycle_requested"))
 	enemy.global_position = world_position
+	_bind_enemy_signals(enemy)
 	var runtime_modifiers := {
 		"speed_mult": current_enemy_speed_multiplier
 	}
 	enemy.setup(enemy_id, definition, player, runtime_modifiers)
 	if allow_elite and _can_become_elite(definition):
 		_try_apply_elite(enemy)
-	_bind_enemy_signals(enemy)
 	active_enemies.append(enemy)
 	return enemy
 
@@ -520,18 +569,22 @@ func _update_boss_phase(delta: float) -> void:
 func _apply_boss_phase(next_index: int, phase: Dictionary) -> void:
 	if boss_node == null or not is_instance_valid(boss_node):
 		return
+	var runtime_phase := phase.duplicate(true)
+	if String(runtime_phase.get("id", "")).strip_edges() == "phase_2":
+		var base_echoes := maxi(2, int(boss_definition.get("fake_echoes", 2)))
+		runtime_phase["echo_count"] = clampi(base_echoes + rng.randi_range(0, 1), 2, 3)
 	boss_phase_index = next_index
-	boss_state = String(phase.get("label", "phase_%d" % (next_index + 1))).strip_edges()
+	boss_state = String(runtime_phase.get("label", "phase_%d" % (next_index + 1))).strip_edges()
 	if boss_node.has_method("apply_boss_phase"):
-		boss_node.apply_boss_phase(phase, boss_definition)
-	boss_spawn_rate_multiplier = maxf(0.05, float(phase.get("spawn_rate_mult", 1.0)))
-	boss_summon_timer = maxf(0.1, float(phase.get("summon_interval", 6.0)))
-	var telegraph := String(phase.get("telegraph_text", "Boss phase shift")).strip_edges()
-	boss_phase_changed.emit(boss_id, String(phase.get("id", "phase_%d" % (next_index + 1))), telegraph)
+		boss_node.apply_boss_phase(runtime_phase, boss_definition)
+	boss_spawn_rate_multiplier = maxf(0.05, float(runtime_phase.get("spawn_rate_mult", 1.0)))
+	boss_summon_timer = maxf(0.1, float(runtime_phase.get("summon_interval", 6.0)))
+	var telegraph := String(runtime_phase.get("telegraph_text", "Boss phase shift")).strip_edges()
+	boss_phase_changed.emit(boss_id, String(runtime_phase.get("id", "phase_%d" % (next_index + 1))), telegraph)
 	var transition_noise := float(boss_definition.get("phase_transition_noise_delta", 0.0))
 	if transition_noise > 0.0 and player != null and is_instance_valid(player) and player.has_method("add_noise_delta"):
 		player.add_noise_delta(transition_noise)
-	if String(phase.get("id", "")).strip_edges() == "phase_2":
+	if String(runtime_phase.get("id", "")).strip_edges() == "phase_2":
 		pursuer_cooldown_remaining = minf(pursuer_cooldown_remaining, 0.2)
 
 
@@ -583,6 +636,8 @@ func _build_boss_enemy_definition() -> Dictionary:
 		"summon_interval": float(phase.get("summon_interval", 8.0)),
 		"summon_count": int(phase.get("summon_count", 2)),
 		"initial_phase": phase.duplicate(true),
+		"fake_echoes": int(boss_definition.get("fake_echoes", 2)),
+		"telegraph_color": String(boss_definition.get("telegraph_color", "#8be8ff")),
 		"hidden_damage_multiplier": 0.35,
 		"spawn_rate_mult": float(phase.get("spawn_rate_mult", 1.0))
 	}

@@ -4,6 +4,11 @@ class_name Enemy
 signal died(enemy_id: String, xp_reward: int)
 signal summon_requested(enemy_type_id: String, count: int, world_position: Vector2)
 signal explosion_requested(world_position: Vector2, radius: float, damage: float, source_enemy_id: String)
+signal boss_telegraph_requested(telegraph_type: String, payload: Dictionary)
+signal boss_echoes_spawned(count: int, world_position: Vector2)
+signal boss_true_form_revealed(world_position: Vector2)
+
+const BossEchoDecoyScene := preload("res://scenes/enemy/BossEchoDecoy.tscn")
 
 var enemy_id := "drifter"
 var enemy_name := "Drifter"
@@ -87,6 +92,12 @@ var boss_hidden_damage_multiplier: float = 0.35
 var boss_fake_echoes: int = 0
 var boss_phase_spawn_rate_mult: float = 1.0
 var boss_phase_fog_radius_mult: float = 1.0
+var boss_pending_attack: bool = false
+var boss_attack_windup_remaining: float = 0.0
+var boss_attack_windup_duration: float = 0.42
+var boss_echo_count_runtime: int = 0
+var boss_true_form_exposed_announced: bool = false
+var boss_decoys: Array[Node] = []
 var recycle_handler: Callable = Callable()
 var pooled_active: bool = false
 var default_collision_layer: int = 2
@@ -195,6 +206,12 @@ func setup(new_enemy_id: String, definition: Dictionary, player_target: Node2D, 
 	boss_fake_echoes = 0
 	boss_phase_spawn_rate_mult = 1.0
 	boss_phase_fog_radius_mult = 1.0
+	boss_pending_attack = false
+	boss_attack_windup_remaining = 0.0
+	boss_attack_windup_duration = 0.42
+	boss_echo_count_runtime = 0
+	boss_true_form_exposed_announced = false
+	_clear_boss_decoys()
 	if behavior == "boss":
 		var initial_phase := {}
 		if definition.has("initial_phase") and definition.get("initial_phase", null) is Dictionary:
@@ -234,6 +251,7 @@ func _physics_process(delta: float) -> void:
 	dash_windup_remaining = maxf(0.0, dash_windup_remaining - delta)
 	dash_active_remaining = maxf(0.0, dash_active_remaining - delta)
 	ranged_cooldown_remaining = maxf(0.0, ranged_cooldown_remaining - delta)
+	boss_attack_windup_remaining = maxf(0.0, boss_attack_windup_remaining - delta)
 	summon_timer = maxf(0.0, summon_timer - delta)
 
 	if behavior == "summoner" and summon_timer <= 0.0:
@@ -349,6 +367,26 @@ func _update_shooter_movement(distance: float, dir: Vector2, move_speed: float) 
 
 
 func _update_shooter_attack(distance: float) -> void:
+	if behavior == "boss":
+		if distance > ranged_range:
+			boss_pending_attack = false
+			boss_attack_windup_remaining = 0.0
+			return
+		if ranged_cooldown_remaining > 0.0:
+			return
+		if not boss_pending_attack:
+			boss_pending_attack = true
+			boss_attack_windup_remaining = boss_attack_windup_duration
+			_emit_boss_attack_telegraph(distance)
+			return
+		if boss_attack_windup_remaining > 0.0:
+			return
+		boss_pending_attack = false
+		if target != null and is_instance_valid(target) and target.has_method("take_damage"):
+			target.take_damage(ranged_damage)
+		ranged_cooldown_remaining = ranged_cooldown
+		return
+
 	if ranged_cooldown_remaining > 0.0:
 		return
 	if distance > ranged_range:
@@ -460,6 +498,8 @@ func _on_death(from_explosion: bool) -> bool:
 		summon_requested.emit(split_into_id, split_count, global_position)
 	if behavior == "bloater" and not from_explosion and explode_radius > 0.0 and explode_damage > 0.0:
 		explosion_requested.emit(global_position, explode_radius, explode_damage, enemy_id)
+	if behavior == "boss":
+		_clear_boss_decoys()
 	died.emit(enemy_id, xp_reward)
 	_request_recycle()
 	return true
@@ -488,6 +528,11 @@ func set_revealed(duration_sec: float) -> void:
 				shield_hp = 0.0
 		_:
 			pass
+	if behavior == "boss" and boss_requires_reveal_lock and is_revealed():
+		if not boss_true_form_exposed_announced:
+			boss_true_form_exposed_announced = true
+			boss_true_form_revealed.emit(global_position)
+		_dissipate_boss_decoys()
 	_update_reveal_visual()
 
 
@@ -561,10 +606,26 @@ func apply_boss_phase(phase: Dictionary, boss_config: Dictionary = {}) -> void:
 	boss_phase_fog_radius_mult = maxf(0.05, float(phase.get("fog_radius_mult", 1.0)))
 	boss_requires_reveal_lock = bool(phase.get("sonar_lock_required", false))
 	boss_fake_echoes = maxi(0, int(boss_config.get("fake_echoes", boss_fake_echoes)))
+	boss_echo_count_runtime = clampi(int(phase.get("echo_count", boss_fake_echoes)), 0, 6)
+	boss_attack_windup_duration = clampf(float(phase.get("attack_windup", boss_attack_windup_duration)), 0.12, 1.4)
+	boss_pending_attack = false
+	boss_attack_windup_remaining = 0.0
+	boss_true_form_exposed_announced = false
 	if boss_config.has("hidden_damage_multiplier"):
 		boss_hidden_damage_multiplier = clampf(float(boss_config.get("hidden_damage_multiplier", boss_hidden_damage_multiplier)), 0.05, 1.0)
+	boss_telegraph_requested.emit("ring", {
+		"origin": global_position,
+		"radius": maxf(90.0, ranged_range * 0.62),
+		"duration": 0.85,
+		"line_width": 5.5,
+		"color": String(boss_config.get("telegraph_color", "#8be8ff"))
+	})
 	if boss_requires_reveal_lock:
+		_spawn_boss_echo_decoys(boss_echo_count_runtime)
+		boss_echoes_spawned.emit(get_boss_decoy_count(), global_position)
 		outline_visual.visible = true
+	else:
+		_clear_boss_decoys()
 
 
 func get_hp_ratio() -> float:
@@ -631,6 +692,76 @@ func _apply_boss_aura(delta: float) -> void:
 		target.add_noise_delta(0.8 * delta)
 
 
+func _emit_boss_attack_telegraph(distance_to_target: float) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	var distance := minf(maxf(36.0, distance_to_target), ranged_range)
+	boss_telegraph_requested.emit("line", {
+		"origin": global_position,
+		"target": target.global_position,
+		"length": distance,
+		"duration": boss_attack_windup_duration + 0.08,
+		"line_width": 14.0,
+		"color": "#6ee7ff"
+	})
+
+
+func _spawn_boss_echo_decoys(count: int) -> void:
+	_clear_boss_decoys()
+	if count <= 0:
+		return
+	var parent_node := get_parent()
+	if parent_node == null:
+		return
+	var palette := outline_visual.color if outline_visual != null else Color(0.84, 0.96, 1.0, 0.8)
+	var clamped_count := clampi(count, 1, 6)
+	for i in range(clamped_count):
+		var decoy_variant := BossEchoDecoyScene.instantiate()
+		if not (decoy_variant is Node):
+			continue
+		var decoy := decoy_variant as Node
+		parent_node.add_child(decoy)
+		var angle := (TAU / float(clamped_count)) * float(i) + (0.22 if i % 2 == 0 else -0.11)
+		var ring_radius := maxf(42.0, body_radius * (2.8 + 0.24 * float(i % 3)))
+		var pos := global_position + Vector2.RIGHT.rotated(angle) * ring_radius
+		if decoy.has_method("configure"):
+			decoy.configure(pos, palette, body_radius * 0.92, 9.0)
+		boss_decoys.append(decoy)
+
+
+func _dissipate_boss_decoys() -> void:
+	for decoy in boss_decoys:
+		if decoy == null or not is_instance_valid(decoy):
+			continue
+		if decoy.has_method("force_dissipate"):
+			decoy.force_dissipate()
+	boss_decoys.clear()
+
+
+func _clear_boss_decoys() -> void:
+	for decoy in boss_decoys:
+		if decoy == null or not is_instance_valid(decoy):
+			continue
+		decoy.queue_free()
+	boss_decoys.clear()
+
+
+func get_boss_decoy_count() -> int:
+	var count := 0
+	var compact: Array[Node] = []
+	for decoy in boss_decoys:
+		if decoy == null or not is_instance_valid(decoy):
+			continue
+		compact.append(decoy)
+		count += 1
+	boss_decoys = compact
+	return count
+
+
+func is_boss_true_form_revealed() -> bool:
+	return boss_true_form_exposed_announced
+
+
 func on_pool_spawned() -> void:
 	pooled_active = true
 	collision_layer = default_collision_layer
@@ -670,6 +801,12 @@ func on_pool_recycle() -> void:
 	boss_phase_label = ""
 	boss_requires_reveal_lock = false
 	boss_fake_echoes = 0
+	boss_pending_attack = false
+	boss_attack_windup_remaining = 0.0
+	boss_attack_windup_duration = 0.42
+	boss_echo_count_runtime = 0
+	boss_true_form_exposed_announced = false
+	_clear_boss_decoys()
 	remove_from_group("enemy")
 	remove_from_group("pursuer")
 	remove_from_group("elite")
