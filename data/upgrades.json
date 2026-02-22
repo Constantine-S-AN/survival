@@ -422,7 +422,7 @@
   {
     "id": "u_chain_velocity",
     "name": "Chain Velocity",
-    "description": "[Tag: chain] Attack rate +10%.",
+    "description": "[Tag: chain] Attack rate +10%, chain chance +6%.",
     "rarity": "common",
     "max_stacks": 4,
     "tags": [
@@ -437,6 +437,10 @@
           "type": "tag",
           "value": "chain"
         }
+      },
+      {
+        "stat": "chain_bonus",
+        "add": 0.06
       }
     ],
     "base_weight": 1.0,
@@ -611,7 +615,7 @@
   {
     "id": "u_summon_screen",
     "name": "Summon Screen",
-    "description": "Summon damage resistance +18% (future hook).",
+    "description": "Summon damage resistance +18%.",
     "rarity": "common",
     "max_stacks": 3,
     "tags": [

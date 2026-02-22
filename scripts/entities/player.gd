@@ -14,6 +14,9 @@ const BASE_MAX_HP = 100.0
 const BASE_XP_TO_NEXT = 20.0
 const BASE_ACTIVE_WEAPON_ID = "needle_rifle"
 const LOW_NOISE_THRESHOLD = 25.0
+const DRONE_MAX_HP = 40.0
+const DRONE_RESPAWN_SECONDS = 3.0
+const DRONE_CONTACT_RADIUS = 28.0
 const WeaponRuntimeClass = preload("res://scripts/weapons/weapon_runtime.gd")
 
 var enemy_manager: Node
@@ -73,7 +76,7 @@ var character_dash_cooldown_multiplier: float = 1.0
 var character_sonar_reveal_duration_multiplier: float = 1.0
 var character_pickup_radius_multiplier: float = 1.0
 var character_projectile_range_multiplier: float = 1.0
-var character_chain_bonus: float = 0.0 # TODO: Hook chain jumps in later content pass.
+var character_chain_bonus: float = 0.0
 var character_crit_chance_bonus: float = 0.0
 var character_summon_cap_bonus: int = 0
 
@@ -83,7 +86,8 @@ var bonus_revealed_damage_multiplier: float = 0.0
 var bonus_low_noise_damage_multiplier: float = 0.0
 var bonus_noise_decay_per_second: float = 0.0
 var dash_noise_multiplier: float = 1.0
-var bonus_summon_resistance: float = 0.0 # TODO: Apply once summon HP/damage intake exists.
+var bonus_summon_resistance: float = 0.0
+var bonus_chain_chance: float = 0.0
 
 var weapon_levels: Dictionary = {}
 var weapon_modifiers_by_id: Dictionary = {}
@@ -92,6 +96,9 @@ var weapon_modifiers_by_tag: Dictionary = {}
 var deployed_mines: Array = []
 var drone_nodes: Array[Node2D] = []
 var drone_angles: Array[float] = []
+var drone_hitpoints: Array[float] = []
+var drone_contact_cooldowns: Array[float] = []
+var drone_respawn_timers: Array[float] = []
 var beam_target: Node2D = null
 var beam_visual_timer: float = 0.0
 var beam_visual: Line2D
@@ -170,6 +177,7 @@ func _reset_run_stats() -> void:
 	bonus_noise_decay_per_second = 0.0
 	dash_noise_multiplier = 1.0
 	bonus_summon_resistance = 0.0
+	bonus_chain_chance = 0.0
 	weapon_levels.clear()
 	weapon_modifiers_by_id.clear()
 	weapon_modifiers_by_tag.clear()
@@ -548,7 +556,7 @@ func _damage_enemies_in_radius(center: Vector2, radius: float, runtime, impulse:
 	return hit_count
 
 
-func _apply_damage_to_enemy(enemy: Node, base_damage: float, runtime, impulse: Vector2 = Vector2.ZERO) -> bool:
+func _apply_damage_to_enemy(enemy: Node, base_damage: float, runtime, impulse: Vector2 = Vector2.ZERO, chain_hop: int = 0) -> bool:
 	if enemy == null or not is_instance_valid(enemy):
 		return false
 	if not enemy.has_method("take_hit"):
@@ -564,7 +572,73 @@ func _apply_damage_to_enemy(enemy: Node, base_damage: float, runtime, impulse: V
 		FeedbackBus.emit_hit((enemy as Node2D).global_position, intensity, killed)
 	else:
 		FeedbackBus.emit_hit(global_position, intensity, killed)
+
+	var chain_parameters = _get_chain_parameters(runtime)
+	if bool(chain_parameters.get("enabled", false)):
+		var max_hops := int(chain_parameters.get("max_hops", 0))
+		var chance := float(chain_parameters.get("chance", 0.0))
+		if chain_hop < max_hops and rng.randf() <= chance:
+			_try_chain_bounce(enemy, final_damage, runtime, chain_hop + 1, max_hops)
 	return true
+
+
+func _get_chain_parameters(runtime) -> Dictionary:
+	var tags_variant: Variant = runtime.tags if runtime != null else []
+	if not (tags_variant is Array):
+		return {
+			"enabled": false,
+			"chance": 0.0,
+			"max_hops": 0
+		}
+	var tags: Array = tags_variant
+	if not tags.has("chain"):
+		return {
+			"enabled": false,
+			"chance": 0.0,
+			"max_hops": 0
+		}
+	var chance := clampf(character_chain_bonus + bonus_chain_chance, 0.0, 0.9)
+	var max_hops := 1 + int(floor(chance * 4.0))
+	max_hops = clampi(max_hops, 1, 4)
+	return {
+		"enabled": chance > 0.0,
+		"chance": chance,
+		"max_hops": max_hops
+	}
+
+
+func _try_chain_bounce(source_enemy: Node, base_damage: float, runtime, next_hop: int, max_hops: int) -> void:
+	if next_hop > max_hops:
+		return
+	if not (source_enemy is Node2D):
+		return
+	var source_position := (source_enemy as Node2D).global_position
+	var search_radius := clampf(float(runtime.range) * 0.45, 120.0, 260.0)
+	var chain_target: Node2D = null
+	var best_distance := INF
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		if enemy == source_enemy:
+			continue
+		if not (enemy is Node2D):
+			continue
+		var enemy_node := enemy as Node2D
+		var distance := enemy_node.global_position.distance_to(source_position)
+		if distance > search_radius:
+			continue
+		if distance < best_distance:
+			best_distance = distance
+			chain_target = enemy_node
+	if chain_target == null:
+		return
+	_apply_damage_to_enemy(chain_target, base_damage * 0.55, runtime, Vector2.ZERO, next_hop)
+	FeedbackBus.emit_sonar_pulse(source_position, {
+		"source": "hit",
+		"strength": 0.55,
+		"radius_scale": 0.82,
+		"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
+	})
 
 
 func _update_deployed_mines(delta: float) -> void:
@@ -623,6 +697,9 @@ func _ensure_drone_nodes(count: int) -> void:
 		add_child(drone)
 		drone_nodes.append(drone)
 		drone_angles.append(randf() * TAU)
+		drone_hitpoints.append(DRONE_MAX_HP)
+		drone_contact_cooldowns.append(0.0)
+		drone_respawn_timers.append(0.0)
 
 
 func _clear_drone_visuals() -> void:
@@ -631,6 +708,9 @@ func _clear_drone_visuals() -> void:
 			drone.queue_free()
 	drone_nodes.clear()
 	drone_angles.clear()
+	drone_hitpoints.clear()
+	drone_contact_cooldowns.clear()
+	drone_respawn_timers.clear()
 
 
 func _update_drone_orbits(delta: float) -> void:
@@ -650,13 +730,58 @@ func _update_drone_orbits(delta: float) -> void:
 		var drone = drone_nodes[i]
 		if drone == null or not is_instance_valid(drone):
 			continue
+		drone_contact_cooldowns[i] = maxf(0.0, float(drone_contact_cooldowns[i]) - delta)
+		drone_respawn_timers[i] = maxf(0.0, float(drone_respawn_timers[i]) - delta)
 		if i >= count:
+			drone.visible = false
+			continue
+		if float(drone_respawn_timers[i]) > 0.0:
+			drone.visible = false
+			continue
+		if float(drone_hitpoints[i]) <= 0.0:
+			drone_respawn_timers[i] = DRONE_RESPAWN_SECONDS
+			drone_hitpoints[i] = DRONE_MAX_HP
+			drone_contact_cooldowns[i] = 0.0
 			drone.visible = false
 			continue
 		drone.visible = true
 		drone_angles[i] = fposmod(drone_angles[i] + (1.4 + float(i) * 0.18) * delta, TAU)
 		var offset = Vector2.RIGHT.rotated(drone_angles[i]) * runtime.orbit_radius
 		drone.global_position = global_position + offset
+		_update_drone_contact_damage(i, runtime)
+
+
+func _update_drone_contact_damage(drone_index: int, runtime) -> void:
+	if drone_index < 0 or drone_index >= drone_nodes.size():
+		return
+	if float(drone_contact_cooldowns[drone_index]) > 0.0:
+		return
+	var drone := drone_nodes[drone_index]
+	if drone == null or not is_instance_valid(drone):
+		return
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		if not (enemy is Node2D):
+			continue
+		var enemy_node := enemy as Node2D
+		if enemy_node.global_position.distance_to(drone.global_position) > DRONE_CONTACT_RADIUS:
+			continue
+		var incoming_damage := 8.0
+		var enemy_contact_damage_variant: Variant = enemy.get("contact_damage")
+		if enemy_contact_damage_variant != null:
+			incoming_damage = maxf(1.0, float(enemy_contact_damage_variant) * 0.45)
+		var taken_damage := get_summon_damage_taken(incoming_damage)
+		drone_hitpoints[drone_index] = maxf(0.0, float(drone_hitpoints[drone_index]) - taken_damage)
+		drone_contact_cooldowns[drone_index] = 0.55
+		_apply_damage_to_enemy(enemy_node, runtime.damage * 0.35, runtime, Vector2.ZERO, 1)
+		FeedbackBus.emit_hit(drone.global_position, 0.14, false)
+		break
+
+
+func get_summon_damage_taken(raw_damage: float) -> float:
+	var resistance := clampf(bonus_summon_resistance, 0.0, 0.85)
+	return maxf(0.0, raw_damage * (1.0 - resistance))
 
 
 func _update_beam_visual() -> void:
@@ -820,6 +945,8 @@ func _apply_effect(effect: Dictionary) -> void:
 			character_summon_cap_bonus += int(value)
 		"summon_resistance":
 			bonus_summon_resistance += float(value)
+		"chain_bonus":
+			bonus_chain_chance += float(value)
 		"weapon_level_up_active":
 			_level_weapon(active_weapon_id, int(value))
 		_:
@@ -1017,6 +1144,17 @@ func _build_active_weapon_runtime() -> Variant:
 	return WeaponRuntimeClass.from_definition(weapon, level_value, global_modifiers, modifier_sources)
 
 
+func get_chain_parameters_for_current_weapon() -> Dictionary:
+	var runtime = _build_active_weapon_runtime()
+	if runtime == null:
+		return {
+			"enabled": false,
+			"chance": 0.0,
+			"max_hops": 0
+		}
+	return _get_chain_parameters(runtime)
+
+
 func compute_damage_against(target: Node, base_damage: float) -> float:
 	var damage_value = maxf(0.0, base_damage)
 	if bonus_revealed_damage_multiplier > 0.0 and target != null and target.has_method("is_revealed"):
@@ -1050,6 +1188,7 @@ func get_hud_data() -> Dictionary:
 	var weapon_noise_rate = runtime.noise_per_attack * runtime.attack_rate if runtime != null else 0.0
 	var weapon_dps = runtime.estimate_dps() if runtime != null else 0.0
 	var weapon_level = runtime.level if runtime != null else int(weapon_levels.get(active_weapon_id, 1))
+	var chain_params := _get_chain_parameters(runtime) if runtime != null else {"enabled": false, "chance": 0.0, "max_hops": 0}
 	return {
 		"hp": hp,
 		"max_hp": max_hp,
@@ -1072,7 +1211,11 @@ func get_hud_data() -> Dictionary:
 		"weapon_tags": weapon_tags,
 		"weapon_noise_per_attack": weapon_noise,
 		"weapon_noise_rate": weapon_noise_rate,
-		"weapon_dps_estimate": weapon_dps
+		"weapon_dps_estimate": weapon_dps,
+		"chain_enabled": bool(chain_params.get("enabled", false)),
+		"chain_chance": float(chain_params.get("chance", 0.0)),
+		"chain_max_hops": int(chain_params.get("max_hops", 0)),
+		"summon_resistance": bonus_summon_resistance
 	}
 
 
