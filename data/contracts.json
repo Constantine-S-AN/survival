@@ -36,7 +36,7 @@
         "spawner": {"elite_chance_add": 0.08},
         "rewards": {"xp_mult": 1.25, "rarity_mult": 1.14, "drop_mult": 1.12}
       },
-      "exclusive_group": "elite_focus"
+      "exclusive_group": "pressure_core"
     },
     {
       "id": "contract_no_dash",
@@ -97,7 +97,7 @@
         "spawner": {"spawn_rate_mult": 1.12},
         "rewards": {"xp_mult": 1.20, "rarity_mult": 1.10, "drop_mult": 1.10}
       },
-      "exclusive_group": "enemy_speed_core"
+      "exclusive_group": "pressure_core"
     },
     {
       "id": "contract_fragile_player",
@@ -133,7 +133,7 @@
         "player": {"low_noise_damage_mult": 1.15, "high_noise_damage_mult": 0.88},
         "rewards": {"xp_mult": 1.20, "rarity_mult": 1.10, "drop_mult": 1.10}
       },
-      "exclusive_group": "silent_edge"
+      "exclusive_group": "noise_core"
     },
     {
       "id": "contract_event_storm",
