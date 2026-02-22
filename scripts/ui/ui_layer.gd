@@ -144,6 +144,7 @@ var fog_overlay_allowed: bool = true
 var noise_bar: ProgressBar
 var noise_tier_label: Label
 var weapon_label: Label
+var contract_status_label: Label
 var debug_panel: Panel
 var debug_label: RichTextLabel
 var system_msg_label: Label
@@ -221,6 +222,13 @@ func _create_runtime_hud_widgets() -> void:
 	weapon_label.name = "WeaponLabel"
 	weapon_label.text = "Weapon: --"
 	stats_box.add_child(weapon_label)
+
+	contract_status_label = Label.new()
+	contract_status_label.name = "ContractStatusLabel"
+	contract_status_label.visible = false
+	contract_status_label.text = "Dash Disabled"
+	contract_status_label.modulate = Color(1.0, 0.72, 0.72, 1.0)
+	stats_box.add_child(contract_status_label)
 
 
 func _create_debug_panel() -> void:
@@ -473,6 +481,10 @@ func update_hud(data: Dictionary) -> void:
 			int(data.get("active_weapon_level", 1)),
 			String(data.get("active_weapon_model", "unknown"))
 		]
+	if contract_status_label != null:
+		var dash_disabled := bool(data.get("contract_dash_disabled", false))
+		contract_status_label.visible = dash_disabled
+		contract_status_label.text = "Dash Disabled" if dash_disabled else ""
 
 
 func set_debug_visible(enabled: bool) -> void:
