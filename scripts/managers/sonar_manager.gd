@@ -4,6 +4,11 @@ class_name SonarManager
 var config: Dictionary = {}
 var waves: Array = []
 var visual_enabled: bool = true
+var runtime_modifiers: Dictionary = {
+	"wave_speed_mult": 1.0,
+	"max_radius_mult": 1.0,
+	"reveal_duration_mult": 1.0
+}
 
 
 func _ready() -> void:
@@ -14,6 +19,12 @@ func apply_config(new_config: Dictionary) -> void:
 	config = new_config.duplicate(true)
 	visual_enabled = bool(config.get("enabled", true))
 	queue_redraw()
+
+
+func set_runtime_modifiers(modifiers: Dictionary) -> void:
+	runtime_modifiers["wave_speed_mult"] = maxf(0.05, float(modifiers.get("wave_speed_mult", 1.0)))
+	runtime_modifiers["max_radius_mult"] = maxf(0.05, float(modifiers.get("max_radius_mult", 1.0)))
+	runtime_modifiers["reveal_duration_mult"] = maxf(0.05, float(modifiers.get("reveal_duration_mult", 1.0)))
 
 
 func set_visual_enabled(enabled: bool) -> void:
@@ -84,10 +95,14 @@ func _on_sonar_pulse_requested(world_position: Vector2, payload: Dictionary) -> 
 	var source_radius_key := "%s_radius_scale" % source
 
 	var strength := float(payload.get("strength", float(config.get(source_strength_key, 0.7))))
-	var max_radius := float(config.get("max_radius", 720.0)) * float(payload.get("radius_scale", float(config.get(source_radius_key, 1.0))))
+	var max_radius := float(config.get("max_radius", 720.0))
+	max_radius *= float(payload.get("radius_scale", float(config.get(source_radius_key, 1.0))))
+	max_radius *= float(runtime_modifiers.get("max_radius_mult", 1.0))
 	var speed := float(payload.get("speed", float(config.get("wave_speed", 980.0))))
+	speed *= float(runtime_modifiers.get("wave_speed_mult", 1.0))
 	var reveal_duration := float(payload.get("reveal_duration", float(config.get("reveal_duration", 1.8))))
 	reveal_duration *= maxf(0.2, float(payload.get("reveal_duration_multiplier", 1.0)))
+	reveal_duration *= float(runtime_modifiers.get("reveal_duration_mult", 1.0))
 	var thickness := float(payload.get("line_width", float(config.get("line_width", 5.5))))
 
 	waves.append({

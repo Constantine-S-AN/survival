@@ -1,6 +1,11 @@
 extends Node2D
 class_name World
 
+signal map_event_triggered(event_id: String, event_name: String, message: String)
+signal hazard_state_changed(active: bool, warning_text: String)
+
+const MapRuntimeClass := preload("res://scripts/core/map_runtime.gd")
+
 @onready var projectile_manager = $ProjectileManager
 @onready var pool_manager = $PoolManager
 @onready var enemy_manager = $EnemyManager
@@ -17,6 +22,15 @@ var xp_pickup_scene := preload("res://scenes/pickup/XPPickup.tscn")
 var sfx_rng := RandomNumberGenerator.new()
 var fog_enabled: bool = true
 var fog_config: Dictionary = {}
+var base_fog_config: Dictionary = {}
+var effective_fog_config: Dictionary = {}
+var base_sonar_config: Dictionary = {}
+var map_runtime = MapRuntimeClass.new()
+var current_map_snapshot: Dictionary = {}
+var current_map_id: String = ""
+var current_map_modifiers: Dictionary = {}
+var last_hazard_active: bool = false
+var last_hazard_warning_active: bool = false
 const PROJECTILE_POOL_KEY := "projectile"
 const PICKUP_POOL_KEY := "pickup"
 const PROJECTILE_POOL_PREWARM := 72
@@ -31,18 +45,25 @@ func _ready() -> void:
 	apply_fog_config(DataRegistry.get_fog_config())
 	set_fog_enabled(bool(fog_config.get("enabled", true)))
 	apply_sonar_config(DataRegistry.get_sonar_config())
+	current_map_id = DataRegistry.get_default_map_id()
 	FeedbackBus.hit_landed.connect(_on_hit_landed)
 	FeedbackBus.shot_fired.connect(_on_shot_fired)
 	queue_redraw()
 
 
-func setup_run(run_rng: RandomNumberGenerator, character_def: Dictionary = {}) -> void:
+func setup_run(
+	run_rng: RandomNumberGenerator,
+	character_def: Dictionary = {},
+	map_id: String = "",
+	run_seed: int = 0
+) -> void:
 	_setup_pools()
 	if pool_manager != null and pool_manager.has_method("reset_stats"):
 		pool_manager.reset_stats()
 	player.setup(enemy_manager, projectile_manager, run_rng, character_def)
 	enemy_manager.setup(player, run_rng)
-	apply_sonar_config(DataRegistry.get_sonar_config())
+	apply_sonar_config(base_sonar_config if not base_sonar_config.is_empty() else DataRegistry.get_sonar_config())
+	set_current_map(map_id, run_seed)
 
 
 func apply_screen_shake(amount: float) -> void:
@@ -51,17 +72,19 @@ func apply_screen_shake(amount: float) -> void:
 
 
 func apply_fog_config(config: Dictionary) -> void:
-	fog_config = config.duplicate(true)
-	if fog_config.is_empty():
+	base_fog_config = config.duplicate(true)
+	fog_config = base_fog_config.duplicate(true)
+	effective_fog_config = fog_config.duplicate(true)
+	if effective_fog_config.is_empty():
 		return
 
-	var dark := Color.from_string(String(fog_config.get("darkness_color", "#0a1422")), Color(0.039, 0.078, 0.133))
+	var dark := Color.from_string(String(effective_fog_config.get("darkness_color", "#0a1422")), Color(0.039, 0.078, 0.133))
 	fog_darkness.color = dark
 
 	fog_light.texture = _build_fog_light_texture()
-	var radius := float(fog_config.get("vision_radius", 440.0))
+	var radius := float(effective_fog_config.get("vision_radius", 440.0))
 	fog_light.texture_scale = maxf(0.2, radius / 256.0)
-	fog_light.energy = float(fog_config.get("vision_energy", 1.25))
+	fog_light.energy = float(effective_fog_config.get("vision_energy", 1.25))
 	fog_light.color = Color(0.70, 0.88, 1.0, 1.0)
 
 
@@ -93,8 +116,29 @@ func _build_fog_light_texture() -> Texture2D:
 
 
 func apply_sonar_config(config: Dictionary) -> void:
+	base_sonar_config = config.duplicate(true)
 	if sonar_manager != null and sonar_manager.has_method("apply_config"):
 		sonar_manager.apply_config(config)
+	if sonar_manager != null and sonar_manager.has_method("set_runtime_modifiers"):
+		sonar_manager.set_runtime_modifiers({
+			"wave_speed_mult": 1.0,
+			"max_radius_mult": 1.0,
+			"reveal_duration_mult": 1.0
+		})
+
+
+func get_effective_fog_config() -> Dictionary:
+	if effective_fog_config.is_empty():
+		return {}
+	return effective_fog_config.duplicate(true)
+
+
+func get_current_map_id() -> String:
+	return current_map_id
+
+
+func get_current_map_snapshot() -> Dictionary:
+	return current_map_snapshot.duplicate(true)
 
 
 func set_sonar_visual_enabled(enabled: bool) -> void:
@@ -135,6 +179,178 @@ func get_pool_stats() -> Dictionary:
 		"total": 0,
 		"hit_rate": -1.0
 	}
+
+
+func set_current_map(map_id: String, run_seed: int = 0) -> void:
+	var resolved_map_id := map_id.strip_edges()
+	if resolved_map_id.is_empty() or not DataRegistry.has_map(resolved_map_id):
+		resolved_map_id = DataRegistry.get_default_map_id()
+	if resolved_map_id.is_empty() or not DataRegistry.has_map(resolved_map_id):
+		current_map_id = ""
+		current_map_snapshot = {}
+		current_map_modifiers = {}
+		last_hazard_active = false
+		last_hazard_warning_active = false
+		_apply_fog_modifier_bundle({})
+		if sonar_manager != null and sonar_manager.has_method("set_runtime_modifiers"):
+			sonar_manager.set_runtime_modifiers({})
+		if player != null and is_instance_valid(player) and player.has_method("apply_environment_modifiers"):
+			player.apply_environment_modifiers({}, {}, {})
+		if enemy_manager != null and enemy_manager.has_method("set_map_spawn_modifiers"):
+			enemy_manager.set_map_spawn_modifiers({})
+		return
+	current_map_id = resolved_map_id
+	var map_def := DataRegistry.get_map(current_map_id)
+	var hazard_def := DataRegistry.get_hazard(String(map_def.get("hazard_id", "")))
+	var event_table := DataRegistry.get_event_table(String(map_def.get("event_table_id", "")))
+	var seed := run_seed if run_seed != 0 else int(Time.get_unix_time_from_system())
+	map_runtime.setup(map_def, hazard_def, event_table, seed)
+	current_map_snapshot = map_runtime.get_snapshot()
+	last_hazard_active = bool(current_map_snapshot.get("hazard_active", false))
+	last_hazard_warning_active = bool(current_map_snapshot.get("hazard_warning_active", false))
+	_apply_map_snapshot(current_map_snapshot)
+
+
+func update_map_runtime(delta: float) -> Dictionary:
+	if current_map_id.is_empty():
+		return {}
+	current_map_snapshot = map_runtime.update(delta)
+	_apply_map_snapshot(current_map_snapshot)
+	_handle_map_notifications(current_map_snapshot)
+	return current_map_snapshot.duplicate(true)
+
+
+func get_map_debug_snapshot() -> Dictionary:
+	var snapshot := current_map_snapshot
+	var modifiers_variant: Variant = snapshot.get("modifiers", {})
+	var modifiers: Dictionary = modifiers_variant if modifiers_variant is Dictionary else {}
+	var fog_mod_variant: Variant = modifiers.get("fog", {})
+	var fog_mod: Dictionary = fog_mod_variant if fog_mod_variant is Dictionary else {}
+	var noise_mod_variant: Variant = modifiers.get("noise", {})
+	var noise_mod: Dictionary = noise_mod_variant if noise_mod_variant is Dictionary else {}
+	var spawner_mod_variant: Variant = modifiers.get("spawner", {})
+	var spawner_mod: Dictionary = spawner_mod_variant if spawner_mod_variant is Dictionary else {}
+	return {
+		"current_map_id": current_map_id,
+		"hazard_active": bool(snapshot.get("hazard_active", false)),
+		"hazard_timer": float(snapshot.get("hazard_timer", 0.0)),
+		"last_event_triggered": String(snapshot.get("last_event_triggered", "")),
+		"map_spawn_multiplier": float(spawner_mod.get("spawn_rate_mult", 1.0)),
+		"fog_radius_multiplier": float(fog_mod.get("vision_radius_mult", 1.0)),
+		"fog_radius": float(effective_fog_config.get("vision_radius", float(base_fog_config.get("vision_radius", 440.0)))),
+		"noise_gain_multiplier": float(noise_mod.get("gain_mult", 1.0))
+	}
+
+
+func _apply_map_snapshot(snapshot: Dictionary) -> void:
+	if snapshot.is_empty():
+		return
+	var modifiers_variant: Variant = snapshot.get("modifiers", {})
+	if not (modifiers_variant is Dictionary):
+		return
+	var modifiers: Dictionary = modifiers_variant
+	current_map_modifiers = modifiers.duplicate(true)
+
+	var fog_mod_variant: Variant = modifiers.get("fog", {})
+	var fog_mods: Dictionary = fog_mod_variant if fog_mod_variant is Dictionary else {}
+	var sonar_mod_variant: Variant = modifiers.get("sonar", {})
+	var sonar_mods: Dictionary = sonar_mod_variant if sonar_mod_variant is Dictionary else {}
+	var noise_mod_variant: Variant = modifiers.get("noise", {})
+	var noise_mods: Dictionary = noise_mod_variant if noise_mod_variant is Dictionary else {}
+	var rewards_mod_variant: Variant = modifiers.get("rewards", {})
+	var rewards_mods: Dictionary = rewards_mod_variant if rewards_mod_variant is Dictionary else {}
+	var spawner_mod_variant: Variant = modifiers.get("spawner", {})
+	var spawner_mods: Dictionary = spawner_mod_variant if spawner_mod_variant is Dictionary else {}
+
+	_apply_fog_modifier_bundle(fog_mods)
+	if sonar_manager != null and sonar_manager.has_method("set_runtime_modifiers"):
+		var sonar_runtime := {
+			"wave_speed_mult": float(sonar_mods.get("wave_speed_mult", 1.0)),
+			"max_radius_mult": float(sonar_mods.get("max_radius_mult", 1.0)),
+			"reveal_duration_mult": 1.0
+		}
+		sonar_manager.set_runtime_modifiers(sonar_runtime)
+	if player != null and is_instance_valid(player) and player.has_method("apply_environment_modifiers"):
+		var player_sonar_mod := {
+			"reveal_duration_mult": float(sonar_mods.get("reveal_duration_mult", 1.0))
+		}
+		player.apply_environment_modifiers(noise_mods, player_sonar_mod, rewards_mods)
+	if enemy_manager != null and enemy_manager.has_method("set_map_spawn_modifiers"):
+		enemy_manager.set_map_spawn_modifiers(spawner_mods)
+
+
+func _apply_fog_modifier_bundle(fog_modifiers: Dictionary) -> void:
+	var base_config := base_fog_config if not base_fog_config.is_empty() else DataRegistry.get_fog_config()
+	if base_config.is_empty():
+		return
+	var updated := base_config.duplicate(true)
+	var base_radius := float(base_config.get("vision_radius", 440.0))
+	var radius_mult := maxf(0.1, float(fog_modifiers.get("vision_radius_mult", 1.0)))
+	updated["vision_radius"] = base_radius * radius_mult
+	updated["noise_strength"] = float(base_config.get("noise_strength", 0.05)) + float(fog_modifiers.get("noise_strength_add", 0.0))
+	updated["scanline_strength"] = float(base_config.get("scanline_strength", 0.08)) + float(fog_modifiers.get("scanline_strength_add", 0.0))
+	effective_fog_config = updated
+	fog_config = updated.duplicate(true)
+	var dark := Color.from_string(String(updated.get("darkness_color", "#0a1422")), Color(0.039, 0.078, 0.133))
+	fog_darkness.color = dark
+	fog_light.texture = _build_fog_light_texture()
+	fog_light.texture_scale = maxf(0.2, float(updated.get("vision_radius", 440.0)) / 256.0)
+	fog_light.energy = float(updated.get("vision_energy", 1.25))
+
+
+func _handle_map_notifications(snapshot: Dictionary) -> void:
+	var warning_active_now := bool(snapshot.get("hazard_warning_active", false))
+	if warning_active_now != last_hazard_warning_active:
+		last_hazard_warning_active = warning_active_now
+		if warning_active_now:
+			hazard_state_changed.emit(false, String(snapshot.get("hazard_warning", "")))
+
+	var hazard_active_now := bool(snapshot.get("hazard_active", false))
+	if hazard_active_now != last_hazard_active:
+		last_hazard_active = hazard_active_now
+		hazard_state_changed.emit(hazard_active_now, String(snapshot.get("hazard_warning", "")))
+
+	var triggered_variant: Variant = snapshot.get("triggered_events", [])
+	if not (triggered_variant is Array):
+		return
+	var triggered_events: Array = triggered_variant
+	for event_variant in triggered_events:
+		if not (event_variant is Dictionary):
+			continue
+		var event: Dictionary = event_variant
+		_apply_event_immediate(event)
+		var immediate_variant: Variant = event.get("immediate", {})
+		var immediate: Dictionary = immediate_variant if immediate_variant is Dictionary else {}
+		map_event_triggered.emit(
+			String(event.get("id", "")),
+			String(event.get("name", "")),
+			String(immediate.get("message", ""))
+		)
+
+
+func _apply_event_immediate(event: Dictionary) -> void:
+	var immediate_variant: Variant = event.get("immediate", {})
+	if not (immediate_variant is Dictionary):
+		return
+	var immediate: Dictionary = immediate_variant
+	var spawn_pickups := int(immediate.get("spawn_pickups", 0))
+	if spawn_pickups > 0:
+		_spawn_event_pickups(spawn_pickups, int(immediate.get("pickup_xp", 8)))
+	var noise_delta := float(immediate.get("noise_delta", 0.0))
+	if absf(noise_delta) > 0.001 and player != null and is_instance_valid(player) and player.has_method("add_noise_delta"):
+		player.add_noise_delta(noise_delta)
+
+
+func _spawn_event_pickups(count: int, xp_amount: int) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	var clamped_count := clampi(count, 1, 12)
+	var amount := maxi(1, xp_amount)
+	for i in range(clamped_count):
+		var angle := sfx_rng.randf_range(0.0, TAU)
+		var radius := sfx_rng.randf_range(32.0, 120.0)
+		var world_pos: Vector2 = player.global_position + Vector2.RIGHT.rotated(angle) * radius
+		spawn_xp_pickup(world_pos, amount)
 
 
 func spawn_xp_pickup(world_position: Vector2, xp_amount: int) -> void:

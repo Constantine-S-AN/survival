@@ -88,6 +88,10 @@ var bonus_noise_decay_per_second: float = 0.0
 var dash_noise_multiplier: float = 1.0
 var bonus_summon_resistance: float = 0.0
 var bonus_chain_chance: float = 0.0
+var environment_noise_gain_multiplier: float = 1.0
+var environment_noise_decay_multiplier: float = 1.0
+var environment_sonar_reveal_multiplier: float = 1.0
+var environment_xp_gain_multiplier: float = 1.0
 
 var weapon_levels: Dictionary = {}
 var weapon_modifiers_by_id: Dictionary = {}
@@ -178,6 +182,10 @@ func _reset_run_stats() -> void:
 	dash_noise_multiplier = 1.0
 	bonus_summon_resistance = 0.0
 	bonus_chain_chance = 0.0
+	environment_noise_gain_multiplier = 1.0
+	environment_noise_decay_multiplier = 1.0
+	environment_sonar_reveal_multiplier = 1.0
+	environment_xp_gain_multiplier = 1.0
 	weapon_levels.clear()
 	weapon_modifiers_by_id.clear()
 	weapon_modifiers_by_tag.clear()
@@ -246,7 +254,12 @@ func get_pickup_radius_multiplier() -> float:
 
 
 func get_sonar_reveal_duration_multiplier() -> float:
-	return maxf(0.2, character_sonar_reveal_duration_multiplier * (1.0 + bonus_sonar_reveal_duration_multiplier))
+	return maxf(
+		0.2,
+		character_sonar_reveal_duration_multiplier
+		* (1.0 + bonus_sonar_reveal_duration_multiplier)
+		* environment_sonar_reveal_multiplier
+	)
 
 
 func get_character_tag_weights() -> Dictionary:
@@ -295,7 +308,7 @@ func _physics_process(delta: float) -> void:
 	if attack_cd_remaining <= 0.0:
 		_attempt_fire()
 
-	var noise_decay = noise_decay_per_second + bonus_noise_decay_per_second
+	var noise_decay = (noise_decay_per_second + bonus_noise_decay_per_second) * environment_noise_decay_multiplier
 	noise = clampf(noise - maxf(0.0, noise_decay) * delta, noise_min, noise_max)
 	_update_deployed_mines(delta)
 	_update_drone_orbits(delta)
@@ -827,7 +840,7 @@ func take_damage(amount: float) -> void:
 
 
 func gain_xp(amount: int) -> void:
-	xp += float(amount) * xp_gain_mult
+	xp += float(amount) * xp_gain_mult * environment_xp_gain_multiplier
 	var leveled = false
 	while xp >= xp_to_next:
 		xp -= xp_to_next
@@ -1044,7 +1057,7 @@ func _current_dash_cooldown() -> float:
 
 
 func _add_noise(amount: float) -> void:
-	noise = clampf(noise + (amount * noise_generation_mult), noise_min, noise_max)
+	noise = clampf(noise + (amount * noise_generation_mult * environment_noise_gain_multiplier), noise_min, noise_max)
 
 
 func _add_noise_source(source_key: String, extra: float = 0.0) -> void:
@@ -1073,6 +1086,21 @@ func apply_noise_config(config: Dictionary) -> void:
 
 func set_noise_value(value: float) -> void:
 	noise = clampf(value, noise_min, noise_max)
+
+
+func add_noise_delta(delta_value: float) -> void:
+	noise = clampf(noise + delta_value, noise_min, noise_max)
+
+
+func apply_environment_modifiers(
+	noise_modifiers: Dictionary = {},
+	sonar_modifiers: Dictionary = {},
+	reward_modifiers: Dictionary = {}
+) -> void:
+	environment_noise_gain_multiplier = maxf(0.05, float(noise_modifiers.get("gain_mult", 1.0)))
+	environment_noise_decay_multiplier = maxf(0.05, float(noise_modifiers.get("decay_mult", 1.0)))
+	environment_sonar_reveal_multiplier = maxf(0.05, float(sonar_modifiers.get("reveal_duration_mult", 1.0)))
+	environment_xp_gain_multiplier = maxf(0.05, float(reward_modifiers.get("xp_mult", 1.0)))
 
 
 func _ensure_weapon_state() -> void:
@@ -1215,7 +1243,11 @@ func get_hud_data() -> Dictionary:
 		"chain_enabled": bool(chain_params.get("enabled", false)),
 		"chain_chance": float(chain_params.get("chance", 0.0)),
 		"chain_max_hops": int(chain_params.get("max_hops", 0)),
-		"summon_resistance": bonus_summon_resistance
+		"summon_resistance": bonus_summon_resistance,
+		"env_noise_gain_multiplier": environment_noise_gain_multiplier,
+		"env_noise_decay_multiplier": environment_noise_decay_multiplier,
+		"env_sonar_reveal_multiplier": environment_sonar_reveal_multiplier,
+		"env_xp_gain_multiplier": environment_xp_gain_multiplier
 	}
 
 
