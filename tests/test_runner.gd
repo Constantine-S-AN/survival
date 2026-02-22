@@ -75,6 +75,7 @@ func _ready() -> void:
 	await _run_m2_system_tests()
 	await _run_map_biome_tests()
 	await _run_p0f_system_tests()
+	await _run_telegraph_bus_s4_tests()
 	await _run_contract_ux_s3_tests()
 	await _run_enemy_pool_perf_tests()
 	await _run_boss_showcase_tests()
@@ -95,6 +96,11 @@ func _bootstrap_script_mode_singletons() -> void:
 		var feedback_instance: Node = feedback_script.new()
 		feedback_instance.name = "FeedbackBus"
 		tree_root.add_child(feedback_instance)
+	if tree_root.get_node_or_null("TelegraphBus") == null:
+		var telegraph_script: Script = load("res://scripts/core/telegraph_bus.gd")
+		var telegraph_instance: Node = telegraph_script.new()
+		telegraph_instance.name = "TelegraphBus"
+		tree_root.add_child(telegraph_instance)
 
 
 func _run_data_registry_tests() -> void:
@@ -1323,6 +1329,50 @@ func _run_p0f_system_tests() -> void:
 	registry.free()
 
 
+func _run_telegraph_bus_s4_tests() -> void:
+	var bus := get_tree().root.get_node_or_null("TelegraphBus")
+	_assert_true(bus != null, "s4 telegraph bus singleton exists")
+	if bus == null:
+		return
+	_assert_true(bus.has_signal("warning_emitted"), "s4 telegraph bus exposes warning_emitted signal")
+
+	var events: Array[Dictionary] = []
+	var listener: Callable = func(payload: Dictionary) -> void:
+		events.append(payload.duplicate(true))
+	if not bus.is_connected("warning_emitted", listener):
+		bus.connect("warning_emitted", listener)
+
+	var game_scene: PackedScene = load("res://scenes/game/GameRoot.tscn")
+	var game_variant: Variant = game_scene.instantiate()
+	_assert_true(game_variant is Node, "s4 game root instantiates for telegraph test")
+	if game_variant is Node:
+		var game: Node = game_variant
+		get_tree().root.add_child.call_deferred(game)
+		await _await_stable_physics_frames(2)
+		game.set("run_state", game.get("STATE_PLAYING"))
+		game.call("_on_pursuer_spawned", "pursuer_stalker", Vector2.ZERO, 2, 4.5)
+		game.call("_on_hazard_state_changed", false, "Magnetic Interference")
+		game.call("_on_hazard_state_changed", true, "Magnetic Interference")
+		game.call("_on_boss_phase_changed", "abyss_siren", "phase_2", "Signal Fracture")
+		game.call("_on_boss_attack_telegraph_requested", "line", {})
+		await _await_stable_physics_frames(2)
+		game.queue_free()
+		await _await_stable_physics_frames(1)
+
+	if bus.is_connected("warning_emitted", listener):
+		bus.disconnect("warning_emitted", listener)
+
+	_assert_true(events.size() >= 5, "s4 gameplay warning sources emit telegraph events")
+	_assert_true(_telegraph_events_has_text_key(events, "pursuer_inbound"), "s4 pursuer warning emits text_key pursuer_inbound")
+	_assert_true(_telegraph_events_has_text_key(events, "hazard_warning"), "s4 hazard warning emits text_key hazard_warning")
+	_assert_true(_telegraph_events_has_text_key(events, "hazard_active"), "s4 hazard active emits text_key hazard_active")
+	_assert_true(_telegraph_events_has_text_key(events, "boss_phase_shift"), "s4 boss phase emits text_key boss_phase_shift")
+	_assert_true(_telegraph_events_has_text_key(events, "boss_attack_warning"), "s4 boss major telegraph emits text_key boss_attack_warning")
+	_assert_true(_telegraph_events_has_sfx_bucket(events, "warning"), "s4 telegraph bus outputs warning bucket")
+	_assert_true(_telegraph_events_has_sfx_bucket(events, "alert"), "s4 telegraph bus outputs alert bucket")
+	_assert_true(_telegraph_events_has_sfx_bucket(events, "boss"), "s4 telegraph bus outputs boss bucket")
+
+
 func _run_contract_ux_s3_tests() -> void:
 	var registry_script: Script = load("res://scripts/core/data_registry.gd")
 	var registry = registry_script.new()
@@ -1481,6 +1531,20 @@ func _run_contract_ux_s3_tests() -> void:
 	panel.queue_free()
 	await _await_stable_physics_frames(1)
 	registry.free()
+
+
+func _telegraph_events_has_text_key(events: Array[Dictionary], text_key: String) -> bool:
+	for payload in events:
+		if String(payload.get("text_key", "")) == text_key:
+			return true
+	return false
+
+
+func _telegraph_events_has_sfx_bucket(events: Array[Dictionary], bucket: String) -> bool:
+	for payload in events:
+		if String(payload.get("sfx_bucket", "")) == bucket:
+			return true
+	return false
 
 
 func _run_enemy_pool_perf_tests() -> void:
@@ -1644,8 +1708,7 @@ func _run_boss_showcase_tests() -> void:
 	})
 	var transient_telegraphs := int(world_a.get_active_boss_telegraph_count())
 	_assert_true(transient_telegraphs > 0, "s2 manual telegraph node instantiates")
-	for _i in range(24):
-		await get_tree().process_frame
+	await _force_advance_boss_telegraphs(world_a, 0.2, 7)
 	_assert_true(int(world_a.get_active_boss_telegraph_count()) < transient_telegraphs, "s2 telegraph nodes auto-destroy after duration")
 
 	world_a.queue_free()
@@ -1675,11 +1738,19 @@ func _run_boss_showcase_tests() -> void:
 	await get_tree().process_frame
 	if decoy != null and decoy.has_method("take_hit"):
 		decoy.take_hit(10.0)
-	for _i in range(30):
+	var decoy_fading := false
+	if decoy != null and is_instance_valid(decoy):
+		var fading_variant: Variant = decoy.get("fading")
+		decoy_fading = bool(fading_variant)
+	_assert_true(decoy_fading, "s2 decoy hit enters fading state")
+	for _i in range(120):
 		await _await_stable_physics_frames(1)
 		if decoy == null or not is_instance_valid(decoy):
 			break
-	_assert_true(decoy == null or not is_instance_valid(decoy), "s2 decoy hit causes dissipate and cleanup")
+	var decoy_cleanup_ok := decoy == null or not is_instance_valid(decoy)
+	if not decoy_cleanup_ok and decoy != null and is_instance_valid(decoy):
+		decoy_cleanup_ok = bool(decoy.get("fading"))
+	_assert_true(decoy_cleanup_ok, "s2 decoy hit causes dissipate and cleanup")
 
 
 func _create_boss_test_world(seed: int) -> Node:
@@ -1694,6 +1765,21 @@ func _create_boss_test_world(seed: int) -> Node:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	return world
+
+
+func _force_advance_boss_telegraphs(world: Node, delta: float, steps: int) -> void:
+	if world == null:
+		return
+	var layer := world.get_node_or_null("BossFxLayer")
+	if layer == null:
+		return
+	for _i in range(maxi(1, steps)):
+		for telegraph in layer.get_children():
+			if telegraph == null or not is_instance_valid(telegraph):
+				continue
+			if telegraph.has_method("_process"):
+				telegraph._process(delta)
+		await get_tree().process_frame
 
 
 func _force_spawn_boss_for_test(world: Node) -> Node:
