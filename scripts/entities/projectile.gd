@@ -9,13 +9,24 @@ var radius := 6.0
 var pierce := 0
 var hit_count := 0
 var source_owner: Node = null
+var recycle_handler: Callable = Callable()
+var active: bool = false
 
 @onready var body_visual: Polygon2D = $Body
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 
 
+func _ready() -> void:
+	on_pool_recycle()
+
+
+func set_recycle_handler(handler: Callable) -> void:
+	recycle_handler = handler
+
+
 func configure(origin: Vector2, fire_direction: Vector2, projectile_data: Dictionary, owner_ref: Node) -> void:
 	global_position = origin
+	hit_count = 0
 	direction = fire_direction.normalized() if fire_direction.length() > 0.01 else Vector2.RIGHT
 	speed = float(projectile_data.get("speed", speed))
 	damage = float(projectile_data.get("damage", damage))
@@ -30,17 +41,22 @@ func configure(origin: Vector2, fire_direction: Vector2, projectile_data: Dictio
 	body_visual.scale = Vector2.ONE * (radius / 6.0)
 
 	rotation = direction.angle()
+	on_pool_spawned()
 
 
 func _physics_process(delta: float) -> void:
+	if not active:
+		return
 	var motion := direction * speed * delta
 	global_position += motion
 	remaining_range -= motion.length()
 	if remaining_range <= 0.0:
-		queue_free()
+		_request_recycle()
 
 
 func _on_body_entered(body: Node) -> void:
+	if not active:
+		return
 	if body == source_owner:
 		return
 	if body.is_in_group("enemy") and body.has_method("take_hit"):
@@ -49,4 +65,38 @@ func _on_body_entered(body: Node) -> void:
 		FeedbackBus.emit_hit(global_position, intensity, killed)
 		hit_count += 1
 		if hit_count > pierce:
-			queue_free()
+			_request_recycle()
+
+
+func on_pool_spawned() -> void:
+	active = true
+	set_deferred("monitoring", true)
+	set_deferred("monitorable", true)
+	set_physics_process(true)
+	visible = true
+
+
+func on_pool_recycle() -> void:
+	active = false
+	set_deferred("monitoring", false)
+	set_deferred("monitorable", false)
+	set_physics_process(false)
+	source_owner = null
+	visible = false
+
+
+func _request_recycle() -> void:
+	if not active:
+		return
+	active = false
+	set_physics_process(false)
+	set_deferred("monitoring", false)
+	set_deferred("monitorable", false)
+	call_deferred("_dispatch_recycle_request")
+
+
+func _dispatch_recycle_request() -> void:
+	if recycle_handler.is_valid():
+		recycle_handler.call(self)
+		return
+	queue_free()

@@ -22,6 +22,7 @@ func _ready() -> void:
 	_bootstrap_script_mode_singletons()
 	_run_data_registry_tests()
 	_run_spawn_profile_tests()
+	await _run_pool_system_tests()
 	await _run_m2_system_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
@@ -73,6 +74,50 @@ func _run_spawn_profile_tests() -> void:
 	var timeline: float = registry.get_timeline_progress(1000.0)
 	_assert_true(timeline >= 0.99 and timeline <= 1.0, "timeline progress should clamp to 1.0")
 	registry.free()
+
+
+func _run_pool_system_tests() -> void:
+	var pool_script: Script = load("res://scripts/managers/pool_manager.gd")
+	var pool_manager: Node = pool_script.new()
+	var active_layer := Node2D.new()
+	get_tree().root.add_child.call_deferred(active_layer)
+	get_tree().root.add_child.call_deferred(pool_manager)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var projectile_scene: PackedScene = load("res://scenes/projectile/Projectile.tscn")
+	pool_manager.ensure_pool("projectile_test", projectile_scene, active_layer, 1)
+	var first_projectile: Node = pool_manager.checkout("projectile_test", active_layer)
+	var stats_after_first: Dictionary = pool_manager.get_stats()
+	_assert_equal(int(stats_after_first.get("hits", 0)), 1, "pool first checkout uses prewarmed hit")
+	_assert_equal(int(stats_after_first.get("misses", 0)), 0, "pool miss starts at zero")
+
+	var second_projectile: Node = pool_manager.checkout("projectile_test", active_layer)
+	var stats_after_second: Dictionary = pool_manager.get_stats()
+	_assert_equal(int(stats_after_second.get("hits", 0)), 1, "pool hit count unchanged on miss checkout")
+	_assert_equal(int(stats_after_second.get("misses", 0)), 1, "pool miss increments on instantiate")
+
+	pool_manager.recycle("projectile_test", first_projectile)
+	pool_manager.recycle("projectile_test", second_projectile)
+	var reused_projectile: Node = pool_manager.checkout("projectile_test", active_layer)
+	var stats_after_reuse: Dictionary = pool_manager.get_stats()
+	_assert_true(reused_projectile == first_projectile or reused_projectile == second_projectile, "pool reuses recycled projectile instance")
+	_assert_equal(int(stats_after_reuse.get("hits", 0)), 2, "pool hit increments after recycle reuse")
+	_assert_equal(int(stats_after_reuse.get("misses", 0)), 1, "pool miss count remains stable after reuse")
+	_assert_true(is_equal_approx(float(stats_after_reuse.get("hit_rate", 0.0)), 2.0 / 3.0), "pool hit_rate matches hits over total")
+
+	var pickup_scene: PackedScene = load("res://scenes/pickup/XPPickup.tscn")
+	pool_manager.ensure_pool("pickup_test", pickup_scene, active_layer, 1)
+	var first_pickup: Node = pool_manager.checkout("pickup_test", active_layer)
+	pool_manager.recycle("pickup_test", first_pickup)
+	var reused_pickup: Node = pool_manager.checkout("pickup_test", active_layer)
+	_assert_true(reused_pickup == first_pickup, "pool reuses pickup instance")
+
+	pool_manager.recycle("projectile_test", reused_projectile)
+	pool_manager.recycle("pickup_test", reused_pickup)
+	pool_manager.queue_free()
+	active_layer.queue_free()
+	await get_tree().process_frame
 
 
 func _run_m2_system_tests() -> void:

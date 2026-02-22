@@ -226,6 +226,10 @@ func update_debug_data(data: Dictionary) -> void:
 			int(data.get("pickup_count", 0))
 		],
 		"pool_hit_rate: %s" % ("N/A" if float(data.get("pool_hit_rate", -1.0)) < 0.0 else "%.2f" % float(data.get("pool_hit_rate", 0.0))),
+		"pool_hits/misses: %d / %d" % [
+			int(data.get("pool_hits", 0)),
+			int(data.get("pool_misses", 0))
+		],
 		"noise: %.1f" % float(data.get("noise", 0.0)),
 		"noise_tier: %s" % String(data.get("noise_tier_name", "静默")),
 		"spawn_rate_multiplier: %.2f" % float(data.get("spawn_rate_multiplier", 1.0)),

@@ -2,6 +2,7 @@ extends Node2D
 class_name World
 
 @onready var projectile_manager = $ProjectileManager
+@onready var pool_manager = $PoolManager
 @onready var enemy_manager = $EnemyManager
 @onready var sonar_manager = $SonarManager
 @onready var pickup_layer: Node2D = $PickupLayer
@@ -16,12 +17,17 @@ var xp_pickup_scene := preload("res://scenes/pickup/XPPickup.tscn")
 var sfx_rng := RandomNumberGenerator.new()
 var fog_enabled: bool = true
 var fog_config: Dictionary = {}
+const PROJECTILE_POOL_KEY := "projectile"
+const PICKUP_POOL_KEY := "pickup"
+const PROJECTILE_POOL_PREWARM := 72
+const PICKUP_POOL_PREWARM := 48
 
 
 func _ready() -> void:
 	sfx_rng.seed = int(Time.get_unix_time_from_system())
 	_configure_synth_player(hit_sfx)
 	_configure_synth_player(shot_sfx)
+	_setup_pools()
 	apply_fog_config(DataRegistry.get_fog_config())
 	set_fog_enabled(bool(fog_config.get("enabled", true)))
 	apply_sonar_config(DataRegistry.get_sonar_config())
@@ -31,6 +37,9 @@ func _ready() -> void:
 
 
 func setup_run(run_rng: RandomNumberGenerator) -> void:
+	_setup_pools()
+	if pool_manager != null and pool_manager.has_method("reset_stats"):
+		pool_manager.reset_stats()
 	player.setup(enemy_manager, projectile_manager, run_rng)
 	enemy_manager.setup(player, run_rng)
 	apply_sonar_config(DataRegistry.get_sonar_config())
@@ -117,12 +126,29 @@ func get_runtime_entity_counts() -> Dictionary:
 	}
 
 
+func get_pool_stats() -> Dictionary:
+	if pool_manager != null and pool_manager.has_method("get_stats"):
+		return pool_manager.get_stats()
+	return {
+		"hits": 0,
+		"misses": 0,
+		"total": 0,
+		"hit_rate": -1.0
+	}
+
+
 func spawn_xp_pickup(world_position: Vector2, xp_amount: int) -> void:
 	if xp_pickup_scene == null:
 		player.gain_xp(xp_amount)
 		return
-	var pickup = xp_pickup_scene.instantiate()
-	pickup_layer.add_child(pickup)
+	var pickup: Node = null
+	if pool_manager != null and pool_manager.has_method("checkout"):
+		pickup = pool_manager.checkout(PICKUP_POOL_KEY, pickup_layer)
+	if pickup == null:
+		pickup = xp_pickup_scene.instantiate()
+		pickup_layer.add_child(pickup)
+	if pickup.has_method("set_recycle_handler"):
+		pickup.set_recycle_handler(Callable(self, "_on_pickup_recycle_requested"))
 	pickup.global_position = world_position
 	pickup.setup(xp_amount, player)
 
@@ -207,3 +233,21 @@ func _draw() -> void:
 		draw_line(Vector2(x, -4200.0), Vector2(x, 4200.0), Color(0.12, 0.55, 0.78, 0.12), 1.0)
 		var y := float(i) * 240.0
 		draw_line(Vector2(-4200.0, y), Vector2(4200.0, y), Color(0.12, 0.55, 0.78, 0.12), 1.0)
+
+
+func _setup_pools() -> void:
+	if pool_manager == null:
+		return
+	if projectile_manager != null and projectile_manager.has_method("setup_pool"):
+		projectile_manager.setup_pool(pool_manager, PROJECTILE_POOL_KEY, PROJECTILE_POOL_PREWARM)
+	if xp_pickup_scene != null and pool_manager.has_method("ensure_pool"):
+		pool_manager.ensure_pool(PICKUP_POOL_KEY, xp_pickup_scene, pickup_layer, PICKUP_POOL_PREWARM)
+
+
+func _on_pickup_recycle_requested(pickup: Node) -> void:
+	if pickup == null:
+		return
+	if pool_manager != null and pool_manager.has_method("recycle"):
+		pool_manager.recycle(PICKUP_POOL_KEY, pickup)
+	else:
+		pickup.queue_free()
