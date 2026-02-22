@@ -1,286 +1,99 @@
 # Survive: Neon Sonar (Godot 4.x)
 
-2D 俯视角幸存者游戏原型。当前完成 **M3 / P0-F**：在 M2 + P0-E 基础上加入 `敌人体系（10+）+ 精英词缀（6）+ 追猎者闭环 + Boss 两阶段 + 契约系统（12，0-3选择）`。
+在黑暗深海里生存：你依赖短暂声呐获取信息，但每次攻击、冲刺与技能都会抬高噪声，噪声越高，敌潮越凶。
 
-## 当前里程碑状态（M3 / P0-F）
-- 已实现：移动、冲刺、自动/指向攻击切换、刷怪、击杀得经验、升级三选一、死亡结算、重开。
-- 已实现：`GameRoot / World / Player / EnemyManager / ProjectileManager / UI` 场景分层。
-- 已实现：`DataRegistry` 统一加载 JSON（武器/敌人/升级/刷怪曲线）并做基础 schema 校验。
-- 已实现（Fog）：世界默认压暗 + 玩家视野光圈 + 全屏扫描线/噪点遮罩，`F2` 可开关。
-- 已实现（Sonar）：命中/拾取/主动技能触发声呐波纹，波纹扫过敌人触发 revealed，并显示高亮轮廓。
-- 已实现（Noise）：噪声值 `0..100`，三档位（静默/警戒/暴露）联动刷怪倍率与追猎者概率。
-- 已实现（Debug）：`F1` 调试面板显示 noise/tier/倍率/追猎概率/revealed/timeline 与配置版本；支持固定噪声和热重载。
-- 已实现（M1.5）：命中粒子、命中/开火占位音效（运行时合成）、轻屏震、短 hitstop。
-- 已实现（P0-A）：对象池（Projectile + Pickup）与 `pool_hit_rate / hits / misses` 实时统计。
-- 已实现（P0-B）：5角色配置、主菜单 -> 角色选择 -> 开局、profile schema 迁移、结算解锁评估与解锁弹窗。
-- 已实现（P0-C）：8把武器（projectile / pulse / mine / beam / drone / melee 模型）、武器成长（5级曲线）、武器噪声参数、升级池 >=20 且支持 `target=weapon_id/tag`。
-- 已实现（P0-C）：HUD/Debug 显示当前武器、武器 tags、近似 DPS、weapon_noise_rate。
-- 已实现（P0-D）：升级规则过滤（`prereq` / `requires_tags` / `requires_weapon_ids` / `exclusive_group` / `blocks` / `max_rank`）与固定 seed 可复现抽取。
-- 已实现（P0-D）：升级抽取权重 `rarity * base_weight * tag_weights`，并兼容角色 tag 倾向。
-- 已实现（P0-D）：升级卡面文本可读化（显示友好属性名、目标武器名/Tag名、关键数值变化）。
-- 已实现（P0-D）：`summon_resistance` 与 `character_chain_bonus` 不再占位，已接入实际战斗参数。
-- 已实现（P0-E）：2 张地图（`map_trench_lab` / `map_black_tide`）+ 各自危害与事件表，运行时按 seed 可复现。
-- 已实现（P0-E）：开局流程扩展为 `Main Menu -> CharacterSelect -> MapSelect -> ContractSelect -> Start`，地图与契约选择写入 profile。
-- 已实现（P0-E）：地图参数偏移联动 Fog/Sonar/Noise/Spawner/Rewards；Debug 面板显示当前地图、危害计时、最近事件、地图倍率。
-- 已实现（P0-F）：普通敌人 10+、精英词缀 6、追猎者高噪声闭环、Boss（Abyss Siren）两阶段与噪声联动。
-- 已实现（P0-F）：契约 12 个，开局 `0~3` 选择，奖励预览（XP/Rarity/Drop）与运行参数叠乘生效（Fog/Noise/Spawner/Events/Player）。
-- 已实现（P0-F）：流程扩展为 `Main Menu -> CharacterSelect -> MapSelect -> ContractSelect -> Start`，支持契约选择持久化。
-- 还未实现：M3 收尾平衡、更多演出资源、导出脚本与完整发布清单。
+## Why It Stands Out
+- **信息不是常量**：默认迷雾视野，必须主动“制造信息”（声呐揭示）。
+- **输出有代价**：高火力会抬噪，直接推高刷怪与追猎者压力。
+- **开局风险交易**：0–3 契约叠加，换取 XP / 稀有度 / 掉落收益。
+- **构筑偏置明确**：角色 `tag_weights` + 升级规则（稀有度/前置/互斥）决定流派。
+- **可复盘可调参**：固定 seed、全数据配置、热重载与 Debug 面板。
 
-## 运行
+## Quick Start
+### 运行（编辑器）
+1. 使用 Godot `4.2+` 打开项目目录。
+2. 主场景：`res://scenes/game/GameRoot.tscn`。
+3. 点击 Play。
 
-### 方式 A：Godot 编辑器
-1. 用 Godot 4.2+ 打开项目目录：`/Users/shijiean/Desktop/project/survive`
-2. 主场景是 `res://scenes/game/GameRoot.tscn`
-3. 点击 Play 运行。
-
-### 方式 B：命令行（需要 Godot CLI）
+### 运行（CLI）
 ```bash
-godot4 --path /Users/shijiean/Desktop/project/survive
+godot --path .
 ```
-或（若你的命令是 `godot`）：
+
+### 自动化测试（headless）
 ```bash
-godot --path /Users/shijiean/Desktop/project/survive
+godot --headless --path . --scene res://tests/TestRunner.tscn --quit-after 3600
 ```
 
-## 操作
-- `WASD` / `方向键`：移动
-- `Space` / `Shift`：冲刺（冷却）
-- `Q` / `E`：主动声呐技能（有冷却，产生较高噪声）
-- `Tab`：切换攻击模式
-- 自动模式 `AUTO`：自动锁定威胁最高敌人
-- 指向模式 `AIM`：朝鼠标方向自动射击
-- 开局流程：Main Menu -> `Start Run` -> CharacterSelect -> MapSelect -> ContractSelect -> `Start`
+### 构建导出（macOS / Windows）
+首次需要在编辑器 `Project -> Export` 建立预设（`macOS`、`Windows Desktop`）。
 
-## Characters（P0-B）
-- `diver` / Silent Diver：控噪+延长揭示。解锁：单局生存 420 秒。
-- `arc_tech` / Arc Technician：偏链式/暴击权重，噪声更高。解锁：累计击杀 800。
-- `lancer` / Trench Lancer：穿透与冲刺 CD 优势。解锁：噪声峰值达到 60（Exposed）。
-- `drone_handler` / Drone Handler：召唤向权重，噪声更高。解锁：累计拾取 250。
-- `scavenger` / Neon Scavenger：拾取半径和经验收益强化。解锁：单局生存 600 秒。
-- 角色配置文件：`/Users/shijiean/Desktop/project/survive/data/characters.json`
-
-## Weapons（P0-C）
-当前 8 把均已可用（M3阶段默认可获得；角色通过 `starting_weapon_id` 引用起始武器，后续里程碑会补局外解锁）。
-
-- `needle_rifle`：中速穿透步枪。噪声：中低（稳定控场）。
-- `burst_smg`：高攻速高风险连发。噪声：高（快速抬噪）。
-- `silence_dart`：低噪静默飞镖，偏揭示延长。噪声：低。
-- `shock_pulse`：近身环形脉冲清杂。噪声：中高。
-- `abyss_mine`：节奏型地雷爆破。噪声：中高。
-- `tether_beam`：持续锁定束流，偏控制。噪声：中。
-- `orbital_drone`：环绕无人机自动火力。噪声：中。
-- `sonar_blade`：近战高收益挥击并强化声呐。噪声：中低。
-
-武器配置文件：`/Users/shijiean/Desktop/project/survive/data/weapons.json`
-
-## Maps（P0-E）
-- `map_trench_lab` / Trench Lab  
-  - 危害：`Magnetic Interference`（30s 周期，8s 持续）  
-  - 效果：声呐揭示时长降低、噪点增强、噪声增长与追猎概率上升  
-  - 事件表：Supply Pod / Abyss Rift / Quiet Pocket
-- `map_black_tide` / Black Tide  
-  - 危害：`Black Tide Surge`（25s 周期，6s 持续）  
-  - 效果：视野半径缩小、刷怪节奏提高，同时经验倍率上升（高风险高收益）  
-  - 事件表：Supply Pod / Abyss Rift / Quiet Pocket
-
-事件机制（数据化）：
-- 每张地图绑定一个 `event_table`，事件包含 `weight/cooldown/min_time/max_time/duration/effects/immediate`。
-- 固定 seed 下触发顺序可复现（便于复盘与分享）。
-- `immediate` 当前支持：`spawn_pickups`、`pickup_xp`、`noise_delta`、`message`。
-
-## Enemies（P0-F）
-普通敌人（数据文件：`/Users/shijiean/Desktop/project/survive/data/enemies.json`）：
-- `drifter`：基础追踪压迫
-- `sprinter`：突进前摇后高速冲刺
-- `shooter`：中距离点射压制
-- `shielded`：护盾型；被声呐揭示可破盾
-- `splitter`：死亡分裂小体
-- `bloater`：接近后读条自爆
-- `summoner`：周期召唤杂兵
-- `lurker`：未揭示时高机动/闪避
-- `leech`：近战命中会偷取资源并抬噪
-- `magnetoid`：磁场拉扯位移
-
-噪声/声呐互动：
-- 高噪声提升敌人激进度（移动/压迫更强）
-- 被声呐揭示后触发可见反应（stagger/rage/shield_break）
-
-## Elite System（P0-F）
-精英词缀（数据文件：`/Users/shijiean/Desktop/project/survive/data/elites.json`）：
-- `haste`
-- `armored`
-- `volatile`
-- `jammer`
-- `loud`
-- `siphon`
-
-运行效果：
-- 精英会获得词缀属性乘区与特殊效果（减伤、死亡爆、干扰声呐、噪声光环等）
-- 精英击杀奖励提升（额外经验收益）
-- Debug 可见：`elite_chance`、`elite_count`
-
-## Boss（P0-F）
-`Abyss Siren`（数据文件：`/Users/shijiean/Desktop/project/survive/data/bosses.json`）：
-- Phase 1：`Echo Barrage`（基础弹压 + 召唤）
-- Phase 2：`False Resonance`（阶段切换触发噪声激增与刷怪压力提升）
-- 信息差机制：Phase 2 需要声呐揭示才能稳定打满伤害（未揭示时显著减伤）
-
-## Contracts（P0-F）
-数据文件：`/Users/shijiean/Desktop/project/survive/data/contracts.json`
-
-当前 12 个契约（开局可选 `0~3`）：
-- `contract_small_vision`
-- `contract_loud_world`
-- `contract_elite_rush`
-- `contract_no_dash`
-- `contract_black_tide_often`
-- `contract_sonar_fuzzy`
-- `contract_pursuer_hunt`
-- `contract_fast_enemies`
-- `contract_fragile_player`
-- `contract_rich_pickups`
-- `contract_silent_bonus`
-- `contract_event_storm`
-
-奖励预览规则：
-- `reward_multiplier = 1 + sum(contract.reward_pct)/100`
-- UI 显示：`XP / Rarity / Drop` 乘数
-
-生效维度：
-- `fog_radius_multiplier`
-- `noise_gain_multiplier`
-- `spawn_multiplier / elite_chance / pursuer_chance`
-- `event_rate / hazard_cycle`
-- `player` 约束（如禁冲刺、血量乘区）
-
-## 武器 Tag 与升级 Tag 协同
-- 升级支持两类作用域：
-  - `target.type = weapon_id`：仅强化指定武器（如 `silence_dart`）。
-  - `target.type = tag`：强化同类标签武器（如全部 `sonar` / `aoe` / `summon`）。
-- 角色 `tag_weights` 仍参与三选一抽取权重，固定 seed 下可复现偏置结果。
-- 当前升级池覆盖：`sonar / silence / crit / pierce / aoe / chain / summon / pickup / economy / noise` 等。
-
-## Upgrade Rules（P0-D）
-三选一流程：
-1. 先按规则过滤可出现升级。  
-2. 再按权重抽取：`base_weight * rarity_weight * tag_weight_multiplier`（并带 active weapon 匹配加成）。
-
-稀有度默认权重（`scripts/core/data_registry.gd`）：
-- `common:70`
-- `uncommon:20`
-- `rare:8`
-- `epic:2`
-- `legendary:0.5`
-
-可配置字段（`data/upgrades.json`）：
-- `rarity`：稀有度
-- `base_weight`：基础抽取权重
-- `prereq`：前置条件（`all`/`any`）
-- `requires_tags`：要求当前构筑已有某些 tag
-- `requires_weapon_ids`：要求拥有某些武器
-- `exclusive_group`：互斥路线
-- `max_rank`：升级上限
-- `blocks`：阻止某些升级出现
-
-示例 1（前置 + 互斥）：
-```json
-{
-  "id": "u_exposed_breaker",
-  "rarity": "epic",
-  "prereq": {
-    "all": [{"type": "upgrade_selected", "upgrade_id": "u_echo_stabilizer"}],
-    "any": []
-  },
-  "exclusive_group": "sonar_path"
-}
-```
-
-示例 2（武器依赖 + Tag依赖）：
-```json
-{
-  "id": "u_drone_bay",
-  "requires_weapon_ids": ["orbital_drone"]
-}
-```
-```json
-{
-  "id": "u_summon_screen",
-  "requires_tags": ["summon"]
-}
-```
-
-## Fog / Sonar / Noise 玩法联动
-- Fog：默认黑暗迷雾，仅玩家视野圈内清晰可见，外部区域通过扫描线与噪点保持“科技深海”压迫感。
-- Sonar：命中、拾取、主动技能会释放波纹；波纹扫过敌人会短暂揭示（reveal），并显示高亮轮廓。
-- Noise：攻击/冲刺/技能会抬升噪声；噪声越高，刷怪速率和数量上限越高，且更容易触发追猎者生成。
-- 构筑意义：更激进的输出节奏会更快压高噪声，形成“信息优势 vs 风险暴露”的权衡。
-
-## 调试快捷键
-- `F1`：开关调试面板
-- `F2`：开关 Fog（压暗+视野光圈+扫描遮罩）
-- `F3`：开关 Sonar 视觉（波纹显示）
-- `F5`：调试模式下热重载数据配置（`DataRegistry.reload_in_debug()`）
-- `F6`：固定噪声值开关
-- `F7`：固定噪声值 -10
-- `F8`：固定噪声值 +10
-- CharacterSelect 调试：Debug 构建下提供 `Unlock All (Debug)` 按钮（默认关闭，不在发行版启用）。
-- Debug 面板新增：`current_weapon(s)`、`weapon_tags`、`weapon_dps~`、`weapon_noise_rate`。
-- Debug 面板新增（P0-E）：`current_map_id`、`hazard_active/timer`、`last_event_triggered`、`map_spawn_multiplier`、`fog_radius`、`map_noise_gain_multiplier`。
-- Debug 面板新增（P0-F）：`elite_count`、`elite_chance`、`pursuer_count`、`pursuer_spawned_total`、`next_pursuer_eta`、`boss_state`、`contracts_active`、`contract_event_rate_mult`。
-
-## 数据调参入口
-- 武器：`/Users/shijiean/Desktop/project/survive/data/weapons.json`
-- 敌人：`/Users/shijiean/Desktop/project/survive/data/enemies.json`
-- 精英词缀：`/Users/shijiean/Desktop/project/survive/data/elites.json`
-- Boss：`/Users/shijiean/Desktop/project/survive/data/bosses.json`
-- 契约：`/Users/shijiean/Desktop/project/survive/data/contracts.json`
-- 升级池：`/Users/shijiean/Desktop/project/survive/data/upgrades.json`
-- 刷怪曲线：`/Users/shijiean/Desktop/project/survive/data/spawn_curve.json`
-- Fog：`/Users/shijiean/Desktop/project/survive/data/fog.json`
-- Sonar：`/Users/shijiean/Desktop/project/survive/data/sonar.json`
-- Noise：`/Users/shijiean/Desktop/project/survive/data/noise.json`
-- Characters：`/Users/shijiean/Desktop/project/survive/data/characters.json`
-- Maps：`/Users/shijiean/Desktop/project/survive/data/maps.json`
-- Hazards：`/Users/shijiean/Desktop/project/survive/data/hazards.json`
-- Events：`/Users/shijiean/Desktop/project/survive/data/events.json`
-- 数据加载与校验：`/Users/shijiean/Desktop/project/survive/scripts/core/data_registry.gd`
-- Profile 存储与迁移：`/Users/shijiean/Desktop/project/survive/scripts/core/profile_store.gd`
-
-## Profile Schema（v2）
-`user://profile.json` 包含：
-- `schema_version`
-- `unlocked_characters`
-- `last_selected_character_id`
-- `last_selected_map_id`
-- `last_selected_contract_ids`
-- `progress`：
-  - `total_kills`
-  - `pickups_collected`
-  - `elite_or_pursuer_kills`
-  - `best_survive_time_seconds`
-  - `best_max_noise_reached`
-  - `reached_noise_tiers`
-- `run_count`
-
-## 自动化测试（当前）
-M3 测试场景（包含 Pool + Fog/Sonar/Noise + Character/Profile + Weapon回归 + Upgrade Rules + Maps/Hazards/Events + Enemies/Elites/Boss/Contracts 回归）：
 ```bash
-godot --headless --path /Users/shijiean/Desktop/project/survive --scene res://tests/TestRunner.tscn --quit-after 3600
+godot --headless --path . --export-release "macOS" exports/NeonSonar.app
+godot --headless --path . --export-release "Windows Desktop" exports/NeonSonar.exe
 ```
-说明：headless 强制退出时可能出现 `ObjectDB leaked` 警告，当前不影响 Play 流程与断言结果。
 
-## 目录结构（M1）
-- `scenes/`：主场景与实体场景
-- `scripts/`：核心逻辑、实体逻辑、管理器、UI
-- `data/`：JSON 数据配置
-- `tests/`：脚本化测试入口
-- `assets/`：占位资源
-- `exports/`：后续导出产物目录
-- `assets_inbox/`：外部素材暂存目录
-- `tmp/`：临时文件
+## Gameplay Loop
+```mermaid
+flowchart LR
+  A[Start Run] --> B[Move + Auto/Aim Attack]
+  B --> C[Gain XP]
+  C --> D[Pick 1 of 3 Upgrades]
+  D --> E[Build Synergy: sonar / silence / crit / summon]
+  E --> F[Noise Climbs]
+  F --> G[Spawn Pressure + Pursuer Risk]
+  G --> B
+  G --> H[Boss Phase]
+  H --> I[Run End: Summary + Unlocks]
+```
 
-## 外部资源与许可
-- 本里程碑未引入外部下载素材。
-- 图标 `assets/textures/icon.svg` 为本地生成占位图（原创占位）。
-- 音效为运行时程序合成占位，不依赖外部素材授权。
+## Core Controls
+- `WASD / Arrow`: 移动
+- `Space / Shift`: 冲刺
+- `Q / E`: 主动声呐技能
+- `Tab`: 自动攻击 / 指向攻击切换
+- `F1`: Debug 面板
+- `F2`: Fog 开关
+- `F3`: Sonar 视觉开关
+- `F5`: 调试热重载数据
+
+## Current M3 Snapshot
+- 角色：5（含解锁条件、起始武器与被动）
+- 武器：8（projectile / pulse / mine / beam / drone / melee）
+- 升级：31（含稀有度、前置、互斥、武器/Tag定向）
+- 地图：2（各自危害与事件表）
+- 敌人：10+ 普通 + 6 精英词缀 + 追猎者 + 1 两阶段 Boss
+- 契约：12（开局 0–3 选择，奖励预览与参数联动）
+
+## Design Notes
+为什么这款游戏和 VS/Brotato 节奏相近但机制体验不同：
+- 关键差异轴是 **视野/信息** 与 **噪声代价**，不是单纯数值膨胀。
+- 高伤害与高安全不能长期共存，玩家持续在“输出效率 vs 暴露风险”间做选择。
+
+详细说明见：[`docs/DESIGN_NOTES.md`](docs/DESIGN_NOTES.md)
+
+## Media Kit
+- 录屏脚本与流程：[`media/TRAILER_CAPTURE.md`](media/TRAILER_CAPTURE.md)
+- 截图拍摄清单：[`media/SHOTLIST.md`](media/SHOTLIST.md)
+
+## Data-Driven Tuning Entry
+- 角色：`data/characters.json`
+- 武器：`data/weapons.json`
+- 升级：`data/upgrades.json`
+- 地图/危害/事件：`data/maps.json` / `data/hazards.json` / `data/events.json`
+- 敌人/精英/Boss：`data/enemies.json` / `data/elites.json` / `data/bosses.json`
+- 契约：`data/contracts.json`
+- 迷雾/声呐/噪声：`data/fog.json` / `data/sonar.json` / `data/noise.json`
+
+## Repo Structure
+- `scenes/`：场景层（GameRoot / World / UI / Entities）
+- `scripts/`：核心逻辑、系统模块、UI 控制器
+- `data/`：所有可调配置（JSON）
+- `tests/`：`TestRunner.tscn` + 回归测试
+- `assets/`：占位素材（可替换）
+- `exports/`：导出产物目录
+- `media/`：录屏与截图制作文档
+
+## License & Credits
+- License：[`LICENSE`](LICENSE)
+- Third-party / asset credits：[`CREDITS.md`](CREDITS.md)
