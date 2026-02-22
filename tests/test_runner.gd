@@ -75,6 +75,7 @@ func _ready() -> void:
 	await _run_m2_system_tests()
 	await _run_map_biome_tests()
 	await _run_p0f_system_tests()
+	await _run_contract_ux_s3_tests()
 	await _run_enemy_pool_perf_tests()
 	await _run_boss_showcase_tests()
 	await get_tree().process_frame
@@ -1319,6 +1320,166 @@ func _run_p0f_system_tests() -> void:
 	game.queue_free()
 	world.queue_free()
 	await get_tree().process_frame
+	registry.free()
+
+
+func _run_contract_ux_s3_tests() -> void:
+	var registry_script: Script = load("res://scripts/core/data_registry.gd")
+	var registry = registry_script.new()
+	_assert_true(registry.load_all(), "s3 contracts registry load succeeds")
+
+	var contracts_rows: Array = registry.get_contracts()
+	var group_to_ids: Dictionary = {}
+	for row_variant in contracts_rows:
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		var contract_id := String(row.get("id", "")).strip_edges()
+		var group := String(row.get("exclusive_group", "")).strip_edges()
+		if contract_id.is_empty() or group.is_empty():
+			continue
+		if not group_to_ids.has(group):
+			group_to_ids[group] = []
+		var bucket_variant: Variant = group_to_ids.get(group, [])
+		if bucket_variant is Array:
+			var bucket: Array = bucket_variant
+			bucket.append(contract_id)
+			group_to_ids[group] = bucket
+
+	var conflict_pair: Array[String] = []
+	for group_key_variant in group_to_ids.keys():
+		var bucket_variant: Variant = group_to_ids.get(group_key_variant, [])
+		if not (bucket_variant is Array):
+			continue
+		var bucket: Array = bucket_variant
+		if bucket.size() >= 2:
+			conflict_pair = [
+				String(bucket[0]).strip_edges(),
+				String(bucket[1]).strip_edges()
+			]
+			break
+	_assert_true(conflict_pair.size() == 2, "s3 contracts include at least one shared exclusive group")
+	if conflict_pair.size() != 2:
+		registry.free()
+		return
+
+	var normalized_conflict: Array[String] = registry.normalize_contract_selection(conflict_pair)
+	_assert_true(normalized_conflict.size() == 1, "s3 normalize keeps one contract per exclusive group")
+
+	var contract_scene: PackedScene = load("res://scenes/ui/ContractSelect.tscn")
+	var panel_variant: Variant = contract_scene.instantiate()
+	_assert_true(panel_variant is Node, "s3 contract select scene instantiates")
+	if not (panel_variant is Node):
+		registry.free()
+		return
+	var panel: Node = panel_variant
+	get_tree().root.add_child.call_deferred(panel)
+	await _await_stable_physics_frames(2)
+	var initial_selection: Array[String] = [conflict_pair[0]]
+	panel.call("set_contract_data", contracts_rows, initial_selection, registry.get_contract_max_select())
+	await _await_stable_physics_frames(1)
+
+	var locked_id := conflict_pair[1]
+	_assert_true(bool(panel.call("is_contract_locked", locked_id)), "s3 conflicting contract is locked in contract list")
+	var locked_text: String = String(panel.call("get_contract_row_text", locked_id))
+	_assert_true(locked_text.find("🔒") >= 0, "s3 locked contract shows lock icon in row text")
+
+	var locked_index: int = int(panel.call("get_contract_index", locked_id))
+	var selected_before_variant: Variant = panel.call("get_selected_contract_ids")
+	var selected_before: Array[String] = selected_before_variant if selected_before_variant is Array else []
+	panel.call("_on_item_activated", locked_index)
+	await _await_stable_physics_frames(1)
+	var selected_after_variant: Variant = panel.call("get_selected_contract_ids")
+	var selected_after: Array[String] = selected_after_variant if selected_after_variant is Array else []
+	_assert_equal(selected_after, selected_before, "s3 locked contract activation does not change selection")
+	var conflict_hint: String = String(panel.call("get_status_hint_text"))
+	_assert_true(conflict_hint.find("互斥") >= 0, "s3 selecting locked contract shows mutual exclusion hint")
+
+	var preview_before: String = String(panel.call("get_preview_text"))
+	_assert_true(
+		preview_before.find("XP x") >= 0 and preview_before.find("Rarity x") >= 0 and preview_before.find("Drop x") >= 0,
+		"s3 reward preview displays XP/Rarity/Drop breakdown"
+	)
+
+	var selected_group := String(registry.get_contract(conflict_pair[0]).get("exclusive_group", ""))
+	var additive_contract_id := ""
+	for row_variant in contracts_rows:
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		var candidate_id := String(row.get("id", "")).strip_edges()
+		if candidate_id.is_empty() or conflict_pair.has(candidate_id):
+			continue
+		if String(row.get("exclusive_group", "")).strip_edges() == selected_group:
+			continue
+		additive_contract_id = candidate_id
+		break
+	_assert_true(not additive_contract_id.is_empty(), "s3 found non-conflicting contract for preview change test")
+	if not additive_contract_id.is_empty():
+		var additive_index: int = int(panel.call("get_contract_index", additive_contract_id))
+		panel.call("_on_item_activated", additive_index)
+		await _await_stable_physics_frames(1)
+
+	var preview_after: String = String(panel.call("get_preview_text"))
+	_assert_true(preview_after != preview_before, "s3 reward preview updates after selection change")
+	var selected_snapshot_variant: Variant = panel.call("get_selected_contract_ids")
+	var selected_snapshot: Array[String] = selected_snapshot_variant if selected_snapshot_variant is Array else []
+
+	var panel_b_variant: Variant = contract_scene.instantiate()
+	_assert_true(panel_b_variant is Node, "s3 second contract panel instantiates")
+	if panel_b_variant is Node:
+		var panel_b: Node = panel_b_variant
+		get_tree().root.add_child.call_deferred(panel_b)
+		await _await_stable_physics_frames(2)
+		panel_b.call("set_contract_data", contracts_rows, selected_snapshot, registry.get_contract_max_select())
+		await _await_stable_physics_frames(1)
+		var preview_repro: String = String(panel_b.call("get_preview_text"))
+		_assert_equal(preview_repro, preview_after, "s3 reward preview reproducible for same selected contracts")
+		panel_b.queue_free()
+		await _await_stable_physics_frames(1)
+
+	var ui_scene: PackedScene = load("res://scenes/ui/UI.tscn")
+	var ui_variant: Variant = ui_scene.instantiate()
+	_assert_true(ui_variant is Node, "s3 ui scene instantiates for no_dash HUD test")
+	if ui_variant is Node:
+		var ui: Node = ui_variant
+		get_tree().root.add_child.call_deferred(ui)
+		await _await_stable_physics_frames(2)
+		ui.call("update_hud", {
+			"hp": 100.0,
+			"max_hp": 100.0,
+			"xp": 0.0,
+			"xp_to_next": 20.0,
+			"level": 1,
+			"noise": 0.0,
+			"noise_min": 0.0,
+			"noise_max": 100.0,
+			"noise_tier_name": "静默",
+			"noise_tier_id": "silent",
+			"noise_tier_color": "#74e7ff",
+			"attack_mode": "AUTO",
+			"elapsed_time": 0.0,
+			"kills": 0,
+			"enemy_count": 0,
+			"revealed_count": 0,
+			"active_weapon_name": "silence_dart",
+			"active_weapon_id": "silence_dart",
+			"active_weapon_level": 1,
+			"active_weapon_model": "projectile",
+			"contract_dash_disabled": true
+		})
+		var contract_label_variant: Variant = ui.get("contract_status_label")
+		if contract_label_variant is Label:
+			var contract_label: Label = contract_label_variant
+			_assert_true(contract_label.visible, "s3 no_dash HUD label is visible")
+			_assert_true(contract_label.text.find("Dash Disabled") >= 0, "s3 no_dash HUD label text is explicit")
+		else:
+			_assert_true(false, "s3 contract status label exists in HUD")
+		ui.queue_free()
+		await _await_stable_physics_frames(1)
+
+	panel.queue_free()
+	await _await_stable_physics_frames(1)
 	registry.free()
 
 
