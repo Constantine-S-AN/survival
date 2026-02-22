@@ -140,6 +140,45 @@ const UPGRADE_PREREQ_TYPES: Dictionary = {
 	"survive_time_seconds_at_least": true
 }
 
+const UPGRADE_ALLOWED_EFFECT_STATS: Dictionary = {
+	"damage_mult": true,
+	"attack_speed_mult": true,
+	"projectile_speed_mult": true,
+	"projectile_count_bonus": true,
+	"pierce_bonus": true,
+	"move_speed_bonus": true,
+	"dash_cooldown_reduction": true,
+	"max_hp": true,
+	"heal": true,
+	"regen_per_second": true,
+	"xp_gain_mult": true,
+	"noise_generation_mult": true,
+	"noise_decay_bonus": true,
+	"dash_noise_mult": true,
+	"sonar_reveal_duration_mult": true,
+	"revealed_damage_mult": true,
+	"low_noise_damage_mult": true,
+	"pickup_radius_mult": true,
+	"summon_cap_bonus": true,
+	"summon_resistance": true,
+	"chain_bonus": true,
+	"weapon_level_up": true,
+	"weapon_level_up_active": true,
+	"weapon_damage_mult": true,
+	"weapon_attack_rate_mult": true,
+	"weapon_range_mult": true,
+	"weapon_projectile_speed_mult": true,
+	"weapon_pierce_bonus": true,
+	"weapon_crit_chance_add": true,
+	"weapon_crit_multiplier_add": true,
+	"weapon_aoe_radius_mult": true,
+	"weapon_noise_mult": true,
+	"weapon_noise_add": true,
+	"weapon_projectile_count_bonus": true,
+	"weapon_reveal_bonus_add": true,
+	"weapon_summon_cap_bonus": true
+}
+
 var weapons: Dictionary = {}
 var enemies: Dictionary = {}
 var upgrades: Array = []
@@ -159,16 +198,17 @@ func _ready() -> void:
 		load_all()
 
 
-func load_all(log_errors: bool = true) -> bool:
+func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	validation_errors.clear()
-	weapons = _load_dictionary(DATA_FILES["weapons"], "weapons")
-	enemies = _load_dictionary(DATA_FILES["enemies"], "enemies")
-	upgrades = _load_array_of_dictionaries(DATA_FILES["upgrades"], "upgrades")
-	spawn_curve = _load_array_of_dictionaries(DATA_FILES["spawn_curve"], "spawn_curve")
-	fog_config = _load_dictionary(DATA_FILES["fog"], "fog")
-	sonar_config = _load_dictionary(DATA_FILES["sonar"], "sonar")
-	noise_config = _load_dictionary(DATA_FILES["noise"], "noise")
-	characters_config = _load_dictionary(DATA_FILES["characters"], "characters")
+	var resolved_files := _resolve_data_files(path_overrides)
+	weapons = _load_dictionary(String(resolved_files["weapons"]), "weapons")
+	enemies = _load_dictionary(String(resolved_files["enemies"]), "enemies")
+	upgrades = _load_array_of_dictionaries(String(resolved_files["upgrades"]), "upgrades")
+	spawn_curve = _load_array_of_dictionaries(String(resolved_files["spawn_curve"]), "spawn_curve")
+	fog_config = _load_dictionary(String(resolved_files["fog"]), "fog")
+	sonar_config = _load_dictionary(String(resolved_files["sonar"]), "sonar")
+	noise_config = _load_dictionary(String(resolved_files["noise"]), "noise")
+	characters_config = _load_dictionary(String(resolved_files["characters"]), "characters")
 	characters.clear()
 	character_order.clear()
 
@@ -206,6 +246,21 @@ func get_fog_config() -> Dictionary:
 
 func get_data_path(key: String) -> String:
 	return String(DATA_FILES.get(key, ""))
+
+
+func _resolve_data_files(path_overrides: Dictionary) -> Dictionary:
+	var resolved := DATA_FILES.duplicate(true)
+	for override_key_variant in path_overrides.keys():
+		var override_key := String(override_key_variant).strip_edges().to_lower()
+		if not resolved.has(override_key):
+			validation_errors.append("[data] unknown override key '%s'" % override_key)
+			continue
+		var override_path := String(path_overrides.get(override_key_variant, "")).strip_edges()
+		if override_path.is_empty():
+			validation_errors.append("[data] override path for '%s' must be non-empty" % override_key)
+			continue
+		resolved[override_key] = override_path
+	return resolved
 
 
 func get_data_version(key: String) -> int:
@@ -754,6 +809,7 @@ func _validate_upgrades() -> void:
 			blocks_by_upgrade[upgrade_id] = normalized_blocks
 
 		var effects_variant: Variant = upgrade.get("effects", [])
+		var upgrade_has_invalid_effect := false
 		if not (effects_variant is Array):
 			validation_errors.append("[%s] effects must be an array" % label)
 			continue
@@ -765,14 +821,25 @@ func _validate_upgrades() -> void:
 			var effect_variant: Variant = effects[e_index]
 			if not (effect_variant is Dictionary):
 				validation_errors.append("[%s] effect %d must be a dictionary" % [label, e_index])
+				upgrade_has_invalid_effect = true
 				continue
 			var effect: Dictionary = effect_variant
 			_validate_required_keys(effect, ["stat", "add"], "%s:effect:%d" % [label, e_index])
+			var stat := String(effect.get("stat", "")).strip_edges()
+			if stat.is_empty():
+				validation_errors.append("[%s] effect %d stat must be non-empty" % [label, e_index])
+				upgrade_has_invalid_effect = true
+				continue
+			if not _is_known_upgrade_effect_stat(stat):
+				validation_errors.append("[%s] effect %d unknown effect stat '%s'" % [label, e_index, stat])
+				upgrade_has_invalid_effect = true
+				continue
 			var target_variant: Variant = effect.get("target", null)
 			if target_variant == null:
 				continue
 			if not (target_variant is Dictionary):
 				validation_errors.append("[%s] effect %d target must be dictionary" % [label, e_index])
+				upgrade_has_invalid_effect = true
 				continue
 			var target: Dictionary = target_variant
 			_validate_required_keys(target, ["type", "value"], "%s:effect:%d:target" % [label, e_index])
@@ -780,15 +847,21 @@ func _validate_upgrades() -> void:
 			var target_value := String(target.get("value", "")).strip_edges().to_lower()
 			if not UPGRADE_EFFECT_TARGET_TYPES.has(target_type):
 				validation_errors.append("[%s] effect %d target type '%s' is unsupported" % [label, e_index, target_type])
+				upgrade_has_invalid_effect = true
 				continue
 			if target_value.is_empty():
 				validation_errors.append("[%s] effect %d target value must be non-empty" % [label, e_index])
+				upgrade_has_invalid_effect = true
 				continue
 			if target_type == "weapon_id" and not weapons.has(target_value):
 				validation_errors.append("[%s] effect %d unknown target weapon_id '%s'" % [label, e_index, target_value])
+				upgrade_has_invalid_effect = true
 			elif target_type == "tag" and not _is_known_upgrade_tag(target_value):
 				validation_errors.append("[%s] effect %d unknown target tag '%s'" % [label, e_index, target_value])
+				upgrade_has_invalid_effect = true
 
+		if upgrade_has_invalid_effect:
+			continue
 		normalized_upgrades.append(normalized)
 
 	for source_upgrade_id_variant in blocks_by_upgrade.keys():
@@ -1014,6 +1087,10 @@ func _validate_required_keys(payload: Dictionary, required_keys: Array, label: S
 
 func _is_known_upgrade_tag(tag: String) -> bool:
 	return UPGRADE_ALLOWED_TAGS.has(tag) or WEAPON_ALLOWED_TAGS.has(tag)
+
+
+func _is_known_upgrade_effect_stat(stat: String) -> bool:
+	return UPGRADE_ALLOWED_EFFECT_STATS.has(stat)
 
 
 func _validate_upgrade_prereq(prereq_variant: Variant, label: String) -> void:
