@@ -20,9 +20,13 @@ var failed: int = 0
 
 func _ready() -> void:
 	_bootstrap_script_mode_singletons()
+	var input_config_script: Script = load("res://scripts/core/input_config.gd")
+	if input_config_script != null and input_config_script.has_method("ensure_default_actions"):
+		input_config_script.ensure_default_actions()
 	_run_data_registry_tests()
 	_run_spawn_profile_tests()
 	await _run_pool_system_tests()
+	await _run_character_profile_tests()
 	await _run_m2_system_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
@@ -50,6 +54,16 @@ func _run_data_registry_tests() -> void:
 	_assert_true(registry.weapons.has("pulse_emitter"), "weapons includes pulse_emitter")
 	_assert_true(registry.enemies.size() >= 4, "enemies has at least 4 entries")
 	_assert_true(registry.upgrades.size() >= 12, "upgrades has at least 12 entries")
+	var characters: Array = registry.get_characters()
+	_assert_true(characters.size() >= 5, "characters has at least 5 entries")
+	_assert_equal(registry.get_default_character_id(), "diver", "default character id is diver")
+	_assert_true(registry.has_character("diver"), "characters includes diver")
+	var diver: Dictionary = registry.get_character("diver")
+	_assert_equal(String(diver.get("starting_weapon_id", "")), "pulse_emitter", "diver starts with pulse_emitter")
+	var diver_unlock_variant: Variant = diver.get("unlock", {})
+	_assert_true(diver_unlock_variant is Dictionary, "diver unlock object exists")
+	var diver_unlock: Dictionary = diver_unlock_variant if diver_unlock_variant is Dictionary else {}
+	_assert_equal(String(diver_unlock.get("type", "")), "survive_time_seconds", "diver unlock type")
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
@@ -118,6 +132,110 @@ func _run_pool_system_tests() -> void:
 	pool_manager.queue_free()
 	active_layer.queue_free()
 	await get_tree().process_frame
+
+
+func _run_character_profile_tests() -> void:
+	var profile_path := "user://profile.json"
+	var had_backup := FileAccess.file_exists(profile_path)
+	var backup_content := FileAccess.get_file_as_string(profile_path) if had_backup else ""
+
+	var legacy_profile := {
+		"unlocked_characters": ["diver"],
+		"last_selected_character_id": "diver",
+		"progress": {
+			"total_kills": 12
+		}
+	}
+	var write_profile := FileAccess.open(profile_path, FileAccess.WRITE)
+	write_profile.store_string(JSON.stringify(legacy_profile, "\t"))
+	write_profile.flush()
+	write_profile = null
+
+	var profile_script: Script = load("res://scripts/core/profile_store.gd")
+	var profile_store: Node = profile_script.new()
+	get_tree().root.add_child.call_deferred(profile_store)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	profile_store.load_profile("diver")
+	_assert_equal(profile_store.get_schema_version(), 2, "profile migration upgrades schema to v2")
+	var migrated_profile: Dictionary = profile_store.get_profile()
+	var migrated_progress_variant: Variant = migrated_profile.get("progress", {})
+	var migrated_progress: Dictionary = migrated_progress_variant if migrated_progress_variant is Dictionary else {}
+	_assert_equal(int(migrated_progress.get("total_kills", 0)), 12, "profile migration preserves legacy progress fields")
+
+	profile_store.set_selected_character_id("scavenger")
+	profile_store.save_profile()
+	var profile_store_reloaded: Node = profile_script.new()
+	get_tree().root.add_child.call_deferred(profile_store_reloaded)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	profile_store_reloaded.load_profile("diver")
+	_assert_equal(profile_store_reloaded.get_selected_character_id("diver"), "scavenger", "selected character persists after reload")
+
+	var player_scene: PackedScene = load("res://scenes/player/Player.tscn")
+	var player = player_scene.instantiate()
+	get_tree().root.add_child.call_deferred(player)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var character_rng := RandomNumberGenerator.new()
+	character_rng.seed = 913
+	player.setup(null, null, character_rng, DataRegistry.get_character("scavenger"))
+	_assert_true(is_equal_approx(player.get_pickup_radius_multiplier(), 1.35), "scavenger pickup radius multiplier applied")
+	_assert_true(is_equal_approx(player.xp_gain_mult, 1.1), "scavenger xp gain multiplier applied")
+	player.setup(null, null, character_rng, DataRegistry.get_character("diver"))
+	_assert_true(is_equal_approx(player.noise_generation_mult, 0.8), "diver noise gain multiplier applied")
+	_assert_true(is_equal_approx(player.get_sonar_reveal_duration_multiplier(), 1.25), "diver sonar reveal multiplier applied")
+
+	var base_pickup_count := 0
+	var biased_pickup_count := 0
+	for seed in range(1, 33):
+		var rng_base := RandomNumberGenerator.new()
+		rng_base.seed = seed
+		var base_choices: Array = DataRegistry.get_upgrade_choices(rng_base, {}, 3, {})
+		base_pickup_count += _count_choices_with_tag(base_choices, "pickup")
+
+		var rng_biased := RandomNumberGenerator.new()
+		rng_biased.seed = seed
+		var biased_choices: Array = DataRegistry.get_upgrade_choices(
+			rng_biased,
+			{},
+			3,
+			{"pickup": 2.8, "economy": 2.0, "weapon": 0.45}
+		)
+		biased_pickup_count += _count_choices_with_tag(biased_choices, "pickup")
+	_assert_true(biased_pickup_count > base_pickup_count, "tag_weights bias pickup upgrades deterministically")
+
+	var run_summary := {
+		"total_kills": 900,
+		"pickups_collected": 260,
+		"elite_or_pursuer_kills": 3,
+		"survive_time_seconds": 620.0,
+		"max_noise_reached": 72.0,
+		"max_noise_tier_id": "exposed"
+	}
+	var newly_unlocked: Array[String] = profile_store_reloaded.evaluate_character_unlocks(DataRegistry.get_characters(), run_summary)
+	_assert_true(newly_unlocked.has("arc_tech"), "unlock evaluation unlocks arc_tech from total_kills")
+	_assert_true(newly_unlocked.has("lancer"), "unlock evaluation unlocks lancer from max noise")
+	_assert_true(newly_unlocked.has("drone_handler"), "unlock evaluation unlocks drone_handler from pickups")
+	_assert_true(newly_unlocked.has("scavenger"), "unlock evaluation unlocks scavenger from survive time")
+	_assert_true(profile_store_reloaded.is_character_unlocked("arc_tech"), "unlock state persisted for arc_tech")
+
+	var arc_unlock_variant: Variant = DataRegistry.get_character("arc_tech").get("unlock", {})
+	var arc_unlock: Dictionary = arc_unlock_variant if arc_unlock_variant is Dictionary else {}
+	var arc_progress: Dictionary = profile_store_reloaded.get_requirement_progress(arc_unlock)
+	_assert_true(bool(arc_progress.get("met", false)), "progress query returns met after unlock")
+
+	player.queue_free()
+	profile_store.queue_free()
+	profile_store_reloaded.queue_free()
+	await get_tree().process_frame
+	if had_backup:
+		var restore := FileAccess.open(profile_path, FileAccess.WRITE)
+		restore.store_string(backup_content)
+		restore.flush()
+		restore = null
+	elif FileAccess.file_exists(profile_path):
+		DirAccess.remove_absolute(profile_path)
 
 
 func _run_m2_system_tests() -> void:
@@ -270,3 +388,18 @@ func _array_contains_text(items: Array[String], pattern: String) -> bool:
 		if item.find(pattern) >= 0:
 			return true
 	return false
+
+
+func _count_choices_with_tag(choices: Array, tag: String) -> int:
+	var count := 0
+	for choice_variant in choices:
+		if not (choice_variant is Dictionary):
+			continue
+		var choice: Dictionary = choice_variant
+		var tags_variant: Variant = choice.get("tags", [])
+		if not (tags_variant is Array):
+			continue
+		var tags: Array = tags_variant
+		if tags.has(tag):
+			count += 1
+	return count

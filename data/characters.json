@@ -1,0 +1,196 @@
+{
+	"schema_version": 1,
+	"default_character_id": "diver",
+	"characters": [
+		{
+			"id": "diver",
+			"display_name": "Silent Diver",
+			"short_desc": "Low-noise sonar specialist.",
+			"passive_summary": "Reduced noise gain, longer reveal windows.",
+			"starting_weapon_id": "pulse_emitter",
+			"effect_id": "",
+			"stat_modifiers": {
+				"max_hp_multiplier": 1.0,
+				"max_hp_bonus": 0.0,
+				"move_speed_multiplier": 1.0,
+				"move_speed_bonus": 0.0,
+				"dash_cooldown_multiplier": 1.0,
+				"noise_gain_multiplier": 0.8,
+				"sonar_reveal_duration_multiplier": 1.25,
+				"pickup_radius_multiplier": 1.0,
+				"damage_multiplier": 1.0,
+				"attack_speed_multiplier": 1.0,
+				"projectile_range_multiplier": 1.0,
+				"pierce_bonus": 0,
+				"xp_gain_multiplier": 1.0,
+				"crit_chance_bonus": 0.0,
+				"chain_bonus": 0.0,
+				"summon_cap_bonus": 0
+			},
+			"tag_weights": {
+				"silence": 1.4,
+				"sonar": 1.2,
+				"pickup": 1.1
+			},
+			"unlock": {
+				"type": "survive_time_seconds",
+				"params": {
+					"value": 420
+				},
+				"display": "Survive for 7:00 in a single run."
+			}
+		},
+		{
+			"id": "arc_tech",
+			"display_name": "Arc Technician",
+			"short_desc": "Unstable conductor tuned for chain reactions.",
+			"passive_summary": "More crit potential, slightly louder output.",
+			"starting_weapon_id": "pulse_emitter",
+			"effect_id": "",
+			"stat_modifiers": {
+				"max_hp_multiplier": 1.0,
+				"max_hp_bonus": 0.0,
+				"move_speed_multiplier": 1.0,
+				"move_speed_bonus": 0.0,
+				"dash_cooldown_multiplier": 1.0,
+				"noise_gain_multiplier": 1.1,
+				"sonar_reveal_duration_multiplier": 1.0,
+				"pickup_radius_multiplier": 1.0,
+				"damage_multiplier": 0.95,
+				"attack_speed_multiplier": 1.0,
+				"projectile_range_multiplier": 1.0,
+				"pierce_bonus": 0,
+				"xp_gain_multiplier": 1.0,
+				"crit_chance_bonus": 0.05,
+				"chain_bonus": 0.1,
+				"summon_cap_bonus": 0
+			},
+			"tag_weights": {
+				"chain": 1.5,
+				"crit": 1.2,
+				"aoe": 1.1
+			},
+			"unlock": {
+				"type": "total_kills",
+				"params": {
+					"value": 800
+				},
+				"display": "Accumulate 800 total kills."
+			}
+		},
+		{
+			"id": "lancer",
+			"display_name": "Trench Lancer",
+			"short_desc": "Forward assault frame optimized for puncture runs.",
+			"passive_summary": "Faster dash cycle and deeper penetration.",
+			"starting_weapon_id": "pulse_emitter",
+			"effect_id": "",
+			"stat_modifiers": {
+				"max_hp_multiplier": 1.0,
+				"max_hp_bonus": 0.0,
+				"move_speed_multiplier": 1.0,
+				"move_speed_bonus": 0.0,
+				"dash_cooldown_multiplier": 0.85,
+				"noise_gain_multiplier": 1.0,
+				"sonar_reveal_duration_multiplier": 1.0,
+				"pickup_radius_multiplier": 1.0,
+				"damage_multiplier": 1.0,
+				"attack_speed_multiplier": 1.0,
+				"projectile_range_multiplier": 1.2,
+				"pierce_bonus": 1,
+				"xp_gain_multiplier": 1.0,
+				"crit_chance_bonus": 0.0,
+				"chain_bonus": 0.0,
+				"summon_cap_bonus": 0
+			},
+			"tag_weights": {
+				"pierce": 1.5,
+				"speed": 1.2,
+				"crit": 1.1
+			},
+			"unlock": {
+				"type": "max_noise_reached",
+				"params": {
+					"value": 60
+				},
+				"display": "Reach Noise 60 (Exposed) in a run."
+			}
+		},
+		{
+			"id": "drone_handler",
+			"display_name": "Drone Handler",
+			"short_desc": "Tactical coordinator for autonomous platforms.",
+			"passive_summary": "Higher noise, stronger summon focus.",
+			"starting_weapon_id": "pulse_emitter",
+			"effect_id": "",
+			"stat_modifiers": {
+				"max_hp_multiplier": 1.0,
+				"max_hp_bonus": 0.0,
+				"move_speed_multiplier": 1.0,
+				"move_speed_bonus": 0.0,
+				"dash_cooldown_multiplier": 1.0,
+				"noise_gain_multiplier": 1.15,
+				"sonar_reveal_duration_multiplier": 1.05,
+				"pickup_radius_multiplier": 1.0,
+				"damage_multiplier": 1.0,
+				"attack_speed_multiplier": 1.0,
+				"projectile_range_multiplier": 1.0,
+				"pierce_bonus": 0,
+				"xp_gain_multiplier": 1.0,
+				"crit_chance_bonus": 0.0,
+				"chain_bonus": 0.0,
+				"summon_cap_bonus": 1
+			},
+			"tag_weights": {
+				"summon": 1.6,
+				"sonar": 1.1,
+				"shield": 1.1
+			},
+			"unlock": {
+				"type": "pickups_collected",
+				"params": {
+					"value": 250
+				},
+				"display": "Collect 250 pickups."
+			}
+		},
+		{
+			"id": "scavenger",
+			"display_name": "Neon Scavenger",
+			"short_desc": "Resource diver who turns scraps into growth.",
+			"passive_summary": "Larger pickup radius and better XP conversion.",
+			"starting_weapon_id": "pulse_emitter",
+			"effect_id": "",
+			"stat_modifiers": {
+				"max_hp_multiplier": 1.0,
+				"max_hp_bonus": 0.0,
+				"move_speed_multiplier": 1.0,
+				"move_speed_bonus": 0.0,
+				"dash_cooldown_multiplier": 1.0,
+				"noise_gain_multiplier": 1.0,
+				"sonar_reveal_duration_multiplier": 1.0,
+				"pickup_radius_multiplier": 1.35,
+				"damage_multiplier": 1.0,
+				"attack_speed_multiplier": 1.0,
+				"projectile_range_multiplier": 1.0,
+				"pierce_bonus": 0,
+				"xp_gain_multiplier": 1.1,
+				"crit_chance_bonus": 0.0,
+				"chain_bonus": 0.0,
+				"summon_cap_bonus": 0
+			},
+			"tag_weights": {
+				"pickup": 1.6,
+				"economy": 1.3,
+				"sonar": 1.1
+			},
+			"unlock": {
+				"type": "survive_time_seconds",
+				"params": {
+					"value": 600
+				},
+				"display": "Survive for 10:00 in a single run."
+			}
+		}
+	]
+}

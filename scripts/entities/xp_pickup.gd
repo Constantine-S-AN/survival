@@ -26,6 +26,9 @@ func set_recycle_handler(handler: Callable) -> void:
 func setup(amount: int, player_ref: Node2D) -> void:
 	xp_amount = max(1, amount)
 	player = player_ref
+	magnet_radius = 170.0
+	if player != null and player.has_method("get_pickup_radius_multiplier"):
+		magnet_radius *= float(player.get_pickup_radius_multiplier())
 	var radius := 6.0 + minf(7.0, float(xp_amount) * 0.25)
 	var shape := collision_shape.shape
 	if shape is CircleShape2D:
@@ -53,9 +56,15 @@ func _on_body_entered(body: Node) -> void:
 		return
 	if player.has_method("gain_xp"):
 		player.gain_xp(xp_amount)
+	var reveal_mult := 1.0
+	if player.has_method("get_sonar_reveal_duration_multiplier"):
+		reveal_mult = float(player.get_sonar_reveal_duration_multiplier())
 	FeedbackBus.emit_sonar_pulse(global_position, {
-		"source": source
+		"source": source,
+		"reveal_duration_multiplier": reveal_mult
 	})
+	if FeedbackBus.has_method("emit_pickup_collected"):
+		FeedbackBus.emit_pickup_collected(global_position, xp_amount)
 	_request_recycle()
 
 

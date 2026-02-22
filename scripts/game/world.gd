@@ -36,11 +36,11 @@ func _ready() -> void:
 	queue_redraw()
 
 
-func setup_run(run_rng: RandomNumberGenerator) -> void:
+func setup_run(run_rng: RandomNumberGenerator, character_def: Dictionary = {}) -> void:
 	_setup_pools()
 	if pool_manager != null and pool_manager.has_method("reset_stats"):
 		pool_manager.reset_stats()
-	player.setup(enemy_manager, projectile_manager, run_rng)
+	player.setup(enemy_manager, projectile_manager, run_rng, character_def)
 	enemy_manager.setup(player, run_rng)
 	apply_sonar_config(DataRegistry.get_sonar_config())
 

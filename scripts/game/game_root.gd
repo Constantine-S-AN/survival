@@ -4,7 +4,10 @@ class_name GameRoot
 const STATE_PLAYING := "playing"
 const STATE_LEVEL_UP := "level_up"
 const STATE_GAME_OVER := "game_over"
+const STATE_MENU := "menu"
+const STATE_CHARACTER_SELECT := "character_select"
 const InputConfig := preload("res://scripts/core/input_config.gd")
+const RunStatsClass := preload("res://scripts/core/run_stats.gd")
 
 @onready var world = $World
 @onready var ui = $UI
@@ -13,25 +16,32 @@ var rng := RandomNumberGenerator.new()
 var run_seed := 0
 var elapsed_time := 0.0
 var kills := 0
-var run_state := STATE_PLAYING
+var run_state := STATE_MENU
 var hitstop_active := false
 var hitstop_end_usec: int = 0
 var fog_enabled: bool = true
 var sonar_visual_enabled: bool = true
 var fixed_noise_enabled: bool = false
 var fixed_noise_value: float = 0.0
+var selected_character_id: String = ""
+var run_started: bool = false
+var run_stats = RunStatsClass.new()
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	Engine.time_scale = 1.0
 	InputConfig.ensure_default_actions()
 	if not DataRegistry.load_all():
 		push_error("DataRegistry failed to load JSON. Check console for details.")
+	var default_character_id := DataRegistry.get_default_character_id()
+	ProfileStore.load_profile(default_character_id if not default_character_id.is_empty() else "diver")
+	if not ProfileStore.is_character_unlocked(default_character_id):
+		ProfileStore.unlock_character(default_character_id)
+	selected_character_id = ProfileStore.get_selected_character_id(default_character_id)
+	if not ProfileStore.is_character_unlocked(selected_character_id):
+		selected_character_id = default_character_id
 
-	run_seed = int(Time.get_unix_time_from_system())
-	rng.seed = run_seed
-
-	world.setup_run(rng)
 	var fog_cfg: Dictionary = DataRegistry.get_fog_config()
 	fog_enabled = bool(fog_cfg.get("enabled", true))
 	world.apply_fog_config(fog_cfg)
@@ -49,11 +59,22 @@ func _ready() -> void:
 	world.player.attack_mode_changed.connect(_on_player_attack_mode_changed)
 	world.enemy_manager.enemy_killed.connect(_on_enemy_killed)
 	FeedbackBus.hit_landed.connect(_on_hit_landed)
+	FeedbackBus.pickup_collected.connect(_on_pickup_collected)
 
 	ui.upgrade_selected.connect(_on_upgrade_selected)
 	ui.retry_requested.connect(_on_retry_requested)
+	ui.main_menu_start_requested.connect(_on_main_menu_start_requested)
+	ui.start_run_requested.connect(_on_start_run_requested)
+	ui.character_select_back_requested.connect(_on_character_select_back_requested)
+	ui.unlock_all_debug_requested.connect(_on_unlock_all_debug_requested)
 
-	_set_state(STATE_PLAYING)
+	ui.configure_character_select(
+		DataRegistry.get_characters(),
+		ProfileStore.get_unlocked_characters(),
+		selected_character_id
+	)
+
+	_set_state(STATE_MENU)
 	_refresh_hud()
 
 
@@ -71,14 +92,31 @@ func _process(delta: float) -> void:
 		_push_debug_snapshot()
 		return
 	elapsed_time += delta
+	run_stats.survive_time_seconds = elapsed_time
+	run_stats.max_noise_reached = maxf(run_stats.max_noise_reached, world.player.noise)
+	var noise_tier: Dictionary = DataRegistry.get_noise_tier(world.player.noise)
+	run_stats.max_noise_tier_id = String(noise_tier.get("id", run_stats.max_noise_tier_id))
 	world.enemy_manager.update_difficulty(elapsed_time, world.player.noise)
 	_refresh_hud()
 	_push_debug_snapshot()
 
 
-func _on_enemy_killed(_enemy_id: String, xp_reward: int, world_position: Vector2) -> void:
+func _on_enemy_killed(enemy_id: String, xp_reward: int, world_position: Vector2) -> void:
 	kills += 1
+	run_stats.total_kills += 1
+	var enemy_def := DataRegistry.get_enemy(enemy_id)
+	var tags_variant: Variant = enemy_def.get("tags", [])
+	if tags_variant is Array:
+		var tags: Array = tags_variant
+		if tags.has("elite") or tags.has("pursuer"):
+			run_stats.elite_or_pursuer_kills += 1
+	if enemy_id.find("pursuer") >= 0:
+		run_stats.elite_or_pursuer_kills += 1
 	world.call_deferred("spawn_xp_pickup", world_position, xp_reward)
+
+
+func _on_pickup_collected(_world_position: Vector2, _amount: int) -> void:
+	run_stats.pickups_collected += 1
 
 
 func _on_player_level_up_requested(options: Array) -> void:
@@ -114,12 +152,21 @@ func _apply_hitstop(duration: float) -> void:
 
 
 func _on_player_died() -> void:
+	var newly_unlocked_ids := _evaluate_character_unlocks()
+	var unlocked_names: Array[String] = []
+	for character_id in newly_unlocked_ids:
+		var character := DataRegistry.get_character(character_id)
+		unlocked_names.append(String(character.get("display_name", character_id)))
+	if not unlocked_names.is_empty():
+		ui.show_unlock_toast(unlocked_names)
+		ui.refresh_character_unlocks(ProfileStore.get_unlocked_characters())
 	_set_state(STATE_GAME_OVER)
 	ui.show_game_over({
 		"time": elapsed_time,
 		"kills": kills,
 		"level": world.player.level,
-		"seed": run_seed
+		"seed": run_seed,
+		"unlocked_count": unlocked_names.size()
 	})
 
 
@@ -127,6 +174,67 @@ func _on_retry_requested() -> void:
 	get_tree().paused = false
 	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()
+
+
+func _on_main_menu_start_requested() -> void:
+	ui.configure_character_select(
+		DataRegistry.get_characters(),
+		ProfileStore.get_unlocked_characters(),
+		selected_character_id
+	)
+	_set_state(STATE_CHARACTER_SELECT)
+
+
+func _on_start_run_requested(character_id: String) -> void:
+	_start_run(character_id)
+
+
+func _on_character_select_back_requested() -> void:
+	_set_state(STATE_MENU)
+
+
+func _on_unlock_all_debug_requested() -> void:
+	if not OS.is_debug_build():
+		return
+	ProfileStore.unlock_all_characters(DataRegistry.get_characters())
+	ui.refresh_character_unlocks(ProfileStore.get_unlocked_characters())
+	ui.show_system_message("Debug: all characters unlocked.", false)
+
+
+func _start_run(character_id: String) -> void:
+	var chosen_id := character_id.strip_edges()
+	if chosen_id.is_empty():
+		chosen_id = DataRegistry.get_default_character_id()
+	if not ProfileStore.is_character_unlocked(chosen_id):
+		ui.show_system_message("Character is locked.", true)
+		return
+
+	selected_character_id = chosen_id
+	ProfileStore.set_selected_character_id(selected_character_id)
+	run_seed = int(Time.get_unix_time_from_system())
+	rng.seed = run_seed
+	elapsed_time = 0.0
+	kills = 0
+	run_started = true
+	run_stats.reset(run_seed)
+
+	var character_def := DataRegistry.get_character(selected_character_id)
+	world.setup_run(rng, character_def)
+	fixed_noise_value = world.player.noise
+	_set_state(STATE_PLAYING)
+	_refresh_hud()
+
+
+func _evaluate_character_unlocks() -> Array[String]:
+	if not run_started:
+		return []
+	run_started = false
+	var summary: Dictionary = run_stats.to_dict()
+	summary["survive_time_seconds"] = elapsed_time
+	summary["max_noise_reached"] = maxf(float(summary.get("max_noise_reached", 0.0)), world.player.noise)
+	var noise_tier: Dictionary = DataRegistry.get_noise_tier(float(summary.get("max_noise_reached", 0.0)))
+	summary["max_noise_tier_id"] = String(noise_tier.get("id", summary.get("max_noise_tier_id", "silent")))
+	return ProfileStore.evaluate_character_unlocks(DataRegistry.get_characters(), summary)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -209,6 +317,7 @@ func _push_debug_snapshot() -> void:
 	snapshot["fog_path"] = DataRegistry.get_data_path("fog")
 	snapshot["sonar_path"] = DataRegistry.get_data_path("sonar")
 	snapshot["noise_path"] = DataRegistry.get_data_path("noise")
+	snapshot["selected_character"] = selected_character_id
 	ui.update_debug_data(snapshot)
 
 
@@ -229,6 +338,11 @@ func _reload_runtime_data() -> void:
 	var sonar_cfg: Dictionary = DataRegistry.get_sonar_config()
 	world.apply_sonar_config(sonar_cfg)
 	world.set_sonar_visual_enabled(sonar_visual_enabled)
+	ui.configure_character_select(
+		DataRegistry.get_characters(),
+		ProfileStore.get_unlocked_characters(),
+		selected_character_id
+	)
 	ui.show_system_message("Data reloaded (fog/sonar/noise).", false)
 
 
