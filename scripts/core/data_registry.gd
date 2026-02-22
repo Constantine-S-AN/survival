@@ -46,6 +46,55 @@ const CHARACTER_UNLOCK_TYPES: Dictionary = {
 	"elite_or_pursuer_kills": true
 }
 
+const WEAPON_REQUIRED_KEYS: Array[String] = [
+	"id",
+	"name",
+	"description",
+	"attack_model",
+	"tags",
+	"base_damage",
+	"attack_rate",
+	"range",
+	"projectile_speed",
+	"projectile_pierce",
+	"crit_chance",
+	"crit_multiplier",
+	"aoe_radius",
+	"noise_per_attack",
+	"level_growth"
+]
+
+const WEAPON_SUPPORTED_MODELS: Dictionary = {
+	"projectile": true,
+	"pulse": true,
+	"mine": true,
+	"beam": true,
+	"drone": true,
+	"melee": true
+}
+
+const WEAPON_ALLOWED_TAGS: Dictionary = {
+	"sonar": true,
+	"silence": true,
+	"heat": true,
+	"crit": true,
+	"pierce": true,
+	"chain": true,
+	"aoe": true,
+	"pickup": true,
+	"shield": true,
+	"speed": true,
+	"trap": true,
+	"control": true,
+	"summon": true,
+	"economy": true,
+	"damage": true,
+	"weapon": true,
+	"tempo": true,
+	"starter": true,
+	"kinetic": true
+}
+
 var weapons: Dictionary = {}
 var enemies: Dictionary = {}
 var upgrades: Array = []
@@ -373,18 +422,117 @@ func _load_json(path: String, label: String) -> Variant:
 
 
 func _validate_weapons() -> void:
+	if weapons.size() < 8:
+		validation_errors.append("[weapons] expected at least 8 weapon definitions, found %d" % weapons.size())
+	var normalized_weapons: Dictionary = {}
+	var seen_ids: Dictionary = {}
 	for weapon_key in weapons.keys():
 		var weapon_variant: Variant = weapons[weapon_key]
 		if not (weapon_variant is Dictionary):
 			validation_errors.append("[weapons] %s must be a dictionary" % weapon_key)
 			continue
 		var weapon: Dictionary = weapon_variant
-		_validate_required_keys(
-			weapon,
-			["name", "damage", "cooldown", "projectile_speed", "range", "pierce", "tags"],
-			"weapons:%s" % String(weapon_key)
-		)
-		weapon["id"] = String(weapon.get("id", String(weapon_key)))
+		var label := "weapons:%s" % String(weapon_key)
+		_validate_required_keys(weapon, WEAPON_REQUIRED_KEYS, label)
+
+		var weapon_id := String(weapon.get("id", String(weapon_key))).strip_edges()
+		if weapon_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(weapon_id):
+			validation_errors.append("[%s] duplicate weapon id '%s'" % [label, weapon_id])
+			continue
+		seen_ids[weapon_id] = true
+
+		var normalized: Dictionary = weapon.duplicate(true)
+		normalized["id"] = weapon_id
+
+		var attack_model := String(normalized.get("attack_model", "")).strip_edges().to_lower()
+		if not WEAPON_SUPPORTED_MODELS.has(attack_model):
+			validation_errors.append("[%s] unsupported attack_model '%s'" % [label, attack_model])
+		normalized["attack_model"] = attack_model
+
+		var tags_variant: Variant = normalized.get("tags", [])
+		if not (tags_variant is Array):
+			validation_errors.append("[%s] tags must be an array" % label)
+			normalized["tags"] = []
+		else:
+			var tags: Array = tags_variant
+			if tags.is_empty():
+				validation_errors.append("[%s] tags must contain at least one tag" % label)
+			var normalized_tags: Array[String] = []
+			for tag_variant in tags:
+				var tag := String(tag_variant).strip_edges().to_lower()
+				if tag.is_empty():
+					validation_errors.append("[%s] tags cannot contain empty values" % label)
+					continue
+				if not WEAPON_ALLOWED_TAGS.has(tag):
+					validation_errors.append("[%s] unknown tag '%s'" % [label, tag])
+				if not normalized_tags.has(tag):
+					normalized_tags.append(tag)
+			normalized["tags"] = normalized_tags
+
+		var base_damage := float(normalized.get("base_damage", 0.0))
+		var attack_rate := float(normalized.get("attack_rate", 0.0))
+		var weapon_range := float(normalized.get("range", 0.0))
+		var projectile_speed := float(normalized.get("projectile_speed", 0.0))
+		var crit_chance := float(normalized.get("crit_chance", 0.0))
+		var crit_multiplier := float(normalized.get("crit_multiplier", 1.0))
+		var aoe_radius := float(normalized.get("aoe_radius", 0.0))
+		var noise_per_attack := float(normalized.get("noise_per_attack", 0.0))
+		var projectile_pierce := int(normalized.get("projectile_pierce", 0))
+		if base_damage < 0.0:
+			validation_errors.append("[%s] base_damage must be >= 0" % label)
+		if attack_rate <= 0.0:
+			validation_errors.append("[%s] attack_rate must be > 0" % label)
+			attack_rate = 0.0001
+		if weapon_range < 0.0:
+			validation_errors.append("[%s] range must be >= 0" % label)
+		if projectile_speed < 0.0:
+			validation_errors.append("[%s] projectile_speed must be >= 0" % label)
+		if crit_chance < 0.0:
+			validation_errors.append("[%s] crit_chance must be >= 0" % label)
+		if crit_multiplier < 1.0:
+			validation_errors.append("[%s] crit_multiplier must be >= 1.0" % label)
+		if aoe_radius < 0.0:
+			validation_errors.append("[%s] aoe_radius must be >= 0" % label)
+		if noise_per_attack < 0.0:
+			validation_errors.append("[%s] noise_per_attack must be >= 0" % label)
+		if projectile_pierce < 0:
+			validation_errors.append("[%s] projectile_pierce must be >= 0" % label)
+
+		var growth_variant: Variant = normalized.get("level_growth", [])
+		if not (growth_variant is Array):
+			validation_errors.append("[%s] level_growth must be array" % label)
+		else:
+			var growth: Array = growth_variant
+			if growth.size() < 5:
+				validation_errors.append("[%s] level_growth must define at least 5 levels" % label)
+			var seen_levels: Dictionary = {}
+			for g_idx in range(growth.size()):
+				var row_variant: Variant = growth[g_idx]
+				if not (row_variant is Dictionary):
+					validation_errors.append("[%s] level_growth[%d] must be dictionary" % [label, g_idx])
+					continue
+				var row: Dictionary = row_variant
+				_validate_required_keys(row, ["level"], "%s:level_growth[%d]" % [label, g_idx])
+				var level_value := int(row.get("level", 0))
+				if level_value <= 0:
+					validation_errors.append("[%s] level_growth[%d].level must be > 0" % [label, g_idx])
+					continue
+				if seen_levels.has(level_value):
+					validation_errors.append("[%s] duplicate level_growth level %d" % [label, level_value])
+					continue
+				seen_levels[level_value] = true
+
+		# Backward-compatible fields so existing runtime can keep reading cooldown/damage/pierce/noise.
+		normalized["damage"] = base_damage
+		normalized["cooldown"] = 1.0 / maxf(0.0001, attack_rate)
+		normalized["pierce"] = projectile_pierce
+		normalized["noise"] = noise_per_attack
+
+		normalized_weapons[weapon_id] = normalized
+	weapons = normalized_weapons
 
 
 func _validate_enemies() -> void:

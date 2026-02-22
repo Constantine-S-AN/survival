@@ -51,7 +51,18 @@ func _run_data_registry_tests() -> void:
 	var registry_script := load("res://scripts/core/data_registry.gd")
 	var registry = registry_script.new()
 	_assert_true(registry.load_all(), "DataRegistry should load all JSON files")
-	_assert_true(registry.weapons.has("pulse_emitter"), "weapons includes pulse_emitter")
+	var required_weapon_ids: Array[String] = [
+		"needle_rifle",
+		"burst_smg",
+		"silence_dart",
+		"shock_pulse",
+		"abyss_mine",
+		"tether_beam",
+		"orbital_drone",
+		"sonar_blade"
+	]
+	for weapon_id in required_weapon_ids:
+		_assert_true(registry.weapons.has(weapon_id), "weapons includes %s" % weapon_id)
 	_assert_true(registry.enemies.size() >= 4, "enemies has at least 4 entries")
 	_assert_true(registry.upgrades.size() >= 12, "upgrades has at least 12 entries")
 	var characters: Array = registry.get_characters()
@@ -59,16 +70,75 @@ func _run_data_registry_tests() -> void:
 	_assert_equal(registry.get_default_character_id(), "diver", "default character id is diver")
 	_assert_true(registry.has_character("diver"), "characters includes diver")
 	var diver: Dictionary = registry.get_character("diver")
-	_assert_equal(String(diver.get("starting_weapon_id", "")), "pulse_emitter", "diver starts with pulse_emitter")
+	_assert_equal(String(diver.get("starting_weapon_id", "")), "silence_dart", "diver starts with silence_dart")
 	var diver_unlock_variant: Variant = diver.get("unlock", {})
 	_assert_true(diver_unlock_variant is Dictionary, "diver unlock object exists")
 	var diver_unlock: Dictionary = diver_unlock_variant if diver_unlock_variant is Dictionary else {}
 	_assert_equal(String(diver_unlock.get("type", "")), "survive_time_seconds", "diver unlock type")
+	var silence_dart: Dictionary = registry.get_weapon("silence_dart")
+	_assert_equal(String(silence_dart.get("attack_model", "")), "projectile", "silence_dart attack model")
+	var silence_growth_variant: Variant = silence_dart.get("level_growth", [])
+	_assert_true(silence_growth_variant is Array and (silence_growth_variant as Array).size() >= 5, "silence_dart defines 5-level growth")
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
 	var choices: Array = registry.get_upgrade_choices(rng, {}, 3)
 	_assert_equal(choices.size(), 3, "upgrade choice count should be 3")
+
+	var weapons_path := "res://data/weapons.json"
+	var original_weapons := FileAccess.get_file_as_string(weapons_path)
+	var parsed_weapons: Variant = JSON.parse_string(original_weapons)
+	if parsed_weapons is Dictionary:
+		var broken_missing := (parsed_weapons as Dictionary).duplicate(true)
+		if broken_missing.has("needle_rifle"):
+			var rifle_variant: Variant = broken_missing.get("needle_rifle", {})
+			if rifle_variant is Dictionary:
+				var rifle := (rifle_variant as Dictionary).duplicate(true)
+				rifle.erase("base_damage")
+				broken_missing["needle_rifle"] = rifle
+		var write_missing := FileAccess.open(weapons_path, FileAccess.WRITE)
+		write_missing.store_string(JSON.stringify(broken_missing, "\t"))
+		write_missing.flush()
+		write_missing = null
+		var broken_registry_missing = registry_script.new()
+		var missing_ok: bool = broken_registry_missing.load_all(false)
+		var missing_errors: Array[String] = broken_registry_missing.get_validation_errors()
+		var restore_missing := FileAccess.open(weapons_path, FileAccess.WRITE)
+		restore_missing.store_string(original_weapons)
+		restore_missing.flush()
+		restore_missing = null
+		_assert_true(not missing_ok, "weapons schema fails when base_damage missing")
+		_assert_true(_array_contains_text(missing_errors, "missing key 'base_damage'"), "weapons schema error reports missing key")
+		broken_registry_missing.free()
+	else:
+		_assert_true(false, "weapons schema test: parse weapons json")
+
+	var parsed_weapons_unknown: Variant = JSON.parse_string(original_weapons)
+	if parsed_weapons_unknown is Dictionary:
+		var broken_tag := (parsed_weapons_unknown as Dictionary).duplicate(true)
+		if broken_tag.has("needle_rifle"):
+			var rifle_unknown_variant: Variant = broken_tag.get("needle_rifle", {})
+			if rifle_unknown_variant is Dictionary:
+				var rifle_unknown := (rifle_unknown_variant as Dictionary).duplicate(true)
+				rifle_unknown["tags"] = ["pierce", "totally_unknown_tag"]
+				broken_tag["needle_rifle"] = rifle_unknown
+		var write_unknown := FileAccess.open(weapons_path, FileAccess.WRITE)
+		write_unknown.store_string(JSON.stringify(broken_tag, "\t"))
+		write_unknown.flush()
+		write_unknown = null
+		var broken_registry_unknown = registry_script.new()
+		var unknown_ok: bool = broken_registry_unknown.load_all(false)
+		var unknown_errors: Array[String] = broken_registry_unknown.get_validation_errors()
+		var restore_unknown := FileAccess.open(weapons_path, FileAccess.WRITE)
+		restore_unknown.store_string(original_weapons)
+		restore_unknown.flush()
+		restore_unknown = null
+		_assert_true(not unknown_ok, "weapons schema fails when unknown tag exists")
+		_assert_true(_array_contains_text(unknown_errors, "unknown tag 'totally_unknown_tag'"), "weapons schema reports unknown tag")
+		broken_registry_unknown.free()
+	else:
+		_assert_true(false, "weapons unknown tag test: parse weapons json")
+
 	registry.free()
 
 

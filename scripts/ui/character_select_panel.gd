@@ -139,7 +139,7 @@ func _refresh_detail() -> void:
 
 	var mods_variant: Variant = character.get("stat_modifiers", {})
 	var mods: Dictionary = mods_variant if mods_variant is Dictionary else {}
-	var weapon_id := String(character.get("starting_weapon_id", "pulse_emitter"))
+	var weapon_id := String(character.get("starting_weapon_id", "needle_rifle"))
 	var weapon_name := String(DataRegistry.get_weapon(weapon_id).get("name", weapon_id))
 	detail_stats.text = "\n".join([
 		"Start Weapon: %s" % weapon_name,

@@ -12,7 +12,7 @@ const DASH_DURATION := 0.14
 const BASE_DASH_COOLDOWN := 2.2
 const BASE_MAX_HP := 100.0
 const BASE_XP_TO_NEXT := 20.0
-const BASE_ACTIVE_WEAPON_ID := "pulse_emitter"
+const BASE_ACTIVE_WEAPON_ID := "needle_rifle"
 
 var enemy_manager: Node
 var projectile_manager: Node
@@ -58,7 +58,7 @@ var last_move_direction := Vector2.RIGHT
 var attack_cd_remaining := 0.0
 var invuln_remaining := 0.0
 var auto_attack := true
-var active_weapon_id := "pulse_emitter"
+var active_weapon_id := BASE_ACTIVE_WEAPON_ID
 var skill_cd_remaining := 0.0
 var skill_cooldown := 8.0
 var character_id: String = "diver"

@@ -7,7 +7,7 @@
 			"display_name": "Silent Diver",
 			"short_desc": "Low-noise sonar specialist.",
 			"passive_summary": "Reduced noise gain, longer reveal windows.",
-			"starting_weapon_id": "pulse_emitter",
+			"starting_weapon_id": "silence_dart",
 			"effect_id": "",
 			"stat_modifiers": {
 				"max_hp_multiplier": 1.0,
@@ -45,7 +45,7 @@
 			"display_name": "Arc Technician",
 			"short_desc": "Unstable conductor tuned for chain reactions.",
 			"passive_summary": "More crit potential, slightly louder output.",
-			"starting_weapon_id": "pulse_emitter",
+			"starting_weapon_id": "burst_smg",
 			"effect_id": "",
 			"stat_modifiers": {
 				"max_hp_multiplier": 1.0,
@@ -83,7 +83,7 @@
 			"display_name": "Trench Lancer",
 			"short_desc": "Forward assault frame optimized for puncture runs.",
 			"passive_summary": "Faster dash cycle and deeper penetration.",
-			"starting_weapon_id": "pulse_emitter",
+			"starting_weapon_id": "needle_rifle",
 			"effect_id": "",
 			"stat_modifiers": {
 				"max_hp_multiplier": 1.0,
@@ -121,7 +121,7 @@
 			"display_name": "Drone Handler",
 			"short_desc": "Tactical coordinator for autonomous platforms.",
 			"passive_summary": "Higher noise, stronger summon focus.",
-			"starting_weapon_id": "pulse_emitter",
+			"starting_weapon_id": "orbital_drone",
 			"effect_id": "",
 			"stat_modifiers": {
 				"max_hp_multiplier": 1.0,
@@ -159,7 +159,7 @@
 			"display_name": "Neon Scavenger",
 			"short_desc": "Resource diver who turns scraps into growth.",
 			"passive_summary": "Larger pickup radius and better XP conversion.",
-			"starting_weapon_id": "pulse_emitter",
+			"starting_weapon_id": "shock_pulse",
 			"effect_id": "",
 			"stat_modifiers": {
 				"max_hp_multiplier": 1.0,
