@@ -7,6 +7,7 @@ const STATE_GAME_OVER := "game_over"
 const STATE_MENU := "menu"
 const STATE_CHARACTER_SELECT := "character_select"
 const STATE_MAP_SELECT := "map_select"
+const STATE_CONTRACT_SELECT := "contract_select"
 const InputConfig := preload("res://scripts/core/input_config.gd")
 const RunStatsClass := preload("res://scripts/core/run_stats.gd")
 
@@ -26,6 +27,7 @@ var fixed_noise_enabled: bool = false
 var fixed_noise_value: float = 0.0
 var selected_character_id: String = ""
 var selected_map_id: String = ""
+var selected_contract_ids: Array[String] = []
 var last_fog_overlay_signature: String = ""
 var run_started: bool = false
 var run_stats = RunStatsClass.new()
@@ -51,6 +53,7 @@ func _ready() -> void:
 	selected_map_id = ProfileStore.get_selected_map_id(default_map_id)
 	if selected_map_id.is_empty() or not DataRegistry.has_map(selected_map_id):
 		selected_map_id = default_map_id
+	selected_contract_ids = DataRegistry.normalize_contract_selection(ProfileStore.get_selected_contract_ids())
 
 	var fog_cfg: Dictionary = DataRegistry.get_fog_config()
 	fog_enabled = bool(fog_cfg.get("enabled", true))
@@ -84,6 +87,8 @@ func _ready() -> void:
 	ui.character_select_back_requested.connect(_on_character_select_back_requested)
 	ui.map_select_start_requested.connect(_on_map_select_start_requested)
 	ui.map_select_back_requested.connect(_on_map_select_back_requested)
+	ui.contract_select_start_requested.connect(_on_contract_select_start_requested)
+	ui.contract_select_back_requested.connect(_on_contract_select_back_requested)
 	ui.unlock_all_debug_requested.connect(_on_unlock_all_debug_requested)
 
 	ui.configure_character_select(
@@ -92,6 +97,11 @@ func _ready() -> void:
 		selected_character_id
 	)
 	ui.configure_map_select(DataRegistry.get_maps(), selected_map_id)
+	ui.configure_contract_select(
+		DataRegistry.get_contracts(),
+		selected_contract_ids,
+		DataRegistry.get_contract_max_select()
+	)
 
 	_set_state(STATE_MENU)
 	_refresh_hud()
@@ -255,6 +265,11 @@ func _on_main_menu_start_requested() -> void:
 		selected_character_id
 	)
 	ui.configure_map_select(DataRegistry.get_maps(), selected_map_id)
+	ui.configure_contract_select(
+		DataRegistry.get_contracts(),
+		selected_contract_ids,
+		DataRegistry.get_contract_max_select()
+	)
 	_set_state(STATE_CHARACTER_SELECT)
 
 
@@ -276,11 +291,25 @@ func _on_character_select_back_requested() -> void:
 
 
 func _on_map_select_start_requested(map_id: String) -> void:
-	_start_run(selected_character_id, map_id)
+	selected_map_id = map_id
+	ui.configure_contract_select(
+		DataRegistry.get_contracts(),
+		selected_contract_ids,
+		DataRegistry.get_contract_max_select()
+	)
+	_set_state(STATE_CONTRACT_SELECT)
 
 
 func _on_map_select_back_requested() -> void:
 	_set_state(STATE_CHARACTER_SELECT)
+
+
+func _on_contract_select_start_requested(contract_ids: Array[String]) -> void:
+	_start_run(selected_character_id, selected_map_id, contract_ids)
+
+
+func _on_contract_select_back_requested() -> void:
+	_set_state(STATE_MAP_SELECT)
 
 
 func _on_unlock_all_debug_requested() -> void:
@@ -291,7 +320,7 @@ func _on_unlock_all_debug_requested() -> void:
 	ui.show_system_message("Debug: all characters unlocked.", false)
 
 
-func _start_run(character_id: String, map_id: String = "") -> void:
+func _start_run(character_id: String, map_id: String = "", contract_ids: Array = []) -> void:
 	var chosen_id := character_id.strip_edges()
 	if chosen_id.is_empty():
 		chosen_id = DataRegistry.get_default_character_id()
@@ -307,8 +336,11 @@ func _start_run(character_id: String, map_id: String = "") -> void:
 
 	selected_character_id = chosen_id
 	selected_map_id = chosen_map_id
+	selected_contract_ids = DataRegistry.normalize_contract_selection(contract_ids)
+	var contract_modifiers := DataRegistry.compose_contract_modifiers(selected_contract_ids)
 	ProfileStore.set_selected_character_id(selected_character_id)
 	ProfileStore.set_selected_map_id(selected_map_id)
+	ProfileStore.set_selected_contract_ids(selected_contract_ids)
 	run_seed = int(Time.get_unix_time_from_system())
 	rng.seed = run_seed
 	elapsed_time = 0.0
@@ -317,7 +349,7 @@ func _start_run(character_id: String, map_id: String = "") -> void:
 	run_stats.reset(run_seed)
 
 	var character_def := DataRegistry.get_character(selected_character_id)
-	world.setup_run(rng, character_def, selected_map_id, run_seed)
+	world.setup_run(rng, character_def, selected_map_id, run_seed, contract_modifiers, selected_contract_ids)
 	_sync_runtime_fog_overlay(true)
 	fixed_noise_value = world.player.noise
 	_set_state(STATE_PLAYING)
@@ -392,6 +424,7 @@ func _refresh_hud() -> void:
 	hud["map_spawn_rate_multiplier"] = float(noise_debug.get("map_spawn_rate_multiplier", 1.0))
 	hud["contract_spawn_rate_multiplier"] = float(noise_debug.get("contract_spawn_rate_multiplier", 1.0))
 	hud["state"] = run_state
+	hud["contracts_active"] = selected_contract_ids.duplicate()
 	ui.update_hud(hud)
 
 
@@ -436,6 +469,7 @@ func _push_debug_snapshot() -> void:
 	snapshot["noise_path"] = DataRegistry.get_data_path("noise")
 	snapshot["selected_character"] = selected_character_id
 	snapshot["selected_map_id"] = selected_map_id
+	snapshot["contracts_active"] = world.get_active_contract_ids()
 	snapshot["current_map_id"] = String(map_debug.get("current_map_id", ""))
 	snapshot["hazard_active"] = bool(map_debug.get("hazard_active", false))
 	snapshot["hazard_timer"] = float(map_debug.get("hazard_timer", 0.0))
@@ -444,6 +478,7 @@ func _push_debug_snapshot() -> void:
 	snapshot["total_spawn_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
 	snapshot["fog_radius"] = float(map_debug.get("fog_radius", 0.0))
 	snapshot["map_noise_gain_multiplier"] = float(map_debug.get("noise_gain_multiplier", 1.0))
+	snapshot["contract_event_rate_mult"] = float(map_debug.get("contract_event_rate_mult", 1.0))
 	snapshot["maps_version"] = DataRegistry.get_data_version("maps")
 	snapshot["hazards_version"] = DataRegistry.get_data_version("hazards")
 	snapshot["events_version"] = DataRegistry.get_data_version("events")
@@ -490,6 +525,11 @@ func _reload_runtime_data() -> void:
 		selected_character_id
 	)
 	ui.configure_map_select(DataRegistry.get_maps(), selected_map_id)
+	ui.configure_contract_select(
+		DataRegistry.get_contracts(),
+		selected_contract_ids,
+		DataRegistry.get_contract_max_select()
+	)
 	ui.show_system_message("Data reloaded (fog/sonar/noise/maps).", false)
 
 

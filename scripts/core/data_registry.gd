@@ -304,6 +304,46 @@ const CONTRACT_MODIFIER_KEYS: Dictionary = {
 	}
 }
 
+const CONTRACT_MODIFIER_DEFAULTS: Dictionary = {
+	"fog": {
+		"vision_radius_mult": 1.0
+	},
+	"sonar": {
+		"reveal_duration_mult": 1.0,
+		"max_radius_mult": 1.0,
+		"wave_speed_mult": 1.0
+	},
+	"noise": {
+		"gain_mult": 1.0,
+		"decay_mult": 1.0
+	},
+	"spawner": {
+		"spawn_rate_mult": 1.0,
+		"spawn_cap_mult": 1.0,
+		"pursuer_chance_add": 0.0,
+		"elite_chance_add": 0.0
+	},
+	"events": {
+		"rate_mult": 1.0,
+		"hazard_cycle_mult": 1.0
+	},
+	"rewards": {
+		"xp_mult": 1.0,
+		"rarity_mult": 1.0,
+		"drop_mult": 1.0,
+		"meta_currency_mult": 1.0
+	},
+	"player": {
+		"max_hp_mult": 1.0,
+		"dash_disabled": 0.0,
+		"low_noise_damage_mult": 1.0,
+		"high_noise_damage_mult": 1.0
+	},
+	"enemy": {
+		"speed_mult": 1.0
+	}
+}
+
 var weapons: Dictionary = {}
 var enemies: Dictionary = {}
 var elites_config: Dictionary = {}
@@ -568,6 +608,91 @@ func get_contracts() -> Array:
 
 func get_contract_max_select() -> int:
 	return clampi(int(contracts_config.get("max_select", 0)), 0, 3)
+
+
+func normalize_contract_selection(contract_ids: Array) -> Array[String]:
+	var requested: Dictionary = {}
+	for contract_id_variant in contract_ids:
+		var contract_id := String(contract_id_variant).strip_edges()
+		if contract_id.is_empty():
+			continue
+		if not contracts.has(contract_id):
+			continue
+		requested[contract_id] = true
+	var selected: Array[String] = []
+	var used_exclusive_groups: Dictionary = {}
+	var max_select := get_contract_max_select()
+	for contract_id in contract_order:
+		if not requested.has(contract_id):
+			continue
+		var contract := get_contract(contract_id)
+		if contract.is_empty():
+			continue
+		var exclusive_group := String(contract.get("exclusive_group", "")).strip_edges()
+		if not exclusive_group.is_empty() and used_exclusive_groups.has(exclusive_group):
+			continue
+		selected.append(contract_id)
+		if not exclusive_group.is_empty():
+			used_exclusive_groups[exclusive_group] = true
+		if max_select > 0 and selected.size() >= max_select:
+			break
+	return selected
+
+
+func compose_contract_modifiers(contract_ids: Array) -> Dictionary:
+	var selected := normalize_contract_selection(contract_ids)
+	var composed := CONTRACT_MODIFIER_DEFAULTS.duplicate(true)
+	var reward_pct_sum := 0.0
+	for contract_id in selected:
+		var contract := get_contract(contract_id)
+		if contract.is_empty():
+			continue
+		reward_pct_sum += maxf(0.0, float(contract.get("reward_pct", 0.0)))
+		var effects_variant: Variant = contract.get("effects", {})
+		if not (effects_variant is Dictionary):
+			continue
+		var effects: Dictionary = effects_variant
+		for group_key_variant in effects.keys():
+			var group_key := String(group_key_variant).strip_edges().to_lower()
+			if group_key.is_empty() or not composed.has(group_key):
+				continue
+			var source_group_variant: Variant = effects.get(group_key_variant, {})
+			if not (source_group_variant is Dictionary):
+				continue
+			var source_group: Dictionary = source_group_variant
+			var target_group_variant: Variant = composed.get(group_key, {})
+			if not (target_group_variant is Dictionary):
+				continue
+			var target_group: Dictionary = target_group_variant
+			for modifier_key_variant in source_group.keys():
+				var modifier_key := String(modifier_key_variant).strip_edges()
+				if modifier_key.is_empty() or not target_group.has(modifier_key):
+					continue
+				var source_value := float(source_group.get(modifier_key_variant, 0.0))
+				if modifier_key.ends_with("_mult"):
+					target_group[modifier_key] = maxf(0.05, float(target_group.get(modifier_key, 1.0)) * source_value)
+				else:
+					target_group[modifier_key] = float(target_group.get(modifier_key, 0.0)) + source_value
+			composed[group_key] = target_group
+	composed["selected_contracts"] = selected
+	composed["reward_pct_sum"] = reward_pct_sum
+	composed["reward_multiplier"] = 1.0 + reward_pct_sum / 100.0
+	return composed
+
+
+func get_contract_reward_preview(contract_ids: Array) -> Dictionary:
+	var composed := compose_contract_modifiers(contract_ids)
+	var rewards_variant: Variant = composed.get("rewards", {})
+	var rewards: Dictionary = rewards_variant if rewards_variant is Dictionary else {}
+	return {
+		"selected_contracts": composed.get("selected_contracts", []),
+		"reward_pct_sum": float(composed.get("reward_pct_sum", 0.0)),
+		"reward_multiplier": float(composed.get("reward_multiplier", 1.0)),
+		"xp_mult": float(rewards.get("xp_mult", 1.0)),
+		"rarity_mult": float(rewards.get("rarity_mult", 1.0)),
+		"drop_mult": float(rewards.get("drop_mult", 1.0)),
+		"meta_currency_mult": float(rewards.get("meta_currency_mult", 1.0))
+	}
 
 
 func get_character(character_id: String) -> Dictionary:

@@ -75,6 +75,16 @@ func set_selected_map_id(map_id: String) -> void:
 	save_profile()
 
 
+func get_selected_contract_ids() -> Array[String]:
+	return _normalize_string_array(profile.get("last_selected_contract_ids", []))
+
+
+func set_selected_contract_ids(contract_ids: Array) -> void:
+	var normalized := _normalize_string_array(contract_ids)
+	profile["last_selected_contract_ids"] = normalized
+	save_profile()
+
+
 func is_character_unlocked(character_id: String) -> bool:
 	if character_id.is_empty():
 		return false
@@ -265,6 +275,9 @@ func _migrate_profile(raw_profile: Dictionary, default_character_id: String, def
 	if selected_map.is_empty():
 		selected_map = resolved_default_map
 	migrated["last_selected_map_id"] = selected_map
+	if not migrated.has("last_selected_contract_ids"):
+		migrated["last_selected_contract_ids"] = []
+	migrated["last_selected_contract_ids"] = _normalize_string_array(migrated.get("last_selected_contract_ids", []))
 
 	var progress_variant: Variant = migrated.get("progress", {})
 	var progress: Dictionary = progress_variant.duplicate(true) if progress_variant is Dictionary else {}

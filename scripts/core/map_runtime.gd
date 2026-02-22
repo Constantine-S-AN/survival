@@ -41,6 +41,9 @@ var event_cooldowns: Dictionary = {}
 var active_event_effects: Array[Dictionary] = []
 var last_event_triggered: String = ""
 var last_snapshot: Dictionary = {}
+var external_modifier_bundle: Dictionary = {}
+var external_event_rate_mult: float = 1.0
+var external_hazard_cycle_mult: float = 1.0
 
 
 func setup(new_map_def: Dictionary, new_hazard_def: Dictionary, new_event_table: Dictionary, seed: int) -> void:
@@ -59,6 +62,14 @@ func setup(new_map_def: Dictionary, new_hazard_def: Dictionary, new_event_table:
 	var map_hash := String(map_def.get("id", "map")).hash()
 	rng.seed = int(seed) ^ int(map_hash)
 	last_snapshot = _build_snapshot([])
+
+
+func set_external_modifiers(modifiers: Dictionary) -> void:
+	external_modifier_bundle = modifiers.duplicate(true)
+	var events_variant: Variant = external_modifier_bundle.get("events", {})
+	var events: Dictionary = events_variant if events_variant is Dictionary else {}
+	external_event_rate_mult = maxf(0.05, float(events.get("rate_mult", 1.0)))
+	external_hazard_cycle_mult = maxf(0.05, float(events.get("hazard_cycle_mult", 1.0)))
 
 
 func update(delta: float) -> Dictionary:
@@ -91,7 +102,7 @@ func _update_hazard(delta: float) -> void:
 			hazard_active_remaining = 0.0
 		return
 	
-	hazard_cycle_remaining = maxf(0.0, hazard_cycle_remaining - delta)
+	hazard_cycle_remaining = maxf(0.0, hazard_cycle_remaining - delta * external_hazard_cycle_mult)
 	var telegraph_seconds := maxf(0.0, float(hazard_def.get("telegraph_seconds", 0.0)))
 	if telegraph_seconds > 0.0:
 		hazard_warning_active = hazard_cycle_remaining > 0.0 and hazard_cycle_remaining <= telegraph_seconds
@@ -131,7 +142,7 @@ func _roll_events(delta: float) -> Array[Dictionary]:
 	var triggered: Array[Dictionary] = []
 	if event_table.is_empty():
 		return triggered
-	event_roll_remaining -= delta
+	event_roll_remaining -= delta * external_event_rate_mult
 	var roll_interval := maxf(0.25, float(event_table.get("roll_interval_seconds", 9.0)))
 	while event_roll_remaining <= 0.0:
 		event_roll_remaining += roll_interval
@@ -226,6 +237,7 @@ func _build_snapshot(triggered_events: Array[Dictionary]) -> Dictionary:
 func _compose_current_modifiers() -> Dictionary:
 	var output := _clone_default_modifiers()
 	_apply_modifier_bundle(output, map_def.get("modifiers", {}))
+	_apply_modifier_bundle(output, external_modifier_bundle)
 	if hazard_active:
 		_apply_modifier_bundle(output, hazard_def.get("effects", {}))
 	for entry in active_event_effects:

@@ -29,6 +29,8 @@ var map_runtime = MapRuntimeClass.new()
 var current_map_snapshot: Dictionary = {}
 var current_map_id: String = ""
 var current_map_modifiers: Dictionary = {}
+var contract_modifiers: Dictionary = {}
+var active_contract_ids: Array[String] = []
 var last_hazard_active: bool = false
 var last_hazard_warning_active: bool = false
 const PROJECTILE_POOL_KEY := "projectile"
@@ -55,13 +57,16 @@ func setup_run(
 	run_rng: RandomNumberGenerator,
 	character_def: Dictionary = {},
 	map_id: String = "",
-	run_seed: int = 0
+	run_seed: int = 0,
+	contract_bundle: Dictionary = {},
+	contract_ids: Array = []
 ) -> void:
 	_setup_pools()
 	if pool_manager != null and pool_manager.has_method("reset_stats"):
 		pool_manager.reset_stats()
 	player.setup(enemy_manager, projectile_manager, run_rng, character_def)
 	enemy_manager.setup(player, run_rng)
+	set_contract_modifiers(contract_bundle, contract_ids)
 	apply_sonar_config(base_sonar_config if not base_sonar_config.is_empty() else DataRegistry.get_sonar_config())
 	set_current_map(map_id, run_seed)
 
@@ -141,6 +146,10 @@ func get_current_map_snapshot() -> Dictionary:
 	return current_map_snapshot.duplicate(true)
 
 
+func get_active_contract_ids() -> Array[String]:
+	return active_contract_ids.duplicate()
+
+
 func set_sonar_visual_enabled(enabled: bool) -> void:
 	if sonar_manager != null and sonar_manager.has_method("set_visual_enabled"):
 		sonar_manager.set_visual_enabled(enabled)
@@ -205,6 +214,7 @@ func set_current_map(map_id: String, run_seed: int = 0) -> void:
 	var event_table := DataRegistry.get_event_table(String(map_def.get("event_table_id", "")))
 	var seed := run_seed if run_seed != 0 else int(Time.get_unix_time_from_system())
 	map_runtime.setup(map_def, hazard_def, event_table, seed)
+	map_runtime.set_external_modifiers(contract_modifiers)
 	current_map_snapshot = map_runtime.get_snapshot()
 	last_hazard_active = bool(current_map_snapshot.get("hazard_active", false))
 	last_hazard_warning_active = bool(current_map_snapshot.get("hazard_warning_active", false))
@@ -220,6 +230,32 @@ func update_map_runtime(delta: float) -> Dictionary:
 	return current_map_snapshot.duplicate(true)
 
 
+func set_contract_modifiers(modifiers: Dictionary, contract_ids: Array = []) -> void:
+	contract_modifiers = modifiers.duplicate(true)
+	active_contract_ids = []
+	for contract_id_variant in contract_ids:
+		var contract_id := String(contract_id_variant).strip_edges()
+		if contract_id.is_empty():
+			continue
+		if active_contract_ids.has(contract_id):
+			continue
+		active_contract_ids.append(contract_id)
+	map_runtime.set_external_modifiers(contract_modifiers)
+
+	var player_mods_variant: Variant = contract_modifiers.get("player", {})
+	var player_mods: Dictionary = player_mods_variant if player_mods_variant is Dictionary else {}
+	if player != null and is_instance_valid(player) and player.has_method("apply_contract_modifiers"):
+		player.apply_contract_modifiers(player_mods)
+
+	var spawner_mods_variant: Variant = contract_modifiers.get("spawner", {})
+	var spawner_mods: Dictionary = spawner_mods_variant if spawner_mods_variant is Dictionary else {}
+	var enemy_mods_variant: Variant = contract_modifiers.get("enemy", {})
+	var enemy_mods: Dictionary = enemy_mods_variant if enemy_mods_variant is Dictionary else {}
+	spawner_mods["enemy_speed_mult"] = float(enemy_mods.get("speed_mult", 1.0))
+	if enemy_manager != null and enemy_manager.has_method("set_contract_spawn_modifiers"):
+		enemy_manager.set_contract_spawn_modifiers(spawner_mods)
+
+
 func get_map_debug_snapshot() -> Dictionary:
 	var snapshot := current_map_snapshot
 	var modifiers_variant: Variant = snapshot.get("modifiers", {})
@@ -230,6 +266,8 @@ func get_map_debug_snapshot() -> Dictionary:
 	var noise_mod: Dictionary = noise_mod_variant if noise_mod_variant is Dictionary else {}
 	var spawner_mod_variant: Variant = modifiers.get("spawner", {})
 	var spawner_mod: Dictionary = spawner_mod_variant if spawner_mod_variant is Dictionary else {}
+	var events_mod_variant: Variant = contract_modifiers.get("events", {})
+	var events_mod: Dictionary = events_mod_variant if events_mod_variant is Dictionary else {}
 	return {
 		"current_map_id": current_map_id,
 		"hazard_active": bool(snapshot.get("hazard_active", false)),
@@ -238,7 +276,9 @@ func get_map_debug_snapshot() -> Dictionary:
 		"map_spawn_multiplier": float(spawner_mod.get("spawn_rate_mult", 1.0)),
 		"fog_radius_multiplier": float(fog_mod.get("vision_radius_mult", 1.0)),
 		"fog_radius": float(effective_fog_config.get("vision_radius", float(base_fog_config.get("vision_radius", 440.0)))),
-		"noise_gain_multiplier": float(noise_mod.get("gain_mult", 1.0))
+		"noise_gain_multiplier": float(noise_mod.get("gain_mult", 1.0)),
+		"contracts_active": active_contract_ids.duplicate(),
+		"contract_event_rate_mult": float(events_mod.get("rate_mult", 1.0))
 	}
 
 

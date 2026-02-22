@@ -92,6 +92,10 @@ var environment_noise_gain_multiplier: float = 1.0
 var environment_noise_decay_multiplier: float = 1.0
 var environment_sonar_reveal_multiplier: float = 1.0
 var environment_xp_gain_multiplier: float = 1.0
+var contract_max_hp_multiplier: float = 1.0
+var contract_dash_disabled: bool = false
+var contract_low_noise_damage_multiplier: float = 1.0
+var contract_high_noise_damage_multiplier: float = 1.0
 
 var weapon_levels: Dictionary = {}
 var weapon_modifiers_by_id: Dictionary = {}
@@ -186,6 +190,10 @@ func _reset_run_stats() -> void:
 	environment_noise_decay_multiplier = 1.0
 	environment_sonar_reveal_multiplier = 1.0
 	environment_xp_gain_multiplier = 1.0
+	contract_max_hp_multiplier = 1.0
+	contract_dash_disabled = false
+	contract_low_noise_damage_multiplier = 1.0
+	contract_high_noise_damage_multiplier = 1.0
 	weapon_levels.clear()
 	weapon_modifiers_by_id.clear()
 	weapon_modifiers_by_tag.clear()
@@ -285,7 +293,7 @@ func _physics_process(delta: float) -> void:
 	if input_direction.length() > 0.01:
 		last_move_direction = input_direction.normalized()
 
-	if Input.is_action_just_pressed("dash") and dash_cd_remaining <= 0.0:
+	if not contract_dash_disabled and Input.is_action_just_pressed("dash") and dash_cd_remaining <= 0.0:
 		dash_direction = last_move_direction if last_move_direction.length() > 0.01 else Vector2.RIGHT
 		dash_time_remaining = DASH_DURATION
 		dash_cd_remaining = _current_dash_cooldown()
@@ -1103,6 +1111,17 @@ func apply_environment_modifiers(
 	environment_xp_gain_multiplier = maxf(0.05, float(reward_modifiers.get("xp_mult", 1.0)))
 
 
+func apply_contract_modifiers(player_modifiers: Dictionary = {}) -> void:
+	contract_max_hp_multiplier = maxf(0.05, float(player_modifiers.get("max_hp_mult", 1.0)))
+	contract_dash_disabled = float(player_modifiers.get("dash_disabled", 0.0)) >= 0.5
+	contract_low_noise_damage_multiplier = maxf(0.05, float(player_modifiers.get("low_noise_damage_mult", 1.0)))
+	contract_high_noise_damage_multiplier = maxf(0.05, float(player_modifiers.get("high_noise_damage_mult", 1.0)))
+	var previous_max_hp := maxf(1.0, max_hp)
+	var hp_ratio := clampf(hp / previous_max_hp, 0.0, 1.0)
+	max_hp = maxf(1.0, max_hp * contract_max_hp_multiplier)
+	hp = maxf(1.0, max_hp * hp_ratio)
+
+
 func _ensure_weapon_state() -> void:
 	if DataRegistry.get_weapon(active_weapon_id).is_empty():
 		if not DataRegistry.get_default_character_id().is_empty():
@@ -1157,6 +1176,10 @@ func _build_active_weapon_runtime() -> Variant:
 	var effective_damage_mult = damage_mult * (1.0 + sonar_silence_synergy_bonus)
 	if noise <= LOW_NOISE_THRESHOLD and bonus_low_noise_damage_multiplier > 0.0:
 		effective_damage_mult *= (1.0 + bonus_low_noise_damage_multiplier)
+	if noise <= LOW_NOISE_THRESHOLD:
+		effective_damage_mult *= contract_low_noise_damage_multiplier
+	elif noise >= 60.0:
+		effective_damage_mult *= contract_high_noise_damage_multiplier
 
 	var global_modifiers = {
 		"damage_mult": maxf(0.1, effective_damage_mult),
@@ -1247,7 +1270,10 @@ func get_hud_data() -> Dictionary:
 		"env_noise_gain_multiplier": environment_noise_gain_multiplier,
 		"env_noise_decay_multiplier": environment_noise_decay_multiplier,
 		"env_sonar_reveal_multiplier": environment_sonar_reveal_multiplier,
-		"env_xp_gain_multiplier": environment_xp_gain_multiplier
+		"env_xp_gain_multiplier": environment_xp_gain_multiplier,
+		"contract_dash_disabled": contract_dash_disabled,
+		"contract_low_noise_damage_multiplier": contract_low_noise_damage_multiplier,
+		"contract_high_noise_damage_multiplier": contract_high_noise_damage_multiplier
 	}
 
 

@@ -8,11 +8,14 @@ signal start_run_requested(character_id: String)
 signal character_select_back_requested
 signal map_select_start_requested(map_id: String)
 signal map_select_back_requested
+signal contract_select_start_requested(contract_ids: Array[String])
+signal contract_select_back_requested
 signal unlock_all_debug_requested
 
 const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
 const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 const MAP_SELECT_SCENE := preload("res://scenes/ui/MapSelect.tscn")
+const CONTRACT_SELECT_SCENE := preload("res://scenes/ui/ContractSelect.tscn")
 const TAG_DISPLAY_NAMES: Dictionary = {
 	"sonar": "Sonar",
 	"silence": "Silence",
@@ -151,6 +154,7 @@ var menu_start_button: Button
 var menu_quit_button: Button
 var character_select_panel: CanvasItem
 var map_select_panel: CanvasItem
+var contract_select_panel: CanvasItem
 var unlock_toast_label: Label
 
 
@@ -165,6 +169,7 @@ func _ready() -> void:
 	_create_main_menu_panel()
 	_create_character_select_panel()
 	_create_map_select_panel()
+	_create_contract_select_panel()
 	_create_unlock_toast_widget()
 	set_debug_visible(false)
 
@@ -352,6 +357,21 @@ func _create_map_select_panel() -> void:
 		map_select_panel.connect("back_pressed", Callable(self, "_on_map_select_back_pressed"))
 
 
+func _create_contract_select_panel() -> void:
+	if CONTRACT_SELECT_SCENE == null:
+		return
+	var panel_variant := CONTRACT_SELECT_SCENE.instantiate()
+	if panel_variant == null:
+		return
+	contract_select_panel = panel_variant
+	contract_select_panel.visible = false
+	root.add_child(contract_select_panel)
+	if contract_select_panel.has_signal("start_pressed"):
+		contract_select_panel.connect("start_pressed", Callable(self, "_on_contract_select_start_pressed"))
+	if contract_select_panel.has_signal("back_pressed"):
+		contract_select_panel.connect("back_pressed", Callable(self, "_on_contract_select_back_pressed"))
+
+
 func _create_unlock_toast_widget() -> void:
 	unlock_toast_label = Label.new()
 	unlock_toast_label.name = "UnlockToast"
@@ -383,6 +403,14 @@ func _on_map_select_start_pressed(map_id: String) -> void:
 
 func _on_map_select_back_pressed() -> void:
 	map_select_back_requested.emit()
+
+
+func _on_contract_select_start_pressed(contract_ids: Array[String]) -> void:
+	contract_select_start_requested.emit(contract_ids)
+
+
+func _on_contract_select_back_pressed() -> void:
+	contract_select_back_requested.emit()
 
 
 func apply_fog_overlay_config(config: Dictionary) -> void:
@@ -510,6 +538,8 @@ func update_debug_data(data: Dictionary) -> void:
 			String(data.get("boss_state", "idle")),
 			String(data.get("boss_id", ""))
 		],
+		"contracts_active: %s" % str(data.get("contracts_active", [])),
+		"contract_event_rate_mult: %.2f" % float(data.get("contract_event_rate_mult", 1.0)),
 		"revealed_count: %d" % int(data.get("revealed_count", 0)),
 		"timeline_progress: %.2f" % float(data.get("timeline_progress", 0.0)),
 		"map_id: %s" % String(data.get("current_map_id", "")),
@@ -571,6 +601,8 @@ func set_main_menu_visible(enabled: bool) -> void:
 		character_select_panel.visible = false
 	if enabled and map_select_panel != null:
 		map_select_panel.visible = false
+	if enabled and contract_select_panel != null:
+		contract_select_panel.visible = false
 	_set_hud_visible(not enabled)
 
 
@@ -581,6 +613,8 @@ func set_character_select_visible(enabled: bool) -> void:
 		main_menu_panel.visible = false
 	if enabled and map_select_panel != null:
 		map_select_panel.visible = false
+	if enabled and contract_select_panel != null:
+		contract_select_panel.visible = false
 	_set_hud_visible(not enabled)
 
 
@@ -591,6 +625,20 @@ func set_map_select_visible(enabled: bool) -> void:
 		main_menu_panel.visible = false
 	if enabled and character_select_panel != null:
 		character_select_panel.visible = false
+	if enabled and contract_select_panel != null:
+		contract_select_panel.visible = false
+	_set_hud_visible(not enabled)
+
+
+func set_contract_select_visible(enabled: bool) -> void:
+	if contract_select_panel != null:
+		contract_select_panel.visible = enabled
+	if enabled and main_menu_panel != null:
+		main_menu_panel.visible = false
+	if enabled and character_select_panel != null:
+		character_select_panel.visible = false
+	if enabled and map_select_panel != null:
+		map_select_panel.visible = false
 	_set_hud_visible(not enabled)
 
 
@@ -606,6 +654,13 @@ func configure_map_select(maps: Array, selected_map_id: String) -> void:
 		return
 	if map_select_panel.has_method("set_map_data"):
 		map_select_panel.call("set_map_data", maps, selected_map_id)
+
+
+func configure_contract_select(contracts: Array, selected_contract_ids: Array[String], max_select: int) -> void:
+	if contract_select_panel == null:
+		return
+	if contract_select_panel.has_method("set_contract_data"):
+		contract_select_panel.call("set_contract_data", contracts, selected_contract_ids, max_select)
 
 
 func refresh_character_unlocks(unlocked_character_ids: Array[String]) -> void:
@@ -699,23 +754,30 @@ func on_game_state_changed(state: String) -> void:
 			level_up_panel.visible = false
 			game_over_panel.visible = false
 			set_map_select_visible(true)
+		"contract_select":
+			level_up_panel.visible = false
+			game_over_panel.visible = false
+			set_contract_select_visible(true)
 		"playing":
 			level_up_panel.visible = false
 			game_over_panel.visible = false
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
 			set_map_select_visible(false)
+			set_contract_select_visible(false)
 			_set_hud_visible(true)
 		"level_up":
 			game_over_panel.visible = false
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
 			set_map_select_visible(false)
+			set_contract_select_visible(false)
 			_set_hud_visible(true)
 		"game_over":
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
 			set_map_select_visible(false)
+			set_contract_select_visible(false)
 			_set_hud_visible(false)
 		_:
 			pass
