@@ -743,13 +743,31 @@ func apply_upgrade(upgrade_id: String) -> void:
 func _request_upgrade_if_needed() -> void:
 	if pending_level_ups <= 0 or level_up_open:
 		return
-	var options = DataRegistry.get_upgrade_choices(rng, upgrade_stacks, 3, character_tag_weights)
+	var options = DataRegistry.get_upgrade_choices(
+		rng,
+		upgrade_stacks,
+		3,
+		character_tag_weights,
+		_build_upgrade_context()
+	)
 	if options.is_empty():
 		pending_level_ups = 0
 		level_up_open = false
 		return
 	level_up_open = true
 	level_up_requested.emit(options)
+
+
+func _build_upgrade_context() -> Dictionary:
+	var noise_tier = DataRegistry.get_noise_tier(noise)
+	return {
+		"acquired_tags": acquired_tags.duplicate(true),
+		"current_weapon_ids": [active_weapon_id],
+		"active_weapon_id": active_weapon_id,
+		"player_level": level,
+		"survive_time_seconds": 0.0,
+		"noise_tier_id": String(noise_tier.get("id", "silent"))
+	}
 
 
 func _apply_effect(effect: Dictionary) -> void:

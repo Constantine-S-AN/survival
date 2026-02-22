@@ -1,5 +1,7 @@
 extends Node
 
+const UpgradeRules := preload("res://scripts/core/upgrade_rules.gd")
+
 const DATA_FILES: Dictionary = {
 	"weapons": "res://data/weapons.json",
 	"enemies": "res://data/enemies.json",
@@ -342,27 +344,23 @@ func get_upgrade(upgrade_id: String) -> Dictionary:
 	return {}
 
 
-func get_upgrade_choices(rng: RandomNumberGenerator, current_stacks: Dictionary, count: int = 3, tag_weights: Dictionary = {}) -> Array:
-	var candidates: Array = []
-	for upgrade_variant in upgrades:
-		if not (upgrade_variant is Dictionary):
-			continue
-		var upgrade: Dictionary = upgrade_variant
-		var upgrade_id: String = String(upgrade.get("id", ""))
-		if upgrade_id.is_empty():
-			continue
-		var max_stacks: int = int(upgrade.get("max_rank", upgrade.get("max_stacks", 1)))
-		var current: int = int(current_stacks.get(upgrade_id, 0))
-		if current >= max_stacks:
-			continue
-		candidates.append(upgrade)
+func get_upgrade_choices(
+	rng: RandomNumberGenerator,
+	current_stacks: Dictionary,
+	count: int = 3,
+	tag_weights: Dictionary = {},
+	context: Dictionary = {}
+) -> Array:
+	var runtime_context := context.duplicate(true)
+	runtime_context["current_stacks"] = current_stacks.duplicate(true)
+	var candidates := UpgradeRules.filter_candidates(upgrades, current_stacks, runtime_context)
 
 	if candidates.is_empty():
 		return []
 
 	var picked: Array = []
 	while picked.size() < count and not candidates.is_empty():
-		var choice: Dictionary = _weighted_pick_upgrade(rng, candidates, tag_weights)
+		var choice: Dictionary = _weighted_pick_upgrade(rng, candidates, tag_weights, runtime_context)
 		picked.append(choice)
 		var chosen_id: String = String(choice.get("id", ""))
 		var remaining: Array = []
@@ -1103,13 +1101,13 @@ func _get_spawn_profile(elapsed_time: float) -> Dictionary:
 	return chosen
 
 
-func _weighted_pick_upgrade(rng: RandomNumberGenerator, candidates: Array, tag_weights: Dictionary = {}) -> Dictionary:
+func _weighted_pick_upgrade(rng: RandomNumberGenerator, candidates: Array, tag_weights: Dictionary = {}, context: Dictionary = {}) -> Dictionary:
 	var total: float = 0.0
 	for candidate_variant in candidates:
 		if not (candidate_variant is Dictionary):
 			continue
 		var candidate: Dictionary = candidate_variant
-		total += _get_upgrade_weight(candidate, tag_weights)
+		total += _get_upgrade_weight(candidate, tag_weights, context)
 
 	if total <= 0.0:
 		var first_candidate: Variant = candidates[0]
@@ -1123,7 +1121,7 @@ func _weighted_pick_upgrade(rng: RandomNumberGenerator, candidates: Array, tag_w
 		if not (candidate_variant is Dictionary):
 			continue
 		var candidate: Dictionary = candidate_variant
-		running += _get_upgrade_weight(candidate, tag_weights)
+		running += _get_upgrade_weight(candidate, tag_weights, context)
 		if roll <= running:
 			return candidate
 
@@ -1133,11 +1131,18 @@ func _weighted_pick_upgrade(rng: RandomNumberGenerator, candidates: Array, tag_w
 	return {}
 
 
-func _get_upgrade_weight(candidate: Dictionary, tag_weights: Dictionary) -> float:
+func _get_upgrade_weight(candidate: Dictionary, tag_weights: Dictionary, context: Dictionary = {}) -> float:
 	var rarity: String = String(candidate.get("rarity", "common"))
 	var rarity_weight := float(RARITY_WEIGHT.get(rarity, 1.0))
 	var base_weight := maxf(0.0001, float(candidate.get("base_weight", 1.0)))
 	var total_base_weight := rarity_weight * base_weight
+	var active_weapon_id := String(context.get("active_weapon_id", "")).strip_edges().to_lower()
+	if not active_weapon_id.is_empty():
+		var requires_weapon_ids_variant: Variant = candidate.get("requires_weapon_ids", [])
+		if requires_weapon_ids_variant is Array:
+			var requires_weapon_ids: Array = requires_weapon_ids_variant
+			if requires_weapon_ids.has(active_weapon_id):
+				total_base_weight *= 1.15
 	if tag_weights.is_empty():
 		return total_base_weight
 	var tags_variant: Variant = candidate.get("tags", [])

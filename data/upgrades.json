@@ -46,7 +46,7 @@
         "add": 0.14
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.2,
     "prereq": {
       "all": [],
       "any": []
@@ -61,7 +61,7 @@
     "id": "u_exposed_breaker",
     "name": "Exposed Breaker",
     "description": "Damage to revealed enemies +18%.",
-    "rarity": "rare",
+    "rarity": "epic",
     "max_stacks": 2,
     "tags": [
       "sonar",
@@ -73,14 +73,19 @@
         "add": 0.18
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.9,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_echo_stabilizer"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
     "requires_weapon_ids": [],
-    "exclusive_group": "",
+    "exclusive_group": "sonar_path",
     "max_rank": 2,
     "blocks": []
   },
@@ -104,14 +109,14 @@
         }
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.1,
     "prereq": {
       "all": [],
       "any": []
     },
     "requires_tags": [],
     "requires_weapon_ids": [],
-    "exclusive_group": "",
+    "exclusive_group": "sonar_path",
     "max_rank": 3,
     "blocks": []
   },
@@ -131,14 +136,14 @@
         "add": -0.14
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.05,
     "prereq": {
       "all": [],
       "any": []
     },
     "requires_tags": [],
     "requires_weapon_ids": [],
-    "exclusive_group": "",
+    "exclusive_group": "noise_route",
     "max_rank": 4,
     "blocks": []
   },
@@ -215,11 +220,20 @@
     "base_weight": 1.0,
     "prereq": {
       "all": [],
-      "any": []
+      "any": [
+        {
+          "type": "noise_tier_at_least",
+          "tier_id": "alert"
+        },
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_silent_baffles"
+        }
+      ]
     },
     "requires_tags": [],
     "requires_weapon_ids": [],
-    "exclusive_group": "",
+    "exclusive_group": "noise_route",
     "max_rank": 2,
     "blocks": []
   },
@@ -427,7 +441,12 @@
     ],
     "base_weight": 1.0,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "has_tag",
+          "tag": "chain"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -520,8 +539,10 @@
       "any": []
     },
     "requires_tags": [],
-    "requires_weapon_ids": [],
-    "exclusive_group": "",
+    "requires_weapon_ids": [
+      "orbital_drone"
+    ],
+    "exclusive_group": "summon_route",
     "max_rank": 2,
     "blocks": []
   },
@@ -603,12 +624,14 @@
         "add": 0.18
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.1,
     "prereq": {
       "all": [],
       "any": []
     },
-    "requires_tags": [],
+    "requires_tags": [
+      "summon"
+    ],
     "requires_weapon_ids": [],
     "exclusive_group": "",
     "max_rank": 3,
@@ -702,7 +725,9 @@
       "any": []
     },
     "requires_tags": [],
-    "requires_weapon_ids": [],
+    "requires_weapon_ids": [
+      "silence_dart"
+    ],
     "exclusive_group": "",
     "max_rank": 2,
     "blocks": []
@@ -741,7 +766,9 @@
       "any": []
     },
     "requires_tags": [],
-    "requires_weapon_ids": [],
+    "requires_weapon_ids": [
+      "needle_rifle"
+    ],
     "exclusive_group": "",
     "max_rank": 2,
     "blocks": []
@@ -780,10 +807,14 @@
       "any": []
     },
     "requires_tags": [],
-    "requires_weapon_ids": [],
+    "requires_weapon_ids": [
+      "burst_smg"
+    ],
     "exclusive_group": "",
     "max_rank": 3,
-    "blocks": []
+    "blocks": [
+      "u_silent_baffles"
+    ]
   },
   {
     "id": "u_shock_harmonics",
@@ -819,7 +850,9 @@
       "any": []
     },
     "requires_tags": [],
-    "requires_weapon_ids": [],
+    "requires_weapon_ids": [
+      "shock_pulse"
+    ],
     "exclusive_group": "",
     "max_rank": 3,
     "blocks": []
@@ -858,7 +891,9 @@
       "any": []
     },
     "requires_tags": [],
-    "requires_weapon_ids": [],
+    "requires_weapon_ids": [
+      "abyss_mine"
+    ],
     "exclusive_group": "",
     "max_rank": 3,
     "blocks": []
@@ -897,7 +932,9 @@
       "any": []
     },
     "requires_tags": [],
-    "requires_weapon_ids": [],
+    "requires_weapon_ids": [
+      "tether_beam"
+    ],
     "exclusive_group": "",
     "max_rank": 3,
     "blocks": []
@@ -906,7 +943,7 @@
     "id": "u_drone_cluster_ai",
     "name": "Drone Cluster AI",
     "description": "[Weapon: orbital_drone] Summon +1, attack rate +10%.",
-    "rarity": "rare",
+    "rarity": "legendary",
     "max_stacks": 2,
     "tags": [
       "summon",
@@ -930,13 +967,20 @@
         }
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.6,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_drone_bay"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
-    "requires_weapon_ids": [],
+    "requires_weapon_ids": [
+      "orbital_drone"
+    ],
     "exclusive_group": "",
     "max_rank": 2,
     "blocks": []
@@ -975,7 +1019,9 @@
       "any": []
     },
     "requires_tags": [],
-    "requires_weapon_ids": [],
+    "requires_weapon_ids": [
+      "sonar_blade"
+    ],
     "exclusive_group": "",
     "max_rank": 2,
     "blocks": []
