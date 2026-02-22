@@ -227,7 +227,7 @@
         },
         {
           "type": "upgrade_selected",
-          "upgrade_id": "u_silent_baffles"
+          "upgrade_id": "u_thermal_sink"
         }
       ]
     },

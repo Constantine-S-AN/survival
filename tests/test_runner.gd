@@ -518,10 +518,17 @@ func _run_upgrade_rules_tests() -> void:
 
 	var low_profile_from_upgrade: Array = upgrade_rules.filter_candidates(
 		upgrades,
+		{"u_thermal_sink": 1},
+		_make_upgrade_context(["silence_dart"], "silence_dart", {"silence": 1}, "silent")
+	)
+	_assert_true(_candidate_list_has(low_profile_from_upgrade, "u_low_profile_processor"), "non-exclusive prereq branch unlocks u_low_profile_processor")
+
+	var low_profile_conflict: Array = upgrade_rules.filter_candidates(
+		upgrades,
 		{"u_silent_baffles": 1},
 		_make_upgrade_context(["silence_dart"], "silence_dart", {"silence": 1}, "silent")
 	)
-	_assert_true(not _candidate_list_has(low_profile_from_upgrade, "u_low_profile_processor"), "exclusive_group takes priority even if alternate prereq path is met")
+	_assert_true(not _candidate_list_has(low_profile_conflict, "u_low_profile_processor"), "exclusive_group still blocks conflicting noise route picks")
 
 	var without_drone_weapon: Array = upgrade_rules.filter_candidates(
 		upgrades,
@@ -594,58 +601,81 @@ func _run_upgrade_schema_validation_tests() -> void:
 		return
 	var upgrades_array: Array = parsed_upgrades
 	var registry_script: Script = load("res://scripts/core/data_registry.gd")
+	var tmp_dir := "user://tmp"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(tmp_dir))
 
 	var broken_rarity: Array = upgrades_array.duplicate(true)
 	if _mutate_upgrade_field(broken_rarity, "u_hardlight_core", "rarity", "mythic"):
-		_write_json_value(upgrades_path, broken_rarity)
+		var rarity_path := "%s/upgrades_broken_rarity.json" % tmp_dir
+		_write_json_value(rarity_path, broken_rarity)
 		var rarity_registry = registry_script.new()
-		var rarity_ok: bool = rarity_registry.load_all(false)
+		var rarity_ok: bool = rarity_registry.load_all(false, {"upgrades": rarity_path})
 		var rarity_errors: Array[String] = rarity_registry.get_validation_errors()
 		_assert_true(not rarity_ok, "upgrade schema fails when rarity enum is invalid")
 		_assert_true(_array_contains_text(rarity_errors, "unknown rarity 'mythic'"), "upgrade schema reports invalid rarity value")
 		rarity_registry.free()
+		_remove_file_if_exists(rarity_path)
 	else:
 		_assert_true(false, "upgrade schema rarity test: u_hardlight_core exists")
-	_write_text_value(upgrades_path, original_upgrades)
 
 	var broken_prereq: Array = upgrades_array.duplicate(true)
 	if _mutate_upgrade_field(broken_prereq, "u_echo_stabilizer", "prereq", {"all": "bad", "any": []}):
-		_write_json_value(upgrades_path, broken_prereq)
+		var prereq_path := "%s/upgrades_broken_prereq.json" % tmp_dir
+		_write_json_value(prereq_path, broken_prereq)
 		var prereq_registry = registry_script.new()
-		var prereq_ok: bool = prereq_registry.load_all(false)
+		var prereq_ok: bool = prereq_registry.load_all(false, {"upgrades": prereq_path})
 		var prereq_errors: Array[String] = prereq_registry.get_validation_errors()
 		_assert_true(not prereq_ok, "upgrade schema fails when prereq branch has wrong type")
 		_assert_true(_array_contains_text(prereq_errors, "prereq] 'all' must be an array"), "upgrade schema reports prereq branch type error")
 		prereq_registry.free()
+		_remove_file_if_exists(prereq_path)
 	else:
 		_assert_true(false, "upgrade schema prereq test: u_echo_stabilizer exists")
-	_write_text_value(upgrades_path, original_upgrades)
+
+	var broken_stat: Array = upgrades_array.duplicate(true)
+	if _mutate_upgrade_field(broken_stat, "u_hardlight_core", "effects", [{"stat": "invalid_effect_stat", "add": 0.1}]):
+		var stat_path := "%s/upgrades_broken_stat.json" % tmp_dir
+		_write_json_value(stat_path, broken_stat)
+		var stat_registry = registry_script.new()
+		var stat_ok: bool = stat_registry.load_all(false, {"upgrades": stat_path})
+		var stat_errors: Array[String] = stat_registry.get_validation_errors()
+		_assert_true(not stat_ok, "upgrade schema fails when effect stat is unknown")
+		_assert_true(_array_contains_text(stat_errors, "unknown effect stat 'invalid_effect_stat'"), "upgrade schema reports unknown effect stat")
+		_assert_true(stat_registry.get_upgrade("u_hardlight_core").is_empty(), "upgrade with invalid effect stat is skipped from runtime pool")
+		stat_registry.free()
+		_remove_file_if_exists(stat_path)
+	else:
+		_assert_true(false, "upgrade schema effect stat test: u_hardlight_core exists")
 
 	var broken_requires_weapon: Array = upgrades_array.duplicate(true)
 	if _mutate_upgrade_field(broken_requires_weapon, "u_drone_bay", "requires_weapon_ids", ["ghost_weapon"]):
-		_write_json_value(upgrades_path, broken_requires_weapon)
+		var requires_weapon_path := "%s/upgrades_broken_requires_weapon.json" % tmp_dir
+		_write_json_value(requires_weapon_path, broken_requires_weapon)
 		var requires_weapon_registry = registry_script.new()
-		var requires_weapon_ok: bool = requires_weapon_registry.load_all(false)
+		var requires_weapon_ok: bool = requires_weapon_registry.load_all(false, {"upgrades": requires_weapon_path})
 		var requires_weapon_errors: Array[String] = requires_weapon_registry.get_validation_errors()
 		_assert_true(not requires_weapon_ok, "upgrade schema fails when requires_weapon_ids references unknown weapon")
 		_assert_true(_array_contains_text(requires_weapon_errors, "requires_weapon_ids contains unknown weapon 'ghost_weapon'"), "upgrade schema reports unknown requires_weapon_ids value")
 		requires_weapon_registry.free()
+		_remove_file_if_exists(requires_weapon_path)
 	else:
 		_assert_true(false, "upgrade schema requires_weapon_ids test: u_drone_bay exists")
-	_write_text_value(upgrades_path, original_upgrades)
 
 	var broken_requires_tag: Array = upgrades_array.duplicate(true)
 	if _mutate_upgrade_field(broken_requires_tag, "u_summon_screen", "requires_tags", ["ghost_tag"]):
-		_write_json_value(upgrades_path, broken_requires_tag)
+		var requires_tag_path := "%s/upgrades_broken_requires_tag.json" % tmp_dir
+		_write_json_value(requires_tag_path, broken_requires_tag)
 		var requires_tag_registry = registry_script.new()
-		var requires_tag_ok: bool = requires_tag_registry.load_all(false)
+		var requires_tag_ok: bool = requires_tag_registry.load_all(false, {"upgrades": requires_tag_path})
 		var requires_tag_errors: Array[String] = requires_tag_registry.get_validation_errors()
 		_assert_true(not requires_tag_ok, "upgrade schema fails when requires_tags references unknown tag")
 		_assert_true(_array_contains_text(requires_tag_errors, "requires_tags contains unknown tag 'ghost_tag'"), "upgrade schema reports unknown requires_tags value")
 		requires_tag_registry.free()
+		_remove_file_if_exists(requires_tag_path)
 	else:
 		_assert_true(false, "upgrade schema requires_tags test: u_summon_screen exists")
-	_write_text_value(upgrades_path, original_upgrades)
+
+	_assert_true(FileAccess.get_file_as_string(upgrades_path) == original_upgrades, "upgrade schema tests do not mutate res upgrades data")
 
 
 func _run_placeholder_fix_tests() -> void:
@@ -946,11 +976,10 @@ func _write_json_value(path: String, value: Variant) -> void:
 	file = null
 
 
-func _write_text_value(path: String, value: String) -> void:
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	file.store_string(value)
-	file.flush()
-	file = null
+func _remove_file_if_exists(path: String) -> void:
+	if not FileAccess.file_exists(path):
+		return
+	DirAccess.remove_absolute(path)
 
 
 func _mutate_upgrade_field(rows: Array, upgrade_id: String, field: String, value: Variant) -> bool:
