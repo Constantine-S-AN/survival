@@ -11,6 +11,10 @@ var elapsed_time := 0.0
 var spawn_timer := 0.0
 var noise_factor := 0.0
 var active_enemies: Array = []
+var pursuer_cooldown_remaining := 0.0
+var current_spawn_rate_multiplier := 1.0
+var current_spawn_cap_multiplier := 1.0
+var current_pursuer_chance := 0.0
 
 
 func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
@@ -19,6 +23,10 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 	elapsed_time = 0.0
 	spawn_timer = 0.0
 	noise_factor = 0.0
+	pursuer_cooldown_remaining = 0.0
+	current_spawn_rate_multiplier = 1.0
+	current_spawn_cap_multiplier = 1.0
+	current_pursuer_chance = 0.0
 	active_enemies.clear()
 
 
@@ -31,15 +39,24 @@ func _process(delta: float) -> void:
 	if player == null or not is_instance_valid(player) or rng == null:
 		return
 
+	pursuer_cooldown_remaining = maxf(0.0, pursuer_cooldown_remaining - delta)
+	var noise_modifiers := DataRegistry.get_noise_spawn_modifiers(noise_factor)
+	current_spawn_rate_multiplier = float(noise_modifiers.get("spawn_rate_multiplier", 1.0))
+	current_spawn_cap_multiplier = float(noise_modifiers.get("spawn_cap_multiplier", 1.0))
+	current_pursuer_chance = float(noise_modifiers.get("pursuer_chance", 0.0))
+
 	spawn_timer -= delta
 	var spawn_rate: float = DataRegistry.get_spawn_rate(elapsed_time, noise_factor)
 	var spawn_interval: float = 1.0 / maxf(0.05, spawn_rate)
+	var enemy_cap := DataRegistry.get_enemy_cap(elapsed_time, noise_factor)
 
 	while spawn_timer <= 0.0:
 		spawn_timer += spawn_interval
-		if _get_alive_enemy_count() >= DataRegistry.get_enemy_cap(elapsed_time, noise_factor):
+		if _get_alive_enemy_count() >= enemy_cap:
 			break
 		_spawn_enemy()
+
+	_try_spawn_pursuer(delta)
 
 
 func get_priority_target(origin: Vector2) -> Node2D:
@@ -59,6 +76,14 @@ func get_alive_enemy_count() -> int:
 	return _get_alive_enemy_count()
 
 
+func get_noise_debug_snapshot() -> Dictionary:
+	return {
+		"spawn_rate_multiplier": current_spawn_rate_multiplier,
+		"spawn_cap_multiplier": current_spawn_cap_multiplier,
+		"pursuer_chance": current_pursuer_chance
+	}
+
+
 func _spawn_enemy() -> void:
 	var enemy_id := DataRegistry.pick_enemy_id(rng, elapsed_time, noise_factor)
 	if enemy_id.is_empty():
@@ -73,6 +98,40 @@ func _spawn_enemy() -> void:
 	enemy.setup(enemy_id, definition, player)
 	enemy.died.connect(_on_enemy_died.bind(enemy))
 	active_enemies.append(enemy)
+
+
+func _spawn_specific_enemy(enemy_id: String) -> void:
+	var definition: Dictionary = DataRegistry.get_enemy(enemy_id)
+	if definition.is_empty():
+		return
+	var enemy = enemy_scene.instantiate()
+	add_child(enemy)
+	enemy.global_position = _pick_spawn_position()
+	enemy.setup(enemy_id, definition, player)
+	enemy.died.connect(_on_enemy_died.bind(enemy))
+	active_enemies.append(enemy)
+
+
+func _try_spawn_pursuer(delta: float) -> void:
+	var noise_cfg := DataRegistry.get_noise_config()
+	var pursuer_variant: Variant = noise_cfg.get("pursuer", {})
+	if not (pursuer_variant is Dictionary):
+		return
+	var pursuer: Dictionary = pursuer_variant
+	var min_noise := float(pursuer.get("min_noise", 60.0))
+	if noise_factor < min_noise:
+		return
+	if pursuer_cooldown_remaining > 0.0:
+		return
+	var chance := current_pursuer_chance
+	if chance <= 0.0:
+		return
+	if rng.randf() <= chance * delta:
+		var pursuer_id := String(pursuer.get("enemy_id", ""))
+		if pursuer_id.is_empty():
+			return
+		_spawn_specific_enemy(pursuer_id)
+		pursuer_cooldown_remaining = float(pursuer.get("spawn_cooldown", 12.0))
 
 
 func _pick_spawn_position() -> Vector2:

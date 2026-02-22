@@ -37,5 +37,18 @@
     "size": 18.0,
     "color": "#4fd4ff",
     "tags": ["basic", "heavy"]
+  },
+  "pursuer_stalker": {
+    "id": "pursuer_stalker",
+    "name": "Pursuer Stalker",
+    "max_hp": 76.0,
+    "speed": 164.0,
+    "damage": 22.0,
+    "xp_reward": 20,
+    "contact_cooldown": 0.58,
+    "threat": 3.6,
+    "size": 21.0,
+    "color": "#ff7f95",
+    "tags": ["pursuer", "hunter"]
   }
 }

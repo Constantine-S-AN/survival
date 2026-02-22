@@ -62,7 +62,7 @@ func _process(delta: float) -> void:
 
 func _on_enemy_killed(_enemy_id: String, xp_reward: int, world_position: Vector2) -> void:
 	kills += 1
-	world.spawn_xp_pickup(world_position, xp_reward)
+	world.call_deferred("spawn_xp_pickup", world_position, xp_reward)
 
 
 func _on_player_level_up_requested(options: Array) -> void:
@@ -137,6 +137,12 @@ func _refresh_hud() -> void:
 	hud["seed"] = run_seed
 	hud["enemy_count"] = world.enemy_manager.get_alive_enemy_count()
 	hud["revealed_count"] = world.get_revealed_enemy_count()
+	var noise_tier: Dictionary = DataRegistry.get_noise_tier(world.player.noise)
+	hud["noise_tier_name"] = String(noise_tier.get("name", "静默"))
+	hud["noise_tier_color"] = String(noise_tier.get("hud_color", "#74e7ff"))
+	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
+	hud["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
+	hud["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
 	hud["state"] = run_state
 	ui.update_hud(hud)
 

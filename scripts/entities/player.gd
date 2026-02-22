@@ -10,7 +10,6 @@ const BASE_MOVE_SPEED := 240.0
 const BASE_DASH_SPEED := 820.0
 const DASH_DURATION := 0.14
 const BASE_DASH_COOLDOWN := 2.2
-const NOISE_DECAY_PER_SECOND := 4.5
 
 var enemy_manager: Node
 var projectile_manager: Node
@@ -22,6 +21,15 @@ var xp := 0.0
 var xp_to_next := 20.0
 var level := 1
 var noise := 0.0
+var noise_min := 0.0
+var noise_max := 100.0
+var noise_decay_per_second := 4.5
+var noise_sources: Dictionary = {
+	"attack": 1.2,
+	"attack_weapon_scale": 0.7,
+	"dash": 6.0,
+	"skill": 13.0
+}
 
 var damage_mult := 1.0
 var attack_speed_mult := 1.0
@@ -48,6 +56,8 @@ var attack_cd_remaining := 0.0
 var invuln_remaining := 0.0
 var auto_attack := true
 var active_weapon_id := "pulse_emitter"
+var skill_cd_remaining := 0.0
+var skill_cooldown := 8.0
 
 
 func _ready() -> void:
@@ -60,6 +70,7 @@ func setup(enemy_manager_ref: Node, projectile_manager_ref: Node, run_rng: Rando
 	projectile_manager = projectile_manager_ref
 	if run_rng != null:
 		rng = run_rng
+	apply_noise_config(DataRegistry.get_noise_config())
 
 
 func _physics_process(delta: float) -> void:
@@ -67,6 +78,7 @@ func _physics_process(delta: float) -> void:
 	dash_cd_remaining = max(0.0, dash_cd_remaining - delta)
 	attack_cd_remaining = max(0.0, attack_cd_remaining - delta)
 	dash_time_remaining = max(0.0, dash_time_remaining - delta)
+	skill_cd_remaining = max(0.0, skill_cd_remaining - delta)
 
 	if regen_per_second > 0.0 and hp > 0.0:
 		hp = min(max_hp, hp + regen_per_second * delta)
@@ -83,7 +95,12 @@ func _physics_process(delta: float) -> void:
 		dash_direction = last_move_direction if last_move_direction.length() > 0.01 else Vector2.RIGHT
 		dash_time_remaining = DASH_DURATION
 		dash_cd_remaining = _current_dash_cooldown()
-		_add_noise(6.0)
+		_add_noise_source("dash")
+
+	if Input.is_action_just_pressed("sonar_skill") and skill_cd_remaining <= 0.0:
+		skill_cd_remaining = skill_cooldown
+		_add_noise_source("skill")
+		FeedbackBus.emit_sonar_pulse(global_position, {"source": "skill"})
 
 	if dash_time_remaining > 0.0:
 		velocity = dash_direction * BASE_DASH_SPEED
@@ -94,7 +111,7 @@ func _physics_process(delta: float) -> void:
 	if attack_cd_remaining <= 0.0:
 		_attempt_fire()
 
-	noise = max(0.0, noise - NOISE_DECAY_PER_SECOND * delta)
+	noise = clampf(noise - noise_decay_per_second * delta, noise_min, noise_max)
 
 
 func _attempt_fire() -> void:
@@ -122,7 +139,7 @@ func _attempt_fire() -> void:
 	FeedbackBus.emit_shot(global_position, 0.12)
 	var base_cooldown := float(weapon.get("cooldown", 0.5))
 	attack_cd_remaining = max(0.06, base_cooldown / max(0.1, attack_speed_mult))
-	_add_noise(float(weapon.get("noise", 3.0)))
+	_add_noise_source("attack", float(weapon.get("noise", 3.0)))
 
 
 func _fire_weapon(weapon: Dictionary, fire_direction: Vector2) -> void:
@@ -252,7 +269,33 @@ func _current_dash_cooldown() -> float:
 
 
 func _add_noise(amount: float) -> void:
-	noise = clamp(noise + (amount * noise_generation_mult), 0.0, 100.0)
+	noise = clampf(noise + (amount * noise_generation_mult), noise_min, noise_max)
+
+
+func _add_noise_source(source_key: String, extra: float = 0.0) -> void:
+	var base := float(noise_sources.get(source_key, 0.0))
+	if source_key == "attack":
+		base += extra * float(noise_sources.get("attack_weapon_scale", 0.0))
+	_add_noise(base)
+
+
+func apply_noise_config(config: Dictionary) -> void:
+	if config.is_empty():
+		return
+	noise_min = float(config.get("min", 0.0))
+	noise_max = float(config.get("max", 100.0))
+	noise_decay_per_second = float(config.get("decay_per_second", 4.5))
+	var sources_variant: Variant = config.get("sources", {})
+	if sources_variant is Dictionary:
+		noise_sources = (sources_variant as Dictionary).duplicate(true)
+	var skill_variant: Variant = config.get("skill", {})
+	if skill_variant is Dictionary:
+		skill_cooldown = float((skill_variant as Dictionary).get("cooldown", 8.0))
+	noise = clampf(noise, noise_min, noise_max)
+
+
+func set_noise_value(value: float) -> void:
+	noise = clampf(value, noise_min, noise_max)
 
 
 func get_hud_data() -> Dictionary:
@@ -260,12 +303,15 @@ func get_hud_data() -> Dictionary:
 		"hp": hp,
 		"max_hp": max_hp,
 		"xp": xp,
-		"xp_to_next": xp_to_next,
-		"level": level,
-		"noise": noise,
-		"dash_cd": dash_cd_remaining,
-		"attack_mode": "AUTO" if auto_attack else "AIM"
-	}
+			"xp_to_next": xp_to_next,
+			"level": level,
+			"noise": noise,
+			"noise_min": noise_min,
+			"noise_max": noise_max,
+			"dash_cd": dash_cd_remaining,
+			"skill_cd": skill_cd_remaining,
+			"attack_mode": "AUTO" if auto_attack else "AIM"
+		}
 
 
 func emit_stats_changed() -> void:

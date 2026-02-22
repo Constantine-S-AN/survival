@@ -95,7 +95,10 @@ func update_hud(data: Dictionary) -> void:
 	hp_label.text = "HP: %d / %d" % [int(round(float(data.get("hp", 0.0)))), int(round(float(data.get("max_hp", 0.0))))]
 	xp_label.text = "XP: %d / %d" % [int(round(float(data.get("xp", 0.0)))), int(round(float(data.get("xp_to_next", 1.0))))]
 	level_label.text = "Level: %d" % int(data.get("level", 1))
-	noise_label.text = "Noise: %d" % int(round(float(data.get("noise", 0.0))))
+	noise_label.text = "Noise: %d [%s]" % [
+		int(round(float(data.get("noise", 0.0)))),
+		String(data.get("noise_tier_name", "静默"))
+	]
 	mode_label.text = "Attack: %s" % String(data.get("attack_mode", "AUTO"))
 	time_label.text = "Time: %s" % _format_time(float(data.get("elapsed_time", 0.0)))
 	kills_label.text = "Kills: %d" % int(data.get("kills", 0))

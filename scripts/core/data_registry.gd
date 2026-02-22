@@ -6,7 +6,8 @@ const DATA_FILES: Dictionary = {
 	"upgrades": "res://data/upgrades.json",
 	"spawn_curve": "res://data/spawn_curve.json",
 	"fog": "res://data/fog.json",
-	"sonar": "res://data/sonar.json"
+	"sonar": "res://data/sonar.json",
+	"noise": "res://data/noise.json"
 }
 
 const RARITY_WEIGHT: Dictionary = {
@@ -22,6 +23,7 @@ var upgrades: Array = []
 var spawn_curve: Array = []
 var fog_config: Dictionary = {}
 var sonar_config: Dictionary = {}
+var noise_config: Dictionary = {}
 var validation_errors: Array[String] = []
 var loaded: bool = false
 
@@ -39,6 +41,7 @@ func load_all() -> bool:
 	spawn_curve = _load_array_of_dictionaries(DATA_FILES["spawn_curve"], "spawn_curve")
 	fog_config = _load_dictionary(DATA_FILES["fog"], "fog")
 	sonar_config = _load_dictionary(DATA_FILES["sonar"], "sonar")
+	noise_config = _load_dictionary(DATA_FILES["noise"], "noise")
 
 	_validate_weapons()
 	_validate_enemies()
@@ -46,6 +49,7 @@ func load_all() -> bool:
 	_validate_spawn_curve()
 	_validate_fog()
 	_validate_sonar()
+	_validate_noise()
 
 	loaded = validation_errors.is_empty()
 	if not loaded:
@@ -77,6 +81,8 @@ func get_data_version(key: String) -> int:
 			payload = fog_config
 		"sonar":
 			payload = sonar_config
+		"noise":
+			payload = noise_config
 		_:
 			return -1
 	if payload is Dictionary:
@@ -88,6 +94,51 @@ func get_sonar_config() -> Dictionary:
 	if sonar_config.is_empty():
 		return {}
 	return sonar_config.duplicate(true)
+
+
+func get_noise_config() -> Dictionary:
+	if noise_config.is_empty():
+		return {}
+	return noise_config.duplicate(true)
+
+
+func get_noise_tier(noise_value: float) -> Dictionary:
+	var tiers_variant: Variant = noise_config.get("tiers", [])
+	if not (tiers_variant is Array):
+		return {}
+	var tiers: Array = tiers_variant
+	for tier_variant in tiers:
+		if not (tier_variant is Dictionary):
+			continue
+		var tier: Dictionary = tier_variant
+		var min_value := float(tier.get("min", 0.0))
+		var max_value := float(tier.get("max", 100.0))
+		if noise_value >= min_value and noise_value < max_value:
+			return tier
+	if not tiers.is_empty():
+		var last: Variant = tiers.back()
+		if last is Dictionary:
+			return last
+	return {}
+
+
+func get_noise_spawn_modifiers(noise_value: float) -> Dictionary:
+	var tier := get_noise_tier(noise_value)
+	if tier.is_empty():
+		return {
+			"spawn_rate_multiplier": 1.0,
+			"spawn_cap_multiplier": 1.0,
+			"pursuer_chance": 0.0,
+			"tier_name": "Unknown"
+		}
+	return {
+		"spawn_rate_multiplier": float(tier.get("spawn_rate_multiplier", 1.0)),
+		"spawn_cap_multiplier": float(tier.get("spawn_cap_multiplier", 1.0)),
+		"pursuer_chance": float(tier.get("pursuer_chance", 0.0)),
+		"tier_name": String(tier.get("name", "Unknown")),
+		"tier_id": String(tier.get("id", "unknown")),
+		"hud_color": String(tier.get("hud_color", "#ffffff"))
+	}
 
 
 func get_weapon(weapon_id: String) -> Dictionary:
@@ -152,14 +203,16 @@ func get_upgrade_choices(rng: RandomNumberGenerator, current_stacks: Dictionary,
 func get_spawn_rate(elapsed_time: float, noise: float = 0.0) -> float:
 	var profile: Dictionary = _get_spawn_profile(elapsed_time)
 	var base_rate: float = float(profile.get("spawn_per_second", 1.0))
-	var noise_multiplier: float = 1.0 + clampf(noise * 0.012, 0.0, 1.4)
+	var modifiers := get_noise_spawn_modifiers(noise)
+	var noise_multiplier: float = float(modifiers.get("spawn_rate_multiplier", 1.0))
 	return base_rate * noise_multiplier
 
 
 func get_enemy_cap(elapsed_time: float, noise: float = 0.0) -> int:
 	var profile: Dictionary = _get_spawn_profile(elapsed_time)
 	var base_cap: int = int(profile.get("enemy_cap", 60))
-	var mult: float = 1.0 + clampf(noise * 0.004, 0.0, 0.65)
+	var modifiers := get_noise_spawn_modifiers(noise)
+	var mult: float = float(modifiers.get("spawn_cap_multiplier", 1.0))
 	return int(round(base_cap * mult))
 
 
@@ -357,6 +410,38 @@ func _validate_sonar() -> void:
 		],
 		"sonar"
 	)
+
+
+func _validate_noise() -> void:
+	_validate_required_keys(
+		noise_config,
+		[
+			"schema_version",
+			"min",
+			"max",
+			"decay_per_second",
+			"sources",
+			"skill",
+			"tiers",
+			"pursuer"
+		],
+		"noise"
+	)
+	var tiers_variant: Variant = noise_config.get("tiers", [])
+	if not (tiers_variant is Array):
+		validation_errors.append("[noise] tiers must be array")
+		return
+	var tiers: Array = tiers_variant
+	for i in range(tiers.size()):
+		var tier_variant: Variant = tiers[i]
+		if not (tier_variant is Dictionary):
+			validation_errors.append("[noise] tier %d must be dictionary" % i)
+			continue
+		_validate_required_keys(
+			tier_variant,
+			["id", "name", "min", "max", "spawn_rate_multiplier", "spawn_cap_multiplier", "pursuer_chance", "hud_color"],
+			"noise:tier:%d" % i
+		)
 
 
 func _validate_required_keys(payload: Dictionary, required_keys: Array, label: String) -> void:
