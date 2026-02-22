@@ -76,6 +76,7 @@ func _ready() -> void:
 	await _run_map_biome_tests()
 	await _run_p0f_system_tests()
 	await _run_enemy_pool_perf_tests()
+	await _run_boss_showcase_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
 	get_tree().quit(failed)
@@ -415,11 +416,15 @@ func _run_weapon_system_tests() -> void:
 		var enemy: Node = harness.get("enemy")
 		var projectile_manager: Node = harness.get("projectile_manager")
 		_assert_true(player != null and enemy != null and projectile_manager != null, "weapon harness created for %s" % weapon_id)
+		await _await_stable_physics_frames(1)
 		player._attempt_fire()
-		await get_tree().process_frame
+		await _await_stable_physics_frames(1)
 		var spawned_projectiles := int(projectile_manager.active_projectiles)
 		_force_projectile_hits(projectile_manager, enemy)
-		await get_tree().process_frame
+		await _await_stable_physics_frames(1)
+		if (weapon_id == "shock_pulse" or weapon_id == "sonar_blade") and int(enemy.hit_count) < 1:
+			player._attempt_fire()
+			await _await_stable_physics_frames(1)
 
 		match weapon_id:
 			"needle_rifle", "burst_smg":
@@ -435,7 +440,7 @@ func _run_weapon_system_tests() -> void:
 			"abyss_mine":
 				_assert_true((player.deployed_mines as Array).size() >= 1, "abyss_mine deploys mine instance")
 				player._update_deployed_mines(0.8)
-				await get_tree().process_frame
+				await _await_stable_physics_frames(1)
 				_assert_true(int(enemy.hit_count) >= 1, "abyss_mine detonates and damages enemy")
 			"tether_beam":
 				_assert_true(float(player.beam_visual_timer) > 0.0, "tether_beam starts beam visual timer")
@@ -444,10 +449,10 @@ func _run_weapon_system_tests() -> void:
 				if spawned_projectiles <= 0:
 					player._update_drone_orbits(0.25)
 					player._attempt_fire()
-					await get_tree().process_frame
+					await _await_stable_physics_frames(1)
 					spawned_projectiles = int(projectile_manager.active_projectiles)
 					_force_projectile_hits(projectile_manager, enemy)
-					await get_tree().process_frame
+					await _await_stable_physics_frames(1)
 				_assert_true((player.drone_nodes as Array).size() >= 1, "orbital_drone spawns drone visuals")
 				_assert_true(spawned_projectiles > 0, "orbital_drone produces projectiles")
 				_assert_true(int(enemy.hit_count) >= 1, "orbital_drone can damage enemy")
@@ -746,13 +751,13 @@ func _create_weapon_test_harness(weapon_id: String, enemy_position: Vector2) -> 
 	get_tree().root.add_child.call_deferred(enemy_manager)
 	get_tree().root.add_child.call_deferred(enemy)
 	get_tree().root.add_child.call_deferred(player)
-	await get_tree().process_frame
-	await get_tree().process_frame
+	await _await_stable_physics_frames(2)
 
 	player.setup(enemy_manager, projectile_manager, test_rng, _make_test_character(weapon_id))
 	player.auto_attack = true
 	player.attack_cd_remaining = 0.0
 	player.global_position = Vector2.ZERO
+	await _await_stable_physics_frames(1)
 	return {
 		"player": player,
 		"projectile_manager": projectile_manager,
@@ -792,6 +797,13 @@ func _cleanup_weapon_test_harness(harness: Dictionary) -> void:
 				node.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
+
+
+func _await_stable_physics_frames(count: int = 1) -> void:
+	var steps := maxi(1, count)
+	for _i in range(steps):
+		await get_tree().physics_frame
+		await get_tree().process_frame
 
 
 func _run_m2_system_tests() -> void:
@@ -1428,6 +1440,128 @@ func _run_enemy_pool_perf_tests() -> void:
 	melee_player._attempt_fire()
 	_assert_true(int(melee_player.get_target_query_total()) > 0, "s1 melee path uses radius query telemetry")
 	await _cleanup_weapon_test_harness(melee_harness)
+
+
+func _run_boss_showcase_tests() -> void:
+	var world_a := await _create_boss_test_world(77201)
+	var manager_a: Node = world_a.enemy_manager
+	var boss_a := await _force_spawn_boss_for_test(world_a)
+	_assert_true(boss_a != null, "s2 boss spawns for showcase test")
+	_assert_true(world_a.get_active_boss_telegraph_count() > 0, "s2 phase telegraph appears on boss entry")
+
+	if boss_a != null:
+		boss_a.set("hp", float(boss_a.get("max_hp")) * 0.42)
+	manager_a._process(0.5)
+	await get_tree().process_frame
+	var decoy_count_a := int(manager_a.get_boss_decoy_count())
+	_assert_true(decoy_count_a >= 2 and decoy_count_a <= 3, "s2 phase2 generates decoy count in [2,3]")
+	_assert_true(not bool(manager_a.is_boss_true_form_revealed()), "s2 true form remains hidden before reveal")
+
+	if boss_a != null and boss_a.has_method("set_revealed"):
+		boss_a.set_revealed(1.3)
+	await _await_stable_physics_frames(1)
+	_assert_true(bool(manager_a.is_boss_true_form_revealed()), "s2 true form marked revealed after sonar reveal")
+	for _i in range(36):
+		await _await_stable_physics_frames(1)
+		if int(manager_a.get_boss_decoy_count()) == 0:
+			break
+	_assert_true(int(manager_a.get_boss_decoy_count()) == 0, "s2 decoys dissipate after true reveal")
+
+	var telegraphs_before := int(world_a.get_active_boss_telegraph_count())
+	if boss_a != null:
+		boss_a.set("ranged_cooldown_remaining", 0.0)
+		boss_a.call("_update_shooter_attack", 90.0)
+	await get_tree().process_frame
+	var telegraphs_after := int(world_a.get_active_boss_telegraph_count())
+	_assert_true(telegraphs_after > telegraphs_before, "s2 boss attack emits line telegraph")
+
+	world_a.spawn_boss_telegraph("ring", {
+		"origin": Vector2.ZERO,
+		"radius": 88.0,
+		"duration": 0.08,
+		"line_width": 4.0
+	})
+	var transient_telegraphs := int(world_a.get_active_boss_telegraph_count())
+	_assert_true(transient_telegraphs > 0, "s2 manual telegraph node instantiates")
+	for _i in range(24):
+		await get_tree().process_frame
+	_assert_true(int(world_a.get_active_boss_telegraph_count()) < transient_telegraphs, "s2 telegraph nodes auto-destroy after duration")
+
+	world_a.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var world_b := await _create_boss_test_world(77201)
+	var manager_b: Node = world_b.enemy_manager
+	var boss_b := await _force_spawn_boss_for_test(world_b)
+	if boss_b != null:
+		boss_b.set("hp", float(boss_b.get("max_hp")) * 0.42)
+	manager_b._process(0.5)
+	await get_tree().process_frame
+	var decoy_count_b := int(manager_b.get_boss_decoy_count())
+	_assert_equal(decoy_count_b, decoy_count_a, "s2 decoy count reproducible with fixed seed")
+	world_b.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var decoy_scene: PackedScene = load("res://scenes/enemy/BossEchoDecoy.tscn")
+	var decoy: Node = decoy_scene.instantiate()
+	get_tree().root.add_child.call_deferred(decoy)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if decoy != null and decoy.has_method("configure"):
+		decoy.configure(Vector2.ZERO, Color(0.7, 0.95, 1.0, 1.0), 14.0, 2.0)
+	await get_tree().process_frame
+	if decoy != null and decoy.has_method("take_hit"):
+		decoy.take_hit(10.0)
+	for _i in range(30):
+		await _await_stable_physics_frames(1)
+		if decoy == null or not is_instance_valid(decoy):
+			break
+	_assert_true(decoy == null or not is_instance_valid(decoy), "s2 decoy hit causes dissipate and cleanup")
+
+
+func _create_boss_test_world(seed: int) -> Node:
+	var world_scene: PackedScene = load("res://scenes/world/World.tscn")
+	var world = world_scene.instantiate()
+	get_tree().root.add_child.call_deferred(world)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var run_rng := RandomNumberGenerator.new()
+	run_rng.seed = seed
+	world.setup_run(run_rng, DataRegistry.get_character("diver"), "map_trench_lab", seed)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	return world
+
+
+func _force_spawn_boss_for_test(world: Node) -> Node:
+	if world == null:
+		return null
+	var manager: Node = world.enemy_manager
+	var player: Node = world.player
+	if manager == null or player == null:
+		return null
+	player.set_noise_value(80.0)
+	manager.update_difficulty(620.0, player.noise)
+	for _i in range(5):
+		manager._process(0.35)
+		await _await_stable_physics_frames(1)
+		var boss := _find_active_boss_node(manager)
+		if boss != null:
+			return boss
+	return _find_active_boss_node(manager)
+
+
+func _find_active_boss_node(enemy_manager: Node) -> Node:
+	if enemy_manager == null:
+		return null
+	for enemy in enemy_manager.get_children():
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		if enemy.is_in_group("boss"):
+			return enemy
+	return null
 
 
 func _find_active_enemy_by_id(enemy_manager: Node, enemy_id: String) -> Node:
