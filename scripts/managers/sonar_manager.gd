@@ -87,6 +87,7 @@ func _on_sonar_pulse_requested(world_position: Vector2, payload: Dictionary) -> 
 	var max_radius := float(config.get("max_radius", 720.0)) * float(payload.get("radius_scale", float(config.get(source_radius_key, 1.0))))
 	var speed := float(payload.get("speed", float(config.get("wave_speed", 980.0))))
 	var reveal_duration := float(payload.get("reveal_duration", float(config.get("reveal_duration", 1.8))))
+	reveal_duration *= maxf(0.2, float(payload.get("reveal_duration_multiplier", 1.0)))
 	var thickness := float(payload.get("line_width", float(config.get("line_width", 5.5))))
 
 	waves.append({

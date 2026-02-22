@@ -250,7 +250,7 @@ func get_upgrade(upgrade_id: String) -> Dictionary:
 	return {}
 
 
-func get_upgrade_choices(rng: RandomNumberGenerator, current_stacks: Dictionary, count: int = 3) -> Array:
+func get_upgrade_choices(rng: RandomNumberGenerator, current_stacks: Dictionary, count: int = 3, tag_weights: Dictionary = {}) -> Array:
 	var candidates: Array = []
 	for upgrade_variant in upgrades:
 		if not (upgrade_variant is Dictionary):
@@ -270,7 +270,7 @@ func get_upgrade_choices(rng: RandomNumberGenerator, current_stacks: Dictionary,
 
 	var picked: Array = []
 	while picked.size() < count and not candidates.is_empty():
-		var choice: Dictionary = _weighted_pick_upgrade(rng, candidates)
+		var choice: Dictionary = _weighted_pick_upgrade(rng, candidates, tag_weights)
 		picked.append(choice)
 		var chosen_id: String = String(choice.get("id", ""))
 		var remaining: Array = []
@@ -651,14 +651,13 @@ func _get_spawn_profile(elapsed_time: float) -> Dictionary:
 	return chosen
 
 
-func _weighted_pick_upgrade(rng: RandomNumberGenerator, candidates: Array) -> Dictionary:
+func _weighted_pick_upgrade(rng: RandomNumberGenerator, candidates: Array, tag_weights: Dictionary = {}) -> Dictionary:
 	var total: float = 0.0
 	for candidate_variant in candidates:
 		if not (candidate_variant is Dictionary):
 			continue
 		var candidate: Dictionary = candidate_variant
-		var rarity: String = String(candidate.get("rarity", "common"))
-		total += float(RARITY_WEIGHT.get(rarity, 1.0))
+		total += _get_upgrade_weight(candidate, tag_weights)
 
 	if total <= 0.0:
 		var first_candidate: Variant = candidates[0]
@@ -672,8 +671,7 @@ func _weighted_pick_upgrade(rng: RandomNumberGenerator, candidates: Array) -> Di
 		if not (candidate_variant is Dictionary):
 			continue
 		var candidate: Dictionary = candidate_variant
-		var rarity: String = String(candidate.get("rarity", "common"))
-		running += float(RARITY_WEIGHT.get(rarity, 1.0))
+		running += _get_upgrade_weight(candidate, tag_weights)
 		if roll <= running:
 			return candidate
 
@@ -681,3 +679,22 @@ func _weighted_pick_upgrade(rng: RandomNumberGenerator, candidates: Array) -> Di
 	if last_candidate is Dictionary:
 		return last_candidate
 	return {}
+
+
+func _get_upgrade_weight(candidate: Dictionary, tag_weights: Dictionary) -> float:
+	var rarity: String = String(candidate.get("rarity", "common"))
+	var base_weight := float(RARITY_WEIGHT.get(rarity, 1.0))
+	if tag_weights.is_empty():
+		return base_weight
+	var tags_variant: Variant = candidate.get("tags", [])
+	if not (tags_variant is Array):
+		return base_weight
+	var tags: Array = tags_variant
+	var tag_mult := 1.0
+	for tag_variant in tags:
+		var tag := String(tag_variant)
+		var weight_variant: Variant = tag_weights.get(tag, null)
+		if weight_variant == null:
+			continue
+		tag_mult *= clampf(float(weight_variant), 0.2, 3.0)
+	return maxf(0.0001, base_weight * tag_mult)
