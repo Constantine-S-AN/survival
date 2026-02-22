@@ -1,8 +1,8 @@
 # Survive: Neon Sonar (Godot 4.x)
 
-2D 俯视角幸存者游戏原型。当前完成 **M3 / P0-B**：在 M2 基础上加入 `角色系统 + 角色选择 + 解锁存档迁移`。
+2D 俯视角幸存者游戏原型。当前完成 **M3 / P0-C**：在 M2 + P0-B 基础上加入 `8武器系统 + 多攻击模型 + 武器/Tag定向升级`。
 
-## 当前里程碑状态（M3 / P0-B）
+## 当前里程碑状态（M3 / P0-C）
 - 已实现：移动、冲刺、自动/指向攻击切换、刷怪、击杀得经验、升级三选一、死亡结算、重开。
 - 已实现：`GameRoot / World / Player / EnemyManager / ProjectileManager / UI` 场景分层。
 - 已实现：`DataRegistry` 统一加载 JSON（武器/敌人/升级/刷怪曲线）并做基础 schema 校验。
@@ -13,7 +13,9 @@
 - 已实现（M1.5）：命中粒子、命中/开火占位音效（运行时合成）、轻屏震、短 hitstop。
 - 已实现（P0-A）：对象池（Projectile + Pickup）与 `pool_hit_rate / hits / misses` 实时统计。
 - 已实现（P0-B）：5角色配置、主菜单 -> 角色选择 -> 开局、profile schema 迁移、结算解锁评估与解锁弹窗。
-- 还未实现：M3 后续内容量（8武器、25升级、2地图、10敌人、1Boss 等）与导出脚本。
+- 已实现（P0-C）：8把武器（projectile / pulse / mine / beam / drone / melee 模型）、武器成长（5级曲线）、武器噪声参数、升级池 >=20 且支持 `target=weapon_id/tag`。
+- 已实现（P0-C）：HUD/Debug 显示当前武器、武器 tags、近似 DPS、weapon_noise_rate。
+- 还未实现：M3 后续内容量（2地图、10敌人、1Boss、契约扩展等）与导出脚本。
 
 ## 运行
 
@@ -48,6 +50,27 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `scavenger` / Neon Scavenger：拾取半径和经验收益强化。解锁：单局生存 600 秒。
 - 角色配置文件：`/Users/shijiean/Desktop/project/survive/data/characters.json`
 
+## Weapons（P0-C）
+当前 8 把均已可用（M3阶段默认可获得；角色通过 `starting_weapon_id` 引用起始武器，后续里程碑会补局外解锁）。
+
+- `needle_rifle`：中速穿透步枪。噪声：中低（稳定控场）。
+- `burst_smg`：高攻速高风险连发。噪声：高（快速抬噪）。
+- `silence_dart`：低噪静默飞镖，偏揭示延长。噪声：低。
+- `shock_pulse`：近身环形脉冲清杂。噪声：中高。
+- `abyss_mine`：节奏型地雷爆破。噪声：中高。
+- `tether_beam`：持续锁定束流，偏控制。噪声：中。
+- `orbital_drone`：环绕无人机自动火力。噪声：中。
+- `sonar_blade`：近战高收益挥击并强化声呐。噪声：中低。
+
+武器配置文件：`/Users/shijiean/Desktop/project/survive/data/weapons.json`
+
+## 武器 Tag 与升级 Tag 协同
+- 升级支持两类作用域：
+  - `target.type = weapon_id`：仅强化指定武器（如 `silence_dart`）。
+  - `target.type = tag`：强化同类标签武器（如全部 `sonar` / `aoe` / `summon`）。
+- 角色 `tag_weights` 仍参与三选一抽取权重，固定 seed 下可复现偏置结果。
+- 当前升级池覆盖：`sonar / silence / crit / pierce / aoe / chain / summon / pickup / economy / noise` 等。
+
 ## Fog / Sonar / Noise 玩法联动
 - Fog：默认黑暗迷雾，仅玩家视野圈内清晰可见，外部区域通过扫描线与噪点保持“科技深海”压迫感。
 - Sonar：命中、拾取、主动技能会释放波纹；波纹扫过敌人会短暂揭示（reveal），并显示高亮轮廓。
@@ -63,6 +86,7 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `F7`：固定噪声值 -10
 - `F8`：固定噪声值 +10
 - CharacterSelect 调试：Debug 构建下提供 `Unlock All (Debug)` 按钮（默认关闭，不在发行版启用）。
+- Debug 面板新增：`current_weapon(s)`、`weapon_tags`、`weapon_dps~`、`weapon_noise_rate`。
 
 ## 数据调参入口
 - 武器：`/Users/shijiean/Desktop/project/survive/data/weapons.json`
@@ -91,11 +115,11 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `run_count`
 
 ## 自动化测试（当前）
-M3 测试场景（包含 Pool + Fog/Sonar/Noise + Character/Profile）：
+M3 测试场景（包含 Pool + Fog/Sonar/Noise + Character/Profile + Weapon回归）：
 ```bash
-godot --headless --path /Users/shijiean/Desktop/project/survive --scene res://tests/TestRunner.tscn --quit-after 3400
+godot --headless --path /Users/shijiean/Desktop/project/survive --scene res://tests/TestRunner.tscn --quit-after 3600
 ```
-说明：headless 强制退出时可能出现 `ObjectDB leaked` 警告，当前不影响游戏 Play 流程和测试断言结果。
+说明：headless 强制退出时可能出现 `ObjectDB leaked` 警告，当前不影响 Play 流程与断言结果。
 
 ## 目录结构（M1）
 - `scenes/`：主场景与实体场景
