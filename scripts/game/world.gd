@@ -5,6 +5,7 @@ signal map_event_triggered(event_id: String, event_name: String, message: String
 signal hazard_state_changed(active: bool, warning_text: String)
 
 const MapRuntimeClass := preload("res://scripts/core/map_runtime.gd")
+const BossTelegraphEffectClass := preload("res://scripts/effects/boss_telegraph_effect.gd")
 
 @onready var projectile_manager = $ProjectileManager
 @onready var pool_manager = $PoolManager
@@ -33,6 +34,7 @@ var contract_modifiers: Dictionary = {}
 var active_contract_ids: Array[String] = []
 var last_hazard_active: bool = false
 var last_hazard_warning_active: bool = false
+var boss_fx_layer: Node2D
 const PROJECTILE_POOL_KEY := "projectile"
 const PICKUP_POOL_KEY := "pickup"
 const ENEMY_POOL_KEY := "enemy"
@@ -43,6 +45,9 @@ const ENEMY_POOL_PREWARM := 120
 
 func _ready() -> void:
 	sfx_rng.seed = int(Time.get_unix_time_from_system())
+	boss_fx_layer = Node2D.new()
+	boss_fx_layer.name = "BossFxLayer"
+	add_child(boss_fx_layer)
 	_configure_synth_player(hit_sfx)
 	_configure_synth_player(shot_sfx)
 	_setup_pools()
@@ -52,6 +57,10 @@ func _ready() -> void:
 	current_map_id = DataRegistry.get_default_map_id()
 	FeedbackBus.hit_landed.connect(_on_hit_landed)
 	FeedbackBus.shot_fired.connect(_on_shot_fired)
+	if enemy_manager != null:
+		enemy_manager.boss_telegraph_requested.connect(_on_boss_telegraph_requested)
+		enemy_manager.boss_echoes_spawned.connect(_on_boss_echoes_spawned)
+		enemy_manager.boss_true_form_revealed.connect(_on_boss_true_form_revealed)
 	queue_redraw()
 
 
@@ -63,6 +72,7 @@ func setup_run(
 	contract_bundle: Dictionary = {},
 	contract_ids: Array = []
 ) -> void:
+	_clear_boss_fx()
 	_setup_pools()
 	if pool_manager != null and pool_manager.has_method("reset_stats"):
 		pool_manager.reset_stats()
@@ -202,6 +212,33 @@ func get_enemy_pool_stats() -> Dictionary:
 		"total": 0,
 		"hit_rate": -1.0
 	}
+
+
+func get_active_boss_telegraph_count() -> int:
+	if boss_fx_layer == null:
+		return 0
+	return boss_fx_layer.get_child_count()
+
+
+func spawn_boss_telegraph(telegraph_type: String, payload: Dictionary = {}) -> void:
+	if BossTelegraphEffectClass == null:
+		return
+	if boss_fx_layer == null:
+		return
+	var telegraph := BossTelegraphEffectClass.new()
+	if telegraph == null:
+		return
+	boss_fx_layer.add_child(telegraph)
+	telegraph.configure(telegraph_type, payload)
+
+
+func _clear_boss_fx() -> void:
+	if boss_fx_layer == null:
+		return
+	for child in boss_fx_layer.get_children():
+		if child == null or not is_instance_valid(child):
+			continue
+		child.queue_free()
 
 
 func set_current_map(map_id: String, run_seed: int = 0) -> void:
@@ -436,6 +473,39 @@ func _on_shot_fired(_world_position: Vector2, intensity: float) -> void:
 	_play_shot_sfx(intensity)
 
 
+func _on_boss_telegraph_requested(telegraph_type: String, payload: Dictionary) -> void:
+	spawn_boss_telegraph(telegraph_type, payload)
+
+
+func _on_boss_echoes_spawned(_boss_id: String, count: int, world_position: Vector2) -> void:
+	play_boss_echo_spawn_sfx()
+	spawn_boss_telegraph("ring", {
+		"origin": world_position,
+		"radius": 92.0 + float(count) * 22.0,
+		"duration": 0.62,
+		"line_width": 4.5,
+		"color": "#7ee8ff"
+	})
+
+
+func _on_boss_true_form_revealed(_boss_id: String, world_position: Vector2) -> void:
+	play_boss_true_reveal_sfx()
+	spawn_boss_telegraph("cone", {
+		"origin": world_position,
+		"radius": 220.0,
+		"duration": 0.55,
+		"line_width": 4.0,
+		"cone_angle_deg": 90.0,
+		"direction": Vector2.RIGHT.rotated(float(Time.get_ticks_msec() % 3600) * 0.0018),
+		"color": "#a8f7ff"
+	})
+	FeedbackBus.emit_sonar_pulse(world_position, {
+		"source": "skill",
+		"strength": 0.95,
+		"radius_scale": 1.2
+	})
+
+
 func _spawn_hit_particles(world_position: Vector2, intensity: float, killed: bool) -> void:
 	var p := CPUParticles2D.new()
 	add_child(p)
@@ -523,6 +593,51 @@ func play_boss_warning_sfx() -> void:
 			var env := exp(-t * 7.6)
 			var freq := 210.0 + 70.0 * sin(t * TAU * 2.0)
 			var sample := sin(TAU * freq * t) * env * 0.27
+			generator.push_frame(Vector2(sample, sample))
+
+
+func play_boss_phase2_sfx() -> void:
+	hit_sfx.play()
+	var playback = hit_sfx.get_stream_playback()
+	if playback is AudioStreamGeneratorPlayback:
+		var generator: AudioStreamGeneratorPlayback = playback
+		var sample_rate := 44100.0
+		var length := 0.32
+		for i in range(int(sample_rate * length)):
+			var t := float(i) / sample_rate
+			var env := exp(-t * 6.4)
+			var freq := 140.0 + 110.0 * sin(t * TAU * 3.2)
+			var sample := sin(TAU * freq * t) * env * 0.31
+			generator.push_frame(Vector2(sample, sample))
+
+
+func play_boss_echo_spawn_sfx() -> void:
+	shot_sfx.play()
+	var playback = shot_sfx.get_stream_playback()
+	if playback is AudioStreamGeneratorPlayback:
+		var generator: AudioStreamGeneratorPlayback = playback
+		var sample_rate := 44100.0
+		var length := 0.14
+		for i in range(int(sample_rate * length)):
+			var t := float(i) / sample_rate
+			var env := exp(-t * 13.0)
+			var freq := 460.0 + 220.0 * sin(t * TAU * 6.0)
+			var sample := sin(TAU * freq * t) * env * 0.19
+			generator.push_frame(Vector2(sample, sample))
+
+
+func play_boss_true_reveal_sfx() -> void:
+	hit_sfx.play()
+	var playback = hit_sfx.get_stream_playback()
+	if playback is AudioStreamGeneratorPlayback:
+		var generator: AudioStreamGeneratorPlayback = playback
+		var sample_rate := 44100.0
+		var length := 0.18
+		for i in range(int(sample_rate * length)):
+			var t := float(i) / sample_rate
+			var env := exp(-t * 10.0)
+			var sweep := 280.0 + 640.0 * t
+			var sample := sin(TAU * sweep * t) * env * 0.24
 			generator.push_frame(Vector2(sample, sample))
 
 

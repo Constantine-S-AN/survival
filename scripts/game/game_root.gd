@@ -75,6 +75,8 @@ func _ready() -> void:
 	world.enemy_manager.boss_spawned.connect(_on_boss_spawned)
 	world.enemy_manager.boss_phase_changed.connect(_on_boss_phase_changed)
 	world.enemy_manager.boss_defeated.connect(_on_boss_defeated)
+	world.enemy_manager.boss_echoes_spawned.connect(_on_boss_echoes_spawned)
+	world.enemy_manager.boss_true_form_revealed.connect(_on_boss_true_form_revealed)
 	world.map_event_triggered.connect(_on_map_event_triggered)
 	world.hazard_state_changed.connect(_on_hazard_state_changed)
 	FeedbackBus.hit_landed.connect(_on_hit_landed)
@@ -171,13 +173,28 @@ func _on_boss_phase_changed(_boss_id: String, _phase_id: String, telegraph_text:
 	if run_state != STATE_PLAYING:
 		return
 	ui.show_system_message(telegraph_text if not telegraph_text.is_empty() else "Boss phase shift", true)
-	world.play_boss_warning_sfx()
+	if _phase_id == "phase_2":
+		world.play_boss_phase2_sfx()
+	else:
+		world.play_boss_warning_sfx()
 
 
 func _on_boss_defeated(_boss_id: String) -> void:
 	if run_state != STATE_PLAYING:
 		return
 	ui.show_system_message("Boss eliminated. Signal field stabilizing.", false)
+
+
+func _on_boss_echoes_spawned(_boss_id: String, count: int, _world_position: Vector2) -> void:
+	if run_state != STATE_PLAYING:
+		return
+	ui.show_system_message("False echoes deployed: %d" % count, true)
+
+
+func _on_boss_true_form_revealed(_boss_id: String, _world_position: Vector2) -> void:
+	if run_state != STATE_PLAYING:
+		return
+	ui.show_system_message("True core exposed. Push damage now.", false)
 
 
 func _on_player_level_up_requested(options: Array) -> void:
@@ -445,6 +462,9 @@ func _push_debug_snapshot() -> void:
 	snapshot["next_pursuer_eta"] = float(noise_debug.get("next_pursuer_eta", -1.0))
 	snapshot["boss_state"] = String(noise_debug.get("boss_state", "idle"))
 	snapshot["boss_id"] = String(noise_debug.get("boss_id", ""))
+	snapshot["boss_decoy_count"] = int(noise_debug.get("boss_decoy_count", 0))
+	snapshot["boss_true_form_revealed"] = bool(noise_debug.get("boss_true_form_revealed", false))
+	snapshot["boss_telegraph_count"] = world.get_active_boss_telegraph_count()
 	snapshot["elite_chance"] = float(noise_debug.get("elite_chance", 0.0))
 	snapshot["noise_spawn_rate_multiplier"] = float(noise_debug.get("noise_spawn_rate_multiplier", 1.0))
 	snapshot["map_spawn_rate_multiplier"] = float(noise_debug.get("map_spawn_rate_multiplier", 1.0))

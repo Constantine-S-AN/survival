@@ -544,6 +544,11 @@ func update_debug_data(data: Dictionary) -> void:
 			String(data.get("boss_state", "idle")),
 			String(data.get("boss_id", ""))
 		],
+		"boss_decoys: %d  true_form: %s  telegraphs: %d" % [
+			int(data.get("boss_decoy_count", 0)),
+			"YES" if bool(data.get("boss_true_form_revealed", false)) else "NO",
+			int(data.get("boss_telegraph_count", 0))
+		],
 		"contracts_active: %s" % str(data.get("contracts_active", [])),
 		"contract_event_rate_mult: %.2f" % float(data.get("contract_event_rate_mult", 1.0)),
 		"revealed_count: %d" % int(data.get("revealed_count", 0)),
