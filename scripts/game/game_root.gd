@@ -17,6 +17,9 @@ var run_state := STATE_PLAYING
 var hitstop_active := false
 var hitstop_end_usec: int = 0
 var fog_enabled: bool = true
+var sonar_visual_enabled: bool = true
+var fixed_noise_enabled: bool = false
+var fixed_noise_value: float = 0.0
 
 
 func _ready() -> void:
@@ -35,6 +38,11 @@ func _ready() -> void:
 	world.set_fog_enabled(fog_enabled)
 	ui.apply_fog_overlay_config(fog_cfg)
 	ui.set_fog_overlay_enabled(fog_enabled)
+	var sonar_cfg: Dictionary = DataRegistry.get_sonar_config()
+	sonar_visual_enabled = bool(sonar_cfg.get("enabled", true))
+	world.apply_sonar_config(sonar_cfg)
+	world.set_sonar_visual_enabled(sonar_visual_enabled)
+	world.player.apply_noise_config(DataRegistry.get_noise_config())
 
 	world.player.died.connect(_on_player_died)
 	world.player.level_up_requested.connect(_on_player_level_up_requested)
@@ -53,11 +61,19 @@ func _process(delta: float) -> void:
 	if hitstop_active and Time.get_ticks_usec() >= hitstop_end_usec:
 		Engine.time_scale = 1.0
 		hitstop_active = false
+
+	if fixed_noise_enabled:
+		world.player.set_noise_value(fixed_noise_value)
+	else:
+		fixed_noise_value = world.player.noise
+
 	if run_state != STATE_PLAYING:
+		_push_debug_snapshot()
 		return
 	elapsed_time += delta
 	world.enemy_manager.update_difficulty(elapsed_time, world.player.noise)
 	_refresh_hud()
+	_push_debug_snapshot()
 
 
 func _on_enemy_killed(_enemy_id: String, xp_reward: int, world_position: Vector2) -> void:
@@ -122,6 +138,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		fog_enabled = not fog_enabled
 		world.set_fog_enabled(fog_enabled)
 		ui.set_fog_overlay_enabled(fog_enabled)
+	elif event.keycode == KEY_F1:
+		ui.set_debug_visible(not ui.is_debug_visible())
+	elif event.keycode == KEY_F3:
+		sonar_visual_enabled = not sonar_visual_enabled
+		world.set_sonar_visual_enabled(sonar_visual_enabled)
+	elif event.keycode == KEY_F5:
+		_reload_runtime_data()
+	elif event.keycode == KEY_F6:
+		fixed_noise_enabled = not fixed_noise_enabled
+	elif event.keycode == KEY_F7:
+		fixed_noise_value = clampf(fixed_noise_value - 10.0, 0.0, 100.0)
+		if fixed_noise_enabled:
+			world.player.set_noise_value(fixed_noise_value)
+	elif event.keycode == KEY_F8:
+		fixed_noise_value = clampf(fixed_noise_value + 10.0, 0.0, 100.0)
+		if fixed_noise_enabled:
+			world.player.set_noise_value(fixed_noise_value)
 
 
 func _set_state(next_state: String) -> void:
@@ -145,6 +178,42 @@ func _refresh_hud() -> void:
 	hud["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
 	hud["state"] = run_state
 	ui.update_hud(hud)
+
+
+func _push_debug_snapshot() -> void:
+	var snapshot: Dictionary = world.player.get_hud_data()
+	var noise_tier_debug: Dictionary = DataRegistry.get_noise_tier(world.player.noise)
+	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
+	snapshot["noise_tier_name"] = String(noise_tier_debug.get("name", "静默"))
+	snapshot["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
+	snapshot["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
+	snapshot["revealed_count"] = world.get_revealed_enemy_count()
+	snapshot["timeline_progress"] = DataRegistry.get_timeline_progress(elapsed_time)
+	snapshot["fixed_noise_enabled"] = fixed_noise_enabled
+	snapshot["fixed_noise_value"] = fixed_noise_value
+	snapshot["fog_enabled"] = fog_enabled
+	snapshot["sonar_visual_enabled"] = sonar_visual_enabled
+	snapshot["fog_version"] = DataRegistry.get_data_version("fog")
+	snapshot["sonar_version"] = DataRegistry.get_data_version("sonar")
+	snapshot["noise_version"] = DataRegistry.get_data_version("noise")
+	snapshot["fog_path"] = DataRegistry.get_data_path("fog")
+	snapshot["sonar_path"] = DataRegistry.get_data_path("sonar")
+	snapshot["noise_path"] = DataRegistry.get_data_path("noise")
+	ui.update_debug_data(snapshot)
+
+
+func _reload_runtime_data() -> void:
+	if not DataRegistry.reload_in_debug():
+		return
+	world.player.apply_noise_config(DataRegistry.get_noise_config())
+	var fog_cfg: Dictionary = DataRegistry.get_fog_config()
+	world.apply_fog_config(fog_cfg)
+	world.set_fog_enabled(fog_enabled)
+	ui.apply_fog_overlay_config(fog_cfg)
+	ui.set_fog_overlay_enabled(fog_enabled)
+	var sonar_cfg: Dictionary = DataRegistry.get_sonar_config()
+	world.apply_sonar_config(sonar_cfg)
+	world.set_sonar_visual_enabled(sonar_visual_enabled)
 
 
 func _exit_tree() -> void:

@@ -141,6 +141,19 @@ func get_noise_spawn_modifiers(noise_value: float) -> Dictionary:
 	}
 
 
+func get_timeline_progress(elapsed_time: float) -> float:
+	if spawn_curve.is_empty():
+		return 0.0
+	var last_variant: Variant = spawn_curve.back()
+	if not (last_variant is Dictionary):
+		return 0.0
+	var last_profile: Dictionary = last_variant
+	var end_time := float(last_profile.get("time", 0.0))
+	if end_time <= 0.0:
+		return 0.0
+	return clampf(elapsed_time / end_time, 0.0, 1.0)
+
+
 func get_weapon(weapon_id: String) -> Dictionary:
 	var weapon_variant: Variant = weapons.get(weapon_id, {})
 	if weapon_variant is Dictionary:

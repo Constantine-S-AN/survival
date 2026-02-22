@@ -7,6 +7,7 @@ signal retry_requested
 const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
 
 @onready var root: Control = $Root
+@onready var stats_box: VBoxContainer = $Root/HUD/Stats
 @onready var hp_label: Label = $Root/HUD/Stats/HPLabel
 @onready var xp_label: Label = $Root/HUD/Stats/XPLabel
 @onready var level_label: Label = $Root/HUD/Stats/LevelLabel
@@ -32,6 +33,10 @@ var current_options: Array = []
 var fog_overlay: ColorRect
 var fog_overlay_material: ShaderMaterial
 var fog_overlay_allowed: bool = true
+var noise_bar: ProgressBar
+var noise_tier_label: Label
+var debug_panel: Panel
+var debug_label: RichTextLabel
 
 
 func _ready() -> void:
@@ -39,6 +44,10 @@ func _ready() -> void:
 	_create_fog_overlay()
 	apply_fog_overlay_config(DataRegistry.get_fog_config())
 	set_fog_overlay_enabled(bool(DataRegistry.get_fog_config().get("enabled", true)))
+	_create_runtime_hud_widgets()
+	_create_debug_panel()
+	set_debug_visible(false)
+
 	level_up_panel.visible = false
 	game_over_panel.visible = false
 
@@ -68,6 +77,49 @@ func _create_fog_overlay() -> void:
 	root.move_child(fog_overlay, 0)
 
 
+func _create_runtime_hud_widgets() -> void:
+	noise_bar = ProgressBar.new()
+	noise_bar.name = "NoiseBar"
+	noise_bar.custom_minimum_size = Vector2(0.0, 14.0)
+	noise_bar.show_percentage = false
+	noise_bar.value = 0.0
+	stats_box.add_child(noise_bar)
+	stats_box.move_child(noise_bar, stats_box.get_children().find(noise_label) + 1)
+
+	noise_tier_label = Label.new()
+	noise_tier_label.name = "NoiseTierLabel"
+	noise_tier_label.text = "Tier: 静默"
+	stats_box.add_child(noise_tier_label)
+	stats_box.move_child(noise_tier_label, stats_box.get_children().find(noise_bar) + 1)
+
+
+func _create_debug_panel() -> void:
+	debug_panel = Panel.new()
+	debug_panel.name = "DebugPanel"
+	debug_panel.visible = false
+	debug_panel.position = Vector2(1180.0, 18.0)
+	debug_panel.size = Vector2(390.0, 340.0)
+
+	var margin := MarginContainer.new()
+	margin.name = "Margin"
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.offset_left = 10.0
+	margin.offset_top = 10.0
+	margin.offset_right = -10.0
+	margin.offset_bottom = -10.0
+	debug_panel.add_child(margin)
+
+	debug_label = RichTextLabel.new()
+	debug_label.fit_content = false
+	debug_label.scroll_active = false
+	debug_label.bbcode_enabled = false
+	debug_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	debug_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(debug_label)
+
+	root.add_child(debug_panel)
+
+
 func apply_fog_overlay_config(config: Dictionary) -> void:
 	if fog_overlay_material == null:
 		return
@@ -95,10 +147,18 @@ func update_hud(data: Dictionary) -> void:
 	hp_label.text = "HP: %d / %d" % [int(round(float(data.get("hp", 0.0)))), int(round(float(data.get("max_hp", 0.0))))]
 	xp_label.text = "XP: %d / %d" % [int(round(float(data.get("xp", 0.0)))), int(round(float(data.get("xp_to_next", 1.0))))]
 	level_label.text = "Level: %d" % int(data.get("level", 1))
-	noise_label.text = "Noise: %d [%s]" % [
-		int(round(float(data.get("noise", 0.0)))),
-		String(data.get("noise_tier_name", "静默"))
-	]
+
+	var noise_value := float(data.get("noise", 0.0))
+	var noise_tier_name := String(data.get("noise_tier_name", "静默"))
+	noise_label.text = "Noise: %d [%s]" % [int(round(noise_value)), noise_tier_name]
+	noise_bar.min_value = float(data.get("noise_min", 0.0))
+	noise_bar.max_value = float(data.get("noise_max", 100.0))
+	noise_bar.value = noise_value
+	noise_tier_label.text = "Tier: %s" % noise_tier_name
+	var tier_color := Color.from_string(String(data.get("noise_tier_color", "#74e7ff")), Color(0.45, 0.9, 1.0, 1.0))
+	noise_tier_label.modulate = tier_color
+	noise_bar.modulate = tier_color
+
 	mode_label.text = "Attack: %s" % String(data.get("attack_mode", "AUTO"))
 	time_label.text = "Time: %s" % _format_time(float(data.get("elapsed_time", 0.0)))
 	kills_label.text = "Kills: %d" % int(data.get("kills", 0))
@@ -106,6 +166,47 @@ func update_hud(data: Dictionary) -> void:
 		int(data.get("enemy_count", 0)),
 		int(data.get("revealed_count", 0))
 	]
+
+
+func set_debug_visible(enabled: bool) -> void:
+	if debug_panel != null:
+		debug_panel.visible = enabled
+
+
+func is_debug_visible() -> bool:
+	if debug_panel == null:
+		return false
+	return debug_panel.visible
+
+
+func update_debug_data(data: Dictionary) -> void:
+	if debug_label == null:
+		return
+	if not is_debug_visible():
+		return
+	debug_label.text = "\n".join([
+		"DEBUG (F1)",
+		"noise: %.1f" % float(data.get("noise", 0.0)),
+		"noise_tier: %s" % String(data.get("noise_tier_name", "静默")),
+		"spawn_rate_multiplier: %.2f" % float(data.get("spawn_rate_multiplier", 1.0)),
+		"pursuer_chance: %.3f" % float(data.get("pursuer_chance", 0.0)),
+		"revealed_count: %d" % int(data.get("revealed_count", 0)),
+		"timeline_progress: %.2f" % float(data.get("timeline_progress", 0.0)),
+		"fixed_noise: %s (%.1f)" % [
+			"ON" if bool(data.get("fixed_noise_enabled", false)) else "OFF",
+			float(data.get("fixed_noise_value", 0.0))
+		],
+		"fog: %s  sonar_visual: %s" % [
+			"ON" if bool(data.get("fog_enabled", true)) else "OFF",
+			"ON" if bool(data.get("sonar_visual_enabled", true)) else "OFF"
+		],
+		"config fog: v%d @ %s" % [int(data.get("fog_version", -1)), String(data.get("fog_path", ""))],
+		"config sonar: v%d @ %s" % [int(data.get("sonar_version", -1)), String(data.get("sonar_path", ""))],
+		"config noise: v%d @ %s" % [int(data.get("noise_version", -1)), String(data.get("noise_path", ""))],
+		"hot reload: F5",
+		"fixed noise: F6 toggle, F7 -, F8 +",
+		"fog F2, sonar visual F3"
+	])
 
 
 func show_level_up(options: Array) -> void:
