@@ -1,0 +1,31 @@
+[
+  {
+    "time": 0,
+    "spawn_per_second": 1.1,
+    "enemy_cap": 55,
+    "weights": {
+      "drone_scout": 1.0,
+      "ink_mite": 0.45
+    }
+  },
+  {
+    "time": 90,
+    "spawn_per_second": 1.45,
+    "enemy_cap": 75,
+    "weights": {
+      "drone_scout": 0.9,
+      "ink_mite": 1.0,
+      "rusher_eel": 0.4
+    }
+  },
+  {
+    "time": 210,
+    "spawn_per_second": 1.85,
+    "enemy_cap": 95,
+    "weights": {
+      "drone_scout": 0.7,
+      "ink_mite": 1.1,
+      "rusher_eel": 0.9
+    }
+  }
+]

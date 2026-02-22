@@ -1,0 +1,14 @@
+{
+  "pulse_emitter": {
+    "id": "pulse_emitter",
+    "name": "Pulse Emitter",
+    "description": "Baseline sonar pulse cannon.",
+    "damage": 12.0,
+    "cooldown": 0.46,
+    "projectile_speed": 560.0,
+    "range": 720.0,
+    "pierce": 0,
+    "noise": 3.2,
+    "tags": ["sonar", "kinetic", "starter"]
+  }
+}

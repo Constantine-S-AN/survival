@@ -1,0 +1,41 @@
+{
+  "drone_scout": {
+    "id": "drone_scout",
+    "name": "Drone Scout",
+    "max_hp": 26.0,
+    "speed": 110.0,
+    "damage": 9.0,
+    "xp_reward": 6,
+    "contact_cooldown": 0.7,
+    "threat": 1.0,
+    "size": 15.0,
+    "color": "#38e7ff",
+    "tags": ["basic", "chase"]
+  },
+  "ink_mite": {
+    "id": "ink_mite",
+    "name": "Ink Mite",
+    "max_hp": 18.0,
+    "speed": 145.0,
+    "damage": 6.0,
+    "xp_reward": 5,
+    "contact_cooldown": 0.55,
+    "threat": 0.9,
+    "size": 12.0,
+    "color": "#8af9ff",
+    "tags": ["basic", "swarm"]
+  },
+  "rusher_eel": {
+    "id": "rusher_eel",
+    "name": "Rusher Eel",
+    "max_hp": 38.0,
+    "speed": 95.0,
+    "damage": 14.0,
+    "xp_reward": 9,
+    "contact_cooldown": 0.85,
+    "threat": 1.7,
+    "size": 18.0,
+    "color": "#4fd4ff",
+    "tags": ["basic", "heavy"]
+  }
+}
