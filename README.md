@@ -63,10 +63,11 @@ godot --path /Users/shijiean/Desktop/project/survive
 - 数据加载与校验：`/Users/shijiean/Desktop/project/survive/scripts/core/data_registry.gd`
 
 ## 自动化测试（当前）
-数据层脚本测试：
+M2 测试场景（包含 Fog/Sonar/Noise、热重载与 DebugToggle）：
 ```bash
-godot4 --headless --path /Users/shijiean/Desktop/project/survive --script res://tests/test_runner.gd
+godot --headless --path /Users/shijiean/Desktop/project/survive --scene res://tests/TestRunner.tscn --quit-after 2000
 ```
+说明：headless 强制退出时可能出现 `ObjectDB leaked` 警告，当前不影响游戏 Play 流程和测试断言结果。
 
 ## 目录结构（M1）
 - `scenes/`：主场景与实体场景

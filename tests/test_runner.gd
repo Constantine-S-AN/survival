@@ -1,4 +1,5 @@
-extends SceneTree
+extends Node
+class_name TestRunner
 
 class DummyEnemy:
 	extends Node2D
@@ -14,15 +15,31 @@ class DummyEnemy:
 		return reveal_calls > 0
 
 
-var failed := 0
+var failed: int = 0
 
 
-func _init() -> void:
+func _ready() -> void:
+	_bootstrap_script_mode_singletons()
 	_run_data_registry_tests()
 	_run_spawn_profile_tests()
-	_run_m2_system_tests()
+	await _run_m2_system_tests()
+	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
-	quit(failed)
+	get_tree().quit(failed)
+
+
+func _bootstrap_script_mode_singletons() -> void:
+	var tree_root: Node = get_tree().root
+	if tree_root.get_node_or_null("DataRegistry") == null:
+		var registry_script: Script = load("res://scripts/core/data_registry.gd")
+		var registry_instance: Node = registry_script.new()
+		registry_instance.name = "DataRegistry"
+		tree_root.add_child(registry_instance)
+	if tree_root.get_node_or_null("FeedbackBus") == null:
+		var feedback_script: Script = load("res://scripts/core/feedback_bus.gd")
+		var feedback_instance: Node = feedback_script.new()
+		feedback_instance.name = "FeedbackBus"
+		tree_root.add_child(feedback_instance)
 
 
 func _run_data_registry_tests() -> void:
@@ -98,6 +115,96 @@ func _run_m2_system_tests() -> void:
 	var source_cfg: Dictionary = source_cfg_variant if source_cfg_variant is Dictionary else {}
 	_assert_true(float(source_cfg.get("attack", 0.0)) > 0.0, "noise attack source configured")
 
+	_assert_equal(String(registry.get_noise_tier(24.99).get("id", "")), "silent", "noise tier boundary <25")
+	_assert_equal(String(registry.get_noise_tier(25.0).get("id", "")), "alert", "noise tier boundary at 25")
+	_assert_equal(String(registry.get_noise_tier(59.99).get("id", "")), "alert", "noise tier boundary <60")
+	_assert_equal(String(registry.get_noise_tier(60.0).get("id", "")), "exposed", "noise tier boundary at 60")
+	_assert_true(is_equal_approx(registry.clamp_noise_value(-3.0), 0.0), "noise clamp lower bound")
+	_assert_true(is_equal_approx(registry.clamp_noise_value(180.0), 100.0), "noise clamp upper bound")
+
+	var enemy_scene: PackedScene = load("res://scenes/enemy/Enemy.tscn")
+	var enemy: Node = enemy_scene.instantiate()
+	var target := Node2D.new()
+	get_tree().root.add_child.call_deferred(target)
+	get_tree().root.add_child.call_deferred(enemy)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	enemy.setup("drone_scout", registry.get_enemy("drone_scout"), target)
+	var now_sec := float(Time.get_ticks_msec()) * 0.001
+	enemy.set_revealed(1.0)
+	_assert_true(enemy.reveal_until > now_sec, "sonar reveal_until is later than now")
+	var reveal_first: float = float(enemy.reveal_until)
+	enemy.set_revealed(2.0)
+	_assert_true(enemy.reveal_until > reveal_first, "sonar refresh extends reveal_until")
+	enemy.queue_free()
+	target.queue_free()
+	await get_tree().process_frame
+
+	var fog_path := "res://data/fog.json"
+	var fog_original := FileAccess.get_file_as_string(fog_path)
+	var fog_json: Variant = JSON.parse_string(fog_original)
+	if fog_json is Dictionary:
+		var broken := (fog_json as Dictionary).duplicate(true)
+		broken.erase("vision_radius")
+		var f := FileAccess.open(fog_path, FileAccess.WRITE)
+		f.store_string(JSON.stringify(broken, "\t"))
+		f.flush()
+		f = null
+		var broken_registry = registry_script.new()
+		var broken_ok: bool = broken_registry.load_all(false)
+		var broken_errors: Array[String] = broken_registry.get_validation_errors()
+		var restore_f := FileAccess.open(fog_path, FileAccess.WRITE)
+		restore_f.store_string(fog_original)
+		restore_f.flush()
+		restore_f = null
+		_assert_true(not broken_ok, "schema validation fails when fog field missing")
+		_assert_true(_array_contains_text(broken_errors, "missing key 'vision_radius'"), "schema error reports exact missing field")
+		broken_registry.free()
+	else:
+		_assert_true(false, "fog json parse for schema test")
+
+	var hotreload_original := FileAccess.get_file_as_string(fog_path)
+	var hotreload_json: Variant = JSON.parse_string(hotreload_original)
+	if hotreload_json is Dictionary:
+		var updated := (hotreload_json as Dictionary).duplicate(true)
+		var previous_radius := float(updated.get("vision_radius", 0.0))
+		var new_radius := previous_radius + 77.0
+		updated["vision_radius"] = new_radius
+		var fw := FileAccess.open(fog_path, FileAccess.WRITE)
+		fw.store_string(JSON.stringify(updated, "\t"))
+		fw.flush()
+		fw = null
+		var hot_registry = registry_script.new()
+		hot_registry.load_all()
+		var loaded_radius := float(hot_registry.get_fog_config().get("vision_radius", 0.0))
+		var restore_fw := FileAccess.open(fog_path, FileAccess.WRITE)
+		restore_fw.store_string(hotreload_original)
+		restore_fw.flush()
+		restore_fw = null
+		_assert_true(is_equal_approx(loaded_radius, new_radius), "hot reload applies updated fog radius")
+		hot_registry.free()
+	else:
+		_assert_true(false, "fog json parse for hot reload test")
+
+	var game_scene: PackedScene = load("res://scenes/game/GameRoot.tscn")
+	var game: Node = game_scene.instantiate()
+	get_tree().root.add_child.call_deferred(game)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var f1 := InputEventKey.new()
+	f1.keycode = KEY_F1
+	f1.pressed = true
+	game._unhandled_input(f1)
+	_assert_true(game.ui != null and game.ui.is_debug_visible(), "debug toggle F1 enables panel")
+	var f2 := InputEventKey.new()
+	f2.keycode = KEY_F2
+	f2.pressed = true
+	var fog_before: bool = game.world.is_fog_enabled()
+	game._unhandled_input(f2)
+	_assert_true(game.world.is_fog_enabled() != fog_before, "fog toggle F2 switches state without error")
+	game.queue_free()
+	await get_tree().process_frame
+
 	registry.free()
 
 
@@ -111,3 +218,10 @@ func _assert_true(condition: bool, label: String) -> void:
 
 func _assert_equal(actual: Variant, expected: Variant, label: String) -> void:
 	_assert_true(actual == expected, "%s (actual=%s expected=%s)" % [label, actual, expected])
+
+
+func _array_contains_text(items: Array[String], pattern: String) -> bool:
+	for item in items:
+		if item.find(pattern) >= 0:
+			return true
+	return false
