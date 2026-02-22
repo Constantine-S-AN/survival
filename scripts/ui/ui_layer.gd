@@ -40,6 +40,7 @@ var fog_overlay_material: ShaderMaterial
 var fog_overlay_allowed: bool = true
 var noise_bar: ProgressBar
 var noise_tier_label: Label
+var weapon_label: Label
 var debug_panel: Panel
 var debug_label: RichTextLabel
 var system_msg_label: Label
@@ -108,6 +109,11 @@ func _create_runtime_hud_widgets() -> void:
 	noise_tier_label.text = "Tier: 静默"
 	stats_box.add_child(noise_tier_label)
 	stats_box.move_child(noise_tier_label, stats_box.get_children().find(noise_bar) + 1)
+
+	weapon_label = Label.new()
+	weapon_label.name = "WeaponLabel"
+	weapon_label.text = "Weapon: --"
+	stats_box.add_child(weapon_label)
 
 
 func _create_debug_panel() -> void:
@@ -304,6 +310,12 @@ func update_hud(data: Dictionary) -> void:
 		int(data.get("enemy_count", 0)),
 		int(data.get("revealed_count", 0))
 	]
+	if weapon_label != null:
+		weapon_label.text = "Weapon: %s Lv.%d (%s)" % [
+			String(data.get("active_weapon_name", String(data.get("active_weapon_id", "--")))),
+			int(data.get("active_weapon_level", 1)),
+			String(data.get("active_weapon_model", "unknown"))
+		]
 
 
 func set_debug_visible(enabled: bool) -> void:
@@ -335,6 +347,10 @@ func update_debug_data(data: Dictionary) -> void:
 			int(data.get("pool_hits", 0)),
 			int(data.get("pool_misses", 0))
 		],
+		"current_weapon(s): %s" % str(data.get("current_weapons", [])),
+		"weapon_tags: %s" % str(data.get("weapon_tags", [])),
+		"weapon_dps~: %.1f" % float(data.get("weapon_dps_estimate", 0.0)),
+		"weapon_noise_rate: %.2f/s" % float(data.get("weapon_noise_rate", 0.0)),
 		"character: %s" % String(data.get("selected_character", "")),
 		"noise: %.1f" % float(data.get("noise", 0.0)),
 		"noise_tier: %s" % String(data.get("noise_tier_name", "静默")),
@@ -441,12 +457,16 @@ func show_level_up(options: Array) -> void:
 			var option: Dictionary = {}
 			if option_variant is Dictionary:
 				option = option_variant
+			var tags_text := _format_tags_text(option.get("tags", []))
+			var effects_text := _format_upgrade_effects(option.get("effects", []))
 			button.disabled = false
 			button.visible = true
-			button.text = "%s [%s]\n%s" % [
+			button.text = "%s [%s]\nTags: %s\n%s\n%s" % [
 				String(option.get("name", "Unknown")),
 				String(option.get("rarity", "common")).to_upper(),
-				String(option.get("description", ""))
+				tags_text,
+				String(option.get("description", "")),
+				effects_text
 			]
 		else:
 			button.disabled = true
@@ -520,3 +540,46 @@ func _format_time(total_seconds: float) -> String:
 	var minutes := s / 60
 	var seconds := s % 60
 	return "%02d:%02d" % [minutes, seconds]
+
+
+func _format_tags_text(tags_variant: Variant) -> String:
+	if not (tags_variant is Array):
+		return "-"
+	var tags: Array = tags_variant
+	var out: Array[String] = []
+	for tag_variant in tags:
+		var tag := String(tag_variant).strip_edges()
+		if tag.is_empty():
+			continue
+		out.append(tag)
+	if out.is_empty():
+		return "-"
+	return ", ".join(out)
+
+
+func _format_upgrade_effects(effects_variant: Variant) -> String:
+	if not (effects_variant is Array):
+		return "Affects: -"
+	var effects: Array = effects_variant
+	var lines: Array[String] = []
+	for effect_variant in effects:
+		if not (effect_variant is Dictionary):
+			continue
+		var effect: Dictionary = effect_variant
+		var stat := String(effect.get("stat", ""))
+		var add_value := float(effect.get("add", 0.0))
+		var sign := "+" if add_value >= 0.0 else ""
+		var target_text := "Global"
+		var target_variant: Variant = effect.get("target", null)
+		if target_variant is Dictionary:
+			var target: Dictionary = target_variant
+			var target_type := String(target.get("type", ""))
+			var target_value := String(target.get("value", ""))
+			if target_type == "tag":
+				target_text = "Tag:%s" % target_value
+			elif target_type == "weapon_id":
+				target_text = "Weapon:%s" % target_value
+		lines.append("%s %s%.2f (%s)" % [stat, sign, add_value, target_text])
+	if lines.is_empty():
+		return "Affects: -"
+	return "Affects: %s" % " | ".join(lines)
