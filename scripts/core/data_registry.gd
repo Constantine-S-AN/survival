@@ -5,6 +5,9 @@ const UpgradeRules := preload("res://scripts/core/upgrade_rules.gd")
 const DATA_FILES: Dictionary = {
 	"weapons": "res://data/weapons.json",
 	"enemies": "res://data/enemies.json",
+	"elites": "res://data/elites.json",
+	"bosses": "res://data/bosses.json",
+	"contracts": "res://data/contracts.json",
 	"upgrades": "res://data/upgrades.json",
 	"spawn_curve": "res://data/spawn_curve.json",
 	"fog": "res://data/fog.json",
@@ -213,8 +216,99 @@ const MAP_MODIFIER_KEYS: Dictionary = {
 	}
 }
 
+const ENEMY_BEHAVIORS: Dictionary = {
+	"drifter": true,
+	"sprinter": true,
+	"shooter": true,
+	"shielded": true,
+	"splitter": true,
+	"bloater": true,
+	"summoner": true,
+	"lurker": true,
+	"leech": true,
+	"magnetoid": true,
+	"pursuer": true,
+	"boss": true
+}
+
+const ENEMY_REVEAL_REACTIONS: Dictionary = {
+	"none": true,
+	"stagger": true,
+	"rage": true,
+	"shield_break": true
+}
+
+const ENEMY_SPAWN_GROUPS: Dictionary = {
+	"normal": true,
+	"pursuer": true,
+	"boss": true,
+	"summon_only": true
+}
+
+const ELITE_ALLOWED_STAT_MULTIPLIERS: Dictionary = {
+	"max_hp_mult": true,
+	"speed_mult": true,
+	"damage_mult": true,
+	"threat_mult": true
+}
+
+const ELITE_ALLOWED_EFFECT_KEYS: Dictionary = {
+	"damage_reduction": true,
+	"death_explosion_radius": true,
+	"death_explosion_damage": true,
+	"sonar_reveal_mult": true,
+	"jam_radius": true,
+	"noise_aura_add": true,
+	"pursuer_bonus": true,
+	"xp_siphon_rate": true,
+	"siphon_radius": true
+}
+
+const CONTRACT_MODIFIER_KEYS: Dictionary = {
+	"fog": {
+		"vision_radius_mult": true
+	},
+	"sonar": {
+		"reveal_duration_mult": true,
+		"max_radius_mult": true,
+		"wave_speed_mult": true
+	},
+	"noise": {
+		"gain_mult": true,
+		"decay_mult": true
+	},
+	"spawner": {
+		"spawn_rate_mult": true,
+		"spawn_cap_mult": true,
+		"pursuer_chance_add": true,
+		"elite_chance_add": true
+	},
+	"events": {
+		"rate_mult": true,
+		"hazard_cycle_mult": true
+	},
+	"rewards": {
+		"xp_mult": true,
+		"rarity_mult": true,
+		"drop_mult": true,
+		"meta_currency_mult": true
+	},
+	"player": {
+		"max_hp_mult": true,
+		"dash_disabled": true,
+		"low_noise_damage_mult": true,
+		"high_noise_damage_mult": true
+	},
+	"enemy": {
+		"speed_mult": true
+	}
+}
+
 var weapons: Dictionary = {}
 var enemies: Dictionary = {}
+var elites_config: Dictionary = {}
+var bosses_config: Dictionary = {}
+var contracts_config: Dictionary = {}
 var upgrades: Array = []
 var spawn_curve: Array = []
 var fog_config: Dictionary = {}
@@ -230,6 +324,12 @@ var maps: Dictionary = {}
 var map_order: Array[String] = []
 var hazards: Dictionary = {}
 var event_tables: Dictionary = {}
+var elite_affixes: Dictionary = {}
+var elite_affix_order: Array[String] = []
+var bosses: Dictionary = {}
+var boss_order: Array[String] = []
+var contracts: Dictionary = {}
+var contract_order: Array[String] = []
 var validation_errors: Array[String] = []
 var loaded: bool = false
 
@@ -244,6 +344,9 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	var resolved_files := _resolve_data_files(path_overrides)
 	weapons = _load_dictionary(String(resolved_files["weapons"]), "weapons")
 	enemies = _load_dictionary(String(resolved_files["enemies"]), "enemies")
+	elites_config = _load_dictionary(String(resolved_files["elites"]), "elites")
+	bosses_config = _load_dictionary(String(resolved_files["bosses"]), "bosses")
+	contracts_config = _load_dictionary(String(resolved_files["contracts"]), "contracts")
 	upgrades = _load_array_of_dictionaries(String(resolved_files["upgrades"]), "upgrades")
 	spawn_curve = _load_array_of_dictionaries(String(resolved_files["spawn_curve"]), "spawn_curve")
 	fog_config = _load_dictionary(String(resolved_files["fog"]), "fog")
@@ -259,10 +362,19 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	map_order.clear()
 	hazards.clear()
 	event_tables.clear()
+	elite_affixes.clear()
+	elite_affix_order.clear()
+	bosses.clear()
+	boss_order.clear()
+	contracts.clear()
+	contract_order.clear()
 
 	_validate_weapons()
 	_validate_characters()
 	_validate_enemies()
+	_validate_elites()
+	_validate_bosses()
+	_validate_contracts()
 	_validate_upgrades()
 	_validate_spawn_curve()
 	_validate_fog()
@@ -325,6 +437,12 @@ func get_data_version(key: String) -> int:
 			payload = noise_config
 		"characters":
 			payload = characters_config
+		"elites":
+			payload = elites_config
+		"bosses":
+			payload = bosses_config
+		"contracts":
+			payload = contracts_config
 		"maps":
 			payload = maps_config
 		"hazards":
@@ -390,6 +508,66 @@ func get_event_table(event_table_id: String) -> Dictionary:
 	if payload is Dictionary:
 		return (payload as Dictionary).duplicate(true)
 	return {}
+
+
+func get_elite_affix(affix_id: String) -> Dictionary:
+	var payload: Variant = elite_affixes.get(affix_id, {})
+	if payload is Dictionary:
+		return (payload as Dictionary).duplicate(true)
+	return {}
+
+
+func get_elite_affixes() -> Array:
+	var output: Array = []
+	for affix_id in elite_affix_order:
+		var affix_variant: Variant = elite_affixes.get(affix_id, {})
+		if affix_variant is Dictionary:
+			output.append((affix_variant as Dictionary).duplicate(true))
+	return output
+
+
+func get_default_elite_chance() -> float:
+	return float(elites_config.get("default_elite_chance", 0.0))
+
+
+func get_max_active_elites() -> int:
+	return maxi(0, int(elites_config.get("max_active_elites", 0)))
+
+
+func get_boss(boss_id: String) -> Dictionary:
+	var payload: Variant = bosses.get(boss_id, {})
+	if payload is Dictionary:
+		return (payload as Dictionary).duplicate(true)
+	return {}
+
+
+func get_bosses() -> Array:
+	var output: Array = []
+	for boss_id in boss_order:
+		var boss_variant: Variant = bosses.get(boss_id, {})
+		if boss_variant is Dictionary:
+			output.append((boss_variant as Dictionary).duplicate(true))
+	return output
+
+
+func get_contract(contract_id: String) -> Dictionary:
+	var payload: Variant = contracts.get(contract_id, {})
+	if payload is Dictionary:
+		return (payload as Dictionary).duplicate(true)
+	return {}
+
+
+func get_contracts() -> Array:
+	var output: Array = []
+	for contract_id in contract_order:
+		var contract_variant: Variant = contracts.get(contract_id, {})
+		if contract_variant is Dictionary:
+			output.append((contract_variant as Dictionary).duplicate(true))
+	return output
+
+
+func get_contract_max_select() -> int:
+	return clampi(int(contracts_config.get("max_select", 0)), 0, 3)
 
 
 func get_character(character_id: String) -> Dictionary:
@@ -727,18 +905,291 @@ func _validate_weapons() -> void:
 
 
 func _validate_enemies() -> void:
+	if enemies.size() < 10:
+		validation_errors.append("[enemies] expected at least 10 enemy definitions, found %d" % enemies.size())
+	var normalized_enemies: Dictionary = {}
+	var normal_count := 0
 	for enemy_key in enemies.keys():
 		var enemy_variant: Variant = enemies[enemy_key]
 		if not (enemy_variant is Dictionary):
 			validation_errors.append("[enemies] %s must be a dictionary" % enemy_key)
 			continue
 		var enemy: Dictionary = enemy_variant
+		var label := "enemies:%s" % String(enemy_key)
 		_validate_required_keys(
 			enemy,
-			["name", "max_hp", "speed", "damage", "xp_reward", "contact_cooldown", "threat", "size", "color", "tags"],
-			"enemies:%s" % String(enemy_key)
+			[
+				"id",
+				"name",
+				"behavior",
+				"spawn_group",
+				"max_hp",
+				"speed",
+				"damage",
+				"xp_reward",
+				"contact_cooldown",
+				"threat",
+				"size",
+				"color",
+				"tags",
+				"noise_aggression_scale",
+				"reveal_reaction",
+				"reveal_reaction_duration"
+			],
+			label
 		)
-		enemy["id"] = String(enemy.get("id", String(enemy_key)))
+		var enemy_id := String(enemy.get("id", String(enemy_key))).strip_edges()
+		if enemy_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		var behavior := String(enemy.get("behavior", "")).strip_edges().to_lower()
+		if not ENEMY_BEHAVIORS.has(behavior):
+			validation_errors.append("[%s] unsupported behavior '%s'" % [label, behavior])
+		var spawn_group := String(enemy.get("spawn_group", "normal")).strip_edges().to_lower()
+		if not ENEMY_SPAWN_GROUPS.has(spawn_group):
+			validation_errors.append("[%s] unsupported spawn_group '%s'" % [label, spawn_group])
+		if spawn_group == "normal":
+			normal_count += 1
+		var reveal_reaction := String(enemy.get("reveal_reaction", "none")).strip_edges().to_lower()
+		if not ENEMY_REVEAL_REACTIONS.has(reveal_reaction):
+			validation_errors.append("[%s] unsupported reveal_reaction '%s'" % [label, reveal_reaction])
+		if float(enemy.get("max_hp", 0.0)) <= 0.0:
+			validation_errors.append("[%s] max_hp must be > 0" % label)
+		if float(enemy.get("speed", 0.0)) < 0.0:
+			validation_errors.append("[%s] speed must be >= 0" % label)
+		if float(enemy.get("damage", 0.0)) < 0.0:
+			validation_errors.append("[%s] damage must be >= 0" % label)
+		if int(enemy.get("xp_reward", 0)) < 0:
+			validation_errors.append("[%s] xp_reward must be >= 0" % label)
+		if float(enemy.get("contact_cooldown", 0.0)) <= 0.0:
+			validation_errors.append("[%s] contact_cooldown must be > 0" % label)
+		if float(enemy.get("threat", 0.0)) <= 0.0:
+			validation_errors.append("[%s] threat must be > 0" % label)
+		if float(enemy.get("size", 0.0)) <= 0.0:
+			validation_errors.append("[%s] size must be > 0" % label)
+		if float(enemy.get("noise_aggression_scale", 0.0)) < 0.0:
+			validation_errors.append("[%s] noise_aggression_scale must be >= 0" % label)
+		if float(enemy.get("reveal_reaction_duration", 0.0)) < 0.0:
+			validation_errors.append("[%s] reveal_reaction_duration must be >= 0" % label)
+
+		var tags_variant: Variant = enemy.get("tags", [])
+		if not (tags_variant is Array):
+			validation_errors.append("[%s] tags must be an array" % label)
+		else:
+			var tags: Array = tags_variant
+			if tags.is_empty():
+				validation_errors.append("[%s] tags must not be empty" % label)
+
+		var normalized := enemy.duplicate(true)
+		normalized["id"] = enemy_id
+		normalized["behavior"] = behavior
+		normalized["spawn_group"] = spawn_group
+		normalized["reveal_reaction"] = reveal_reaction
+		normalized_enemies[enemy_id] = normalized
+	enemies = normalized_enemies
+	if normal_count < 10:
+		validation_errors.append("[enemies] expected at least 10 normal enemies, found %d" % normal_count)
+
+
+func _validate_elites() -> void:
+	_validate_required_keys(elites_config, ["schema_version", "default_elite_chance", "max_active_elites", "affixes"], "elites")
+	var affixes_variant: Variant = elites_config.get("affixes", [])
+	if not (affixes_variant is Array):
+		validation_errors.append("[elites] affixes must be array")
+		return
+	var affixes: Array = affixes_variant
+	if affixes.size() < 6:
+		validation_errors.append("[elites] expected at least 6 elite affixes")
+	var seen_ids: Dictionary = {}
+	for i in range(affixes.size()):
+		var affix_variant: Variant = affixes[i]
+		if not (affix_variant is Dictionary):
+			validation_errors.append("[elites:%d] affix must be dictionary" % i)
+			continue
+		var affix: Dictionary = affix_variant
+		var label := "elites:%d" % i
+		_validate_required_keys(
+			affix,
+			["id", "name", "description", "color", "stat_multipliers", "effects", "drop_bonus"],
+			label
+		)
+		var affix_id := String(affix.get("id", "")).strip_edges()
+		if affix_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(affix_id):
+			validation_errors.append("[%s] duplicate affix id '%s'" % [label, affix_id])
+			continue
+		seen_ids[affix_id] = true
+
+		var stat_mult_variant: Variant = affix.get("stat_multipliers", {})
+		if not (stat_mult_variant is Dictionary):
+			validation_errors.append("[%s] stat_multipliers must be dictionary" % label)
+		else:
+			var stat_mult: Dictionary = stat_mult_variant
+			for stat_key_variant in stat_mult.keys():
+				var stat_key := String(stat_key_variant).strip_edges()
+				if not ELITE_ALLOWED_STAT_MULTIPLIERS.has(stat_key):
+					validation_errors.append("[%s] unknown stat multiplier key '%s'" % [label, stat_key])
+					continue
+				if float(stat_mult.get(stat_key_variant, 0.0)) <= 0.0:
+					validation_errors.append("[%s] stat multiplier '%s' must be > 0" % [label, stat_key])
+
+		var effects_variant: Variant = affix.get("effects", {})
+		if not (effects_variant is Dictionary):
+			validation_errors.append("[%s] effects must be dictionary" % label)
+		else:
+			var effects: Dictionary = effects_variant
+			for effect_key_variant in effects.keys():
+				var effect_key := String(effect_key_variant).strip_edges()
+				if not ELITE_ALLOWED_EFFECT_KEYS.has(effect_key):
+					validation_errors.append("[%s] unknown effect key '%s'" % [label, effect_key])
+					continue
+				if float(effects.get(effect_key_variant, 0.0)) < 0.0:
+					validation_errors.append("[%s] effect '%s' must be >= 0" % [label, effect_key])
+		if float(affix.get("drop_bonus", 0.0)) < 0.0:
+			validation_errors.append("[%s] drop_bonus must be >= 0" % label)
+
+		var normalized := affix.duplicate(true)
+		normalized["id"] = affix_id
+		elite_affixes[affix_id] = normalized
+		elite_affix_order.append(affix_id)
+
+	if float(elites_config.get("default_elite_chance", 0.0)) < 0.0:
+		validation_errors.append("[elites] default_elite_chance must be >= 0")
+	if int(elites_config.get("max_active_elites", 0)) < 0:
+		validation_errors.append("[elites] max_active_elites must be >= 0")
+
+
+func _validate_bosses() -> void:
+	_validate_required_keys(bosses_config, ["schema_version", "bosses"], "bosses")
+	var rows_variant: Variant = bosses_config.get("bosses", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[bosses] bosses must be array")
+		return
+	var rows: Array = rows_variant
+	if rows.is_empty():
+		validation_errors.append("[bosses] expected at least 1 boss")
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[bosses:%d] boss must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		var label := "bosses:%d" % i
+		_validate_required_keys(
+			row,
+			[
+				"id",
+				"name",
+				"description",
+				"spawn_time_seconds",
+				"max_hp",
+				"speed",
+				"damage",
+				"xp_reward",
+				"size",
+				"color",
+				"phases"
+			],
+			label
+		)
+		var boss_id := String(row.get("id", "")).strip_edges()
+		if boss_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(boss_id):
+			validation_errors.append("[%s] duplicate boss id '%s'" % [label, boss_id])
+			continue
+		seen_ids[boss_id] = true
+		if float(row.get("spawn_time_seconds", 0.0)) <= 0.0:
+			validation_errors.append("[%s] spawn_time_seconds must be > 0" % label)
+		if float(row.get("max_hp", 0.0)) <= 0.0:
+			validation_errors.append("[%s] max_hp must be > 0" % label)
+		if float(row.get("size", 0.0)) <= 0.0:
+			validation_errors.append("[%s] size must be > 0" % label)
+		if int(row.get("xp_reward", 0)) < 0:
+			validation_errors.append("[%s] xp_reward must be >= 0" % label)
+		var phases_variant: Variant = row.get("phases", [])
+		if not (phases_variant is Array):
+			validation_errors.append("[%s] phases must be array" % label)
+			continue
+		var phases: Array = phases_variant
+		if phases.size() < 2:
+			validation_errors.append("[%s] phases must include at least 2 entries" % label)
+		var phase_ratios: Array[float] = []
+		for p_idx in range(phases.size()):
+			var phase_variant: Variant = phases[p_idx]
+			if not (phase_variant is Dictionary):
+				validation_errors.append("[%s:phase:%d] must be dictionary" % [label, p_idx])
+				continue
+			var phase: Dictionary = phase_variant
+			_validate_required_keys(
+				phase,
+				["id", "start_hp_ratio", "label", "description", "telegraph_text", "attack_interval", "summon_interval", "summon_count"],
+				"%s:phase:%d" % [label, p_idx]
+			)
+			var ratio := float(phase.get("start_hp_ratio", 0.0))
+			if ratio <= 0.0 or ratio > 1.0:
+				validation_errors.append("[%s:phase:%d] start_hp_ratio must be in (0, 1]" % [label, p_idx])
+			phase_ratios.append(ratio)
+		for ratio_idx in range(1, phase_ratios.size()):
+			if phase_ratios[ratio_idx] > phase_ratios[ratio_idx - 1]:
+				validation_errors.append("[%s] phase start_hp_ratio must be descending" % label)
+				break
+		var normalized := row.duplicate(true)
+		normalized["id"] = boss_id
+		bosses[boss_id] = normalized
+		boss_order.append(boss_id)
+
+
+func _validate_contracts() -> void:
+	_validate_required_keys(contracts_config, ["schema_version", "max_select", "contracts"], "contracts")
+	var max_select := int(contracts_config.get("max_select", 0))
+	if max_select < 0 or max_select > 3:
+		validation_errors.append("[contracts] max_select must be within [0, 3]")
+	var rows_variant: Variant = contracts_config.get("contracts", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[contracts] contracts must be array")
+		return
+	var rows: Array = rows_variant
+	if rows.size() < 12:
+		validation_errors.append("[contracts] expected at least 12 contracts")
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[contracts:%d] contract must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		var label := "contracts:%d" % i
+		_validate_required_keys(
+			row,
+			["id", "name", "description", "category", "reward_pct", "effects", "exclusive_group"],
+			label
+		)
+		var contract_id := String(row.get("id", "")).strip_edges()
+		if contract_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(contract_id):
+			validation_errors.append("[%s] duplicate contract id '%s'" % [label, contract_id])
+			continue
+		seen_ids[contract_id] = true
+		if float(row.get("reward_pct", 0.0)) < 0.0:
+			validation_errors.append("[%s] reward_pct must be >= 0" % label)
+
+		_validate_modifier_sections(
+			row.get("effects", {}),
+			CONTRACT_MODIFIER_KEYS,
+			"%s:effects" % label
+		)
+
+		var normalized := row.duplicate(true)
+		normalized["id"] = contract_id
+		contracts[contract_id] = normalized
+		contract_order.append(contract_id)
 
 
 func _validate_upgrades() -> void:
@@ -993,8 +1444,25 @@ func _validate_spawn_curve() -> void:
 			continue
 		var profile: Dictionary = profile_variant
 		_validate_required_keys(profile, ["time", "spawn_per_second", "enemy_cap", "weights"], "spawn_curve:%d" % i)
+		if float(profile.get("spawn_per_second", 0.0)) <= 0.0:
+			validation_errors.append("[spawn_curve:%d] spawn_per_second must be > 0" % i)
+		if int(profile.get("enemy_cap", 0)) <= 0:
+			validation_errors.append("[spawn_curve:%d] enemy_cap must be > 0" % i)
 		if not (profile.get("weights", {}) is Dictionary):
 			validation_errors.append("[spawn_curve:%d] weights must be dictionary" % i)
+		else:
+			var weights: Dictionary = profile.get("weights", {})
+			for enemy_id_variant in weights.keys():
+				var enemy_id := String(enemy_id_variant).strip_edges()
+				var weight := float(weights.get(enemy_id_variant, 0.0))
+				if enemy_id.is_empty():
+					validation_errors.append("[spawn_curve:%d] weights cannot contain empty enemy id" % i)
+					continue
+				if not enemies.has(enemy_id):
+					validation_errors.append("[spawn_curve:%d] weights references unknown enemy '%s'" % [i, enemy_id])
+					continue
+				if weight < 0.0:
+					validation_errors.append("[spawn_curve:%d] weight for '%s' must be >= 0" % [i, enemy_id])
 	spawn_curve.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return int(a.get("time", 0)) < int(b.get("time", 0))
 	)
@@ -1347,6 +1815,10 @@ func _validate_required_keys(payload: Dictionary, required_keys: Array, label: S
 
 
 func _validate_map_modifier_sections(modifiers_variant: Variant, label: String) -> void:
+	_validate_modifier_sections(modifiers_variant, MAP_MODIFIER_KEYS, label)
+
+
+func _validate_modifier_sections(modifiers_variant: Variant, schema: Dictionary, label: String) -> void:
 	if not (modifiers_variant is Dictionary):
 		validation_errors.append("[%s] modifiers must be dictionary" % label)
 		return
@@ -1356,7 +1828,7 @@ func _validate_map_modifier_sections(modifiers_variant: Variant, label: String) 
 		if group_key.is_empty():
 			validation_errors.append("[%s] modifier group key cannot be empty" % label)
 			continue
-		if not MAP_MODIFIER_KEYS.has(group_key):
+		if not schema.has(group_key):
 			validation_errors.append("[%s] unknown modifier group '%s'" % [label, group_key])
 			continue
 		var group_variant: Variant = modifiers.get(group_key_variant, {})
@@ -1364,7 +1836,7 @@ func _validate_map_modifier_sections(modifiers_variant: Variant, label: String) 
 			validation_errors.append("[%s] modifier group '%s' must be dictionary" % [label, group_key])
 			continue
 		var group: Dictionary = group_variant
-		var allowed_keys_variant: Variant = MAP_MODIFIER_KEYS.get(group_key, {})
+		var allowed_keys_variant: Variant = schema.get(group_key, {})
 		var allowed_keys: Dictionary = allowed_keys_variant if allowed_keys_variant is Dictionary else {}
 		for modifier_key_variant in group.keys():
 			var modifier_key := String(modifier_key_variant).strip_edges()

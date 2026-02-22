@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "max_select": 3,
+  "contracts": [
+    {
+      "id": "contract_small_vision",
+      "name": "Narrow Aperture",
+      "description": "Fog radius reduced by 30%.",
+      "category": "vision",
+      "reward_pct": 15.0,
+      "effects": {
+        "fog": {"vision_radius_mult": 0.70},
+        "rewards": {"xp_mult": 1.15, "rarity_mult": 1.05, "drop_mult": 1.05}
+      },
+      "exclusive_group": "vision_core"
+    },
+    {
+      "id": "contract_loud_world",
+      "name": "Loud World",
+      "description": "Noise gain increased by 25%.",
+      "category": "noise",
+      "reward_pct": 20.0,
+      "effects": {
+        "noise": {"gain_mult": 1.25},
+        "rewards": {"xp_mult": 1.20, "rarity_mult": 1.08, "drop_mult": 1.08}
+      },
+      "exclusive_group": "noise_core"
+    },
+    {
+      "id": "contract_elite_rush",
+      "name": "Elite Rush",
+      "description": "Elite spawn chance increased.",
+      "category": "enemy",
+      "reward_pct": 25.0,
+      "effects": {
+        "spawner": {"elite_chance_add": 0.08},
+        "rewards": {"xp_mult": 1.25, "rarity_mult": 1.14, "drop_mult": 1.12}
+      },
+      "exclusive_group": "elite_focus"
+    },
+    {
+      "id": "contract_no_dash",
+      "name": "No Dash",
+      "description": "Dash is disabled.",
+      "category": "mobility",
+      "reward_pct": 30.0,
+      "effects": {
+        "player": {"dash_disabled": 1.0},
+        "rewards": {"xp_mult": 1.30, "rarity_mult": 1.12, "drop_mult": 1.15}
+      },
+      "exclusive_group": "mobility_core"
+    },
+    {
+      "id": "contract_black_tide_often",
+      "name": "Frequent Black Tide",
+      "description": "Hazard cycles speed up.",
+      "category": "hazard",
+      "reward_pct": 25.0,
+      "effects": {
+        "events": {"hazard_cycle_mult": 1.25},
+        "rewards": {"xp_mult": 1.25, "rarity_mult": 1.10, "drop_mult": 1.10}
+      },
+      "exclusive_group": "hazard_core"
+    },
+    {
+      "id": "contract_sonar_fuzzy",
+      "name": "Sonar Fuzzy",
+      "description": "Sonar reveal duration reduced by 20%.",
+      "category": "sonar",
+      "reward_pct": 15.0,
+      "effects": {
+        "sonar": {"reveal_duration_mult": 0.80},
+        "rewards": {"xp_mult": 1.15, "rarity_mult": 1.06, "drop_mult": 1.05}
+      },
+      "exclusive_group": "sonar_core"
+    },
+    {
+      "id": "contract_pursuer_hunt",
+      "name": "Pursuer Hunt",
+      "description": "Pursuers spawn more often but drop better loot.",
+      "category": "enemy",
+      "reward_pct": 30.0,
+      "effects": {
+        "spawner": {"pursuer_chance_add": 0.03},
+        "rewards": {"xp_mult": 1.30, "rarity_mult": 1.15, "drop_mult": 1.18}
+      },
+      "exclusive_group": "pursuer_core"
+    },
+    {
+      "id": "contract_fast_enemies",
+      "name": "Fast Enemies",
+      "description": "Enemy speed and spawn rate increased.",
+      "category": "enemy",
+      "reward_pct": 20.0,
+      "effects": {
+        "enemy": {"speed_mult": 1.15},
+        "spawner": {"spawn_rate_mult": 1.12},
+        "rewards": {"xp_mult": 1.20, "rarity_mult": 1.10, "drop_mult": 1.10}
+      },
+      "exclusive_group": "enemy_speed_core"
+    },
+    {
+      "id": "contract_fragile_player",
+      "name": "Fragile Hull",
+      "description": "Player max HP reduced by 15%.",
+      "category": "player",
+      "reward_pct": 25.0,
+      "effects": {
+        "player": {"max_hp_mult": 0.85},
+        "rewards": {"xp_mult": 1.25, "rarity_mult": 1.12, "drop_mult": 1.12}
+      },
+      "exclusive_group": "player_hull"
+    },
+    {
+      "id": "contract_rich_pickups",
+      "name": "Rich Pickups",
+      "description": "More drops, but spawn pressure increases.",
+      "category": "economy",
+      "reward_pct": 20.0,
+      "effects": {
+        "spawner": {"spawn_rate_mult": 1.10, "spawn_cap_mult": 1.08},
+        "rewards": {"xp_mult": 1.20, "rarity_mult": 1.08, "drop_mult": 1.20}
+      },
+      "exclusive_group": "economy_core"
+    },
+    {
+      "id": "contract_silent_bonus",
+      "name": "Silent Edge",
+      "description": "Low-noise damage boosted but exposed penalties increase.",
+      "category": "noise",
+      "reward_pct": 20.0,
+      "effects": {
+        "player": {"low_noise_damage_mult": 1.15, "high_noise_damage_mult": 0.88},
+        "rewards": {"xp_mult": 1.20, "rarity_mult": 1.10, "drop_mult": 1.10}
+      },
+      "exclusive_group": "silent_edge"
+    },
+    {
+      "id": "contract_event_storm",
+      "name": "Event Storm",
+      "description": "Events trigger more frequently.",
+      "category": "events",
+      "reward_pct": 15.0,
+      "effects": {
+        "events": {"rate_mult": 1.30},
+        "rewards": {"xp_mult": 1.15, "rarity_mult": 1.05, "drop_mult": 1.08}
+      },
+      "exclusive_group": "event_core"
+    }
+  ]
+}

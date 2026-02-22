@@ -4,28 +4,63 @@
     "spawn_per_second": 1.1,
     "enemy_cap": 55,
     "weights": {
-      "drone_scout": 1.0,
-      "ink_mite": 0.45
+      "drifter": 1.0,
+      "sprinter": 0.35,
+      "shooter": 0.22,
+      "lurker": 0.22,
+      "drone_scout": 0.25
     }
   },
   {
     "time": 90,
     "spawn_per_second": 1.45,
-    "enemy_cap": 75,
+    "enemy_cap": 78,
     "weights": {
-      "drone_scout": 0.9,
-      "ink_mite": 1.0,
-      "rusher_eel": 0.4
+      "drifter": 0.8,
+      "sprinter": 0.7,
+      "shooter": 0.45,
+      "shielded": 0.35,
+      "splitter": 0.5,
+      "lurker": 0.55,
+      "leech": 0.35,
+      "ink_mite": 0.3,
+      "rusher_eel": 0.25
     }
   },
   {
     "time": 210,
-    "spawn_per_second": 1.85,
-    "enemy_cap": 95,
+    "spawn_per_second": 1.9,
+    "enemy_cap": 102,
     "weights": {
-      "drone_scout": 0.7,
-      "ink_mite": 1.1,
-      "rusher_eel": 0.9
+      "drifter": 0.62,
+      "sprinter": 0.85,
+      "shooter": 0.58,
+      "shielded": 0.55,
+      "splitter": 0.72,
+      "bloater": 0.45,
+      "summoner": 0.42,
+      "lurker": 0.72,
+      "leech": 0.58,
+      "magnetoid": 0.45,
+      "rusher_eel": 0.4
+    }
+  },
+  {
+    "time": 360,
+    "spawn_per_second": 2.2,
+    "enemy_cap": 126,
+    "weights": {
+      "drifter": 0.48,
+      "sprinter": 0.95,
+      "shooter": 0.74,
+      "shielded": 0.7,
+      "splitter": 0.86,
+      "bloater": 0.68,
+      "summoner": 0.56,
+      "lurker": 0.88,
+      "leech": 0.75,
+      "magnetoid": 0.63,
+      "splitter_shard": 0.18
     }
   }
 ]
