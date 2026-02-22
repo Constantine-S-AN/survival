@@ -351,6 +351,9 @@ func _refresh_hud() -> void:
 	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
 	hud["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
 	hud["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
+	hud["noise_spawn_rate_multiplier"] = float(noise_debug.get("noise_spawn_rate_multiplier", 1.0))
+	hud["map_spawn_rate_multiplier"] = float(noise_debug.get("map_spawn_rate_multiplier", 1.0))
+	hud["contract_spawn_rate_multiplier"] = float(noise_debug.get("contract_spawn_rate_multiplier", 1.0))
 	hud["state"] = run_state
 	ui.update_hud(hud)
 
@@ -365,6 +368,9 @@ func _push_debug_snapshot() -> void:
 	snapshot["noise_tier_name"] = String(noise_tier_debug.get("name", "静默"))
 	snapshot["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
 	snapshot["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
+	snapshot["noise_spawn_rate_multiplier"] = float(noise_debug.get("noise_spawn_rate_multiplier", 1.0))
+	snapshot["map_spawn_rate_multiplier"] = float(noise_debug.get("map_spawn_rate_multiplier", 1.0))
+	snapshot["contract_spawn_rate_multiplier"] = float(noise_debug.get("contract_spawn_rate_multiplier", 1.0))
 	snapshot["revealed_count"] = world.get_revealed_enemy_count()
 	snapshot["fps"] = Engine.get_frames_per_second()
 	snapshot["enemy_count"] = int(entity_counts.get("enemies", 0))
@@ -391,6 +397,7 @@ func _push_debug_snapshot() -> void:
 	snapshot["hazard_timer"] = float(map_debug.get("hazard_timer", 0.0))
 	snapshot["last_event_triggered"] = String(map_debug.get("last_event_triggered", ""))
 	snapshot["map_spawn_multiplier"] = float(map_debug.get("map_spawn_multiplier", 1.0))
+	snapshot["total_spawn_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
 	snapshot["fog_radius"] = float(map_debug.get("fog_radius", 0.0))
 	snapshot["map_noise_gain_multiplier"] = float(map_debug.get("noise_gain_multiplier", 1.0))
 	snapshot["maps_version"] = DataRegistry.get_data_version("maps")

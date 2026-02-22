@@ -485,7 +485,12 @@ func update_debug_data(data: Dictionary) -> void:
 		"character: %s" % String(data.get("selected_character", "")),
 		"noise: %.1f" % float(data.get("noise", 0.0)),
 		"noise_tier: %s" % String(data.get("noise_tier_name", "静默")),
-		"spawn_rate_multiplier: %.2f" % float(data.get("spawn_rate_multiplier", 1.0)),
+		"spawn_rate_multiplier(total): %.2f" % float(data.get("total_spawn_multiplier", float(data.get("spawn_rate_multiplier", 1.0)))),
+		"spawn components n/m/c: %.2f / %.2f / %.2f" % [
+			float(data.get("noise_spawn_rate_multiplier", 1.0)),
+			float(data.get("map_spawn_rate_multiplier", 1.0)),
+			float(data.get("contract_spawn_rate_multiplier", 1.0))
+		],
 		"pursuer_chance: %.3f" % float(data.get("pursuer_chance", 0.0)),
 		"map_spawn_multiplier: %.2f" % float(data.get("map_spawn_multiplier", 1.0)),
 		"revealed_count: %d" % int(data.get("revealed_count", 0)),

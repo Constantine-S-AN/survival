@@ -126,6 +126,8 @@ func _run_data_registry_tests() -> void:
 
 	var weapons_path := "res://data/weapons.json"
 	var original_weapons := FileAccess.get_file_as_string(weapons_path)
+	var tmp_dir := "user://tmp"
+	DirAccess.make_dir_recursive_absolute(tmp_dir)
 	var parsed_weapons: Variant = JSON.parse_string(original_weapons)
 	if parsed_weapons is Dictionary:
 		var broken_missing := (parsed_weapons as Dictionary).duplicate(true)
@@ -135,19 +137,14 @@ func _run_data_registry_tests() -> void:
 				var rifle := (rifle_variant as Dictionary).duplicate(true)
 				rifle.erase("base_damage")
 				broken_missing["needle_rifle"] = rifle
-		var write_missing := FileAccess.open(weapons_path, FileAccess.WRITE)
-		write_missing.store_string(JSON.stringify(broken_missing, "\t"))
-		write_missing.flush()
-		write_missing = null
+		var broken_missing_path := "%s/weapons_broken_missing.json" % tmp_dir
+		_write_json_value(broken_missing_path, broken_missing)
 		var broken_registry_missing = registry_script.new()
-		var missing_ok: bool = broken_registry_missing.load_all(false)
+		var missing_ok: bool = broken_registry_missing.load_all(false, {"weapons": broken_missing_path})
 		var missing_errors: Array[String] = broken_registry_missing.get_validation_errors()
-		var restore_missing := FileAccess.open(weapons_path, FileAccess.WRITE)
-		restore_missing.store_string(original_weapons)
-		restore_missing.flush()
-		restore_missing = null
 		_assert_true(not missing_ok, "weapons schema fails when base_damage missing")
 		_assert_true(_array_contains_text(missing_errors, "missing key 'base_damage'"), "weapons schema error reports missing key")
+		_remove_file_if_exists(broken_missing_path)
 		broken_registry_missing.free()
 	else:
 		_assert_true(false, "weapons schema test: parse weapons json")
@@ -161,22 +158,18 @@ func _run_data_registry_tests() -> void:
 				var rifle_unknown := (rifle_unknown_variant as Dictionary).duplicate(true)
 				rifle_unknown["tags"] = ["pierce", "totally_unknown_tag"]
 				broken_tag["needle_rifle"] = rifle_unknown
-		var write_unknown := FileAccess.open(weapons_path, FileAccess.WRITE)
-		write_unknown.store_string(JSON.stringify(broken_tag, "\t"))
-		write_unknown.flush()
-		write_unknown = null
+		var broken_unknown_path := "%s/weapons_broken_unknown_tag.json" % tmp_dir
+		_write_json_value(broken_unknown_path, broken_tag)
 		var broken_registry_unknown = registry_script.new()
-		var unknown_ok: bool = broken_registry_unknown.load_all(false)
+		var unknown_ok: bool = broken_registry_unknown.load_all(false, {"weapons": broken_unknown_path})
 		var unknown_errors: Array[String] = broken_registry_unknown.get_validation_errors()
-		var restore_unknown := FileAccess.open(weapons_path, FileAccess.WRITE)
-		restore_unknown.store_string(original_weapons)
-		restore_unknown.flush()
-		restore_unknown = null
 		_assert_true(not unknown_ok, "weapons schema fails when unknown tag exists")
 		_assert_true(_array_contains_text(unknown_errors, "unknown tag 'totally_unknown_tag'"), "weapons schema reports unknown tag")
+		_remove_file_if_exists(broken_unknown_path)
 		broken_registry_unknown.free()
 	else:
 		_assert_true(false, "weapons unknown tag test: parse weapons json")
+	_assert_true(FileAccess.get_file_as_string(weapons_path) == original_weapons, "weapons schema tests do not mutate res weapons data")
 
 	registry.free()
 
@@ -246,6 +239,8 @@ func _run_pool_system_tests() -> void:
 func _run_character_profile_tests() -> void:
 	var characters_path := "res://data/characters.json"
 	var original_characters := FileAccess.get_file_as_string(characters_path)
+	var tmp_dir := "user://tmp"
+	DirAccess.make_dir_recursive_absolute(tmp_dir)
 	var parsed_characters: Variant = JSON.parse_string(original_characters)
 	if parsed_characters is Dictionary:
 		var broken_chars := (parsed_characters as Dictionary).duplicate(true)
@@ -257,20 +252,15 @@ func _run_character_profile_tests() -> void:
 				first_row.erase("starting_weapon_id")
 				rows[0] = first_row
 				broken_chars["characters"] = rows
-				var write_chars := FileAccess.open(characters_path, FileAccess.WRITE)
-				write_chars.store_string(JSON.stringify(broken_chars, "\t"))
-				write_chars.flush()
-				write_chars = null
+				var broken_chars_path := "%s/characters_broken_missing_starting_weapon.json" % tmp_dir
+				_write_json_value(broken_chars_path, broken_chars)
 				var broken_registry_script: Script = load("res://scripts/core/data_registry.gd")
 				var broken_registry = broken_registry_script.new()
-				var broken_ok: bool = broken_registry.load_all(false)
+				var broken_ok: bool = broken_registry.load_all(false, {"characters": broken_chars_path})
 				var broken_errors: Array[String] = broken_registry.get_validation_errors()
-				var restore_chars := FileAccess.open(characters_path, FileAccess.WRITE)
-				restore_chars.store_string(original_characters)
-				restore_chars.flush()
-				restore_chars = null
 				_assert_true(not broken_ok, "characters schema fails when starting_weapon_id missing")
 				_assert_true(_array_contains_text(broken_errors, "missing key 'starting_weapon_id'"), "characters schema error reports missing key")
+				_remove_file_if_exists(broken_chars_path)
 				broken_registry.free()
 			else:
 				_assert_true(false, "characters schema test: first row must be dictionary")
@@ -278,6 +268,7 @@ func _run_character_profile_tests() -> void:
 			_assert_true(false, "characters schema test: characters array exists")
 	else:
 		_assert_true(false, "characters schema test: parse characters json")
+	_assert_true(FileAccess.get_file_as_string(characters_path) == original_characters, "characters schema tests do not mutate res characters data")
 
 	var profile_path := "user://profile.json"
 	var had_backup := FileAccess.file_exists(profile_path)
@@ -851,23 +842,20 @@ func _run_m2_system_tests() -> void:
 
 	var fog_path := "res://data/fog.json"
 	var fog_original := FileAccess.get_file_as_string(fog_path)
+	var tmp_dir := "user://tmp"
+	DirAccess.make_dir_recursive_absolute(tmp_dir)
 	var fog_json: Variant = JSON.parse_string(fog_original)
 	if fog_json is Dictionary:
 		var broken := (fog_json as Dictionary).duplicate(true)
 		broken.erase("vision_radius")
-		var f := FileAccess.open(fog_path, FileAccess.WRITE)
-		f.store_string(JSON.stringify(broken, "\t"))
-		f.flush()
-		f = null
+		var broken_fog_path := "%s/fog_broken_missing_vision_radius.json" % tmp_dir
+		_write_json_value(broken_fog_path, broken)
 		var broken_registry = registry_script.new()
-		var broken_ok: bool = broken_registry.load_all(false)
+		var broken_ok: bool = broken_registry.load_all(false, {"fog": broken_fog_path})
 		var broken_errors: Array[String] = broken_registry.get_validation_errors()
-		var restore_f := FileAccess.open(fog_path, FileAccess.WRITE)
-		restore_f.store_string(fog_original)
-		restore_f.flush()
-		restore_f = null
 		_assert_true(not broken_ok, "schema validation fails when fog field missing")
 		_assert_true(_array_contains_text(broken_errors, "missing key 'vision_radius'"), "schema error reports exact missing field")
+		_remove_file_if_exists(broken_fog_path)
 		broken_registry.free()
 	else:
 		_assert_true(false, "fog json parse for schema test")
@@ -879,21 +867,17 @@ func _run_m2_system_tests() -> void:
 		var previous_radius := float(updated.get("vision_radius", 0.0))
 		var new_radius := previous_radius + 77.0
 		updated["vision_radius"] = new_radius
-		var fw := FileAccess.open(fog_path, FileAccess.WRITE)
-		fw.store_string(JSON.stringify(updated, "\t"))
-		fw.flush()
-		fw = null
+		var hotreload_fog_path := "%s/fog_hotreload_override.json" % tmp_dir
+		_write_json_value(hotreload_fog_path, updated)
 		var hot_registry = registry_script.new()
-		hot_registry.load_all()
+		hot_registry.load_all(false, {"fog": hotreload_fog_path})
 		var loaded_radius := float(hot_registry.get_fog_config().get("vision_radius", 0.0))
-		var restore_fw := FileAccess.open(fog_path, FileAccess.WRITE)
-		restore_fw.store_string(hotreload_original)
-		restore_fw.flush()
-		restore_fw = null
 		_assert_true(is_equal_approx(loaded_radius, new_radius), "hot reload applies updated fog radius")
+		_remove_file_if_exists(hotreload_fog_path)
 		hot_registry.free()
 	else:
 		_assert_true(false, "fog json parse for hot reload test")
+	_assert_true(FileAccess.get_file_as_string(fog_path) == fog_original, "fog tests do not mutate res fog data")
 
 	var game_scene: PackedScene = load("res://scenes/game/GameRoot.tscn")
 	var game: Node = game_scene.instantiate()

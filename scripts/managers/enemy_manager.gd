@@ -15,9 +15,15 @@ var pursuer_cooldown_remaining := 0.0
 var current_spawn_rate_multiplier := 1.0
 var current_spawn_cap_multiplier := 1.0
 var current_pursuer_chance := 0.0
+var noise_spawn_rate_multiplier := 1.0
+var noise_spawn_cap_multiplier := 1.0
+var noise_pursuer_chance := 0.0
 var map_spawn_rate_multiplier := 1.0
 var map_spawn_cap_multiplier := 1.0
 var map_pursuer_chance_add := 0.0
+var contract_spawn_rate_multiplier := 1.0
+var contract_spawn_cap_multiplier := 1.0
+var contract_pursuer_chance_add := 0.0
 
 
 func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
@@ -30,9 +36,15 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 	current_spawn_rate_multiplier = 1.0
 	current_spawn_cap_multiplier = 1.0
 	current_pursuer_chance = 0.0
+	noise_spawn_rate_multiplier = 1.0
+	noise_spawn_cap_multiplier = 1.0
+	noise_pursuer_chance = 0.0
 	map_spawn_rate_multiplier = 1.0
 	map_spawn_cap_multiplier = 1.0
 	map_pursuer_chance_add = 0.0
+	contract_spawn_rate_multiplier = 1.0
+	contract_spawn_cap_multiplier = 1.0
+	contract_pursuer_chance_add = 0.0
 	active_enemies.clear()
 
 
@@ -47,10 +59,13 @@ func _process(delta: float) -> void:
 
 	pursuer_cooldown_remaining = maxf(0.0, pursuer_cooldown_remaining - delta)
 	var noise_modifiers := DataRegistry.get_noise_spawn_modifiers(noise_factor)
-	current_spawn_rate_multiplier = float(noise_modifiers.get("spawn_rate_multiplier", 1.0)) * map_spawn_rate_multiplier
-	current_spawn_cap_multiplier = float(noise_modifiers.get("spawn_cap_multiplier", 1.0)) * map_spawn_cap_multiplier
+	noise_spawn_rate_multiplier = float(noise_modifiers.get("spawn_rate_multiplier", 1.0))
+	noise_spawn_cap_multiplier = float(noise_modifiers.get("spawn_cap_multiplier", 1.0))
+	noise_pursuer_chance = float(noise_modifiers.get("pursuer_chance", 0.0))
+	current_spawn_rate_multiplier = noise_spawn_rate_multiplier * map_spawn_rate_multiplier * contract_spawn_rate_multiplier
+	current_spawn_cap_multiplier = noise_spawn_cap_multiplier * map_spawn_cap_multiplier * contract_spawn_cap_multiplier
 	current_pursuer_chance = clampf(
-		float(noise_modifiers.get("pursuer_chance", 0.0)) + map_pursuer_chance_add,
+		noise_pursuer_chance + map_pursuer_chance_add + contract_pursuer_chance_add,
 		0.0,
 		1.0
 	)
@@ -91,9 +106,15 @@ func get_noise_debug_snapshot() -> Dictionary:
 		"spawn_rate_multiplier": current_spawn_rate_multiplier,
 		"spawn_cap_multiplier": current_spawn_cap_multiplier,
 		"pursuer_chance": current_pursuer_chance,
+		"noise_spawn_rate_multiplier": noise_spawn_rate_multiplier,
+		"noise_spawn_cap_multiplier": noise_spawn_cap_multiplier,
+		"noise_pursuer_chance": noise_pursuer_chance,
 		"map_spawn_rate_multiplier": map_spawn_rate_multiplier,
 		"map_spawn_cap_multiplier": map_spawn_cap_multiplier,
-		"map_pursuer_chance_add": map_pursuer_chance_add
+		"map_pursuer_chance_add": map_pursuer_chance_add,
+		"contract_spawn_rate_multiplier": contract_spawn_rate_multiplier,
+		"contract_spawn_cap_multiplier": contract_spawn_cap_multiplier,
+		"contract_pursuer_chance_add": contract_pursuer_chance_add
 	}
 
 
@@ -101,6 +122,12 @@ func set_map_spawn_modifiers(modifiers: Dictionary) -> void:
 	map_spawn_rate_multiplier = maxf(0.05, float(modifiers.get("spawn_rate_mult", 1.0)))
 	map_spawn_cap_multiplier = maxf(0.05, float(modifiers.get("spawn_cap_mult", 1.0)))
 	map_pursuer_chance_add = float(modifiers.get("pursuer_chance_add", 0.0))
+
+
+func set_contract_spawn_modifiers(modifiers: Dictionary) -> void:
+	contract_spawn_rate_multiplier = maxf(0.05, float(modifiers.get("spawn_rate_mult", 1.0)))
+	contract_spawn_cap_multiplier = maxf(0.05, float(modifiers.get("spawn_cap_mult", 1.0)))
+	contract_pursuer_chance_add = float(modifiers.get("pursuer_chance_add", 0.0))
 
 
 func _spawn_enemy() -> void:
