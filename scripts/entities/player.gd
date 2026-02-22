@@ -17,6 +17,10 @@ const LOW_NOISE_THRESHOLD = 25.0
 const DRONE_MAX_HP = 40.0
 const DRONE_RESPAWN_SECONDS = 3.0
 const DRONE_CONTACT_RADIUS = 28.0
+const ENEMY_QUERY_MASK = 2
+const MINE_QUERY_INTERVAL = 0.2
+const DRONE_QUERY_INTERVAL = 0.2
+const TARGET_QUERY_MAX_RESULTS = 32
 const WeaponRuntimeClass = preload("res://scripts/weapons/weapon_runtime.gd")
 
 var enemy_manager: Node
@@ -107,14 +111,25 @@ var drone_angles: Array[float] = []
 var drone_hitpoints: Array[float] = []
 var drone_contact_cooldowns: Array[float] = []
 var drone_respawn_timers: Array[float] = []
+var drone_target_query_cooldowns: Array[float] = []
 var beam_target: Node2D = null
 var beam_visual_timer: float = 0.0
 var beam_visual: Line2D
 var cached_runtime = null
+var enemy_query_shape: CircleShape2D = CircleShape2D.new()
+var enemy_query_params: PhysicsShapeQueryParameters2D = PhysicsShapeQueryParameters2D.new()
+var target_query_total: int = 0
+var target_query_window_count: int = 0
+var target_query_window_seconds: float = 0.0
+var target_query_count_per_sec: float = 0.0
 
 
 func _ready() -> void:
 	add_to_group("player")
+	enemy_query_params.shape = enemy_query_shape
+	enemy_query_params.collide_with_bodies = true
+	enemy_query_params.collide_with_areas = true
+	enemy_query_params.collision_mask = ENEMY_QUERY_MASK
 	beam_visual = Line2D.new()
 	beam_visual.width = 3.0
 	beam_visual.default_color = Color(0.62, 0.95, 1.0, 0.92)
@@ -201,6 +216,10 @@ func _reset_run_stats() -> void:
 	_clear_drone_visuals()
 	beam_target = null
 	beam_visual_timer = 0.0
+	target_query_total = 0
+	target_query_window_count = 0
+	target_query_window_seconds = 0.0
+	target_query_count_per_sec = 0.0
 	if beam_visual != null:
 		beam_visual.visible = false
 	cached_runtime = null
@@ -275,6 +294,12 @@ func get_character_tag_weights() -> Dictionary:
 
 
 func _physics_process(delta: float) -> void:
+	target_query_window_seconds += delta
+	if target_query_window_seconds >= 1.0:
+		target_query_count_per_sec = float(target_query_window_count) / maxf(0.001, target_query_window_seconds)
+		target_query_window_count = 0
+		target_query_window_seconds = 0.0
+
 	invuln_remaining = max(0.0, invuln_remaining - delta)
 	dash_cd_remaining = max(0.0, dash_cd_remaining - delta)
 	attack_cd_remaining = max(0.0, attack_cd_remaining - delta)
@@ -408,6 +433,7 @@ func _deploy_mine(runtime, fire_direction: Vector2, target: Node2D) -> void:
 		"position": placement,
 		"timer": maxf(0.0, activation_delay),
 		"ttl": 4.0,
+		"scan_cd": 0.0,
 		"radius": runtime.aoe_radius if runtime.aoe_radius > 0.0 else 128.0,
 		"damage": runtime.damage,
 		"crit_chance": runtime.crit_chance,
@@ -470,7 +496,7 @@ func _fire_melee(runtime, fire_direction: Vector2) -> void:
 		forward = last_move_direction if last_move_direction.length() > 0.01 else Vector2.RIGHT
 	var radius = runtime.aoe_radius if runtime.aoe_radius > 0.0 else runtime.range
 	var hit_count = 0
-	for enemy in get_tree().get_nodes_in_group("enemy"):
+	for enemy in _query_enemy_nodes(global_position, radius, 28, false):
 		if enemy == null or not is_instance_valid(enemy):
 			continue
 		if not enemy.has_method("take_hit"):
@@ -504,6 +530,59 @@ func _resolve_target() -> Node2D:
 	return null
 
 
+func _query_enemy_nodes(
+	center: Vector2,
+	radius: float,
+	max_results: int = TARGET_QUERY_MAX_RESULTS,
+	allow_group_fallback: bool = false
+) -> Array[Node2D]:
+	var candidates: Array[Node2D] = []
+	if radius <= 0.0:
+		return candidates
+	target_query_total += 1
+	target_query_window_count += 1
+	var world2d := get_world_2d()
+	if world2d != null:
+		enemy_query_shape.radius = radius
+		enemy_query_params.transform = Transform2D(0.0, center)
+		enemy_query_params.exclude = [get_rid()]
+		var query_hits := world2d.direct_space_state.intersect_shape(enemy_query_params, maxi(1, max_results))
+		var seen: Dictionary = {}
+		for hit_variant in query_hits:
+			if not (hit_variant is Dictionary):
+				continue
+			var hit: Dictionary = hit_variant
+			var collider_variant: Variant = hit.get("collider", null)
+			if not (collider_variant is Node2D):
+				continue
+			var node := collider_variant as Node2D
+			if node == self or not node.is_in_group("enemy") or not is_instance_valid(node):
+				continue
+			var instance_id := int(node.get_instance_id())
+			if seen.has(instance_id):
+				continue
+			seen[instance_id] = true
+			candidates.append(node)
+	if not candidates.is_empty() or not allow_group_fallback:
+		return candidates
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		if not (enemy is Node2D):
+			continue
+		var enemy_node := enemy as Node2D
+		if enemy_node.global_position.distance_to(center) > radius:
+			continue
+		candidates.append(enemy_node)
+		if candidates.size() >= max_results:
+			break
+	return candidates
+
+
+func _has_enemy_in_radius(center: Vector2, radius: float) -> bool:
+	return _query_enemy_nodes(center, radius, 1, false).size() > 0
+
+
 func _pick_target_in_direction(direction: Vector2) -> Node2D:
 	var best_target: Node2D = null
 	var best_score = -INF
@@ -529,12 +608,9 @@ func _pick_target_in_direction(direction: Vector2) -> Node2D:
 func _pick_target_in_range(max_range: float) -> Node2D:
 	var best_target: Node2D = null
 	var best_distance = INF
-	for enemy in get_tree().get_nodes_in_group("enemy"):
-		if enemy == null or not is_instance_valid(enemy):
+	for enemy_node in _query_enemy_nodes(global_position, max_range, TARGET_QUERY_MAX_RESULTS, false):
+		if enemy_node == null or not is_instance_valid(enemy_node):
 			continue
-		if not (enemy is Node2D):
-			continue
-		var enemy_node = enemy as Node2D
 		var distance = enemy_node.global_position.distance_to(global_position)
 		if distance > max_range:
 			continue
@@ -547,12 +623,9 @@ func _pick_target_in_range(max_range: float) -> Node2D:
 func _pick_target_near(origin: Vector2, max_range: float) -> Node2D:
 	var best_target: Node2D = null
 	var best_distance = INF
-	for enemy in get_tree().get_nodes_in_group("enemy"):
-		if enemy == null or not is_instance_valid(enemy):
+	for enemy_node in _query_enemy_nodes(origin, max_range, TARGET_QUERY_MAX_RESULTS, false):
+		if enemy_node == null or not is_instance_valid(enemy_node):
 			continue
-		if not (enemy is Node2D):
-			continue
-		var enemy_node = enemy as Node2D
 		var distance = enemy_node.global_position.distance_to(origin)
 		if distance > max_range:
 			continue
@@ -564,12 +637,9 @@ func _pick_target_near(origin: Vector2, max_range: float) -> Node2D:
 
 func _damage_enemies_in_radius(center: Vector2, radius: float, runtime, impulse: Vector2 = Vector2.ZERO) -> int:
 	var hit_count = 0
-	for enemy in get_tree().get_nodes_in_group("enemy"):
-		if enemy == null or not is_instance_valid(enemy):
+	for enemy_node in _query_enemy_nodes(center, radius, TARGET_QUERY_MAX_RESULTS, false):
+		if enemy_node == null or not is_instance_valid(enemy_node):
 			continue
-		if not (enemy is Node2D):
-			continue
-		var enemy_node = enemy as Node2D
 		if enemy_node.global_position.distance_to(center) > radius:
 			continue
 		if _apply_damage_to_enemy(enemy_node, runtime.damage, runtime, impulse):
@@ -637,14 +707,11 @@ func _try_chain_bounce(source_enemy: Node, base_damage: float, runtime, next_hop
 	var search_radius := clampf(float(runtime.range) * 0.45, 120.0, 260.0)
 	var chain_target: Node2D = null
 	var best_distance := INF
-	for enemy in get_tree().get_nodes_in_group("enemy"):
-		if enemy == null or not is_instance_valid(enemy):
+	for enemy_node in _query_enemy_nodes(source_position, search_radius, 16, false):
+		if enemy_node == null or not is_instance_valid(enemy_node):
 			continue
-		if enemy == source_enemy:
+		if enemy_node == source_enemy:
 			continue
-		if not (enemy is Node2D):
-			continue
-		var enemy_node := enemy as Node2D
 		var distance := enemy_node.global_position.distance_to(source_position)
 		if distance > search_radius:
 			continue
@@ -672,18 +739,13 @@ func _update_deployed_mines(delta: float) -> void:
 		var mine: Dictionary = mine_variant
 		mine["timer"] = float(mine.get("timer", 0.0)) - delta
 		mine["ttl"] = float(mine.get("ttl", 0.0)) - delta
+		mine["scan_cd"] = maxf(0.0, float(mine.get("scan_cd", 0.0)) - delta)
 		var should_explode = false
-		if float(mine.get("timer", 0.0)) <= 0.0:
+		if float(mine.get("timer", 0.0)) <= 0.0 and float(mine.get("scan_cd", 0.0)) <= 0.0:
+			mine["scan_cd"] = MINE_QUERY_INTERVAL
 			var mine_pos = Vector2(mine.get("position", global_position))
 			var mine_radius = float(mine.get("radius", 120.0))
-			for enemy in get_tree().get_nodes_in_group("enemy"):
-				if enemy == null or not is_instance_valid(enemy):
-					continue
-				if not (enemy is Node2D):
-					continue
-				if (enemy as Node2D).global_position.distance_to(mine_pos) <= mine_radius:
-					should_explode = true
-					break
+			should_explode = _has_enemy_in_radius(mine_pos, mine_radius)
 		if float(mine.get("ttl", 0.0)) <= 0.0:
 			should_explode = true
 		if should_explode:
@@ -721,6 +783,7 @@ func _ensure_drone_nodes(count: int) -> void:
 		drone_hitpoints.append(DRONE_MAX_HP)
 		drone_contact_cooldowns.append(0.0)
 		drone_respawn_timers.append(0.0)
+		drone_target_query_cooldowns.append(0.0)
 
 
 func _clear_drone_visuals() -> void:
@@ -732,6 +795,7 @@ func _clear_drone_visuals() -> void:
 	drone_hitpoints.clear()
 	drone_contact_cooldowns.clear()
 	drone_respawn_timers.clear()
+	drone_target_query_cooldowns.clear()
 
 
 func _update_drone_orbits(delta: float) -> void:
@@ -741,9 +805,12 @@ func _update_drone_orbits(delta: float) -> void:
 	if runtime == null:
 		runtime = _build_active_weapon_runtime()
 	if runtime == null or runtime.attack_model != "drone":
-		for drone in drone_nodes:
+		for i in range(drone_nodes.size()):
+			var drone = drone_nodes[i]
 			if drone != null and is_instance_valid(drone):
 				drone.visible = false
+			if i < drone_target_query_cooldowns.size():
+				drone_target_query_cooldowns[i] = 0.0
 		return
 	var count = maxi(1, runtime.summon_count)
 	_ensure_drone_nodes(count)
@@ -753,16 +820,20 @@ func _update_drone_orbits(delta: float) -> void:
 			continue
 		drone_contact_cooldowns[i] = maxf(0.0, float(drone_contact_cooldowns[i]) - delta)
 		drone_respawn_timers[i] = maxf(0.0, float(drone_respawn_timers[i]) - delta)
+		drone_target_query_cooldowns[i] = maxf(0.0, float(drone_target_query_cooldowns[i]) - delta)
 		if i >= count:
 			drone.visible = false
+			drone_target_query_cooldowns[i] = 0.0
 			continue
 		if float(drone_respawn_timers[i]) > 0.0:
 			drone.visible = false
+			drone_target_query_cooldowns[i] = 0.0
 			continue
 		if float(drone_hitpoints[i]) <= 0.0:
 			drone_respawn_timers[i] = DRONE_RESPAWN_SECONDS
 			drone_hitpoints[i] = DRONE_MAX_HP
 			drone_contact_cooldowns[i] = 0.0
+			drone_target_query_cooldowns[i] = 0.0
 			drone.visible = false
 			continue
 		drone.visible = true
@@ -777,19 +848,19 @@ func _update_drone_contact_damage(drone_index: int, runtime) -> void:
 		return
 	if float(drone_contact_cooldowns[drone_index]) > 0.0:
 		return
+	if float(drone_target_query_cooldowns[drone_index]) > 0.0:
+		return
+	drone_target_query_cooldowns[drone_index] = DRONE_QUERY_INTERVAL
 	var drone := drone_nodes[drone_index]
 	if drone == null or not is_instance_valid(drone):
 		return
-	for enemy in get_tree().get_nodes_in_group("enemy"):
-		if enemy == null or not is_instance_valid(enemy):
+	for enemy_node in _query_enemy_nodes(drone.global_position, DRONE_CONTACT_RADIUS + 6.0, 10, false):
+		if enemy_node == null or not is_instance_valid(enemy_node):
 			continue
-		if not (enemy is Node2D):
-			continue
-		var enemy_node := enemy as Node2D
 		if enemy_node.global_position.distance_to(drone.global_position) > DRONE_CONTACT_RADIUS:
 			continue
 		var incoming_damage := 8.0
-		var enemy_contact_damage_variant: Variant = enemy.get("contact_damage")
+		var enemy_contact_damage_variant: Variant = enemy_node.get("contact_damage")
 		if enemy_contact_damage_variant != null:
 			incoming_damage = maxf(1.0, float(enemy_contact_damage_variant) * 0.45)
 		var taken_damage := get_summon_damage_taken(incoming_damage)
@@ -1202,8 +1273,16 @@ func get_chain_parameters_for_current_weapon() -> Dictionary:
 			"enabled": false,
 			"chance": 0.0,
 			"max_hops": 0
-		}
+	}
 	return _get_chain_parameters(runtime)
+
+
+func get_target_query_total() -> int:
+	return target_query_total
+
+
+func get_target_query_count_per_sec() -> float:
+	return target_query_count_per_sec
 
 
 func compute_damage_against(target: Node, base_damage: float) -> float:
@@ -1263,6 +1342,8 @@ func get_hud_data() -> Dictionary:
 		"weapon_noise_per_attack": weapon_noise,
 		"weapon_noise_rate": weapon_noise_rate,
 		"weapon_dps_estimate": weapon_dps,
+		"target_query_count_per_sec": target_query_count_per_sec,
+		"target_query_total": target_query_total,
 		"chain_enabled": bool(chain_params.get("enabled", false)),
 		"chain_chance": float(chain_params.get("chance", 0.0)),
 		"chain_max_hops": int(chain_params.get("max_hops", 0)),

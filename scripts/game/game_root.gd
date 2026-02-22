@@ -434,6 +434,7 @@ func _push_debug_snapshot() -> void:
 	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
 	var entity_counts: Dictionary = world.get_runtime_entity_counts()
 	var pool_stats: Dictionary = world.get_pool_stats()
+	var enemy_pool_stats: Dictionary = world.get_enemy_pool_stats()
 	var map_debug: Dictionary = world.get_map_debug_snapshot()
 	snapshot["noise_tier_name"] = String(noise_tier_debug.get("name", "静默"))
 	snapshot["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
@@ -456,6 +457,10 @@ func _push_debug_snapshot() -> void:
 	snapshot["pool_hit_rate"] = float(pool_stats.get("hit_rate", -1.0))
 	snapshot["pool_hits"] = int(pool_stats.get("hits", 0))
 	snapshot["pool_misses"] = int(pool_stats.get("misses", 0))
+	snapshot["enemy_pool_hit_rate"] = float(enemy_pool_stats.get("hit_rate", -1.0))
+	snapshot["enemy_pool_hits"] = int(enemy_pool_stats.get("hits", 0))
+	snapshot["enemy_pool_misses"] = int(enemy_pool_stats.get("misses", 0))
+	snapshot["target_query_count_per_sec"] = float(snapshot.get("target_query_count_per_sec", 0.0))
 	snapshot["timeline_progress"] = DataRegistry.get_timeline_progress(elapsed_time)
 	snapshot["fixed_noise_enabled"] = fixed_noise_enabled
 	snapshot["fixed_noise_value"] = fixed_noise_value

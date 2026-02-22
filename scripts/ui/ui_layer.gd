@@ -504,6 +504,12 @@ func update_debug_data(data: Dictionary) -> void:
 			int(data.get("pool_hits", 0)),
 			int(data.get("pool_misses", 0))
 		],
+		"enemy_pool_hit_rate: %s" % ("N/A" if float(data.get("enemy_pool_hit_rate", -1.0)) < 0.0 else "%.2f" % float(data.get("enemy_pool_hit_rate", 0.0))),
+		"enemy_pool_hits/misses: %d / %d" % [
+			int(data.get("enemy_pool_hits", 0)),
+			int(data.get("enemy_pool_misses", 0))
+		],
+		"target_query_count_per_sec: %.1f" % float(data.get("target_query_count_per_sec", 0.0)),
 		"current_weapon(s): %s" % str(data.get("current_weapons", [])),
 		"weapon_tags: %s" % str(data.get("weapon_tags", [])),
 		"weapon_dps~: %.1f" % float(data.get("weapon_dps_estimate", 0.0)),
