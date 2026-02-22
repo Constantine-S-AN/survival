@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "hazards": [
+    {
+      "id": "hazard_magnetic_interference",
+      "name": "Magnetic Interference",
+      "description": "Electromagnetic bursts destabilize sonar and amplify noise signatures.",
+      "cycle_seconds": 30.0,
+      "active_seconds": 8.0,
+      "telegraph_seconds": 2.0,
+      "warning_text": "Magnetic interference incoming",
+      "effects": {
+        "fog": {
+          "noise_strength_add": 0.040
+        },
+        "sonar": {
+          "reveal_duration_mult": 0.72
+        },
+        "noise": {
+          "gain_mult": 1.20
+        },
+        "spawner": {
+          "pursuer_chance_add": 0.018
+        }
+      }
+    },
+    {
+      "id": "hazard_black_tide_surge",
+      "name": "Black Tide Surge",
+      "description": "A pressure wave compresses visibility while creatures surge forward.",
+      "cycle_seconds": 25.0,
+      "active_seconds": 6.0,
+      "telegraph_seconds": 2.0,
+      "warning_text": "Black tide surge rising",
+      "effects": {
+        "fog": {
+          "vision_radius_mult": 0.75,
+          "noise_strength_add": 0.035
+        },
+        "spawner": {
+          "spawn_rate_mult": 1.24,
+          "pursuer_chance_add": 0.012
+        },
+        "rewards": {
+          "xp_mult": 1.10
+        }
+      }
+    }
+  ]
+}

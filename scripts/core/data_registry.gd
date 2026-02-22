@@ -10,7 +10,10 @@ const DATA_FILES: Dictionary = {
 	"fog": "res://data/fog.json",
 	"sonar": "res://data/sonar.json",
 	"noise": "res://data/noise.json",
-	"characters": "res://data/characters.json"
+	"characters": "res://data/characters.json",
+	"maps": "res://data/maps.json",
+	"hazards": "res://data/hazards.json",
+	"events": "res://data/events.json"
 }
 
 const RARITY_WEIGHT: Dictionary = {
@@ -179,6 +182,37 @@ const UPGRADE_ALLOWED_EFFECT_STATS: Dictionary = {
 	"weapon_summon_cap_bonus": true
 }
 
+const MAP_EVENT_TYPES: Dictionary = {
+	"supply_pod": true,
+	"abyss_rift": true,
+	"quiet_pocket": true
+}
+
+const MAP_MODIFIER_KEYS: Dictionary = {
+	"fog": {
+		"vision_radius_mult": true,
+		"noise_strength_add": true,
+		"scanline_strength_add": true
+	},
+	"sonar": {
+		"wave_speed_mult": true,
+		"max_radius_mult": true,
+		"reveal_duration_mult": true
+	},
+	"noise": {
+		"gain_mult": true,
+		"decay_mult": true
+	},
+	"spawner": {
+		"spawn_rate_mult": true,
+		"spawn_cap_mult": true,
+		"pursuer_chance_add": true
+	},
+	"rewards": {
+		"xp_mult": true
+	}
+}
+
 var weapons: Dictionary = {}
 var enemies: Dictionary = {}
 var upgrades: Array = []
@@ -187,8 +221,15 @@ var fog_config: Dictionary = {}
 var sonar_config: Dictionary = {}
 var noise_config: Dictionary = {}
 var characters_config: Dictionary = {}
+var maps_config: Dictionary = {}
+var hazards_config: Dictionary = {}
+var events_config: Dictionary = {}
 var characters: Dictionary = {}
 var character_order: Array[String] = []
+var maps: Dictionary = {}
+var map_order: Array[String] = []
+var hazards: Dictionary = {}
+var event_tables: Dictionary = {}
 var validation_errors: Array[String] = []
 var loaded: bool = false
 
@@ -209,8 +250,15 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	sonar_config = _load_dictionary(String(resolved_files["sonar"]), "sonar")
 	noise_config = _load_dictionary(String(resolved_files["noise"]), "noise")
 	characters_config = _load_dictionary(String(resolved_files["characters"]), "characters")
+	maps_config = _load_dictionary(String(resolved_files["maps"]), "maps")
+	hazards_config = _load_dictionary(String(resolved_files["hazards"]), "hazards")
+	events_config = _load_dictionary(String(resolved_files["events"]), "events")
 	characters.clear()
 	character_order.clear()
+	maps.clear()
+	map_order.clear()
+	hazards.clear()
+	event_tables.clear()
 
 	_validate_weapons()
 	_validate_characters()
@@ -220,6 +268,9 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	_validate_fog()
 	_validate_sonar()
 	_validate_noise()
+	_validate_hazards()
+	_validate_events()
+	_validate_maps()
 
 	loaded = validation_errors.is_empty()
 	if not loaded and log_errors:
@@ -274,6 +325,12 @@ func get_data_version(key: String) -> int:
 			payload = noise_config
 		"characters":
 			payload = characters_config
+		"maps":
+			payload = maps_config
+		"hazards":
+			payload = hazards_config
+		"events":
+			payload = events_config
 		_:
 			return -1
 	if payload is Dictionary:
@@ -295,6 +352,44 @@ func get_noise_config() -> Dictionary:
 
 func get_default_character_id() -> String:
 	return String(characters_config.get("default_character_id", ""))
+
+
+func get_default_map_id() -> String:
+	return String(maps_config.get("default_map_id", ""))
+
+
+func get_map(map_id: String) -> Dictionary:
+	var payload: Variant = maps.get(map_id, {})
+	if payload is Dictionary:
+		return (payload as Dictionary).duplicate(true)
+	return {}
+
+
+func has_map(map_id: String) -> bool:
+	return maps.has(map_id)
+
+
+func get_maps() -> Array:
+	var output: Array = []
+	for map_id in map_order:
+		var map_variant: Variant = maps.get(map_id, {})
+		if map_variant is Dictionary:
+			output.append((map_variant as Dictionary).duplicate(true))
+	return output
+
+
+func get_hazard(hazard_id: String) -> Dictionary:
+	var payload: Variant = hazards.get(hazard_id, {})
+	if payload is Dictionary:
+		return (payload as Dictionary).duplicate(true)
+	return {}
+
+
+func get_event_table(event_table_id: String) -> Dictionary:
+	var payload: Variant = event_tables.get(event_table_id, {})
+	if payload is Dictionary:
+		return (payload as Dictionary).duplicate(true)
+	return {}
 
 
 func get_character(character_id: String) -> Dictionary:
@@ -981,6 +1076,172 @@ func _validate_noise() -> void:
 		)
 
 
+func _validate_hazards() -> void:
+	_validate_required_keys(hazards_config, ["schema_version", "hazards"], "hazards")
+	var rows_variant: Variant = hazards_config.get("hazards", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[hazards] hazards must be array")
+		return
+	var rows: Array = rows_variant
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[hazards:%d] entry must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		_validate_required_keys(
+			row,
+			["id", "name", "description", "cycle_seconds", "active_seconds", "warning_text", "effects"],
+			"hazards:%d" % i
+		)
+		var hazard_id := String(row.get("id", "")).strip_edges()
+		if hazard_id.is_empty():
+			validation_errors.append("[hazards:%d] id must be non-empty string" % i)
+			continue
+		if seen_ids.has(hazard_id):
+			validation_errors.append("[hazards:%d] duplicate id '%s'" % [i, hazard_id])
+			continue
+		seen_ids[hazard_id] = true
+		if float(row.get("cycle_seconds", 0.0)) <= 0.0:
+			validation_errors.append("[hazards:%d] cycle_seconds must be > 0" % i)
+		if float(row.get("active_seconds", 0.0)) <= 0.0:
+			validation_errors.append("[hazards:%d] active_seconds must be > 0" % i)
+		_validate_map_modifier_sections(row.get("effects", {}), "hazards:%d:effects" % i)
+		hazards[hazard_id] = row.duplicate(true)
+
+
+func _validate_events() -> void:
+	_validate_required_keys(events_config, ["schema_version", "event_tables"], "events")
+	var tables_variant: Variant = events_config.get("event_tables", [])
+	if not (tables_variant is Array):
+		validation_errors.append("[events] event_tables must be array")
+		return
+	var tables: Array = tables_variant
+	var seen_table_ids: Dictionary = {}
+	for i in range(tables.size()):
+		var table_variant: Variant = tables[i]
+		if not (table_variant is Dictionary):
+			validation_errors.append("[events:%d] event table must be dictionary" % i)
+			continue
+		var table: Dictionary = table_variant
+		_validate_required_keys(table, ["id", "name", "events"], "events:%d" % i)
+		var table_id := String(table.get("id", "")).strip_edges()
+		if table_id.is_empty():
+			validation_errors.append("[events:%d] table id must be non-empty string" % i)
+			continue
+		if seen_table_ids.has(table_id):
+			validation_errors.append("[events:%d] duplicate table id '%s'" % [i, table_id])
+			continue
+		seen_table_ids[table_id] = true
+		var events_variant: Variant = table.get("events", [])
+		if not (events_variant is Array):
+			validation_errors.append("[events:%d] events must be array" % i)
+			continue
+		var events_rows: Array = events_variant
+		var seen_event_ids: Dictionary = {}
+		for e_idx in range(events_rows.size()):
+			var event_variant: Variant = events_rows[e_idx]
+			if not (event_variant is Dictionary):
+				validation_errors.append("[events:%d:event:%d] entry must be dictionary" % [i, e_idx])
+				continue
+			var event: Dictionary = event_variant
+			_validate_required_keys(
+				event,
+				[
+					"id",
+					"name",
+					"description",
+					"type",
+					"weight",
+					"cooldown_seconds",
+					"min_time",
+					"max_time",
+					"duration_seconds",
+					"effects",
+					"immediate"
+				],
+				"events:%d:event:%d" % [i, e_idx]
+			)
+			var event_id := String(event.get("id", "")).strip_edges()
+			if event_id.is_empty():
+				validation_errors.append("[events:%d:event:%d] id must be non-empty string" % [i, e_idx])
+				continue
+			if seen_event_ids.has(event_id):
+				validation_errors.append("[events:%d:event:%d] duplicate id '%s'" % [i, e_idx, event_id])
+				continue
+			seen_event_ids[event_id] = true
+
+			var event_type := String(event.get("type", "")).strip_edges().to_lower()
+			if not MAP_EVENT_TYPES.has(event_type):
+				validation_errors.append("[events:%d:event:%d] unsupported type '%s'" % [i, e_idx, event_type])
+			if float(event.get("weight", 0.0)) <= 0.0:
+				validation_errors.append("[events:%d:event:%d] weight must be > 0" % [i, e_idx])
+			if float(event.get("cooldown_seconds", 0.0)) < 0.0:
+				validation_errors.append("[events:%d:event:%d] cooldown_seconds must be >= 0" % [i, e_idx])
+			if float(event.get("max_time", 0.0)) <= float(event.get("min_time", 0.0)):
+				validation_errors.append("[events:%d:event:%d] max_time must be > min_time" % [i, e_idx])
+			_validate_map_modifier_sections(event.get("effects", {}), "events:%d:event:%d:effects" % [i, e_idx])
+		event_tables[table_id] = table.duplicate(true)
+
+
+func _validate_maps() -> void:
+	_validate_required_keys(maps_config, ["schema_version", "default_map_id", "maps"], "maps")
+	var rows_variant: Variant = maps_config.get("maps", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[maps] maps must be array")
+		return
+	var rows: Array = rows_variant
+	if rows.size() < 2:
+		validation_errors.append("[maps] expected at least 2 map entries")
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[maps:%d] entry must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		_validate_required_keys(
+			row,
+			[
+				"id",
+				"name",
+				"description",
+				"hazard_id",
+				"event_table_id",
+				"hazard_summary",
+				"event_summary",
+				"modifiers"
+			],
+			"maps:%d" % i
+		)
+		var map_id := String(row.get("id", "")).strip_edges()
+		if map_id.is_empty():
+			validation_errors.append("[maps:%d] id must be non-empty string" % i)
+			continue
+		if seen_ids.has(map_id):
+			validation_errors.append("[maps:%d] duplicate id '%s'" % [i, map_id])
+			continue
+		seen_ids[map_id] = true
+
+		var hazard_id := String(row.get("hazard_id", "")).strip_edges()
+		var event_table_id := String(row.get("event_table_id", "")).strip_edges()
+		if hazard_id.is_empty() or not hazards.has(hazard_id):
+			validation_errors.append("[maps:%d] unknown hazard_id '%s'" % [i, hazard_id])
+		if event_table_id.is_empty() or not event_tables.has(event_table_id):
+			validation_errors.append("[maps:%d] unknown event_table_id '%s'" % [i, event_table_id])
+
+		_validate_map_modifier_sections(row.get("modifiers", {}), "maps:%d:modifiers" % i)
+		maps[map_id] = row.duplicate(true)
+		map_order.append(map_id)
+
+	var default_map_id := String(maps_config.get("default_map_id", "")).strip_edges()
+	if default_map_id.is_empty():
+		validation_errors.append("[maps] default_map_id must be non-empty string")
+	elif not seen_ids.has(default_map_id):
+		validation_errors.append("[maps] default_map_id '%s' not found in maps list" % default_map_id)
+
+
 func _validate_characters() -> void:
 	_validate_required_keys(
 		characters_config,
@@ -1083,6 +1344,43 @@ func _validate_required_keys(payload: Dictionary, required_keys: Array, label: S
 	for key in required_keys:
 		if not payload.has(key):
 			validation_errors.append("[%s] missing key '%s'" % [label, key])
+
+
+func _validate_map_modifier_sections(modifiers_variant: Variant, label: String) -> void:
+	if not (modifiers_variant is Dictionary):
+		validation_errors.append("[%s] modifiers must be dictionary" % label)
+		return
+	var modifiers: Dictionary = modifiers_variant
+	for group_key_variant in modifiers.keys():
+		var group_key := String(group_key_variant).strip_edges().to_lower()
+		if group_key.is_empty():
+			validation_errors.append("[%s] modifier group key cannot be empty" % label)
+			continue
+		if not MAP_MODIFIER_KEYS.has(group_key):
+			validation_errors.append("[%s] unknown modifier group '%s'" % [label, group_key])
+			continue
+		var group_variant: Variant = modifiers.get(group_key_variant, {})
+		if not (group_variant is Dictionary):
+			validation_errors.append("[%s] modifier group '%s' must be dictionary" % [label, group_key])
+			continue
+		var group: Dictionary = group_variant
+		var allowed_keys_variant: Variant = MAP_MODIFIER_KEYS.get(group_key, {})
+		var allowed_keys: Dictionary = allowed_keys_variant if allowed_keys_variant is Dictionary else {}
+		for modifier_key_variant in group.keys():
+			var modifier_key := String(modifier_key_variant).strip_edges()
+			if modifier_key.is_empty():
+				validation_errors.append("[%s] modifier key in '%s' cannot be empty" % [label, group_key])
+				continue
+			if not allowed_keys.has(modifier_key):
+				validation_errors.append("[%s] unknown modifier key '%s.%s'" % [label, group_key, modifier_key])
+				continue
+			var value_variant: Variant = group.get(modifier_key_variant, null)
+			if value_variant == null:
+				validation_errors.append("[%s] modifier '%s.%s' cannot be null" % [label, group_key, modifier_key])
+				continue
+			if typeof(value_variant) != TYPE_FLOAT and typeof(value_variant) != TYPE_INT:
+				validation_errors.append("[%s] modifier '%s.%s' must be numeric" % [label, group_key, modifier_key])
+				continue
 
 
 func _is_known_upgrade_tag(tag: String) -> bool:
