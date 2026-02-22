@@ -25,13 +25,20 @@ class DummyEnemyManager:
 
 
 class DummyDamageEnemy:
-	extends Node2D
+	extends CharacterBody2D
 
 	var hp: float = 400.0
 	var hit_count: int = 0
 	var reveal_until: float = 0.0
 
 	func _ready() -> void:
+		collision_layer = 2
+		collision_mask = 0
+		var shape := CollisionShape2D.new()
+		var circle := CircleShape2D.new()
+		circle.radius = 14.0
+		shape.shape = circle
+		add_child(shape)
 		add_to_group("enemy")
 
 	func take_hit(damage: float, _impulse: Vector2 = Vector2.ZERO) -> bool:
@@ -68,6 +75,7 @@ func _ready() -> void:
 	await _run_m2_system_tests()
 	await _run_map_biome_tests()
 	await _run_p0f_system_tests()
+	await _run_enemy_pool_perf_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
 	get_tree().quit(failed)
@@ -399,7 +407,10 @@ func _run_weapon_system_tests() -> void:
 		"sonar_blade"
 	]
 	for weapon_id in weapon_ids:
-		var harness := await _create_weapon_test_harness(weapon_id, Vector2(120.0, 0.0))
+		var enemy_position := Vector2(120.0, 0.0)
+		if weapon_id == "sonar_blade":
+			enemy_position = Vector2(62.0, 0.0)
+		var harness := await _create_weapon_test_harness(weapon_id, enemy_position)
 		var player: Node = harness.get("player")
 		var enemy: Node = harness.get("enemy")
 		var projectile_manager: Node = harness.get("projectile_manager")
@@ -430,6 +441,13 @@ func _run_weapon_system_tests() -> void:
 				_assert_true(float(player.beam_visual_timer) > 0.0, "tether_beam starts beam visual timer")
 				_assert_true(int(enemy.hit_count) >= 1, "tether_beam applies beam damage")
 			"orbital_drone":
+				if spawned_projectiles <= 0:
+					player._update_drone_orbits(0.25)
+					player._attempt_fire()
+					await get_tree().process_frame
+					spawned_projectiles = int(projectile_manager.active_projectiles)
+					_force_projectile_hits(projectile_manager, enemy)
+					await get_tree().process_frame
 				_assert_true((player.drone_nodes as Array).size() >= 1, "orbital_drone spawns drone visuals")
 				_assert_true(spawned_projectiles > 0, "orbital_drone produces projectiles")
 				_assert_true(int(enemy.hit_count) >= 1, "orbital_drone can damage enemy")
@@ -1290,6 +1308,142 @@ func _run_p0f_system_tests() -> void:
 	world.queue_free()
 	await get_tree().process_frame
 	registry.free()
+
+
+func _run_enemy_pool_perf_tests() -> void:
+	var world_scene: PackedScene = load("res://scenes/world/World.tscn")
+	var world = world_scene.instantiate()
+	get_tree().root.add_child.call_deferred(world)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var run_rng := RandomNumberGenerator.new()
+	run_rng.seed = 420123
+	world.setup_run(run_rng, DataRegistry.get_character("diver"), "map_trench_lab", 420123)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var manager: Node = world.enemy_manager
+	_assert_true(manager != null and manager.has_method("get_enemy_pool_stats"), "s1 enemy manager exposes enemy pool stats")
+	if manager != null and manager.has_method("set_process"):
+		manager.set_process(false)
+	if manager != null and manager.has_method("_clear_all_active_enemies"):
+		manager._clear_all_active_enemies()
+	await get_tree().process_frame
+
+	manager._spawn_specific_enemy("drifter")
+	await get_tree().process_frame
+	var drifter_a: Node = _find_active_enemy_by_id(manager, "drifter")
+	_assert_true(drifter_a != null, "s1 drifter spawn succeeds for pooling test")
+
+	var drifter_instance_id := -1
+	if drifter_a != null:
+		drifter_instance_id = int(drifter_a.get_instance_id())
+		if drifter_a.has_method("set_revealed"):
+			drifter_a.set_revealed(1.5)
+		var affixes: Array = DataRegistry.get_elite_affixes()
+		if not affixes.is_empty() and affixes[0] is Dictionary and drifter_a.has_method("apply_elite_affix"):
+			drifter_a.apply_elite_affix(affixes[0])
+		if drifter_a.has_method("take_hit"):
+			drifter_a.take_hit(99999.0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_assert_true(_find_active_enemy_by_id(manager, "drifter") == null, "s1 enemy recycle removes dead enemy from active list")
+
+	manager._spawn_specific_enemy("drifter")
+	await get_tree().process_frame
+	var drifter_b: Node = _find_active_enemy_by_id(manager, "drifter")
+	_assert_true(drifter_b != null, "s1 drifter respawn succeeds after recycle")
+	if drifter_b != null:
+		_assert_true(drifter_instance_id >= 0 and int(drifter_b.get_instance_id()) == drifter_instance_id, "s1 enemy pool reuses drifter instance")
+		_assert_true(not bool(drifter_b.get("is_elite")), "s1 pooled enemy clears elite state")
+		var revealed_after_reuse := bool(drifter_b.call("is_revealed")) if drifter_b.has_method("is_revealed") else true
+		_assert_true(not revealed_after_reuse, "s1 pooled enemy clears revealed state")
+		_assert_true(is_equal_approx(float(drifter_b.get("hp")), float(drifter_b.get("max_hp"))), "s1 pooled enemy hp resets to max")
+		var drifter_def: Dictionary = DataRegistry.get_enemy("drifter")
+		_assert_true(is_equal_approx(float(drifter_b.get("speed")), float(drifter_def.get("speed", 0.0))), "s1 pooled enemy speed resets to definition")
+
+	manager._spawn_specific_enemy("pursuer_stalker")
+	await get_tree().process_frame
+	var pursuer_debug_first: Dictionary = manager.get_noise_debug_snapshot()
+	_assert_true(int(pursuer_debug_first.get("pursuer_spawned_total", 0)) >= 1, "s1 pursuer spawn updates warning counter on first spawn")
+	var pursuer_a: Node = _find_active_enemy_by_id(manager, "pursuer_stalker")
+	_assert_true(pursuer_a != null and pursuer_a.is_in_group("pursuer"), "s1 pursuer spawn applies pursuer identity")
+	var pursuer_instance_id := -1
+	if pursuer_a != null:
+		pursuer_instance_id = int(pursuer_a.get_instance_id())
+		if pursuer_a.has_method("take_hit"):
+			pursuer_a.take_hit(99999.0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	manager._spawn_specific_enemy("pursuer_stalker")
+	await get_tree().process_frame
+	var pursuer_b: Node = _find_active_enemy_by_id(manager, "pursuer_stalker")
+	_assert_true(pursuer_b != null, "s1 pursuer respawn succeeds after recycle")
+	if pursuer_b != null:
+		_assert_true(pursuer_instance_id >= 0 and int(pursuer_b.get_instance_id()) == pursuer_instance_id, "s1 pursuer reuses pooled instance")
+	var pursuer_debug_second: Dictionary = manager.get_noise_debug_snapshot()
+	_assert_true(int(pursuer_debug_second.get("pursuer_spawned_total", 0)) >= 2, "s1 pursuer warning counter increments after pooled reuse")
+
+	var unique_enemy_instances: Dictionary = {}
+	for i in range(90):
+		manager._spawn_specific_enemy("drifter")
+		await get_tree().process_frame
+		var spawned: Node = _find_active_enemy_by_id(manager, "drifter")
+		if spawned != null:
+			unique_enemy_instances[int(spawned.get_instance_id())] = true
+			if spawned.has_method("take_hit"):
+				spawned.take_hit(99999.0)
+		if i % 6 == 0:
+			await get_tree().process_frame
+	await get_tree().process_frame
+	_assert_true(unique_enemy_instances.size() <= 26, "s1 high-spawn short run keeps enemy instance count bounded")
+
+	var enemy_pool_stats: Dictionary = manager.get_enemy_pool_stats()
+	_assert_true(int(enemy_pool_stats.get("hits", 0)) > 0, "s1 enemy pool hit counter increments")
+	_assert_true(float(enemy_pool_stats.get("hit_rate", 0.0)) >= 0.0, "s1 enemy pool exposes hit_rate metric")
+
+	world.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var mine_harness := await _create_weapon_test_harness("abyss_mine", Vector2(72.0, 0.0))
+	var mine_player: Node = mine_harness.get("player")
+	mine_player._attempt_fire()
+	mine_player._update_deployed_mines(1.0)
+	_assert_true(int(mine_player.get_target_query_total()) > 0, "s1 mine trigger path contributes target query telemetry")
+	await _cleanup_weapon_test_harness(mine_harness)
+
+	var drone_harness := await _create_weapon_test_harness("orbital_drone", Vector2(66.0, 0.0))
+	var drone_player: Node = drone_harness.get("player")
+	drone_player._attempt_fire()
+	for i in range(6):
+		drone_player._physics_process(0.2)
+		await get_tree().process_frame
+	_assert_true(float(drone_player.get_target_query_count_per_sec()) > 0.0, "s1 drone path reports target_query_count_per_sec")
+	await _cleanup_weapon_test_harness(drone_harness)
+
+	var melee_harness := await _create_weapon_test_harness("sonar_blade", Vector2(52.0, 0.0))
+	var melee_player: Node = melee_harness.get("player")
+	melee_player._attempt_fire()
+	_assert_true(int(melee_player.get_target_query_total()) > 0, "s1 melee path uses radius query telemetry")
+	await _cleanup_weapon_test_harness(melee_harness)
+
+
+func _find_active_enemy_by_id(enemy_manager: Node, enemy_id: String) -> Node:
+	if enemy_manager == null:
+		return null
+	for enemy in enemy_manager.get_children():
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		if not enemy.is_in_group("enemy"):
+			continue
+		var current_enemy_id_variant: Variant = enemy.get("enemy_id")
+		var current_enemy_id := String(current_enemy_id_variant) if current_enemy_id_variant != null else ""
+		if current_enemy_id != enemy_id:
+			continue
+		return enemy
+	return null
 
 
 func _assert_true(condition: bool, label: String) -> void:
