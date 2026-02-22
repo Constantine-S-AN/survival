@@ -347,4 +347,6 @@ func _reload_runtime_data() -> void:
 
 
 func _exit_tree() -> void:
+	if run_started and run_state == STATE_PLAYING:
+		_evaluate_character_unlocks()
 	Engine.time_scale = 1.0
