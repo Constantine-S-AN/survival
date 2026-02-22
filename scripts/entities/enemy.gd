@@ -65,13 +65,15 @@ func get_threat_score(reference_position: Vector2) -> float:
 	return threat + (160.0 / distance)
 
 
-func take_hit(damage: float, impulse: Vector2 = Vector2.ZERO) -> void:
+func take_hit(damage: float, impulse: Vector2 = Vector2.ZERO) -> bool:
 	hp -= damage
 	knockback_velocity += impulse
 	_flash_hit()
 	if hp <= 0.0:
 		died.emit(enemy_id, xp_reward)
 		queue_free()
+		return true
+	return false
 
 
 func _flash_hit() -> void:

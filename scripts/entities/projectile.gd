@@ -44,7 +44,9 @@ func _on_body_entered(body: Node) -> void:
 	if body == source_owner:
 		return
 	if body.is_in_group("enemy") and body.has_method("take_hit"):
-		body.take_hit(damage, direction * 180.0)
+		var killed := bool(body.take_hit(damage, direction * 180.0))
+		var intensity := clampf((damage / 34.0) + (0.07 if killed else 0.0), 0.08, 0.34)
+		FeedbackBus.emit_hit(global_position, intensity, killed)
 		hit_count += 1
 		if hit_count > pierce:
 			queue_free()

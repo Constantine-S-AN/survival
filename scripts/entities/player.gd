@@ -119,6 +119,7 @@ func _attempt_fire() -> void:
 		return
 
 	_fire_weapon(weapon, fire_direction)
+	FeedbackBus.emit_shot(global_position, 0.12)
 	var base_cooldown := float(weapon.get("cooldown", 0.5))
 	attack_cd_remaining = max(0.06, base_cooldown / max(0.1, attack_speed_mult))
 	_add_noise(float(weapon.get("noise", 3.0)))

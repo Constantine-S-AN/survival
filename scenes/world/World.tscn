@@ -16,3 +16,11 @@ script = ExtResource("3")
 
 [node name="Player" parent="." instance=ExtResource("4")]
 position = Vector2(0, 0)
+
+[node name="ShotSfx" type="AudioStreamPlayer" parent="."]
+volume_db = -12.0
+max_polyphony = 6
+
+[node name="HitSfx" type="AudioStreamPlayer" parent="."]
+volume_db = -8.0
+max_polyphony = 14
