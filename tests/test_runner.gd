@@ -67,6 +67,7 @@ func _ready() -> void:
 	await _run_upgrade_rules_tests()
 	await _run_m2_system_tests()
 	await _run_map_biome_tests()
+	await _run_p0f_system_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
 	get_tree().quit(failed)
@@ -1091,6 +1092,203 @@ func _run_map_biome_tests() -> void:
 	elif FileAccess.file_exists(profile_path):
 		DirAccess.remove_absolute(profile_path)
 
+	registry.free()
+
+
+func _run_p0f_system_tests() -> void:
+	var registry_script: Script = load("res://scripts/core/data_registry.gd")
+	var registry = registry_script.new()
+	_assert_true(registry.load_all(), "p0f registry load succeeds")
+	_assert_true(registry.get_elite_affixes().size() >= 6, "p0f elites includes at least 6 affixes")
+	_assert_true(registry.get_contracts().size() >= 12, "p0f contracts includes at least 12 entries")
+	_assert_true(registry.get_bosses().size() >= 1, "p0f bosses includes at least 1 entry")
+
+	var all_contract_ids: Array[String] = []
+	for contract_variant in registry.get_contracts():
+		if contract_variant is Dictionary:
+			all_contract_ids.append(String((contract_variant as Dictionary).get("id", "")))
+	var normalized_contracts: Array[String] = registry.normalize_contract_selection(all_contract_ids)
+	_assert_true(normalized_contracts.size() <= registry.get_contract_max_select(), "p0f normalize contract selection clamps to max_select")
+
+	var composed_contracts: Dictionary = registry.compose_contract_modifiers(["contract_small_vision", "contract_loud_world"])
+	var composed_fog_variant: Variant = composed_contracts.get("fog", {})
+	var composed_noise_variant: Variant = composed_contracts.get("noise", {})
+	var composed_fog: Dictionary = composed_fog_variant if composed_fog_variant is Dictionary else {}
+	var composed_noise: Dictionary = composed_noise_variant if composed_noise_variant is Dictionary else {}
+	_assert_true(float(composed_fog.get("vision_radius_mult", 1.0)) < 1.0, "p0f contract fog modifier applied")
+	_assert_true(float(composed_noise.get("gain_mult", 1.0)) > 1.0, "p0f contract noise modifier applied")
+
+	var preview: Dictionary = registry.get_contract_reward_preview(["contract_small_vision", "contract_loud_world"])
+	_assert_true(
+		is_equal_approx(float(preview.get("reward_multiplier", 1.0)), 1.35),
+		"p0f reward preview uses pct-sum multiplier"
+	)
+
+	var low_pursuer: Dictionary = registry.get_noise_spawn_modifiers(10.0)
+	var high_pursuer: Dictionary = registry.get_noise_spawn_modifiers(80.0)
+	_assert_true(float(high_pursuer.get("pursuer_chance", 0.0)) > float(low_pursuer.get("pursuer_chance", 0.0)), "p0f high-noise pursuer chance > low-noise")
+
+	var enemies_path := "res://data/enemies.json"
+	var original_enemies := FileAccess.get_file_as_string(enemies_path)
+	var tmp_dir := "user://tmp"
+	DirAccess.make_dir_recursive_absolute(tmp_dir)
+	var parsed_enemies: Variant = JSON.parse_string(original_enemies)
+	if parsed_enemies is Dictionary:
+		var broken_enemies := (parsed_enemies as Dictionary).duplicate(true)
+		if broken_enemies.has("drifter"):
+			var drifter_variant: Variant = broken_enemies.get("drifter", {})
+			if drifter_variant is Dictionary:
+				var drifter := (drifter_variant as Dictionary).duplicate(true)
+				drifter["behavior"] = "unknown_behavior"
+				broken_enemies["drifter"] = drifter
+		var broken_enemies_path := "%s/enemies_broken_behavior.json" % tmp_dir
+		_write_json_value(broken_enemies_path, broken_enemies)
+		var broken_registry = registry_script.new()
+		var broken_ok: bool = broken_registry.load_all(false, {"enemies": broken_enemies_path})
+		var broken_errors: Array[String] = broken_registry.get_validation_errors()
+		_assert_true(not broken_ok, "p0f enemies schema fails on unknown behavior")
+		_assert_true(_array_contains_text(broken_errors, "unsupported behavior"), "p0f enemies schema reports unknown behavior")
+		broken_registry.free()
+		_remove_file_if_exists(broken_enemies_path)
+	else:
+		_assert_true(false, "p0f enemies schema test parse")
+	_assert_true(FileAccess.get_file_as_string(enemies_path) == original_enemies, "p0f enemies schema tests do not mutate res data")
+
+	var profile_path := "user://profile.json"
+	var had_profile_backup := FileAccess.file_exists(profile_path)
+	var profile_backup_content := FileAccess.get_file_as_string(profile_path) if had_profile_backup else ""
+	var profile_script: Script = load("res://scripts/core/profile_store.gd")
+	var profile_store: Node = profile_script.new()
+	get_tree().root.add_child.call_deferred(profile_store)
+	await get_tree().process_frame
+	profile_store.load_profile("diver", "map_trench_lab")
+	profile_store.set_selected_contract_ids(["contract_small_vision", "contract_loud_world"])
+	profile_store.save_profile()
+	var profile_reload: Node = profile_script.new()
+	get_tree().root.add_child.call_deferred(profile_reload)
+	await get_tree().process_frame
+	profile_reload.load_profile("diver", "map_trench_lab")
+	var persisted_contracts: Array[String] = profile_reload.get_selected_contract_ids()
+	_assert_true(persisted_contracts.has("contract_small_vision"), "p0f profile persists selected contracts")
+	profile_store.queue_free()
+	profile_reload.queue_free()
+	await get_tree().process_frame
+	if had_profile_backup:
+		var restore_profile := FileAccess.open(profile_path, FileAccess.WRITE)
+		restore_profile.store_string(profile_backup_content)
+		restore_profile.flush()
+		restore_profile = null
+	elif FileAccess.file_exists(profile_path):
+		DirAccess.remove_absolute(profile_path)
+
+	var map_runtime_script: Script = load("res://scripts/core/map_runtime.gd")
+	var map_a = registry.get_map("map_black_tide")
+	var hazard_a = registry.get_hazard(String(map_a.get("hazard_id", "")))
+	var event_a = registry.get_event_table(String(map_a.get("event_table_id", "")))
+	var runtime_default = map_runtime_script.new()
+	runtime_default.setup(map_a, hazard_a, event_a, 5021)
+	runtime_default.set_external_modifiers({})
+	var runtime_contract = map_runtime_script.new()
+	runtime_contract.setup(map_a, hazard_a, event_a, 5021)
+	runtime_contract.set_external_modifiers({"events": {"rate_mult": 1.35, "hazard_cycle_mult": 1.4}})
+	var default_event_count := 0
+	var contract_event_count := 0
+	var default_first_event_time := -1.0
+	var contract_first_event_time := -1.0
+	var default_hazard_first_time := -1.0
+	var contract_hazard_first_time := -1.0
+	for step in range(0, 240):
+		var snap_default: Dictionary = runtime_default.update(0.5)
+		var snap_contract: Dictionary = runtime_contract.update(0.5)
+		var default_trig_variant: Variant = snap_default.get("triggered_events", [])
+		var contract_trig_variant: Variant = snap_contract.get("triggered_events", [])
+		if default_trig_variant is Array:
+			default_event_count += (default_trig_variant as Array).size()
+			if default_first_event_time < 0.0 and (default_trig_variant as Array).size() > 0:
+				default_first_event_time = float(snap_default.get("elapsed_time", 0.0))
+		if contract_trig_variant is Array:
+			contract_event_count += (contract_trig_variant as Array).size()
+			if contract_first_event_time < 0.0 and (contract_trig_variant as Array).size() > 0:
+				contract_first_event_time = float(snap_contract.get("elapsed_time", 0.0))
+		if default_hazard_first_time < 0.0 and bool(snap_default.get("hazard_active", false)):
+			default_hazard_first_time = float(snap_default.get("elapsed_time", 0.0))
+		if contract_hazard_first_time < 0.0 and bool(snap_contract.get("hazard_active", false)):
+			contract_hazard_first_time = float(snap_contract.get("elapsed_time", 0.0))
+	_assert_true(contract_event_count >= default_event_count, "p0f event rate multiplier does not reduce event triggers")
+	_assert_true(contract_first_event_time > 0.0 and contract_first_event_time <= default_first_event_time, "p0f event rate multiplier advances first event timing")
+	_assert_true(contract_hazard_first_time > 0.0 and contract_hazard_first_time < default_hazard_first_time, "p0f hazard cycle multiplier triggers hazards earlier")
+
+	var world_scene: PackedScene = load("res://scenes/world/World.tscn")
+	var world = world_scene.instantiate()
+	get_tree().root.add_child.call_deferred(world)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var run_rng := RandomNumberGenerator.new()
+	run_rng.seed = 8129
+	var fragile_contract: Dictionary = registry.compose_contract_modifiers(["contract_fragile_player", "contract_no_dash"])
+	world.setup_run(run_rng, registry.get_character("diver"), "map_trench_lab", 8129, fragile_contract, ["contract_fragile_player", "contract_no_dash"])
+	_assert_true(bool(world.player.get_hud_data().get("contract_dash_disabled", false)), "p0f contract_no_dash disables dash")
+	_assert_true(float(world.player.max_hp) < 100.0, "p0f contract_fragile_player reduces max hp")
+	_assert_true(world.get_active_contract_ids().size() == 2, "p0f world stores active contract ids")
+
+	world.player.set_noise_value(80.0)
+	world.enemy_manager.update_difficulty(180.0, world.player.noise)
+	world.enemy_manager._process(0.5)
+	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
+	_assert_true(float(noise_debug.get("elite_chance", 0.0)) >= registry.get_default_elite_chance(), "p0f elite chance is exposed in runtime debug")
+	_assert_true(float(noise_debug.get("pursuer_chance", 0.0)) > 0.0, "p0f runtime pursuer chance positive at high noise")
+
+	var rich_contract: Dictionary = registry.compose_contract_modifiers(["contract_rich_pickups"])
+	world.set_contract_modifiers(rich_contract, ["contract_rich_pickups"])
+	world.player.set_noise_value(80.0)
+	world.enemy_manager.update_difficulty(200.0, world.player.noise)
+	world.enemy_manager._process(0.2)
+	var mul_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
+	var computed_total := float(mul_debug.get("noise_spawn_rate_multiplier", 1.0)) \
+		* float(mul_debug.get("map_spawn_rate_multiplier", 1.0)) \
+		* float(mul_debug.get("contract_spawn_rate_multiplier", 1.0)) \
+		* float(mul_debug.get("boss_spawn_rate_multiplier", 1.0))
+	_assert_true(is_equal_approx(float(mul_debug.get("spawn_rate_multiplier", 1.0)), computed_total), "p0f spawn multiplier equals noise*map*contract*boss components")
+
+	world.enemy_manager._spawn_specific_enemy("pursuer_stalker")
+	await get_tree().process_frame
+	var pursuer_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
+	_assert_true(int(pursuer_debug.get("pursuer_spawned_total", 0)) >= 1, "p0f pursuer spawn updates runtime counter")
+
+	world.enemy_manager.update_difficulty(620.0, world.player.noise)
+	for i in range(4):
+		world.enemy_manager._process(0.4)
+		await get_tree().process_frame
+	var boss_spawned := false
+	for node in world.enemy_manager.get_children():
+		if node != null and is_instance_valid(node) and node.is_in_group("boss"):
+			boss_spawned = true
+			node.set("hp", float(node.get("max_hp")) * 0.42)
+			break
+	_assert_true(boss_spawned, "p0f boss spawns once timeline passes threshold")
+	world.enemy_manager._process(0.5)
+	await get_tree().process_frame
+	var boss_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
+	_assert_true(String(boss_debug.get("boss_state", "")).find("False") >= 0 or String(boss_debug.get("boss_state", "")).find("phase_2") >= 0 or String(boss_debug.get("boss_state", "")).find("false") >= 0, "p0f boss phase transition updates boss_state")
+
+	var game_scene: PackedScene = load("res://scenes/game/GameRoot.tscn")
+	var game = game_scene.instantiate()
+	get_tree().root.add_child.call_deferred(game)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	game._on_main_menu_start_requested()
+	_assert_true(game.run_state == game.STATE_CHARACTER_SELECT, "p0f menu start enters character select")
+	game._on_start_run_requested("diver")
+	_assert_true(game.run_state == game.STATE_MAP_SELECT, "p0f character select enters map select")
+	game._on_map_select_start_requested("map_trench_lab")
+	_assert_true(game.run_state == game.STATE_CONTRACT_SELECT, "p0f map select enters contract select")
+	var selected_contracts_for_start: Array[String] = ["contract_small_vision"]
+	game._on_contract_select_start_requested(selected_contracts_for_start)
+	_assert_true(game.run_state == game.STATE_PLAYING, "p0f contract select starts run")
+
+	game.queue_free()
+	world.queue_free()
+	await get_tree().process_frame
 	registry.free()
 
 

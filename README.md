@@ -1,8 +1,8 @@
 # Survive: Neon Sonar (Godot 4.x)
 
-2D 俯视角幸存者游戏原型。当前完成 **M3 / P0-E**：在 M2 + P0-D 基础上加入 `两张地图/生物群落 + 环境危害 + 事件表 + 地图选择流程`。
+2D 俯视角幸存者游戏原型。当前完成 **M3 / P0-F**：在 M2 + P0-E 基础上加入 `敌人体系（10+）+ 精英词缀（6）+ 追猎者闭环 + Boss 两阶段 + 契约系统（12，0-3选择）`。
 
-## 当前里程碑状态（M3 / P0-E）
+## 当前里程碑状态（M3 / P0-F）
 - 已实现：移动、冲刺、自动/指向攻击切换、刷怪、击杀得经验、升级三选一、死亡结算、重开。
 - 已实现：`GameRoot / World / Player / EnemyManager / ProjectileManager / UI` 场景分层。
 - 已实现：`DataRegistry` 统一加载 JSON（武器/敌人/升级/刷怪曲线）并做基础 schema 校验。
@@ -20,9 +20,12 @@
 - 已实现（P0-D）：升级卡面文本可读化（显示友好属性名、目标武器名/Tag名、关键数值变化）。
 - 已实现（P0-D）：`summon_resistance` 与 `character_chain_bonus` 不再占位，已接入实际战斗参数。
 - 已实现（P0-E）：2 张地图（`map_trench_lab` / `map_black_tide`）+ 各自危害与事件表，运行时按 seed 可复现。
-- 已实现（P0-E）：开局流程扩展为 `Main Menu -> CharacterSelect -> MapSelect -> Start`，地图选择写入 profile。
+- 已实现（P0-E）：开局流程扩展为 `Main Menu -> CharacterSelect -> MapSelect -> ContractSelect -> Start`，地图与契约选择写入 profile。
 - 已实现（P0-E）：地图参数偏移联动 Fog/Sonar/Noise/Spawner/Rewards；Debug 面板显示当前地图、危害计时、最近事件、地图倍率。
-- 还未实现：M3 后续内容量（2地图、10敌人、1Boss、契约扩展等）与导出脚本。
+- 已实现（P0-F）：普通敌人 10+、精英词缀 6、追猎者高噪声闭环、Boss（Abyss Siren）两阶段与噪声联动。
+- 已实现（P0-F）：契约 12 个，开局 `0~3` 选择，奖励预览（XP/Rarity/Drop）与运行参数叠乘生效（Fog/Noise/Spawner/Events/Player）。
+- 已实现（P0-F）：流程扩展为 `Main Menu -> CharacterSelect -> MapSelect -> ContractSelect -> Start`，支持契约选择持久化。
+- 还未实现：M3 收尾平衡、更多演出资源、导出脚本与完整发布清单。
 
 ## 运行
 
@@ -47,7 +50,7 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `Tab`：切换攻击模式
 - 自动模式 `AUTO`：自动锁定威胁最高敌人
 - 指向模式 `AIM`：朝鼠标方向自动射击
-- 开局流程：Main Menu -> `Start Run` -> CharacterSelect -> MapSelect -> `Start`
+- 开局流程：Main Menu -> `Start Run` -> CharacterSelect -> MapSelect -> ContractSelect -> `Start`
 
 ## Characters（P0-B）
 - `diver` / Silent Diver：控噪+延长揭示。解锁：单局生存 420 秒。
@@ -85,6 +88,71 @@ godot --path /Users/shijiean/Desktop/project/survive
 - 每张地图绑定一个 `event_table`，事件包含 `weight/cooldown/min_time/max_time/duration/effects/immediate`。
 - 固定 seed 下触发顺序可复现（便于复盘与分享）。
 - `immediate` 当前支持：`spawn_pickups`、`pickup_xp`、`noise_delta`、`message`。
+
+## Enemies（P0-F）
+普通敌人（数据文件：`/Users/shijiean/Desktop/project/survive/data/enemies.json`）：
+- `drifter`：基础追踪压迫
+- `sprinter`：突进前摇后高速冲刺
+- `shooter`：中距离点射压制
+- `shielded`：护盾型；被声呐揭示可破盾
+- `splitter`：死亡分裂小体
+- `bloater`：接近后读条自爆
+- `summoner`：周期召唤杂兵
+- `lurker`：未揭示时高机动/闪避
+- `leech`：近战命中会偷取资源并抬噪
+- `magnetoid`：磁场拉扯位移
+
+噪声/声呐互动：
+- 高噪声提升敌人激进度（移动/压迫更强）
+- 被声呐揭示后触发可见反应（stagger/rage/shield_break）
+
+## Elite System（P0-F）
+精英词缀（数据文件：`/Users/shijiean/Desktop/project/survive/data/elites.json`）：
+- `haste`
+- `armored`
+- `volatile`
+- `jammer`
+- `loud`
+- `siphon`
+
+运行效果：
+- 精英会获得词缀属性乘区与特殊效果（减伤、死亡爆、干扰声呐、噪声光环等）
+- 精英击杀奖励提升（额外经验收益）
+- Debug 可见：`elite_chance`、`elite_count`
+
+## Boss（P0-F）
+`Abyss Siren`（数据文件：`/Users/shijiean/Desktop/project/survive/data/bosses.json`）：
+- Phase 1：`Echo Barrage`（基础弹压 + 召唤）
+- Phase 2：`False Resonance`（阶段切换触发噪声激增与刷怪压力提升）
+- 信息差机制：Phase 2 需要声呐揭示才能稳定打满伤害（未揭示时显著减伤）
+
+## Contracts（P0-F）
+数据文件：`/Users/shijiean/Desktop/project/survive/data/contracts.json`
+
+当前 12 个契约（开局可选 `0~3`）：
+- `contract_small_vision`
+- `contract_loud_world`
+- `contract_elite_rush`
+- `contract_no_dash`
+- `contract_black_tide_often`
+- `contract_sonar_fuzzy`
+- `contract_pursuer_hunt`
+- `contract_fast_enemies`
+- `contract_fragile_player`
+- `contract_rich_pickups`
+- `contract_silent_bonus`
+- `contract_event_storm`
+
+奖励预览规则：
+- `reward_multiplier = 1 + sum(contract.reward_pct)/100`
+- UI 显示：`XP / Rarity / Drop` 乘数
+
+生效维度：
+- `fog_radius_multiplier`
+- `noise_gain_multiplier`
+- `spawn_multiplier / elite_chance / pursuer_chance`
+- `event_rate / hazard_cycle`
+- `player` 约束（如禁冲刺、血量乘区）
 
 ## 武器 Tag 与升级 Tag 协同
 - 升级支持两类作用域：
@@ -159,10 +227,14 @@ godot --path /Users/shijiean/Desktop/project/survive
 - CharacterSelect 调试：Debug 构建下提供 `Unlock All (Debug)` 按钮（默认关闭，不在发行版启用）。
 - Debug 面板新增：`current_weapon(s)`、`weapon_tags`、`weapon_dps~`、`weapon_noise_rate`。
 - Debug 面板新增（P0-E）：`current_map_id`、`hazard_active/timer`、`last_event_triggered`、`map_spawn_multiplier`、`fog_radius`、`map_noise_gain_multiplier`。
+- Debug 面板新增（P0-F）：`elite_count`、`elite_chance`、`pursuer_count`、`pursuer_spawned_total`、`next_pursuer_eta`、`boss_state`、`contracts_active`、`contract_event_rate_mult`。
 
 ## 数据调参入口
 - 武器：`/Users/shijiean/Desktop/project/survive/data/weapons.json`
 - 敌人：`/Users/shijiean/Desktop/project/survive/data/enemies.json`
+- 精英词缀：`/Users/shijiean/Desktop/project/survive/data/elites.json`
+- Boss：`/Users/shijiean/Desktop/project/survive/data/bosses.json`
+- 契约：`/Users/shijiean/Desktop/project/survive/data/contracts.json`
 - 升级池：`/Users/shijiean/Desktop/project/survive/data/upgrades.json`
 - 刷怪曲线：`/Users/shijiean/Desktop/project/survive/data/spawn_curve.json`
 - Fog：`/Users/shijiean/Desktop/project/survive/data/fog.json`
@@ -181,6 +253,7 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `unlocked_characters`
 - `last_selected_character_id`
 - `last_selected_map_id`
+- `last_selected_contract_ids`
 - `progress`：
   - `total_kills`
   - `pickups_collected`
@@ -191,7 +264,7 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `run_count`
 
 ## 自动化测试（当前）
-M3 测试场景（包含 Pool + Fog/Sonar/Noise + Character/Profile + Weapon回归 + Upgrade Rules + Maps/Hazards/Events 回归）：
+M3 测试场景（包含 Pool + Fog/Sonar/Noise + Character/Profile + Weapon回归 + Upgrade Rules + Maps/Hazards/Events + Enemies/Elites/Boss/Contracts 回归）：
 ```bash
 godot --headless --path /Users/shijiean/Desktop/project/survive --scene res://tests/TestRunner.tscn --quit-after 3600
 ```
