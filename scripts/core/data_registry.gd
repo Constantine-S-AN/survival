@@ -4,7 +4,8 @@ const DATA_FILES: Dictionary = {
 	"weapons": "res://data/weapons.json",
 	"enemies": "res://data/enemies.json",
 	"upgrades": "res://data/upgrades.json",
-	"spawn_curve": "res://data/spawn_curve.json"
+	"spawn_curve": "res://data/spawn_curve.json",
+	"fog": "res://data/fog.json"
 }
 
 const RARITY_WEIGHT: Dictionary = {
@@ -18,6 +19,7 @@ var weapons: Dictionary = {}
 var enemies: Dictionary = {}
 var upgrades: Array = []
 var spawn_curve: Array = []
+var fog_config: Dictionary = {}
 var validation_errors: Array[String] = []
 var loaded: bool = false
 
@@ -33,11 +35,13 @@ func load_all() -> bool:
 	enemies = _load_dictionary(DATA_FILES["enemies"], "enemies")
 	upgrades = _load_array_of_dictionaries(DATA_FILES["upgrades"], "upgrades")
 	spawn_curve = _load_array_of_dictionaries(DATA_FILES["spawn_curve"], "spawn_curve")
+	fog_config = _load_dictionary(DATA_FILES["fog"], "fog")
 
 	_validate_weapons()
 	_validate_enemies()
 	_validate_upgrades()
 	_validate_spawn_curve()
+	_validate_fog()
 
 	loaded = validation_errors.is_empty()
 	if not loaded:
@@ -50,6 +54,28 @@ func reload_in_debug() -> bool:
 	if not OS.is_debug_build():
 		return loaded
 	return load_all()
+
+
+func get_fog_config() -> Dictionary:
+	if fog_config.is_empty():
+		return {}
+	return fog_config.duplicate(true)
+
+
+func get_data_path(key: String) -> String:
+	return String(DATA_FILES.get(key, ""))
+
+
+func get_data_version(key: String) -> int:
+	var payload: Variant = null
+	match key:
+		"fog":
+			payload = fog_config
+		_:
+			return -1
+	if payload is Dictionary:
+		return int((payload as Dictionary).get("schema_version", -1))
+	return -1
 
 
 func get_weapon(weapon_id: String) -> Dictionary:
@@ -274,6 +300,27 @@ func _validate_spawn_curve() -> void:
 			validation_errors.append("[spawn_curve:%d] weights must be dictionary" % i)
 	spawn_curve.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return int(a.get("time", 0)) < int(b.get("time", 0))
+	)
+
+
+func _validate_fog() -> void:
+	_validate_required_keys(
+		fog_config,
+		[
+			"schema_version",
+			"enabled",
+			"darkness_color",
+			"vision_radius",
+			"vision_energy",
+			"scanline_enabled",
+			"scanline_density",
+			"scanline_strength",
+			"noise_strength",
+			"tint_color",
+			"tint_alpha",
+			"pulse_speed"
+		],
+		"fog"
 	)
 
 

@@ -16,6 +16,7 @@ var kills := 0
 var run_state := STATE_PLAYING
 var hitstop_active := false
 var hitstop_end_usec: int = 0
+var fog_enabled: bool = true
 
 
 func _ready() -> void:
@@ -28,6 +29,13 @@ func _ready() -> void:
 	rng.seed = run_seed
 
 	world.setup_run(rng)
+	var fog_cfg: Dictionary = DataRegistry.get_fog_config()
+	fog_enabled = bool(fog_cfg.get("enabled", true))
+	world.apply_fog_config(fog_cfg)
+	world.set_fog_enabled(fog_enabled)
+	ui.apply_fog_overlay_config(fog_cfg)
+	ui.set_fog_overlay_enabled(fog_enabled)
+
 	world.player.died.connect(_on_player_died)
 	world.player.level_up_requested.connect(_on_player_level_up_requested)
 	world.player.attack_mode_changed.connect(_on_player_attack_mode_changed)
@@ -103,6 +111,17 @@ func _on_retry_requested() -> void:
 	get_tree().paused = false
 	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not (event is InputEventKey):
+		return
+	if not event.pressed or event.echo:
+		return
+	if event.keycode == KEY_F2:
+		fog_enabled = not fog_enabled
+		world.set_fog_enabled(fog_enabled)
+		ui.set_fog_overlay_enabled(fog_enabled)
 
 
 func _set_state(next_state: String) -> void:

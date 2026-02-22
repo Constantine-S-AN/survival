@@ -23,3 +23,9 @@ script = ExtResource("2")
 current = true
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
+
+[node name="FogLight" type="PointLight2D" parent="."]
+enabled = true
+texture_scale = 3.2
+energy = 1.3
+color = Color(0.63, 0.86, 1, 1)

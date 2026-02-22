@@ -4,6 +4,9 @@ class_name UILayer
 signal upgrade_selected(upgrade_id: String)
 signal retry_requested
 
+const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
+
+@onready var root: Control = $Root
 @onready var hp_label: Label = $Root/HUD/Stats/HPLabel
 @onready var xp_label: Label = $Root/HUD/Stats/XPLabel
 @onready var level_label: Label = $Root/HUD/Stats/LevelLabel
@@ -26,10 +29,16 @@ signal retry_requested
 @onready var retry_button: Button = $Root/GameOverPanel/PanelMargin/VBox/RetryButton
 
 var current_options: Array = []
+var fog_overlay: ColorRect
+var fog_overlay_material: ShaderMaterial
+var fog_overlay_allowed: bool = true
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+	_create_fog_overlay()
+	apply_fog_overlay_config(DataRegistry.get_fog_config())
+	set_fog_overlay_enabled(bool(DataRegistry.get_fog_config().get("enabled", true)))
 	level_up_panel.visible = false
 	game_over_panel.visible = false
 
@@ -38,6 +47,48 @@ func _ready() -> void:
 	retry_button.pressed.connect(func() -> void:
 		retry_requested.emit()
 	)
+
+
+func _create_fog_overlay() -> void:
+	fog_overlay = ColorRect.new()
+	fog_overlay.name = "FogOverlay"
+	fog_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fog_overlay.offset_left = 0.0
+	fog_overlay.offset_top = 0.0
+	fog_overlay.offset_right = 0.0
+	fog_overlay.offset_bottom = 0.0
+	fog_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fog_overlay.color = Color(1.0, 1.0, 1.0, 1.0)
+
+	fog_overlay_material = ShaderMaterial.new()
+	fog_overlay_material.shader = FOG_SHADER
+	fog_overlay.material = fog_overlay_material
+
+	root.add_child(fog_overlay)
+	root.move_child(fog_overlay, 0)
+
+
+func apply_fog_overlay_config(config: Dictionary) -> void:
+	if fog_overlay_material == null:
+		return
+	fog_overlay_allowed = bool(config.get("scanline_enabled", true))
+	var tint_color := Color.from_string(String(config.get("tint_color", "#0b1a2a")), Color(0.05, 0.10, 0.16))
+	fog_overlay_material.set_shader_parameter("line_density", float(config.get("scanline_density", 320.0)))
+	fog_overlay_material.set_shader_parameter("line_strength", float(config.get("scanline_strength", 0.08)))
+	fog_overlay_material.set_shader_parameter("noise_strength", float(config.get("noise_strength", 0.05)))
+	fog_overlay_material.set_shader_parameter("tint_color", tint_color)
+	fog_overlay_material.set_shader_parameter("tint_alpha", float(config.get("tint_alpha", 0.30)))
+	fog_overlay_material.set_shader_parameter("pulse_speed", float(config.get("pulse_speed", 0.65)))
+	fog_overlay_material.set_shader_parameter("effect_enabled", fog_overlay_allowed)
+	fog_overlay.visible = fog_overlay_allowed
+
+
+func set_fog_overlay_enabled(enabled: bool) -> void:
+	if fog_overlay_material == null:
+		return
+	var final_enabled := enabled and fog_overlay_allowed
+	fog_overlay_material.set_shader_parameter("effect_enabled", final_enabled)
+	fog_overlay.visible = final_enabled
 
 
 func update_hud(data: Dictionary) -> void:

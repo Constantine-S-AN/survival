@@ -5,16 +5,22 @@ class_name World
 @onready var enemy_manager = $EnemyManager
 @onready var player = $Player
 @onready var camera = $Player/Camera2D
+@onready var fog_darkness: CanvasModulate = $FogDarkness
+@onready var fog_light: PointLight2D = $Player/FogLight
 @onready var hit_sfx = $HitSfx
 @onready var shot_sfx = $ShotSfx
 
 var sfx_rng := RandomNumberGenerator.new()
+var fog_enabled: bool = true
+var fog_config: Dictionary = {}
 
 
 func _ready() -> void:
 	sfx_rng.seed = int(Time.get_unix_time_from_system())
 	_configure_synth_player(hit_sfx)
 	_configure_synth_player(shot_sfx)
+	apply_fog_config(DataRegistry.get_fog_config())
+	set_fog_enabled(bool(fog_config.get("enabled", true)))
 	FeedbackBus.hit_landed.connect(_on_hit_landed)
 	FeedbackBus.shot_fired.connect(_on_shot_fired)
 	queue_redraw()
@@ -28,6 +34,48 @@ func setup_run(run_rng: RandomNumberGenerator) -> void:
 func apply_screen_shake(amount: float) -> void:
 	if camera != null and camera.has_method("add_trauma"):
 		camera.add_trauma(amount)
+
+
+func apply_fog_config(config: Dictionary) -> void:
+	fog_config = config.duplicate(true)
+	if fog_config.is_empty():
+		return
+
+	var dark := Color.from_string(String(fog_config.get("darkness_color", "#0a1422")), Color(0.039, 0.078, 0.133))
+	fog_darkness.color = dark
+
+	fog_light.texture = _build_fog_light_texture()
+	var radius := float(fog_config.get("vision_radius", 440.0))
+	fog_light.texture_scale = maxf(0.2, radius / 256.0)
+	fog_light.energy = float(fog_config.get("vision_energy", 1.25))
+	fog_light.color = Color(0.70, 0.88, 1.0, 1.0)
+
+
+func set_fog_enabled(enabled: bool) -> void:
+	fog_enabled = enabled
+	fog_darkness.visible = fog_enabled
+	fog_light.enabled = fog_enabled
+
+
+func is_fog_enabled() -> bool:
+	return fog_enabled
+
+
+func _build_fog_light_texture() -> Texture2D:
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.4, 0.78, 1.0])
+	gradient.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 0.95),
+		Color(1.0, 1.0, 1.0, 0.60),
+		Color(1.0, 1.0, 1.0, 0.20),
+		Color(1.0, 1.0, 1.0, 0.0)
+	])
+	var texture := GradientTexture2D.new()
+	texture.width = 512
+	texture.height = 512
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.gradient = gradient
+	return texture
 
 
 func _on_hit_landed(world_position: Vector2, intensity: float, killed: bool) -> void:
