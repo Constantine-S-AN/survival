@@ -6,10 +6,13 @@ signal retry_requested
 signal main_menu_start_requested
 signal start_run_requested(character_id: String)
 signal character_select_back_requested
+signal map_select_start_requested(map_id: String)
+signal map_select_back_requested
 signal unlock_all_debug_requested
 
 const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
 const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
+const MAP_SELECT_SCENE := preload("res://scenes/ui/MapSelect.tscn")
 const TAG_DISPLAY_NAMES: Dictionary = {
 	"sonar": "Sonar",
 	"silence": "Silence",
@@ -147,6 +150,7 @@ var main_menu_panel: Panel
 var menu_start_button: Button
 var menu_quit_button: Button
 var character_select_panel: CanvasItem
+var map_select_panel: CanvasItem
 var unlock_toast_label: Label
 
 
@@ -160,6 +164,7 @@ func _ready() -> void:
 	_create_system_message_widget()
 	_create_main_menu_panel()
 	_create_character_select_panel()
+	_create_map_select_panel()
 	_create_unlock_toast_widget()
 	set_debug_visible(false)
 
@@ -332,6 +337,21 @@ func _create_character_select_panel() -> void:
 		character_select_panel.connect("debug_unlock_all_pressed", Callable(self, "_on_character_select_unlock_all_pressed"))
 
 
+func _create_map_select_panel() -> void:
+	if MAP_SELECT_SCENE == null:
+		return
+	var panel_variant := MAP_SELECT_SCENE.instantiate()
+	if panel_variant == null:
+		return
+	map_select_panel = panel_variant
+	map_select_panel.visible = false
+	root.add_child(map_select_panel)
+	if map_select_panel.has_signal("start_pressed"):
+		map_select_panel.connect("start_pressed", Callable(self, "_on_map_select_start_pressed"))
+	if map_select_panel.has_signal("back_pressed"):
+		map_select_panel.connect("back_pressed", Callable(self, "_on_map_select_back_pressed"))
+
+
 func _create_unlock_toast_widget() -> void:
 	unlock_toast_label = Label.new()
 	unlock_toast_label.name = "UnlockToast"
@@ -355,6 +375,14 @@ func _on_character_select_back_pressed() -> void:
 
 func _on_character_select_unlock_all_pressed() -> void:
 	unlock_all_debug_requested.emit()
+
+
+func _on_map_select_start_pressed(map_id: String) -> void:
+	map_select_start_requested.emit(map_id)
+
+
+func _on_map_select_back_pressed() -> void:
+	map_select_back_requested.emit()
 
 
 func apply_fog_overlay_config(config: Dictionary) -> void:
@@ -459,8 +487,19 @@ func update_debug_data(data: Dictionary) -> void:
 		"noise_tier: %s" % String(data.get("noise_tier_name", "静默")),
 		"spawn_rate_multiplier: %.2f" % float(data.get("spawn_rate_multiplier", 1.0)),
 		"pursuer_chance: %.3f" % float(data.get("pursuer_chance", 0.0)),
+		"map_spawn_multiplier: %.2f" % float(data.get("map_spawn_multiplier", 1.0)),
 		"revealed_count: %d" % int(data.get("revealed_count", 0)),
 		"timeline_progress: %.2f" % float(data.get("timeline_progress", 0.0)),
+		"map_id: %s" % String(data.get("current_map_id", "")),
+		"hazard_active: %s  timer: %.1fs" % [
+			"ON" if bool(data.get("hazard_active", false)) else "OFF",
+			float(data.get("hazard_timer", 0.0))
+		],
+		"last_event: %s" % String(data.get("last_event_triggered", "-")),
+		"fog_radius: %.1f  map_noise_gain: %.2f" % [
+			float(data.get("fog_radius", 0.0)),
+			float(data.get("map_noise_gain_multiplier", 1.0))
+		],
 		"fixed_noise: %s (%.1f)" % [
 			"ON" if bool(data.get("fixed_noise_enabled", false)) else "OFF",
 			float(data.get("fixed_noise_value", 0.0))
@@ -472,6 +511,9 @@ func update_debug_data(data: Dictionary) -> void:
 		"config fog: v%d @ %s" % [int(data.get("fog_version", -1)), String(data.get("fog_path", ""))],
 		"config sonar: v%d @ %s" % [int(data.get("sonar_version", -1)), String(data.get("sonar_path", ""))],
 		"config noise: v%d @ %s" % [int(data.get("noise_version", -1)), String(data.get("noise_path", ""))],
+		"config maps: v%d @ %s" % [int(data.get("maps_version", -1)), String(data.get("maps_path", ""))],
+		"config hazards: v%d @ %s" % [int(data.get("hazards_version", -1)), String(data.get("hazards_path", ""))],
+		"config events: v%d @ %s" % [int(data.get("events_version", -1)), String(data.get("events_path", ""))],
 		"hot reload: F5",
 		"fixed noise: F6 toggle, F7 -, F8 +",
 		"fog F2, sonar visual F3"
@@ -505,6 +547,8 @@ func set_main_menu_visible(enabled: bool) -> void:
 		main_menu_panel.visible = enabled
 	if enabled and character_select_panel != null:
 		character_select_panel.visible = false
+	if enabled and map_select_panel != null:
+		map_select_panel.visible = false
 	_set_hud_visible(not enabled)
 
 
@@ -513,6 +557,18 @@ func set_character_select_visible(enabled: bool) -> void:
 		character_select_panel.visible = enabled
 	if enabled and main_menu_panel != null:
 		main_menu_panel.visible = false
+	if enabled and map_select_panel != null:
+		map_select_panel.visible = false
+	_set_hud_visible(not enabled)
+
+
+func set_map_select_visible(enabled: bool) -> void:
+	if map_select_panel != null:
+		map_select_panel.visible = enabled
+	if enabled and main_menu_panel != null:
+		main_menu_panel.visible = false
+	if enabled and character_select_panel != null:
+		character_select_panel.visible = false
 	_set_hud_visible(not enabled)
 
 
@@ -521,6 +577,13 @@ func configure_character_select(characters: Array, unlocked_character_ids: Array
 		return
 	if character_select_panel.has_method("set_character_data"):
 		character_select_panel.call("set_character_data", characters, unlocked_character_ids, selected_id)
+
+
+func configure_map_select(maps: Array, selected_map_id: String) -> void:
+	if map_select_panel == null:
+		return
+	if map_select_panel.has_method("set_map_data"):
+		map_select_panel.call("set_map_data", maps, selected_map_id)
 
 
 func refresh_character_unlocks(unlocked_character_ids: Array[String]) -> void:
@@ -610,20 +673,27 @@ func on_game_state_changed(state: String) -> void:
 			level_up_panel.visible = false
 			game_over_panel.visible = false
 			set_character_select_visible(true)
+		"map_select":
+			level_up_panel.visible = false
+			game_over_panel.visible = false
+			set_map_select_visible(true)
 		"playing":
 			level_up_panel.visible = false
 			game_over_panel.visible = false
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
+			set_map_select_visible(false)
 			_set_hud_visible(true)
 		"level_up":
 			game_over_panel.visible = false
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
+			set_map_select_visible(false)
 			_set_hud_visible(true)
 		"game_over":
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
+			set_map_select_visible(false)
 			_set_hud_visible(false)
 		_:
 			pass

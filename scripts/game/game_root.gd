@@ -6,6 +6,7 @@ const STATE_LEVEL_UP := "level_up"
 const STATE_GAME_OVER := "game_over"
 const STATE_MENU := "menu"
 const STATE_CHARACTER_SELECT := "character_select"
+const STATE_MAP_SELECT := "map_select"
 const InputConfig := preload("res://scripts/core/input_config.gd")
 const RunStatsClass := preload("res://scripts/core/run_stats.gd")
 
@@ -24,6 +25,8 @@ var sonar_visual_enabled: bool = true
 var fixed_noise_enabled: bool = false
 var fixed_noise_value: float = 0.0
 var selected_character_id: String = ""
+var selected_map_id: String = ""
+var last_fog_overlay_signature: String = ""
 var run_started: bool = false
 var run_stats = RunStatsClass.new()
 
@@ -35,12 +38,19 @@ func _ready() -> void:
 	if not DataRegistry.load_all():
 		push_error("DataRegistry failed to load JSON. Check console for details.")
 	var default_character_id := DataRegistry.get_default_character_id()
-	ProfileStore.load_profile(default_character_id if not default_character_id.is_empty() else "diver")
+	var default_map_id := DataRegistry.get_default_map_id()
+	ProfileStore.load_profile(
+		default_character_id if not default_character_id.is_empty() else "diver",
+		default_map_id
+	)
 	if not ProfileStore.is_character_unlocked(default_character_id):
 		ProfileStore.unlock_character(default_character_id)
 	selected_character_id = ProfileStore.get_selected_character_id(default_character_id)
 	if not ProfileStore.is_character_unlocked(selected_character_id):
 		selected_character_id = default_character_id
+	selected_map_id = ProfileStore.get_selected_map_id(default_map_id)
+	if selected_map_id.is_empty() or not DataRegistry.has_map(selected_map_id):
+		selected_map_id = default_map_id
 
 	var fog_cfg: Dictionary = DataRegistry.get_fog_config()
 	fog_enabled = bool(fog_cfg.get("enabled", true))
@@ -58,6 +68,8 @@ func _ready() -> void:
 	world.player.level_up_requested.connect(_on_player_level_up_requested)
 	world.player.attack_mode_changed.connect(_on_player_attack_mode_changed)
 	world.enemy_manager.enemy_killed.connect(_on_enemy_killed)
+	world.map_event_triggered.connect(_on_map_event_triggered)
+	world.hazard_state_changed.connect(_on_hazard_state_changed)
 	FeedbackBus.hit_landed.connect(_on_hit_landed)
 	FeedbackBus.pickup_collected.connect(_on_pickup_collected)
 
@@ -66,6 +78,8 @@ func _ready() -> void:
 	ui.main_menu_start_requested.connect(_on_main_menu_start_requested)
 	ui.start_run_requested.connect(_on_start_run_requested)
 	ui.character_select_back_requested.connect(_on_character_select_back_requested)
+	ui.map_select_start_requested.connect(_on_map_select_start_requested)
+	ui.map_select_back_requested.connect(_on_map_select_back_requested)
 	ui.unlock_all_debug_requested.connect(_on_unlock_all_debug_requested)
 
 	ui.configure_character_select(
@@ -73,6 +87,7 @@ func _ready() -> void:
 		ProfileStore.get_unlocked_characters(),
 		selected_character_id
 	)
+	ui.configure_map_select(DataRegistry.get_maps(), selected_map_id)
 
 	_set_state(STATE_MENU)
 	_refresh_hud()
@@ -93,6 +108,9 @@ func _process(delta: float) -> void:
 		return
 	elapsed_time += delta
 	run_stats.survive_time_seconds = elapsed_time
+	var map_snapshot: Dictionary = world.update_map_runtime(delta)
+	if not map_snapshot.is_empty():
+		_sync_runtime_fog_overlay()
 	run_stats.max_noise_reached = maxf(run_stats.max_noise_reached, world.player.noise)
 	var noise_tier: Dictionary = DataRegistry.get_noise_tier(world.player.noise)
 	run_stats.max_noise_tier_id = String(noise_tier.get("id", run_stats.max_noise_tier_id))
@@ -143,6 +161,27 @@ func _on_hit_landed(_world_position: Vector2, intensity: float, _killed: bool) -
 	_apply_hitstop(0.038 + intensity * 0.04)
 
 
+func _on_map_event_triggered(_event_id: String, event_name: String, message: String) -> void:
+	if run_state != STATE_PLAYING:
+		return
+	var text := message
+	if text.strip_edges().is_empty():
+		text = "%s triggered" % event_name
+	ui.show_system_message(text, false)
+
+
+func _on_hazard_state_changed(active: bool, warning_text: String) -> void:
+	if run_state != STATE_PLAYING:
+		return
+	var text := warning_text.strip_edges()
+	if text.is_empty():
+		text = "Hazard shift"
+	if active:
+		ui.show_system_message("%s (ACTIVE)" % text, true)
+	else:
+		ui.show_system_message(text, false)
+
+
 func _apply_hitstop(duration: float) -> void:
 	if hitstop_active:
 		return
@@ -182,15 +221,33 @@ func _on_main_menu_start_requested() -> void:
 		ProfileStore.get_unlocked_characters(),
 		selected_character_id
 	)
+	ui.configure_map_select(DataRegistry.get_maps(), selected_map_id)
 	_set_state(STATE_CHARACTER_SELECT)
 
 
 func _on_start_run_requested(character_id: String) -> void:
-	_start_run(character_id)
+	var chosen_id := character_id.strip_edges()
+	if chosen_id.is_empty():
+		chosen_id = DataRegistry.get_default_character_id()
+	if not ProfileStore.is_character_unlocked(chosen_id):
+		ui.show_system_message("Character is locked.", true)
+		return
+	selected_character_id = chosen_id
+	ProfileStore.set_selected_character_id(selected_character_id)
+	ui.configure_map_select(DataRegistry.get_maps(), selected_map_id)
+	_set_state(STATE_MAP_SELECT)
 
 
 func _on_character_select_back_requested() -> void:
 	_set_state(STATE_MENU)
+
+
+func _on_map_select_start_requested(map_id: String) -> void:
+	_start_run(selected_character_id, map_id)
+
+
+func _on_map_select_back_requested() -> void:
+	_set_state(STATE_CHARACTER_SELECT)
 
 
 func _on_unlock_all_debug_requested() -> void:
@@ -201,16 +258,24 @@ func _on_unlock_all_debug_requested() -> void:
 	ui.show_system_message("Debug: all characters unlocked.", false)
 
 
-func _start_run(character_id: String) -> void:
+func _start_run(character_id: String, map_id: String = "") -> void:
 	var chosen_id := character_id.strip_edges()
 	if chosen_id.is_empty():
 		chosen_id = DataRegistry.get_default_character_id()
 	if not ProfileStore.is_character_unlocked(chosen_id):
 		ui.show_system_message("Character is locked.", true)
 		return
+	var chosen_map_id := map_id.strip_edges()
+	if chosen_map_id.is_empty() or not DataRegistry.has_map(chosen_map_id):
+		chosen_map_id = DataRegistry.get_default_map_id()
+	if chosen_map_id.is_empty() or not DataRegistry.has_map(chosen_map_id):
+		ui.show_system_message("Map data unavailable.", true)
+		return
 
 	selected_character_id = chosen_id
+	selected_map_id = chosen_map_id
 	ProfileStore.set_selected_character_id(selected_character_id)
+	ProfileStore.set_selected_map_id(selected_map_id)
 	run_seed = int(Time.get_unix_time_from_system())
 	rng.seed = run_seed
 	elapsed_time = 0.0
@@ -219,7 +284,8 @@ func _start_run(character_id: String) -> void:
 	run_stats.reset(run_seed)
 
 	var character_def := DataRegistry.get_character(selected_character_id)
-	world.setup_run(rng, character_def)
+	world.setup_run(rng, character_def, selected_map_id, run_seed)
+	_sync_runtime_fog_overlay(true)
 	fixed_noise_value = world.player.noise
 	_set_state(STATE_PLAYING)
 	_refresh_hud()
@@ -295,6 +361,7 @@ func _push_debug_snapshot() -> void:
 	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
 	var entity_counts: Dictionary = world.get_runtime_entity_counts()
 	var pool_stats: Dictionary = world.get_pool_stats()
+	var map_debug: Dictionary = world.get_map_debug_snapshot()
 	snapshot["noise_tier_name"] = String(noise_tier_debug.get("name", "静默"))
 	snapshot["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
 	snapshot["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
@@ -318,7 +385,33 @@ func _push_debug_snapshot() -> void:
 	snapshot["sonar_path"] = DataRegistry.get_data_path("sonar")
 	snapshot["noise_path"] = DataRegistry.get_data_path("noise")
 	snapshot["selected_character"] = selected_character_id
+	snapshot["selected_map_id"] = selected_map_id
+	snapshot["current_map_id"] = String(map_debug.get("current_map_id", ""))
+	snapshot["hazard_active"] = bool(map_debug.get("hazard_active", false))
+	snapshot["hazard_timer"] = float(map_debug.get("hazard_timer", 0.0))
+	snapshot["last_event_triggered"] = String(map_debug.get("last_event_triggered", ""))
+	snapshot["map_spawn_multiplier"] = float(map_debug.get("map_spawn_multiplier", 1.0))
+	snapshot["fog_radius"] = float(map_debug.get("fog_radius", 0.0))
+	snapshot["map_noise_gain_multiplier"] = float(map_debug.get("noise_gain_multiplier", 1.0))
+	snapshot["maps_version"] = DataRegistry.get_data_version("maps")
+	snapshot["hazards_version"] = DataRegistry.get_data_version("hazards")
+	snapshot["events_version"] = DataRegistry.get_data_version("events")
+	snapshot["maps_path"] = DataRegistry.get_data_path("maps")
+	snapshot["hazards_path"] = DataRegistry.get_data_path("hazards")
+	snapshot["events_path"] = DataRegistry.get_data_path("events")
 	ui.update_debug_data(snapshot)
+
+
+func _sync_runtime_fog_overlay(force: bool = false) -> void:
+	var effective_fog: Dictionary = world.get_effective_fog_config()
+	if effective_fog.is_empty():
+		return
+	var signature := JSON.stringify(effective_fog, "")
+	if not force and signature == last_fog_overlay_signature:
+		return
+	last_fog_overlay_signature = signature
+	ui.apply_fog_overlay_config(effective_fog)
+	ui.set_fog_overlay_enabled(fog_enabled)
 
 
 func _reload_runtime_data() -> void:
@@ -333,17 +426,20 @@ func _reload_runtime_data() -> void:
 	var fog_cfg: Dictionary = DataRegistry.get_fog_config()
 	world.apply_fog_config(fog_cfg)
 	world.set_fog_enabled(fog_enabled)
-	ui.apply_fog_overlay_config(fog_cfg)
-	ui.set_fog_overlay_enabled(fog_enabled)
+	_sync_runtime_fog_overlay(true)
 	var sonar_cfg: Dictionary = DataRegistry.get_sonar_config()
 	world.apply_sonar_config(sonar_cfg)
 	world.set_sonar_visual_enabled(sonar_visual_enabled)
+	if selected_map_id.is_empty() or not DataRegistry.has_map(selected_map_id):
+		selected_map_id = DataRegistry.get_default_map_id()
+	world.set_current_map(selected_map_id, run_seed)
 	ui.configure_character_select(
 		DataRegistry.get_characters(),
 		ProfileStore.get_unlocked_characters(),
 		selected_character_id
 	)
-	ui.show_system_message("Data reloaded (fog/sonar/noise).", false)
+	ui.configure_map_select(DataRegistry.get_maps(), selected_map_id)
+	ui.show_system_message("Data reloaded (fog/sonar/noise/maps).", false)
 
 
 func _exit_tree() -> void:

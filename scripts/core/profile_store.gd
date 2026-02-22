@@ -19,17 +19,21 @@ var loaded: bool = false
 
 func _ready() -> void:
 	var default_character_id := DataRegistry.get_default_character_id()
-	load_profile(default_character_id if not default_character_id.is_empty() else "diver")
+	var default_map_id := DataRegistry.get_default_map_id()
+	load_profile(
+		default_character_id if not default_character_id.is_empty() else "diver",
+		default_map_id
+	)
 
 
-func load_profile(default_character_id: String) -> Dictionary:
+func load_profile(default_character_id: String, default_map_id: String = "") -> Dictionary:
 	var raw_profile: Dictionary = {}
 	if FileAccess.file_exists(PROFILE_PATH):
 		var text: String = FileAccess.get_file_as_string(PROFILE_PATH)
 		var parsed: Variant = JSON.parse_string(text)
 		if parsed is Dictionary:
 			raw_profile = (parsed as Dictionary).duplicate(true)
-	profile = _migrate_profile(raw_profile, default_character_id)
+	profile = _migrate_profile(raw_profile, default_character_id, default_map_id)
 	loaded = true
 	save_profile()
 	return get_profile()
@@ -54,6 +58,20 @@ func set_selected_character_id(character_id: String) -> void:
 	if character_id.is_empty():
 		return
 	profile["last_selected_character_id"] = character_id
+	save_profile()
+
+
+func get_selected_map_id(fallback_default: String) -> String:
+	var selected := String(profile.get("last_selected_map_id", fallback_default))
+	if selected.is_empty():
+		return fallback_default
+	return selected
+
+
+func set_selected_map_id(map_id: String) -> void:
+	if map_id.is_empty():
+		return
+	profile["last_selected_map_id"] = map_id
 	save_profile()
 
 
@@ -221,7 +239,7 @@ func _is_unlock_requirement_met(requirement: Dictionary) -> bool:
 	return bool(result.get("met", false))
 
 
-func _migrate_profile(raw_profile: Dictionary, default_character_id: String) -> Dictionary:
+func _migrate_profile(raw_profile: Dictionary, default_character_id: String, default_map_id: String = "") -> Dictionary:
 	var migrated: Dictionary = raw_profile.duplicate(true)
 	var schema_version := int(migrated.get("schema_version", 1))
 
@@ -237,6 +255,16 @@ func _migrate_profile(raw_profile: Dictionary, default_character_id: String) -> 
 	if selected.is_empty():
 		selected = default_character_id
 	migrated["last_selected_character_id"] = selected
+
+	var resolved_default_map := default_map_id
+	if resolved_default_map.is_empty():
+		resolved_default_map = DataRegistry.get_default_map_id()
+	if not migrated.has("last_selected_map_id"):
+		migrated["last_selected_map_id"] = resolved_default_map
+	var selected_map := String(migrated.get("last_selected_map_id", resolved_default_map)).strip_edges()
+	if selected_map.is_empty():
+		selected_map = resolved_default_map
+	migrated["last_selected_map_id"] = selected_map
 
 	var progress_variant: Variant = migrated.get("progress", {})
 	var progress: Dictionary = progress_variant.duplicate(true) if progress_variant is Dictionary else {}
