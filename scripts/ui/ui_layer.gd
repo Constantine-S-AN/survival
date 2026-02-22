@@ -3,8 +3,13 @@ class_name UILayer
 
 signal upgrade_selected(upgrade_id: String)
 signal retry_requested
+signal main_menu_start_requested
+signal start_run_requested(character_id: String)
+signal character_select_back_requested
+signal unlock_all_debug_requested
 
 const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
+const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 
 @onready var root: Control = $Root
 @onready var stats_box: VBoxContainer = $Root/HUD/Stats
@@ -40,6 +45,11 @@ var debug_label: RichTextLabel
 var system_msg_label: Label
 var system_msg_timer: Timer
 var last_noise_tier_id: String = ""
+var main_menu_panel: Panel
+var menu_start_button: Button
+var menu_quit_button: Button
+var character_select_panel: CanvasItem
+var unlock_toast_label: Label
 
 
 func _ready() -> void:
@@ -50,6 +60,9 @@ func _ready() -> void:
 	_create_runtime_hud_widgets()
 	_create_debug_panel()
 	_create_system_message_widget()
+	_create_main_menu_panel()
+	_create_character_select_panel()
+	_create_unlock_toast_widget()
 	set_debug_visible(false)
 
 	level_up_panel.visible = false
@@ -149,6 +162,98 @@ func _create_system_message_widget() -> void:
 	add_child(system_msg_timer)
 
 
+func _create_main_menu_panel() -> void:
+	main_menu_panel = Panel.new()
+	main_menu_panel.name = "MainMenuPanel"
+	main_menu_panel.position = Vector2(520.0, 190.0)
+	main_menu_panel.size = Vector2(560.0, 420.0)
+	root.add_child(main_menu_panel)
+
+	var margin := MarginContainer.new()
+	margin.name = "Margin"
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.offset_left = 22.0
+	margin.offset_top = 22.0
+	margin.offset_right = -22.0
+	margin.offset_bottom = -22.0
+	main_menu_panel.add_child(margin)
+
+	var menu_vbox := VBoxContainer.new()
+	menu_vbox.name = "VBox"
+	menu_vbox.add_theme_constant_override("separation", 16)
+	menu_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_child(menu_vbox)
+
+	var title := Label.new()
+	title.text = "Neon Sonar"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	menu_vbox.add_child(title)
+
+	var subtitle := Label.new()
+	subtitle.text = "Descend, survive, and manage your noise."
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	menu_vbox.add_child(subtitle)
+
+	menu_start_button = Button.new()
+	menu_start_button.text = "Start Run"
+	menu_start_button.pressed.connect(func() -> void:
+		main_menu_start_requested.emit()
+		main_menu_panel.visible = false
+		if character_select_panel != null:
+			character_select_panel.visible = true
+	)
+	menu_vbox.add_child(menu_start_button)
+
+	menu_quit_button = Button.new()
+	menu_quit_button.text = "Quit"
+	menu_quit_button.pressed.connect(func() -> void:
+		get_tree().quit()
+	)
+	menu_vbox.add_child(menu_quit_button)
+
+
+func _create_character_select_panel() -> void:
+	if CHARACTER_SELECT_SCENE == null:
+		return
+	var panel_variant := CHARACTER_SELECT_SCENE.instantiate()
+	if panel_variant == null:
+		return
+	character_select_panel = panel_variant
+	character_select_panel.visible = false
+	root.add_child(character_select_panel)
+	if character_select_panel.has_signal("start_pressed"):
+		character_select_panel.connect("start_pressed", Callable(self, "_on_character_select_start_pressed"))
+	if character_select_panel.has_signal("back_pressed"):
+		character_select_panel.connect("back_pressed", Callable(self, "_on_character_select_back_pressed"))
+	if character_select_panel.has_signal("debug_unlock_all_pressed"):
+		character_select_panel.connect("debug_unlock_all_pressed", Callable(self, "_on_character_select_unlock_all_pressed"))
+
+
+func _create_unlock_toast_widget() -> void:
+	unlock_toast_label = Label.new()
+	unlock_toast_label.name = "UnlockToast"
+	unlock_toast_label.visible = false
+	unlock_toast_label.position = Vector2(1180.0, 70.0)
+	unlock_toast_label.size = Vector2(380.0, 120.0)
+	unlock_toast_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	unlock_toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	unlock_toast_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	unlock_toast_label.modulate = Color(0.9, 1.0, 1.0, 0.0)
+	root.add_child(unlock_toast_label)
+
+
+func _on_character_select_start_pressed(character_id: String) -> void:
+	start_run_requested.emit(character_id)
+
+
+func _on_character_select_back_pressed() -> void:
+	character_select_back_requested.emit()
+
+
+func _on_character_select_unlock_all_pressed() -> void:
+	unlock_all_debug_requested.emit()
+
+
 func apply_fog_overlay_config(config: Dictionary) -> void:
 	if fog_overlay_material == null:
 		return
@@ -230,6 +335,7 @@ func update_debug_data(data: Dictionary) -> void:
 			int(data.get("pool_hits", 0)),
 			int(data.get("pool_misses", 0))
 		],
+		"character: %s" % String(data.get("selected_character", "")),
 		"noise: %.1f" % float(data.get("noise", 0.0)),
 		"noise_tier: %s" % String(data.get("noise_tier_name", "静默")),
 		"spawn_rate_multiplier: %.2f" % float(data.get("spawn_rate_multiplier", 1.0)),
@@ -275,6 +381,56 @@ func _play_noise_tier_change(tier_color: Color) -> void:
 	label_tween.tween_property(noise_tier_label, "modulate", tier_color, 0.16)
 
 
+func set_main_menu_visible(enabled: bool) -> void:
+	if main_menu_panel != null:
+		main_menu_panel.visible = enabled
+	if enabled and character_select_panel != null:
+		character_select_panel.visible = false
+	_set_hud_visible(not enabled)
+
+
+func set_character_select_visible(enabled: bool) -> void:
+	if character_select_panel != null:
+		character_select_panel.visible = enabled
+	if enabled and main_menu_panel != null:
+		main_menu_panel.visible = false
+	_set_hud_visible(not enabled)
+
+
+func configure_character_select(characters: Array, unlocked_character_ids: Array[String], selected_id: String) -> void:
+	if character_select_panel == null:
+		return
+	if character_select_panel.has_method("set_character_data"):
+		character_select_panel.call("set_character_data", characters, unlocked_character_ids, selected_id)
+
+
+func refresh_character_unlocks(unlocked_character_ids: Array[String]) -> void:
+	if character_select_panel == null:
+		return
+	if character_select_panel.has_method("refresh_unlocks"):
+		character_select_panel.call("refresh_unlocks", unlocked_character_ids)
+
+
+func show_unlock_toast(unlocked_character_names: Array[String]) -> void:
+	if unlock_toast_label == null or unlocked_character_names.is_empty():
+		return
+	unlock_toast_label.text = "Unlocked:\n%s" % "\n".join(unlocked_character_names)
+	unlock_toast_label.visible = true
+	unlock_toast_label.modulate = Color(0.72, 0.96, 1.0, 0.0)
+	var tween := create_tween()
+	tween.tween_property(unlock_toast_label, "modulate:a", 1.0, 0.22)
+	tween.tween_interval(2.2)
+	tween.tween_property(unlock_toast_label, "modulate:a", 0.0, 0.28)
+	tween.finished.connect(func() -> void:
+		unlock_toast_label.visible = false
+	)
+
+
+func _set_hud_visible(visible_state: bool) -> void:
+	if $Root/HUD != null:
+		$Root/HUD.visible = visible_state
+
+
 func show_level_up(options: Array) -> void:
 	current_options = options
 	level_up_title.text = "Signal Upgrade - Choose One"
@@ -313,17 +469,41 @@ func show_game_over(summary: Dictionary) -> void:
 		"Level: %d" % int(summary.get("level", 1)),
 		"Seed: %d" % int(summary.get("seed", 0))
 	]
+	var unlocked_count := int(summary.get("unlocked_count", 0))
+	if unlocked_count > 0:
+		lines.append("New Unlocks: %d" % unlocked_count)
 	game_over_summary.text = "\n".join(lines)
 	level_up_panel.visible = false
 	game_over_panel.visible = true
 
 
 func on_game_state_changed(state: String) -> void:
-	if state == "playing":
-		level_up_panel.visible = false
-		game_over_panel.visible = false
-	elif state == "level_up":
-		game_over_panel.visible = false
+	match state:
+		"menu":
+			level_up_panel.visible = false
+			game_over_panel.visible = false
+			set_main_menu_visible(true)
+		"character_select":
+			level_up_panel.visible = false
+			game_over_panel.visible = false
+			set_character_select_visible(true)
+		"playing":
+			level_up_panel.visible = false
+			game_over_panel.visible = false
+			set_main_menu_visible(false)
+			set_character_select_visible(false)
+			_set_hud_visible(true)
+		"level_up":
+			game_over_panel.visible = false
+			set_main_menu_visible(false)
+			set_character_select_visible(false)
+			_set_hud_visible(true)
+		"game_over":
+			set_main_menu_visible(false)
+			set_character_select_visible(false)
+			_set_hud_visible(false)
+		_:
+			pass
 
 
 func _on_upgrade_button_pressed(index: int) -> void:

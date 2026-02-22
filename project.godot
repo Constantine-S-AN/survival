@@ -17,6 +17,7 @@ icon="res://assets/textures/icon.svg"
 [autoload]
 DataRegistry="*res://scripts/core/data_registry.gd"
 FeedbackBus="*res://scripts/core/feedback_bus.gd"
+ProfileStore="*res://scripts/core/profile_store.gd"
 
 [display]
 window/size/viewport_width=1600
