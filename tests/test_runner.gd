@@ -20,6 +20,9 @@ var failed: int = 0
 
 func _ready() -> void:
 	_bootstrap_script_mode_singletons()
+	var input_config_script: Script = load("res://scripts/core/input_config.gd")
+	if input_config_script != null and input_config_script.has_method("ensure_default_actions"):
+		input_config_script.ensure_default_actions()
 	_run_data_registry_tests()
 	_run_spawn_profile_tests()
 	await _run_pool_system_tests()

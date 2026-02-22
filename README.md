@@ -1,8 +1,8 @@
 # Survive: Neon Sonar (Godot 4.x)
 
-2D 俯视角幸存者游戏原型。当前完成 **M2**：在 M1 + M1.5 基础上接入 `迷雾视野 + 声呐揭示 + 噪声代价` 三系统联动。
+2D 俯视角幸存者游戏原型。当前完成 **M3 / P0-B**：在 M2 基础上加入 `角色系统 + 角色选择 + 解锁存档迁移`。
 
-## 当前里程碑状态（M2）
+## 当前里程碑状态（M3 / P0-B）
 - 已实现：移动、冲刺、自动/指向攻击切换、刷怪、击杀得经验、升级三选一、死亡结算、重开。
 - 已实现：`GameRoot / World / Player / EnemyManager / ProjectileManager / UI` 场景分层。
 - 已实现：`DataRegistry` 统一加载 JSON（武器/敌人/升级/刷怪曲线）并做基础 schema 校验。
@@ -11,7 +11,9 @@
 - 已实现（Noise）：噪声值 `0..100`，三档位（静默/警戒/暴露）联动刷怪倍率与追猎者概率。
 - 已实现（Debug）：`F1` 调试面板显示 noise/tier/倍率/追猎概率/revealed/timeline 与配置版本；支持固定噪声和热重载。
 - 已实现（M1.5）：命中粒子、命中/开火占位音效（运行时合成）、轻屏震、短 hitstop。
-- 还未实现：完整内容量、局外成长、设置菜单、导出脚本等（后续里程碑）。
+- 已实现（P0-A）：对象池（Projectile + Pickup）与 `pool_hit_rate / hits / misses` 实时统计。
+- 已实现（P0-B）：5角色配置、主菜单 -> 角色选择 -> 开局、profile schema 迁移、结算解锁评估与解锁弹窗。
+- 还未实现：M3 后续内容量（8武器、25升级、2地图、10敌人、1Boss 等）与导出脚本。
 
 ## 运行
 
@@ -36,6 +38,15 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `Tab`：切换攻击模式
 - 自动模式 `AUTO`：自动锁定威胁最高敌人
 - 指向模式 `AIM`：朝鼠标方向自动射击
+- 开局流程：Main Menu -> `Start Run` -> CharacterSelect -> `Start`
+
+## Characters（P0-B）
+- `diver` / Silent Diver：控噪+延长揭示。解锁：单局生存 420 秒。
+- `arc_tech` / Arc Technician：偏链式/暴击权重，噪声更高。解锁：累计击杀 800。
+- `lancer` / Trench Lancer：穿透与冲刺 CD 优势。解锁：噪声峰值达到 60（Exposed）。
+- `drone_handler` / Drone Handler：召唤向权重，噪声更高。解锁：累计拾取 250。
+- `scavenger` / Neon Scavenger：拾取半径和经验收益强化。解锁：单局生存 600 秒。
+- 角色配置文件：`/Users/shijiean/Desktop/project/survive/data/characters.json`
 
 ## Fog / Sonar / Noise 玩法联动
 - Fog：默认黑暗迷雾，仅玩家视野圈内清晰可见，外部区域通过扫描线与噪点保持“科技深海”压迫感。
@@ -51,6 +62,7 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `F6`：固定噪声值开关
 - `F7`：固定噪声值 -10
 - `F8`：固定噪声值 +10
+- CharacterSelect 调试：Debug 构建下提供 `Unlock All (Debug)` 按钮（默认关闭，不在发行版启用）。
 
 ## 数据调参入口
 - 武器：`/Users/shijiean/Desktop/project/survive/data/weapons.json`
@@ -60,12 +72,28 @@ godot --path /Users/shijiean/Desktop/project/survive
 - Fog：`/Users/shijiean/Desktop/project/survive/data/fog.json`
 - Sonar：`/Users/shijiean/Desktop/project/survive/data/sonar.json`
 - Noise：`/Users/shijiean/Desktop/project/survive/data/noise.json`
+- Characters：`/Users/shijiean/Desktop/project/survive/data/characters.json`
 - 数据加载与校验：`/Users/shijiean/Desktop/project/survive/scripts/core/data_registry.gd`
+- Profile 存储与迁移：`/Users/shijiean/Desktop/project/survive/scripts/core/profile_store.gd`
+
+## Profile Schema（v2）
+`user://profile.json` 包含：
+- `schema_version`
+- `unlocked_characters`
+- `last_selected_character_id`
+- `progress`：
+  - `total_kills`
+  - `pickups_collected`
+  - `elite_or_pursuer_kills`
+  - `best_survive_time_seconds`
+  - `best_max_noise_reached`
+  - `reached_noise_tiers`
+- `run_count`
 
 ## 自动化测试（当前）
-M2 测试场景（包含 Fog/Sonar/Noise、热重载与 DebugToggle）：
+M3 测试场景（包含 Pool + Fog/Sonar/Noise + Character/Profile）：
 ```bash
-godot --headless --path /Users/shijiean/Desktop/project/survive --scene res://tests/TestRunner.tscn --quit-after 2000
+godot --headless --path /Users/shijiean/Desktop/project/survive --scene res://tests/TestRunner.tscn --quit-after 3400
 ```
 说明：headless 强制退出时可能出现 `ObjectDB leaked` 警告，当前不影响游戏 Play 流程和测试断言结果。
 
