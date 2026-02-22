@@ -15,6 +15,42 @@ class DummyEnemy:
 		return reveal_calls > 0
 
 
+class DummyEnemyManager:
+	extends Node
+
+	var target: Node2D = null
+
+	func get_priority_target(_origin: Vector2) -> Node2D:
+		return target
+
+
+class DummyDamageEnemy:
+	extends Node2D
+
+	var hp: float = 400.0
+	var hit_count: int = 0
+	var reveal_until: float = 0.0
+
+	func _ready() -> void:
+		add_to_group("enemy")
+
+	func take_hit(damage: float, _impulse: Vector2 = Vector2.ZERO) -> bool:
+		hp -= damage
+		hit_count += 1
+		return hp <= 0.0
+
+	func set_revealed(duration_sec: float) -> void:
+		var now_sec := float(Time.get_ticks_msec()) * 0.001
+		reveal_until = maxf(reveal_until, now_sec + duration_sec)
+
+	func is_revealed() -> bool:
+		var now_sec := float(Time.get_ticks_msec()) * 0.001
+		return now_sec < reveal_until
+
+	func get_threat_score(origin: Vector2) -> float:
+		return 5000.0 - global_position.distance_to(origin)
+
+
 var failed: int = 0
 
 
@@ -27,6 +63,7 @@ func _ready() -> void:
 	_run_spawn_profile_tests()
 	await _run_pool_system_tests()
 	await _run_character_profile_tests()
+	await _run_weapon_system_tests()
 	await _run_m2_system_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
@@ -64,7 +101,7 @@ func _run_data_registry_tests() -> void:
 	for weapon_id in required_weapon_ids:
 		_assert_true(registry.weapons.has(weapon_id), "weapons includes %s" % weapon_id)
 	_assert_true(registry.enemies.size() >= 4, "enemies has at least 4 entries")
-	_assert_true(registry.upgrades.size() >= 12, "upgrades has at least 12 entries")
+	_assert_true(registry.upgrades.size() >= 20, "upgrades has at least 20 entries")
 	var characters: Array = registry.get_characters()
 	_assert_true(characters.size() >= 5, "characters has at least 5 entries")
 	_assert_equal(registry.get_default_character_id(), "diver", "default character id is diver")
@@ -354,6 +391,161 @@ func _run_character_profile_tests() -> void:
 		restore = null
 	elif FileAccess.file_exists(profile_path):
 		DirAccess.remove_absolute(profile_path)
+
+
+func _run_weapon_system_tests() -> void:
+	var weapon_ids: Array[String] = [
+		"needle_rifle",
+		"burst_smg",
+		"silence_dart",
+		"shock_pulse",
+		"abyss_mine",
+		"tether_beam",
+		"orbital_drone",
+		"sonar_blade"
+	]
+	for weapon_id in weapon_ids:
+		var harness := await _create_weapon_test_harness(weapon_id, Vector2(120.0, 0.0))
+		var player: Node = harness.get("player")
+		var enemy: Node = harness.get("enemy")
+		var projectile_manager: Node = harness.get("projectile_manager")
+		_assert_true(player != null and enemy != null and projectile_manager != null, "weapon harness created for %s" % weapon_id)
+		player._attempt_fire()
+		await get_tree().process_frame
+		var spawned_projectiles := int(projectile_manager.active_projectiles)
+		_force_projectile_hits(projectile_manager, enemy)
+		await get_tree().process_frame
+
+		match weapon_id:
+			"needle_rifle", "burst_smg":
+				_assert_true(spawned_projectiles > 0, "%s spawns projectile entities" % weapon_id)
+				_assert_true(int(enemy.hit_count) >= 1, "%s can damage enemy through projectile path" % weapon_id)
+			"silence_dart":
+				_assert_true(spawned_projectiles > 0, "silence_dart spawns projectile")
+				_assert_true(int(enemy.hit_count) >= 1, "silence_dart damages enemy")
+				var now_sec := float(Time.get_ticks_msec()) * 0.001
+				_assert_true(float(enemy.reveal_until) > now_sec, "silence_dart applies reveal extension")
+			"shock_pulse":
+				_assert_true(int(enemy.hit_count) >= 1, "shock_pulse applies radial damage")
+			"abyss_mine":
+				_assert_true((player.deployed_mines as Array).size() >= 1, "abyss_mine deploys mine instance")
+				player._update_deployed_mines(0.8)
+				await get_tree().process_frame
+				_assert_true(int(enemy.hit_count) >= 1, "abyss_mine detonates and damages enemy")
+			"tether_beam":
+				_assert_true(float(player.beam_visual_timer) > 0.0, "tether_beam starts beam visual timer")
+				_assert_true(int(enemy.hit_count) >= 1, "tether_beam applies beam damage")
+			"orbital_drone":
+				_assert_true((player.drone_nodes as Array).size() >= 1, "orbital_drone spawns drone visuals")
+				_assert_true(spawned_projectiles > 0, "orbital_drone produces projectiles")
+				_assert_true(int(enemy.hit_count) >= 1, "orbital_drone can damage enemy")
+			"sonar_blade":
+				_assert_true(int(enemy.hit_count) >= 1, "sonar_blade melee strike damages enemy")
+			_:
+				_assert_true(false, "unknown test weapon id %s" % weapon_id)
+
+		await _cleanup_weapon_test_harness(harness)
+
+	var low_noise_harness := await _create_weapon_test_harness("needle_rifle", Vector2(140.0, 0.0))
+	var high_noise_harness := await _create_weapon_test_harness("burst_smg", Vector2(140.0, 0.0))
+	var low_player: Node = low_noise_harness.get("player")
+	var high_player: Node = high_noise_harness.get("player")
+	var low_runtime: Variant = low_player._build_active_weapon_runtime()
+	var high_runtime: Variant = high_player._build_active_weapon_runtime()
+	_assert_true(float(high_runtime.noise_per_attack) > float(low_runtime.noise_per_attack), "burst_smg runtime noise_per_attack > needle_rifle")
+	low_player.set_noise_value(0.0)
+	high_player.set_noise_value(0.0)
+	low_player._add_noise_source("attack", float(low_runtime.noise_per_attack))
+	high_player._add_noise_source("attack", float(high_runtime.noise_per_attack))
+	_assert_true(float(high_player.noise) > float(low_player.noise), "burst_smg creates more noise than needle_rifle in same window")
+	await _cleanup_weapon_test_harness(low_noise_harness)
+	await _cleanup_weapon_test_harness(high_noise_harness)
+
+	var weapon_target_harness := await _create_weapon_test_harness("needle_rifle", Vector2(140.0, 0.0))
+	var weapon_player: Node = weapon_target_harness.get("player")
+	var runtime_before_weapon: Variant = weapon_player._build_active_weapon_runtime()
+	weapon_player.apply_upgrade("u_lancer_rail_matrix")
+	var runtime_after_weapon: Variant = weapon_player._build_active_weapon_runtime()
+	_assert_true(float(runtime_after_weapon.attack_rate) > float(runtime_before_weapon.attack_rate), "weapon_id-targeted upgrade increases targeted weapon attack rate")
+	_assert_true(int(runtime_after_weapon.pierce) > int(runtime_before_weapon.pierce), "weapon_id-targeted upgrade increases targeted weapon pierce")
+	await _cleanup_weapon_test_harness(weapon_target_harness)
+
+	var tag_target_harness := await _create_weapon_test_harness("silence_dart", Vector2(140.0, 0.0))
+	var tag_player: Node = tag_target_harness.get("player")
+	var runtime_before_tag: Variant = tag_player._build_active_weapon_runtime()
+	tag_player.apply_upgrade("u_ping_accelerant")
+	var runtime_after_tag: Variant = tag_player._build_active_weapon_runtime()
+	_assert_true(float(runtime_after_tag.attack_rate) > float(runtime_before_tag.attack_rate), "tag-targeted upgrade increases sonar weapon attack rate")
+	tag_player._apply_targeted_effect("weapon_level_up", 99, {"type": "weapon_id", "value": "silence_dart"})
+	var runtime_after_level: Variant = tag_player._build_active_weapon_runtime()
+	_assert_true(int(runtime_after_level.level) >= 2, "weapon level-up effect raises weapon level")
+	_assert_true(int(runtime_after_level.level) <= int(runtime_after_level.max_level), "weapon level-up clamps to max level")
+	await _cleanup_weapon_test_harness(tag_target_harness)
+
+
+func _create_weapon_test_harness(weapon_id: String, enemy_position: Vector2) -> Dictionary:
+	var player_scene: PackedScene = load("res://scenes/player/Player.tscn")
+	var player: Node = player_scene.instantiate()
+	var projectile_manager_script: Script = load("res://scripts/managers/projectile_manager.gd")
+	var projectile_manager: Node = projectile_manager_script.new()
+	var enemy_manager := DummyEnemyManager.new()
+	var enemy := DummyDamageEnemy.new()
+	enemy.global_position = enemy_position
+	enemy_manager.target = enemy
+
+	var test_rng := RandomNumberGenerator.new()
+	test_rng.seed = 7321
+
+	get_tree().root.add_child.call_deferred(projectile_manager)
+	get_tree().root.add_child.call_deferred(enemy_manager)
+	get_tree().root.add_child.call_deferred(enemy)
+	get_tree().root.add_child.call_deferred(player)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	player.setup(enemy_manager, projectile_manager, test_rng, _make_test_character(weapon_id))
+	player.auto_attack = true
+	player.attack_cd_remaining = 0.0
+	player.global_position = Vector2.ZERO
+	return {
+		"player": player,
+		"projectile_manager": projectile_manager,
+		"enemy_manager": enemy_manager,
+		"enemy": enemy
+	}
+
+
+func _make_test_character(weapon_id: String) -> Dictionary:
+	return {
+		"id": "test_runner_character",
+		"display_name": "Test Runner",
+		"short_desc": "Test harness character",
+		"starting_weapon_id": weapon_id,
+		"effect_id": "",
+		"stat_modifiers": {},
+		"tag_weights": {}
+	}
+
+
+func _force_projectile_hits(projectile_manager: Node, enemy: Node) -> void:
+	if projectile_manager == null or enemy == null:
+		return
+	for child in projectile_manager.get_children():
+		if child == null or not is_instance_valid(child):
+			continue
+		if child.has_method("_on_body_entered"):
+			child._on_body_entered(enemy)
+
+
+func _cleanup_weapon_test_harness(harness: Dictionary) -> void:
+	for key in ["player", "projectile_manager", "enemy_manager", "enemy"]:
+		var node_variant: Variant = harness.get(key, null)
+		if node_variant is Node:
+			var node: Node = node_variant
+			if is_instance_valid(node):
+				node.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 
 func _run_m2_system_tests() -> void:
