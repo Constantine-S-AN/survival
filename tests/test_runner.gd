@@ -50,6 +50,16 @@ func _run_data_registry_tests() -> void:
 	_assert_true(registry.weapons.has("pulse_emitter"), "weapons includes pulse_emitter")
 	_assert_true(registry.enemies.size() >= 4, "enemies has at least 4 entries")
 	_assert_true(registry.upgrades.size() >= 12, "upgrades has at least 12 entries")
+	var characters: Array = registry.get_characters()
+	_assert_true(characters.size() >= 5, "characters has at least 5 entries")
+	_assert_equal(registry.get_default_character_id(), "diver", "default character id is diver")
+	_assert_true(registry.has_character("diver"), "characters includes diver")
+	var diver: Dictionary = registry.get_character("diver")
+	_assert_equal(String(diver.get("starting_weapon_id", "")), "pulse_emitter", "diver starts with pulse_emitter")
+	var diver_unlock_variant: Variant = diver.get("unlock", {})
+	_assert_true(diver_unlock_variant is Dictionary, "diver unlock object exists")
+	var diver_unlock: Dictionary = diver_unlock_variant if diver_unlock_variant is Dictionary else {}
+	_assert_equal(String(diver_unlock.get("type", "")), "survive_time_seconds", "diver unlock type")
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42

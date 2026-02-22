@@ -7,7 +7,8 @@ const DATA_FILES: Dictionary = {
 	"spawn_curve": "res://data/spawn_curve.json",
 	"fog": "res://data/fog.json",
 	"sonar": "res://data/sonar.json",
-	"noise": "res://data/noise.json"
+	"noise": "res://data/noise.json",
+	"characters": "res://data/characters.json"
 }
 
 const RARITY_WEIGHT: Dictionary = {
@@ -17,6 +18,34 @@ const RARITY_WEIGHT: Dictionary = {
 	"legendary": 2.0
 }
 
+const CHARACTER_REQUIRED_MODIFIER_KEYS: Array[String] = [
+	"max_hp_multiplier",
+	"max_hp_bonus",
+	"move_speed_multiplier",
+	"move_speed_bonus",
+	"dash_cooldown_multiplier",
+	"noise_gain_multiplier",
+	"sonar_reveal_duration_multiplier",
+	"pickup_radius_multiplier",
+	"damage_multiplier",
+	"attack_speed_multiplier",
+	"projectile_range_multiplier",
+	"pierce_bonus",
+	"xp_gain_multiplier",
+	"crit_chance_bonus",
+	"chain_bonus",
+	"summon_cap_bonus"
+]
+
+const CHARACTER_UNLOCK_TYPES: Dictionary = {
+	"survive_time_seconds": true,
+	"max_noise_reached": true,
+	"reached_noise_tier": true,
+	"total_kills": true,
+	"pickups_collected": true,
+	"elite_or_pursuer_kills": true
+}
+
 var weapons: Dictionary = {}
 var enemies: Dictionary = {}
 var upgrades: Array = []
@@ -24,6 +53,9 @@ var spawn_curve: Array = []
 var fog_config: Dictionary = {}
 var sonar_config: Dictionary = {}
 var noise_config: Dictionary = {}
+var characters_config: Dictionary = {}
+var characters: Dictionary = {}
+var character_order: Array[String] = []
 var validation_errors: Array[String] = []
 var loaded: bool = false
 
@@ -42,8 +74,12 @@ func load_all(log_errors: bool = true) -> bool:
 	fog_config = _load_dictionary(DATA_FILES["fog"], "fog")
 	sonar_config = _load_dictionary(DATA_FILES["sonar"], "sonar")
 	noise_config = _load_dictionary(DATA_FILES["noise"], "noise")
+	characters_config = _load_dictionary(DATA_FILES["characters"], "characters")
+	characters.clear()
+	character_order.clear()
 
 	_validate_weapons()
+	_validate_characters()
 	_validate_enemies()
 	_validate_upgrades()
 	_validate_spawn_curve()
@@ -87,6 +123,8 @@ func get_data_version(key: String) -> int:
 			payload = sonar_config
 		"noise":
 			payload = noise_config
+		"characters":
+			payload = characters_config
 		_:
 			return -1
 	if payload is Dictionary:
@@ -104,6 +142,30 @@ func get_noise_config() -> Dictionary:
 	if noise_config.is_empty():
 		return {}
 	return noise_config.duplicate(true)
+
+
+func get_default_character_id() -> String:
+	return String(characters_config.get("default_character_id", ""))
+
+
+func get_character(character_id: String) -> Dictionary:
+	var payload: Variant = characters.get(character_id, {})
+	if payload is Dictionary:
+		return (payload as Dictionary).duplicate(true)
+	return {}
+
+
+func has_character(character_id: String) -> bool:
+	return characters.has(character_id)
+
+
+func get_characters() -> Array:
+	var output: Array = []
+	for character_id in character_order:
+		var character_variant: Variant = characters.get(character_id, {})
+		if character_variant is Dictionary:
+			output.append((character_variant as Dictionary).duplicate(true))
+	return output
 
 
 func get_noise_tier(noise_value: float) -> Dictionary:
@@ -465,6 +527,104 @@ func _validate_noise() -> void:
 			["id", "name", "min", "max", "spawn_rate_multiplier", "spawn_cap_multiplier", "pursuer_chance", "hud_color"],
 			"noise:tier:%d" % i
 		)
+
+
+func _validate_characters() -> void:
+	_validate_required_keys(
+		characters_config,
+		["schema_version", "default_character_id", "characters"],
+		"characters"
+	)
+	var rows_variant: Variant = characters_config.get("characters", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[characters] characters must be array")
+		return
+	var rows: Array = rows_variant
+	if rows.size() < 5:
+		validation_errors.append("[characters] expected at least 5 character entries")
+
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[characters:%d] entry must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		_validate_required_keys(
+			row,
+			[
+				"id",
+				"display_name",
+				"short_desc",
+				"passive_summary",
+				"starting_weapon_id",
+				"effect_id",
+				"stat_modifiers",
+				"tag_weights",
+				"unlock"
+			],
+			"characters:%d" % i
+		)
+		var character_id := String(row.get("id", "")).strip_edges()
+		if character_id.is_empty():
+			validation_errors.append("[characters:%d] id must be non-empty string" % i)
+			continue
+		if seen_ids.has(character_id):
+			validation_errors.append("[characters:%d] duplicate id '%s'" % [i, character_id])
+			continue
+		seen_ids[character_id] = true
+
+		var starting_weapon_id := String(row.get("starting_weapon_id", "")).strip_edges()
+		if starting_weapon_id.is_empty():
+			validation_errors.append("[characters:%d] starting_weapon_id must be non-empty string" % i)
+		elif not weapons.has(starting_weapon_id):
+			validation_errors.append("[characters:%d] unknown starting_weapon_id '%s'" % [i, starting_weapon_id])
+
+		var modifiers_variant: Variant = row.get("stat_modifiers", {})
+		if not (modifiers_variant is Dictionary):
+			validation_errors.append("[characters:%d] stat_modifiers must be dictionary" % i)
+		else:
+			_validate_required_keys(modifiers_variant, CHARACTER_REQUIRED_MODIFIER_KEYS, "characters:%d:stat_modifiers" % i)
+
+		var tag_weights_variant: Variant = row.get("tag_weights", {})
+		if not (tag_weights_variant is Dictionary):
+			validation_errors.append("[characters:%d] tag_weights must be dictionary" % i)
+		else:
+			var tag_weights: Dictionary = tag_weights_variant
+			for tag_variant in tag_weights.keys():
+				var tag := String(tag_variant).strip_edges()
+				var weight := float(tag_weights.get(tag_variant, 1.0))
+				if tag.is_empty():
+					validation_errors.append("[characters:%d] tag_weights contains empty tag key" % i)
+					continue
+				if weight <= 0.0:
+					validation_errors.append("[characters:%d] tag_weight '%s' must be > 0" % [i, tag])
+
+		var unlock_variant: Variant = row.get("unlock", {})
+		if not (unlock_variant is Dictionary):
+			validation_errors.append("[characters:%d] unlock must be dictionary" % i)
+		else:
+			var unlock: Dictionary = unlock_variant
+			_validate_required_keys(unlock, ["type", "params", "display"], "characters:%d:unlock" % i)
+			var unlock_type := String(unlock.get("type", "")).strip_edges()
+			if not CHARACTER_UNLOCK_TYPES.has(unlock_type):
+				validation_errors.append("[characters:%d] unsupported unlock type '%s'" % [i, unlock_type])
+			if not (unlock.get("params", {}) is Dictionary):
+				validation_errors.append("[characters:%d] unlock params must be dictionary" % i)
+			if String(unlock.get("display", "")).strip_edges().is_empty():
+				validation_errors.append("[characters:%d] unlock display must be non-empty string" % i)
+
+		var normalized: Dictionary = row.duplicate(true)
+		normalized["id"] = character_id
+		normalized["starting_weapon_id"] = starting_weapon_id
+		characters[character_id] = normalized
+		character_order.append(character_id)
+
+	var default_character_id := String(characters_config.get("default_character_id", "")).strip_edges()
+	if default_character_id.is_empty():
+		validation_errors.append("[characters] default_character_id must be non-empty string")
+	elif not seen_ids.has(default_character_id):
+		validation_errors.append("[characters] default_character_id '%s' not found in characters list" % default_character_id)
 
 
 func _validate_required_keys(payload: Dictionary, required_keys: Array, label: String) -> void:
