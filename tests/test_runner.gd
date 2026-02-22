@@ -64,6 +64,7 @@ func _ready() -> void:
 	await _run_pool_system_tests()
 	await _run_character_profile_tests()
 	await _run_weapon_system_tests()
+	await _run_upgrade_rules_tests()
 	await _run_m2_system_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
@@ -483,6 +484,210 @@ func _run_weapon_system_tests() -> void:
 	await _cleanup_weapon_test_harness(tag_target_harness)
 
 
+func _run_upgrade_rules_tests() -> void:
+	var upgrade_rules: Script = load("res://scripts/core/upgrade_rules.gd")
+	var upgrades: Array = DataRegistry.upgrades
+
+	var sonar_context := _make_upgrade_context(["silence_dart"], "silence_dart", {"sonar": 1}, "silent")
+	var exposed_without_prereq: Array = upgrade_rules.filter_candidates(upgrades, {}, sonar_context)
+	_assert_true(not _candidate_list_has(exposed_without_prereq, "u_exposed_breaker"), "prereq blocks u_exposed_breaker before u_echo_stabilizer")
+
+	var exposed_with_prereq: Array = upgrade_rules.filter_candidates(upgrades, {"u_echo_stabilizer": 1}, sonar_context)
+	_assert_true(_candidate_list_has(exposed_with_prereq, "u_exposed_breaker"), "prereq unlocks u_exposed_breaker after u_echo_stabilizer")
+
+	var blocked_by_exclusive: Array = upgrade_rules.filter_candidates(
+		upgrades,
+		{"u_echo_stabilizer": 1, "u_ping_accelerant": 1},
+		sonar_context
+	)
+	_assert_true(not _candidate_list_has(blocked_by_exclusive, "u_exposed_breaker"), "exclusive_group hides alternate sonar route after selection")
+
+	var low_profile_silent: Array = upgrade_rules.filter_candidates(
+		upgrades,
+		{},
+		_make_upgrade_context(["silence_dart"], "silence_dart", {"silence": 1}, "silent")
+	)
+	_assert_true(not _candidate_list_has(low_profile_silent, "u_low_profile_processor"), "prereq(any) unmet keeps u_low_profile_processor hidden")
+
+	var low_profile_alert: Array = upgrade_rules.filter_candidates(
+		upgrades,
+		{},
+		_make_upgrade_context(["silence_dart"], "silence_dart", {"silence": 1}, "alert")
+	)
+	_assert_true(_candidate_list_has(low_profile_alert, "u_low_profile_processor"), "noise tier prereq unlocks u_low_profile_processor")
+
+	var low_profile_from_upgrade: Array = upgrade_rules.filter_candidates(
+		upgrades,
+		{"u_silent_baffles": 1},
+		_make_upgrade_context(["silence_dart"], "silence_dart", {"silence": 1}, "silent")
+	)
+	_assert_true(not _candidate_list_has(low_profile_from_upgrade, "u_low_profile_processor"), "exclusive_group takes priority even if alternate prereq path is met")
+
+	var without_drone_weapon: Array = upgrade_rules.filter_candidates(
+		upgrades,
+		{},
+		_make_upgrade_context(["silence_dart"], "silence_dart", {}, "silent")
+	)
+	_assert_true(not _candidate_list_has(without_drone_weapon, "u_drone_bay"), "requires_weapon_ids blocks drone upgrade without orbital_drone")
+
+	var with_drone_weapon: Array = upgrade_rules.filter_candidates(
+		upgrades,
+		{},
+		_make_upgrade_context(["orbital_drone"], "orbital_drone", {}, "silent")
+	)
+	_assert_true(_candidate_list_has(with_drone_weapon, "u_drone_bay"), "requires_weapon_ids allows drone upgrade when weapon owned")
+
+	var summon_tag_missing: Array = upgrade_rules.filter_candidates(
+		upgrades,
+		{},
+		_make_upgrade_context(["orbital_drone"], "orbital_drone", {}, "silent")
+	)
+	_assert_true(not _candidate_list_has(summon_tag_missing, "u_summon_screen"), "requires_tags hides summon screen without summon tag")
+
+	var summon_tag_present: Array = upgrade_rules.filter_candidates(
+		upgrades,
+		{},
+		_make_upgrade_context(["orbital_drone"], "orbital_drone", {"summon": 1}, "silent")
+	)
+	_assert_true(_candidate_list_has(summon_tag_present, "u_summon_screen"), "requires_tags allows summon screen when summon tag exists")
+
+	var blocked_by_rule: Array = upgrade_rules.filter_candidates(
+		upgrades,
+		{"u_burst_vent_tuning": 1},
+		_make_upgrade_context(["burst_smg"], "burst_smg", {"heat": 1}, "silent")
+	)
+	_assert_true(not _candidate_list_has(blocked_by_rule, "u_silent_baffles"), "blocks rule prevents blocked upgrade from appearing")
+
+	var capped_upgrades: Array = upgrade_rules.filter_candidates(upgrades, {"u_hardlight_core": 5}, sonar_context)
+	_assert_true(not _candidate_list_has(capped_upgrades, "u_hardlight_core"), "max_rank removes already capped upgrade")
+
+	var rng_a := RandomNumberGenerator.new()
+	rng_a.seed = 5531
+	var choices_a: Array = DataRegistry.get_upgrade_choices(rng_a, {"u_echo_stabilizer": 1}, 3, {"sonar": 1.2}, sonar_context)
+	var rng_b := RandomNumberGenerator.new()
+	rng_b.seed = 5531
+	var choices_b: Array = DataRegistry.get_upgrade_choices(rng_b, {"u_echo_stabilizer": 1}, 3, {"sonar": 1.2}, sonar_context)
+	_assert_equal(_extract_choice_ids(choices_a), _extract_choice_ids(choices_b), "upgrade picker deterministic with fixed seed under rules")
+
+	var common_weight := DataRegistry._get_upgrade_weight(
+		{"id": "tmp_common", "rarity": "common", "base_weight": 1.0, "tags": []},
+		{},
+		{}
+	)
+	var legendary_weight := DataRegistry._get_upgrade_weight(
+		{"id": "tmp_legendary", "rarity": "legendary", "base_weight": 1.0, "tags": []},
+		{},
+		{}
+	)
+	_assert_true(common_weight > legendary_weight, "rarity weight makes common heavier than legendary at same base_weight")
+
+	_run_upgrade_schema_validation_tests()
+	await _run_placeholder_fix_tests()
+
+
+func _run_upgrade_schema_validation_tests() -> void:
+	var upgrades_path := "res://data/upgrades.json"
+	var original_upgrades := FileAccess.get_file_as_string(upgrades_path)
+	var parsed_upgrades: Variant = JSON.parse_string(original_upgrades)
+	if not (parsed_upgrades is Array):
+		_assert_true(false, "upgrade schema tests: parse upgrades json")
+		return
+	var upgrades_array: Array = parsed_upgrades
+	var registry_script: Script = load("res://scripts/core/data_registry.gd")
+
+	var broken_rarity: Array = upgrades_array.duplicate(true)
+	if _mutate_upgrade_field(broken_rarity, "u_hardlight_core", "rarity", "mythic"):
+		_write_json_value(upgrades_path, broken_rarity)
+		var rarity_registry = registry_script.new()
+		var rarity_ok: bool = rarity_registry.load_all(false)
+		var rarity_errors: Array[String] = rarity_registry.get_validation_errors()
+		_assert_true(not rarity_ok, "upgrade schema fails when rarity enum is invalid")
+		_assert_true(_array_contains_text(rarity_errors, "unknown rarity 'mythic'"), "upgrade schema reports invalid rarity value")
+		rarity_registry.free()
+	else:
+		_assert_true(false, "upgrade schema rarity test: u_hardlight_core exists")
+	_write_text_value(upgrades_path, original_upgrades)
+
+	var broken_prereq: Array = upgrades_array.duplicate(true)
+	if _mutate_upgrade_field(broken_prereq, "u_echo_stabilizer", "prereq", {"all": "bad", "any": []}):
+		_write_json_value(upgrades_path, broken_prereq)
+		var prereq_registry = registry_script.new()
+		var prereq_ok: bool = prereq_registry.load_all(false)
+		var prereq_errors: Array[String] = prereq_registry.get_validation_errors()
+		_assert_true(not prereq_ok, "upgrade schema fails when prereq branch has wrong type")
+		_assert_true(_array_contains_text(prereq_errors, "prereq] 'all' must be an array"), "upgrade schema reports prereq branch type error")
+		prereq_registry.free()
+	else:
+		_assert_true(false, "upgrade schema prereq test: u_echo_stabilizer exists")
+	_write_text_value(upgrades_path, original_upgrades)
+
+	var broken_requires_weapon: Array = upgrades_array.duplicate(true)
+	if _mutate_upgrade_field(broken_requires_weapon, "u_drone_bay", "requires_weapon_ids", ["ghost_weapon"]):
+		_write_json_value(upgrades_path, broken_requires_weapon)
+		var requires_weapon_registry = registry_script.new()
+		var requires_weapon_ok: bool = requires_weapon_registry.load_all(false)
+		var requires_weapon_errors: Array[String] = requires_weapon_registry.get_validation_errors()
+		_assert_true(not requires_weapon_ok, "upgrade schema fails when requires_weapon_ids references unknown weapon")
+		_assert_true(_array_contains_text(requires_weapon_errors, "requires_weapon_ids contains unknown weapon 'ghost_weapon'"), "upgrade schema reports unknown requires_weapon_ids value")
+		requires_weapon_registry.free()
+	else:
+		_assert_true(false, "upgrade schema requires_weapon_ids test: u_drone_bay exists")
+	_write_text_value(upgrades_path, original_upgrades)
+
+	var broken_requires_tag: Array = upgrades_array.duplicate(true)
+	if _mutate_upgrade_field(broken_requires_tag, "u_summon_screen", "requires_tags", ["ghost_tag"]):
+		_write_json_value(upgrades_path, broken_requires_tag)
+		var requires_tag_registry = registry_script.new()
+		var requires_tag_ok: bool = requires_tag_registry.load_all(false)
+		var requires_tag_errors: Array[String] = requires_tag_registry.get_validation_errors()
+		_assert_true(not requires_tag_ok, "upgrade schema fails when requires_tags references unknown tag")
+		_assert_true(_array_contains_text(requires_tag_errors, "requires_tags contains unknown tag 'ghost_tag'"), "upgrade schema reports unknown requires_tags value")
+		requires_tag_registry.free()
+	else:
+		_assert_true(false, "upgrade schema requires_tags test: u_summon_screen exists")
+	_write_text_value(upgrades_path, original_upgrades)
+
+
+func _run_placeholder_fix_tests() -> void:
+	var summon_harness := await _create_weapon_test_harness("orbital_drone", Vector2(54.0, 0.0))
+	var summon_player: Node = summon_harness.get("player")
+	var summon_damage_before := float(summon_player.get_summon_damage_taken(12.0))
+	summon_player.apply_upgrade("u_summon_screen")
+	var summon_damage_after := float(summon_player.get_summon_damage_taken(12.0))
+	_assert_true(summon_damage_after < summon_damage_before, "summon_resistance reduces summon incoming damage")
+	await _cleanup_weapon_test_harness(summon_harness)
+
+	var player_scene: PackedScene = load("res://scenes/player/Player.tscn")
+	var arc_player: Node = player_scene.instantiate()
+	var diver_player: Node = player_scene.instantiate()
+	get_tree().root.add_child.call_deferred(arc_player)
+	get_tree().root.add_child.call_deferred(diver_player)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var chain_rng_arc := RandomNumberGenerator.new()
+	chain_rng_arc.seed = 2026
+	var chain_rng_diver := RandomNumberGenerator.new()
+	chain_rng_diver.seed = 2026
+	arc_player.setup(null, null, chain_rng_arc, DataRegistry.get_character("arc_tech"))
+	diver_player.setup(null, null, chain_rng_diver, DataRegistry.get_character("diver"))
+	arc_player.active_weapon_id = "tether_beam"
+	diver_player.active_weapon_id = "tether_beam"
+
+	var arc_chain_before: Dictionary = arc_player.get_chain_parameters_for_current_weapon()
+	var diver_chain: Dictionary = diver_player.get_chain_parameters_for_current_weapon()
+	_assert_true(bool(arc_chain_before.get("enabled", false)), "arc_tech enables chain parameters on chain weapon")
+	_assert_true(float(arc_chain_before.get("chance", 0.0)) > float(diver_chain.get("chance", 0.0)), "character_chain_bonus raises arc_tech chain chance")
+
+	arc_player.apply_upgrade("u_chain_velocity")
+	var arc_chain_after: Dictionary = arc_player.get_chain_parameters_for_current_weapon()
+	_assert_true(float(arc_chain_after.get("chance", 0.0)) > float(arc_chain_before.get("chance", 0.0)), "chain upgrade increases chain chance on chain weapon")
+
+	arc_player.queue_free()
+	diver_player.queue_free()
+	await get_tree().process_frame
+
+
 func _create_weapon_test_harness(weapon_id: String, enemy_position: Vector2) -> Dictionary:
 	var player_scene: PackedScene = load("res://scenes/player/Player.tscn")
 	var player: Node = player_scene.instantiate()
@@ -697,6 +902,68 @@ func _array_contains_text(items: Array[String], pattern: String) -> bool:
 	for item in items:
 		if item.find(pattern) >= 0:
 			return true
+	return false
+
+
+func _make_upgrade_context(current_weapon_ids: Array, active_weapon_id: String, acquired_tags: Dictionary, noise_tier_id: String) -> Dictionary:
+	return {
+		"current_weapon_ids": current_weapon_ids,
+		"active_weapon_id": active_weapon_id,
+		"acquired_tags": acquired_tags,
+		"noise_tier_id": noise_tier_id,
+		"player_level": 1,
+		"survive_time_seconds": 0.0
+	}
+
+
+func _candidate_list_has(candidates: Array, upgrade_id: String) -> bool:
+	for candidate_variant in candidates:
+		if not (candidate_variant is Dictionary):
+			continue
+		var candidate: Dictionary = candidate_variant
+		if String(candidate.get("id", "")) == upgrade_id:
+			return true
+	return false
+
+
+func _extract_choice_ids(choices: Array) -> Array[String]:
+	var ids: Array[String] = []
+	for choice_variant in choices:
+		if not (choice_variant is Dictionary):
+			continue
+		var choice: Dictionary = choice_variant
+		var upgrade_id := String(choice.get("id", ""))
+		if upgrade_id.is_empty():
+			continue
+		ids.append(upgrade_id)
+	return ids
+
+
+func _write_json_value(path: String, value: Variant) -> void:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(JSON.stringify(value, "\t"))
+	file.flush()
+	file = null
+
+
+func _write_text_value(path: String, value: String) -> void:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(value)
+	file.flush()
+	file = null
+
+
+func _mutate_upgrade_field(rows: Array, upgrade_id: String, field: String, value: Variant) -> bool:
+	for idx in range(rows.size()):
+		var row_variant: Variant = rows[idx]
+		if not (row_variant is Dictionary):
+			continue
+		var row := (row_variant as Dictionary).duplicate(true)
+		if String(row.get("id", "")) != upgrade_id:
+			continue
+		row[field] = value
+		rows[idx] = row
+		return true
 	return false
 
 

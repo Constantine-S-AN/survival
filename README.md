@@ -1,8 +1,8 @@
 # Survive: Neon Sonar (Godot 4.x)
 
-2D 俯视角幸存者游戏原型。当前完成 **M3 / P0-C**：在 M2 + P0-B 基础上加入 `8武器系统 + 多攻击模型 + 武器/Tag定向升级`。
+2D 俯视角幸存者游戏原型。当前完成 **M3 / P0-D**：在 M2 + P0-C 基础上加入 `升级规则系统（稀有度/前置/互斥/依赖）+ 升级UI可读化 + 占位字段修复`。
 
-## 当前里程碑状态（M3 / P0-C）
+## 当前里程碑状态（M3 / P0-D）
 - 已实现：移动、冲刺、自动/指向攻击切换、刷怪、击杀得经验、升级三选一、死亡结算、重开。
 - 已实现：`GameRoot / World / Player / EnemyManager / ProjectileManager / UI` 场景分层。
 - 已实现：`DataRegistry` 统一加载 JSON（武器/敌人/升级/刷怪曲线）并做基础 schema 校验。
@@ -15,6 +15,10 @@
 - 已实现（P0-B）：5角色配置、主菜单 -> 角色选择 -> 开局、profile schema 迁移、结算解锁评估与解锁弹窗。
 - 已实现（P0-C）：8把武器（projectile / pulse / mine / beam / drone / melee 模型）、武器成长（5级曲线）、武器噪声参数、升级池 >=20 且支持 `target=weapon_id/tag`。
 - 已实现（P0-C）：HUD/Debug 显示当前武器、武器 tags、近似 DPS、weapon_noise_rate。
+- 已实现（P0-D）：升级规则过滤（`prereq` / `requires_tags` / `requires_weapon_ids` / `exclusive_group` / `blocks` / `max_rank`）与固定 seed 可复现抽取。
+- 已实现（P0-D）：升级抽取权重 `rarity * base_weight * tag_weights`，并兼容角色 tag 倾向。
+- 已实现（P0-D）：升级卡面文本可读化（显示友好属性名、目标武器名/Tag名、关键数值变化）。
+- 已实现（P0-D）：`summon_resistance` 与 `character_chain_bonus` 不再占位，已接入实际战斗参数。
 - 还未实现：M3 后续内容量（2地图、10敌人、1Boss、契约扩展等）与导出脚本。
 
 ## 运行
@@ -71,6 +75,55 @@ godot --path /Users/shijiean/Desktop/project/survive
 - 角色 `tag_weights` 仍参与三选一抽取权重，固定 seed 下可复现偏置结果。
 - 当前升级池覆盖：`sonar / silence / crit / pierce / aoe / chain / summon / pickup / economy / noise` 等。
 
+## Upgrade Rules（P0-D）
+三选一流程：
+1. 先按规则过滤可出现升级。  
+2. 再按权重抽取：`base_weight * rarity_weight * tag_weight_multiplier`（并带 active weapon 匹配加成）。
+
+稀有度默认权重（`scripts/core/data_registry.gd`）：
+- `common:70`
+- `uncommon:20`
+- `rare:8`
+- `epic:2`
+- `legendary:0.5`
+
+可配置字段（`data/upgrades.json`）：
+- `rarity`：稀有度
+- `base_weight`：基础抽取权重
+- `prereq`：前置条件（`all`/`any`）
+- `requires_tags`：要求当前构筑已有某些 tag
+- `requires_weapon_ids`：要求拥有某些武器
+- `exclusive_group`：互斥路线
+- `max_rank`：升级上限
+- `blocks`：阻止某些升级出现
+
+示例 1（前置 + 互斥）：
+```json
+{
+  "id": "u_exposed_breaker",
+  "rarity": "epic",
+  "prereq": {
+    "all": [{"type": "upgrade_selected", "upgrade_id": "u_echo_stabilizer"}],
+    "any": []
+  },
+  "exclusive_group": "sonar_path"
+}
+```
+
+示例 2（武器依赖 + Tag依赖）：
+```json
+{
+  "id": "u_drone_bay",
+  "requires_weapon_ids": ["orbital_drone"]
+}
+```
+```json
+{
+  "id": "u_summon_screen",
+  "requires_tags": ["summon"]
+}
+```
+
 ## Fog / Sonar / Noise 玩法联动
 - Fog：默认黑暗迷雾，仅玩家视野圈内清晰可见，外部区域通过扫描线与噪点保持“科技深海”压迫感。
 - Sonar：命中、拾取、主动技能会释放波纹；波纹扫过敌人会短暂揭示（reveal），并显示高亮轮廓。
@@ -115,7 +168,7 @@ godot --path /Users/shijiean/Desktop/project/survive
 - `run_count`
 
 ## 自动化测试（当前）
-M3 测试场景（包含 Pool + Fog/Sonar/Noise + Character/Profile + Weapon回归）：
+M3 测试场景（包含 Pool + Fog/Sonar/Noise + Character/Profile + Weapon回归 + Upgrade Rules + 占位字段修复回归）：
 ```bash
 godot --headless --path /Users/shijiean/Desktop/project/survive --scene res://tests/TestRunner.tscn --quit-after 3600
 ```
