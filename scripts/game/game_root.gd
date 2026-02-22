@@ -35,7 +35,7 @@ var telegraph_last_emit_by_key: Dictionary = {}
 
 
 func _ready() -> void:
-	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	Engine.time_scale = 1.0
 	InputConfig.ensure_default_actions()
 	if not DataRegistry.load_all():
@@ -332,7 +332,7 @@ func _on_player_died() -> void:
 
 
 func _on_retry_requested() -> void:
-	get_tree().paused = false
+	get_tree().set_deferred("paused", false)
 	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()
 
@@ -430,8 +430,11 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 
 	var character_def := DataRegistry.get_character(selected_character_id)
 	world.setup_run(rng, character_def, selected_map_id, run_seed, contract_modifiers, selected_contract_ids)
+	if world != null and world.has_method("begin_run"):
+		world.begin_run()
 	_sync_runtime_fog_overlay(true)
 	fixed_noise_value = world.player.noise
+	Engine.time_scale = 1.0
 	_set_state(STATE_PLAYING)
 	_refresh_hud()
 
@@ -478,7 +481,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _set_state(next_state: String) -> void:
 	run_state = next_state
-	get_tree().paused = run_state != STATE_PLAYING
+	if run_state == STATE_PLAYING:
+		Engine.time_scale = 1.0
+		get_tree().set_deferred("paused", false)
+	else:
+		get_tree().set_deferred("paused", true)
 	ui.on_game_state_changed(run_state)
 
 

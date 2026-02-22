@@ -53,6 +53,7 @@ var boss_summon_timer: float = 0.0
 var pool_manager: Node = null
 var enemy_pool_key: String = "enemy"
 var enemy_pool_enabled: bool = false
+var run_active: bool = false
 
 
 func setup_pool(pool_manager_ref: Node, key: String = "enemy", prewarm_size: int = 72) -> void:
@@ -107,11 +108,17 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 	boss_node = null
 	boss_phase_index = -1
 	boss_summon_timer = 0.0
+	run_active = true
 	active_enemies.clear()
 	var bosses: Array = DataRegistry.get_bosses()
 	if not bosses.is_empty() and bosses[0] is Dictionary:
 		boss_definition = (bosses[0] as Dictionary).duplicate(true)
 		boss_id = String(boss_definition.get("id", "")).strip_edges()
+
+
+func begin_run() -> void:
+	run_active = true
+	spawn_timer = 0.0
 
 
 func update_difficulty(elapsed: float, noise: float) -> void:
@@ -120,6 +127,8 @@ func update_difficulty(elapsed: float, noise: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if not run_active:
+		return
 	if player == null or not is_instance_valid(player) or rng == null:
 		return
 

@@ -83,6 +83,11 @@ func setup_run(
 	set_current_map(map_id, run_seed)
 
 
+func begin_run() -> void:
+	if enemy_manager != null and enemy_manager.has_method("begin_run"):
+		enemy_manager.begin_run()
+
+
 func apply_screen_shake(amount: float) -> void:
 	if camera != null and camera.has_method("add_trauma"):
 		camera.add_trauma(amount)

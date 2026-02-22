@@ -165,7 +165,7 @@ var telegraph_flash_tween: Tween
 
 
 func _ready() -> void:
-	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_create_fog_overlay()
 	_create_telegraph_flash_overlay()
 	apply_fog_overlay_config(DataRegistry.get_fog_config())
@@ -795,6 +795,12 @@ func _set_hud_visible(visible_state: bool) -> void:
 		$Root/HUD.visible = visible_state
 
 
+func _set_root_input_passthrough(enabled: bool) -> void:
+	if root == null:
+		return
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE if enabled else Control.MOUSE_FILTER_STOP
+
+
 func show_level_up(options: Array) -> void:
 	current_options = options
 	level_up_title.text = "Signal Upgrade - Choose One"
@@ -848,22 +854,27 @@ func show_game_over(summary: Dictionary) -> void:
 func on_game_state_changed(state: String) -> void:
 	match state:
 		"menu":
+			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
 			game_over_panel.visible = false
 			set_main_menu_visible(true)
 		"character_select":
+			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
 			game_over_panel.visible = false
 			set_character_select_visible(true)
 		"map_select":
+			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
 			game_over_panel.visible = false
 			set_map_select_visible(true)
 		"contract_select":
+			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
 			game_over_panel.visible = false
 			set_contract_select_visible(true)
 		"playing":
+			_set_root_input_passthrough(true)
 			level_up_panel.visible = false
 			game_over_panel.visible = false
 			set_main_menu_visible(false)
@@ -872,6 +883,7 @@ func on_game_state_changed(state: String) -> void:
 			set_contract_select_visible(false)
 			_set_hud_visible(true)
 		"level_up":
+			_set_root_input_passthrough(false)
 			game_over_panel.visible = false
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
@@ -879,6 +891,7 @@ func on_game_state_changed(state: String) -> void:
 			set_contract_select_visible(false)
 			_set_hud_visible(true)
 		"game_over":
+			_set_root_input_passthrough(false)
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
 			set_map_select_visible(false)

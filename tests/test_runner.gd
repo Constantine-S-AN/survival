@@ -75,6 +75,7 @@ func _ready() -> void:
 	await _run_m2_system_tests()
 	await _run_map_biome_tests()
 	await _run_p0f_system_tests()
+	await _run_start_run_hotfix_tests()
 	await _run_telegraph_bus_s4_tests()
 	await _run_contract_ux_s3_tests()
 	await _run_enemy_pool_perf_tests()
@@ -1327,6 +1328,66 @@ func _run_p0f_system_tests() -> void:
 	world.queue_free()
 	await get_tree().process_frame
 	registry.free()
+
+
+func _run_start_run_hotfix_tests() -> void:
+	var game_scene: PackedScene = load("res://scenes/game/GameRoot.tscn")
+	var game_variant: Variant = game_scene.instantiate()
+	_assert_true(game_variant is Node, "hotfix game root instantiates for start-run tests")
+	if not (game_variant is Node):
+		return
+	var game: Node = game_variant
+	get_tree().root.add_child.call_deferred(game)
+	await _await_stable_physics_frames(2)
+
+	game.call("_on_main_menu_start_requested")
+	game.call("_on_start_run_requested", "diver")
+	game.call("_on_map_select_start_requested", "map_trench_lab")
+	Engine.time_scale = 0.33
+	var hotfix_contracts: Array[String] = []
+	game.call("_on_contract_select_start_requested", hotfix_contracts)
+	await _await_stable_physics_frames(3)
+
+	_assert_true(String(game.get("run_state")) == String(game.get("STATE_PLAYING")), "hotfix run enters STATE_PLAYING after start")
+	_assert_true(not get_tree().paused, "hotfix start run clears SceneTree paused flag")
+
+	var ui_node: Node = game.get_node_or_null("UI")
+	if ui_node != null:
+		var ui_root: Control = ui_node.get_node_or_null("Root") as Control
+		if ui_root != null:
+			_assert_true(ui_root.mouse_filter == Control.MOUSE_FILTER_IGNORE, "hotfix gameplay root input passthrough enabled")
+		var menu_panel: CanvasItem = ui_node.get_node_or_null("Root/MainMenuPanel") as CanvasItem
+		var contract_panel: CanvasItem = ui_node.get_node_or_null("Root/ContractSelect") as CanvasItem
+		if menu_panel != null:
+			_assert_true(not menu_panel.visible, "hotfix main menu overlay hidden in playing state")
+		if contract_panel != null:
+			_assert_true(not contract_panel.visible, "hotfix contract overlay hidden in playing state")
+
+	var elapsed_before := float(game.get("elapsed_time"))
+	for _i in range(8):
+		game.call("_process", 0.2)
+		await get_tree().process_frame
+	var elapsed_after := float(game.get("elapsed_time"))
+	_assert_true(elapsed_after > elapsed_before, "test_run_starts_time_moves: elapsed time increases after start")
+
+	var world_node: Node = game.get_node_or_null("World")
+	if world_node != null:
+		for _step in range(40):
+			game.call("_process", 0.2)
+			if world_node.has_method("update_map_runtime"):
+				world_node.call("update_map_runtime", 0.2)
+			var enemy_manager: Node = world_node.get_node_or_null("EnemyManager")
+			if enemy_manager != null and enemy_manager.has_method("_process"):
+				enemy_manager.call("_process", 0.2)
+			await get_tree().process_frame
+		var manager: Node = world_node.get_node_or_null("EnemyManager")
+		if manager != null and manager.has_method("get_alive_enemy_count"):
+			_assert_true(int(manager.call("get_alive_enemy_count")) > 0, "test_enemy_spawns_after_start: enemies spawn within 5-10s window")
+
+	game.queue_free()
+	await _await_stable_physics_frames(1)
+	get_tree().set_deferred("paused", false)
+	Engine.time_scale = 1.0
 
 
 func _run_telegraph_bus_s4_tests() -> void:
