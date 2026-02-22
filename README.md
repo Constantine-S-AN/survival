@@ -26,12 +26,46 @@ godot --headless --path . --scene res://tests/TestRunner.tscn --quit-after 3600
 ```
 
 ### 构建导出（macOS / Windows）
-首次需要在编辑器 `Project -> Export` 建立预设（`macOS`、`Windows Desktop`）。
+仓库已提交 `export_presets.cfg`。若本地首次打开看不到预设，按以下步骤创建：
+1. 打开 Godot 编辑器，进入 `Project -> Export...`。
+2. 点击 `Add...`，选择 `macOS`，预设名设为 `macOS`。
+3. `Export Path` 填写为 `exports/macos/Survive-Neon-Sonar.app`。
+4. 保存后确认项目根目录生成/更新 `export_presets.cfg`。
 
 ```bash
-godot --headless --path . --export-release "macOS" exports/NeonSonar.app
+godot --headless --path . --export-release "macOS" exports/macos/Survive-Neon-Sonar.app
 godot --headless --path . --export-release "Windows Desktop" exports/NeonSonar.exe
 ```
+
+## macOS Release Artifacts
+
+### 1) 导出 `.app`
+```bash
+godot --headless --path . --export-release "macOS" exports/macos/Survive-Neon-Sonar.app
+```
+
+### 2) 打包 DMG（App + Applications alias）
+```bash
+./scripts/build_macos_dmg.sh exports/macos/Survive-Neon-Sonar.app
+```
+
+默认输出：`dist/Survive-Neon-Sonar-macOS.dmg`
+
+### 3) 验证 DMG 结构
+```bash
+./scripts/verify_macos_artifacts.sh dist/Survive-Neon-Sonar-macOS.dmg
+```
+
+验证项：
+- DMG 可挂载
+- 根目录包含 `.app`
+- 根目录包含 `Applications` alias/link
+- DMG 内无 `.command` 文件
+
+### 4) macOS 用户安装
+1. 双击 `dist/Survive-Neon-Sonar-macOS.dmg` 挂载。
+2. 将 `Survive-Neon-Sonar.app` 拖到 `Applications`。
+3. 从 `Applications` 启动游戏。
 
 ## Gameplay Loop
 ```mermaid
