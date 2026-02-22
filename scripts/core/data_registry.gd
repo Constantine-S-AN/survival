@@ -13,9 +13,10 @@ const DATA_FILES: Dictionary = {
 
 const RARITY_WEIGHT: Dictionary = {
 	"common": 70.0,
-	"uncommon": 24.0,
+	"uncommon": 20.0,
 	"rare": 8.0,
-	"legendary": 2.0
+	"epic": 2.0,
+	"legendary": 0.5
 }
 
 const CHARACTER_REQUIRED_MODIFIER_KEYS: Array[String] = [
@@ -124,6 +125,17 @@ const UPGRADE_ALLOWED_TAGS: Dictionary = {
 const UPGRADE_EFFECT_TARGET_TYPES: Dictionary = {
 	"weapon_id": true,
 	"tag": true
+}
+
+const UPGRADE_PREREQ_TYPES: Dictionary = {
+	"upgrade_selected": true,
+	"upgrade_rank_at_least": true,
+	"has_tag": true,
+	"weapon_owned": true,
+	"weapon_is_active": true,
+	"player_level_at_least": true,
+	"noise_tier_at_least": true,
+	"survive_time_seconds_at_least": true
 }
 
 var weapons: Dictionary = {}
@@ -339,7 +351,7 @@ func get_upgrade_choices(rng: RandomNumberGenerator, current_stacks: Dictionary,
 		var upgrade_id: String = String(upgrade.get("id", ""))
 		if upgrade_id.is_empty():
 			continue
-		var max_stacks: int = int(upgrade.get("max_stacks", 1))
+		var max_stacks: int = int(upgrade.get("max_rank", upgrade.get("max_stacks", 1)))
 		var current: int = int(current_stacks.get(upgrade_id, 0))
 		if current >= max_stacks:
 			continue
@@ -584,69 +596,223 @@ func _validate_enemies() -> void:
 func _validate_upgrades() -> void:
 	if upgrades.size() < 20:
 		validation_errors.append("[upgrades] expected at least 20 entries, found %d" % upgrades.size())
+	var seen_ids: Dictionary = {}
+	var normalized_upgrades: Array = []
+	var blocks_by_upgrade: Dictionary = {}
+	var exclusive_group_by_upgrade: Dictionary = {}
 	for i in range(upgrades.size()):
 		var upgrade_variant: Variant = upgrades[i]
 		if not (upgrade_variant is Dictionary):
 			validation_errors.append("[upgrades:%d] must be a dictionary" % i)
 			continue
 		var upgrade: Dictionary = upgrade_variant
+		var label := "upgrades:%d" % i
 		_validate_required_keys(
 			upgrade,
-			["id", "name", "description", "rarity", "max_stacks", "tags", "effects"],
-			"upgrades:%d" % i
+			[
+				"id",
+				"name",
+				"description",
+				"rarity",
+				"base_weight",
+				"max_rank",
+				"max_stacks",
+				"tags",
+				"effects",
+				"prereq",
+				"requires_tags",
+				"requires_weapon_ids",
+				"exclusive_group",
+				"blocks"
+			],
+			label
 		)
-		var rarity: String = String(upgrade.get("rarity", "common"))
+
+		var upgrade_id := String(upgrade.get("id", "")).strip_edges()
+		if upgrade_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(upgrade_id):
+			validation_errors.append("[%s] duplicate id '%s'" % [label, upgrade_id])
+			continue
+		seen_ids[upgrade_id] = i
+
+		var normalized: Dictionary = upgrade.duplicate(true)
+		normalized["id"] = upgrade_id
+
+		var rarity: String = String(upgrade.get("rarity", "common")).strip_edges().to_lower()
 		if not RARITY_WEIGHT.has(rarity):
-			validation_errors.append("[upgrades:%d] unknown rarity '%s'" % [i, rarity])
+			validation_errors.append("[%s] unknown rarity '%s'" % [label, rarity])
+		normalized["rarity"] = rarity
+
+		var base_weight := float(upgrade.get("base_weight", 1.0))
+		if base_weight <= 0.0:
+			validation_errors.append("[%s] base_weight must be > 0" % label)
+			base_weight = 0.0001
+		normalized["base_weight"] = base_weight
+
+		var max_rank := int(upgrade.get("max_rank", upgrade.get("max_stacks", 1)))
+		if max_rank <= 0:
+			validation_errors.append("[%s] max_rank must be >= 1" % label)
+			max_rank = 1
+		normalized["max_rank"] = max_rank
+		normalized["max_stacks"] = max_rank
+
 		var tags_variant: Variant = upgrade.get("tags", [])
 		if not (tags_variant is Array):
-			validation_errors.append("[upgrades:%d] tags must be an array" % i)
+			validation_errors.append("[%s] tags must be an array" % label)
+			normalized["tags"] = []
 		else:
 			var tags: Array = tags_variant
 			if tags.is_empty():
-				validation_errors.append("[upgrades:%d] tags must not be empty" % i)
+				validation_errors.append("[%s] tags must not be empty" % label)
+			var normalized_tags: Array[String] = []
 			for tag_variant in tags:
 				var tag := String(tag_variant).strip_edges().to_lower()
 				if tag.is_empty():
-					validation_errors.append("[upgrades:%d] tags cannot contain empty values" % i)
+					validation_errors.append("[%s] tags cannot contain empty values" % label)
 					continue
 				if not _is_known_upgrade_tag(tag):
-					validation_errors.append("[upgrades:%d] unknown tag '%s'" % [i, tag])
+					validation_errors.append("[%s] unknown tag '%s'" % [label, tag])
+				if not normalized_tags.has(tag):
+					normalized_tags.append(tag)
+			normalized["tags"] = normalized_tags
+
+		var requires_tags_variant: Variant = upgrade.get("requires_tags", [])
+		if not (requires_tags_variant is Array):
+			validation_errors.append("[%s] requires_tags must be an array" % label)
+			normalized["requires_tags"] = []
+		else:
+			var requires_tags: Array = requires_tags_variant
+			var normalized_requires_tags: Array[String] = []
+			for requires_tag_variant in requires_tags:
+				var requires_tag := String(requires_tag_variant).strip_edges().to_lower()
+				if requires_tag.is_empty():
+					validation_errors.append("[%s] requires_tags cannot contain empty values" % label)
+					continue
+				if not _is_known_upgrade_tag(requires_tag):
+					validation_errors.append("[%s] requires_tags contains unknown tag '%s'" % [label, requires_tag])
+				if not normalized_requires_tags.has(requires_tag):
+					normalized_requires_tags.append(requires_tag)
+			normalized["requires_tags"] = normalized_requires_tags
+
+		var requires_weapon_ids_variant: Variant = upgrade.get("requires_weapon_ids", [])
+		if not (requires_weapon_ids_variant is Array):
+			validation_errors.append("[%s] requires_weapon_ids must be an array" % label)
+			normalized["requires_weapon_ids"] = []
+		else:
+			var requires_weapon_ids: Array = requires_weapon_ids_variant
+			var normalized_requires_weapon_ids: Array[String] = []
+			for weapon_id_variant in requires_weapon_ids:
+				var required_weapon_id := String(weapon_id_variant).strip_edges().to_lower()
+				if required_weapon_id.is_empty():
+					validation_errors.append("[%s] requires_weapon_ids cannot contain empty values" % label)
+					continue
+				if not weapons.has(required_weapon_id):
+					validation_errors.append("[%s] requires_weapon_ids contains unknown weapon '%s'" % [label, required_weapon_id])
+				if not normalized_requires_weapon_ids.has(required_weapon_id):
+					normalized_requires_weapon_ids.append(required_weapon_id)
+			normalized["requires_weapon_ids"] = normalized_requires_weapon_ids
+
+		var prereq_variant: Variant = upgrade.get("prereq", {})
+		_validate_upgrade_prereq(prereq_variant, label)
+		if prereq_variant is Dictionary:
+			var prereq := (prereq_variant as Dictionary).duplicate(true)
+			if not prereq.has("all"):
+				prereq["all"] = []
+			if not prereq.has("any"):
+				prereq["any"] = []
+			normalized["prereq"] = prereq
+		else:
+			normalized["prereq"] = {
+				"all": [],
+				"any": []
+			}
+
+		var exclusive_group := String(upgrade.get("exclusive_group", "")).strip_edges()
+		normalized["exclusive_group"] = exclusive_group
+		if not exclusive_group.is_empty():
+			exclusive_group_by_upgrade[upgrade_id] = exclusive_group
+
+		var blocks_variant: Variant = upgrade.get("blocks", [])
+		if not (blocks_variant is Array):
+			validation_errors.append("[%s] blocks must be an array" % label)
+			normalized["blocks"] = []
+			blocks_by_upgrade[upgrade_id] = []
+		else:
+			var blocks: Array = blocks_variant
+			var normalized_blocks: Array[String] = []
+			for block_variant in blocks:
+				var blocked_upgrade_id := String(block_variant).strip_edges()
+				if blocked_upgrade_id.is_empty():
+					validation_errors.append("[%s] blocks cannot contain empty id" % label)
+					continue
+				if blocked_upgrade_id == upgrade_id:
+					validation_errors.append("[%s] blocks cannot include self id '%s'" % [label, upgrade_id])
+					continue
+				if not normalized_blocks.has(blocked_upgrade_id):
+					normalized_blocks.append(blocked_upgrade_id)
+			normalized["blocks"] = normalized_blocks
+			blocks_by_upgrade[upgrade_id] = normalized_blocks
+
 		var effects_variant: Variant = upgrade.get("effects", [])
 		if not (effects_variant is Array):
-			validation_errors.append("[upgrades:%d] effects must be an array" % i)
+			validation_errors.append("[%s] effects must be an array" % label)
 			continue
 		var effects: Array = effects_variant
 		if effects.is_empty():
-			validation_errors.append("[upgrades:%d] effects must be a non-empty array" % i)
+			validation_errors.append("[%s] effects must be a non-empty array" % label)
 			continue
 		for e_index in range(effects.size()):
 			var effect_variant: Variant = effects[e_index]
 			if not (effect_variant is Dictionary):
-				validation_errors.append("[upgrades:%d] effect %d must be a dictionary" % [i, e_index])
+				validation_errors.append("[%s] effect %d must be a dictionary" % [label, e_index])
 				continue
 			var effect: Dictionary = effect_variant
-			_validate_required_keys(effect, ["stat", "add"], "upgrades:%d:effect:%d" % [i, e_index])
+			_validate_required_keys(effect, ["stat", "add"], "%s:effect:%d" % [label, e_index])
 			var target_variant: Variant = effect.get("target", null)
 			if target_variant == null:
 				continue
 			if not (target_variant is Dictionary):
-				validation_errors.append("[upgrades:%d] effect %d target must be dictionary" % [i, e_index])
+				validation_errors.append("[%s] effect %d target must be dictionary" % [label, e_index])
 				continue
 			var target: Dictionary = target_variant
-			_validate_required_keys(target, ["type", "value"], "upgrades:%d:effect:%d:target" % [i, e_index])
-			var target_type := String(target.get("type", "")).strip_edges()
+			_validate_required_keys(target, ["type", "value"], "%s:effect:%d:target" % [label, e_index])
+			var target_type := String(target.get("type", "")).strip_edges().to_lower()
 			var target_value := String(target.get("value", "")).strip_edges().to_lower()
 			if not UPGRADE_EFFECT_TARGET_TYPES.has(target_type):
-				validation_errors.append("[upgrades:%d] effect %d target type '%s' is unsupported" % [i, e_index, target_type])
+				validation_errors.append("[%s] effect %d target type '%s' is unsupported" % [label, e_index, target_type])
 				continue
 			if target_value.is_empty():
-				validation_errors.append("[upgrades:%d] effect %d target value must be non-empty" % [i, e_index])
+				validation_errors.append("[%s] effect %d target value must be non-empty" % [label, e_index])
 				continue
 			if target_type == "weapon_id" and not weapons.has(target_value):
-				validation_errors.append("[upgrades:%d] effect %d unknown target weapon_id '%s'" % [i, e_index, target_value])
+				validation_errors.append("[%s] effect %d unknown target weapon_id '%s'" % [label, e_index, target_value])
 			elif target_type == "tag" and not _is_known_upgrade_tag(target_value):
-				validation_errors.append("[upgrades:%d] effect %d unknown target tag '%s'" % [i, e_index, target_value])
+				validation_errors.append("[%s] effect %d unknown target tag '%s'" % [label, e_index, target_value])
+
+		normalized_upgrades.append(normalized)
+
+	for source_upgrade_id_variant in blocks_by_upgrade.keys():
+		var source_upgrade_id := String(source_upgrade_id_variant)
+		var blocked_ids_variant: Variant = blocks_by_upgrade[source_upgrade_id_variant]
+		if not (blocked_ids_variant is Array):
+			continue
+		var blocked_ids: Array = blocked_ids_variant
+		for blocked_id_variant in blocked_ids:
+			var blocked_upgrade_id := String(blocked_id_variant).strip_edges()
+			if not seen_ids.has(blocked_upgrade_id):
+				validation_errors.append("[upgrades:%s] blocks references unknown upgrade id '%s'" % [source_upgrade_id, blocked_upgrade_id])
+				continue
+			var source_group := String(exclusive_group_by_upgrade.get(source_upgrade_id, ""))
+			var target_group := String(exclusive_group_by_upgrade.get(blocked_upgrade_id, ""))
+			if not source_group.is_empty() and source_group == target_group:
+				validation_errors.append(
+					"[upgrades:%s] blocks '%s' but both are in exclusive_group '%s' (redundant/conflicting rule)" %
+					[source_upgrade_id, blocked_upgrade_id, source_group]
+				)
+
+	upgrades = normalized_upgrades
 
 
 func _validate_spawn_curve() -> void:
@@ -852,6 +1018,73 @@ func _is_known_upgrade_tag(tag: String) -> bool:
 	return UPGRADE_ALLOWED_TAGS.has(tag) or WEAPON_ALLOWED_TAGS.has(tag)
 
 
+func _validate_upgrade_prereq(prereq_variant: Variant, label: String) -> void:
+	if not (prereq_variant is Dictionary):
+		validation_errors.append("[%s] prereq must be dictionary" % label)
+		return
+	var prereq: Dictionary = prereq_variant
+	_validate_required_keys(prereq, ["all", "any"], "%s:prereq" % label)
+	for branch in ["all", "any"]:
+		var branch_variant: Variant = prereq.get(branch, [])
+		if not (branch_variant is Array):
+			validation_errors.append("[%s:prereq] '%s' must be an array" % [label, branch])
+			continue
+		var rules: Array = branch_variant
+		for idx in range(rules.size()):
+			var condition_variant: Variant = rules[idx]
+			if not (condition_variant is Dictionary):
+				validation_errors.append("[%s:prereq] '%s' item %d must be dictionary" % [label, branch, idx])
+				continue
+			_validate_upgrade_prereq_condition(condition_variant as Dictionary, label, branch, idx)
+
+
+func _validate_upgrade_prereq_condition(condition: Dictionary, label: String, branch: String, index: int) -> void:
+	var condition_label := "%s:prereq:%s[%d]" % [label, branch, index]
+	_validate_required_keys(condition, ["type"], condition_label)
+	var condition_type := String(condition.get("type", "")).strip_edges().to_lower()
+	if condition_type.is_empty():
+		validation_errors.append("[%s] type must be non-empty string" % condition_label)
+		return
+	if not UPGRADE_PREREQ_TYPES.has(condition_type):
+		validation_errors.append("[%s] unsupported prereq type '%s'" % [condition_label, condition_type])
+		return
+
+	match condition_type:
+		"upgrade_selected":
+			var upgrade_id := String(condition.get("upgrade_id", "")).strip_edges()
+			if upgrade_id.is_empty():
+				validation_errors.append("[%s] upgrade_selected requires 'upgrade_id'" % condition_label)
+		"upgrade_rank_at_least":
+			var rank_upgrade_id := String(condition.get("upgrade_id", "")).strip_edges()
+			var min_rank := int(condition.get("value", 0))
+			if rank_upgrade_id.is_empty():
+				validation_errors.append("[%s] upgrade_rank_at_least requires 'upgrade_id'" % condition_label)
+			if min_rank <= 0:
+				validation_errors.append("[%s] upgrade_rank_at_least requires value >= 1" % condition_label)
+		"has_tag":
+			var required_tag := String(condition.get("tag", "")).strip_edges().to_lower()
+			if required_tag.is_empty():
+				validation_errors.append("[%s] has_tag requires 'tag'" % condition_label)
+			elif not _is_known_upgrade_tag(required_tag):
+				validation_errors.append("[%s] has_tag references unknown tag '%s'" % [condition_label, required_tag])
+		"weapon_owned", "weapon_is_active":
+			var weapon_id := String(condition.get("weapon_id", "")).strip_edges().to_lower()
+			if weapon_id.is_empty():
+				validation_errors.append("[%s] %s requires 'weapon_id'" % [condition_label, condition_type])
+			elif not weapons.has(weapon_id):
+				validation_errors.append("[%s] %s references unknown weapon '%s'" % [condition_label, condition_type, weapon_id])
+		"player_level_at_least", "survive_time_seconds_at_least":
+			var min_value := float(condition.get("value", 0.0))
+			if min_value <= 0.0:
+				validation_errors.append("[%s] %s requires value > 0" % [condition_label, condition_type])
+		"noise_tier_at_least":
+			var tier_id := String(condition.get("tier_id", "")).strip_edges().to_lower()
+			if tier_id.is_empty():
+				validation_errors.append("[%s] noise_tier_at_least requires 'tier_id'" % condition_label)
+		_:
+			pass
+
+
 func _get_spawn_profile(elapsed_time: float) -> Dictionary:
 	if spawn_curve.is_empty():
 		return {}
@@ -902,12 +1135,14 @@ func _weighted_pick_upgrade(rng: RandomNumberGenerator, candidates: Array, tag_w
 
 func _get_upgrade_weight(candidate: Dictionary, tag_weights: Dictionary) -> float:
 	var rarity: String = String(candidate.get("rarity", "common"))
-	var base_weight := float(RARITY_WEIGHT.get(rarity, 1.0))
+	var rarity_weight := float(RARITY_WEIGHT.get(rarity, 1.0))
+	var base_weight := maxf(0.0001, float(candidate.get("base_weight", 1.0)))
+	var total_base_weight := rarity_weight * base_weight
 	if tag_weights.is_empty():
-		return base_weight
+		return total_base_weight
 	var tags_variant: Variant = candidate.get("tags", [])
 	if not (tags_variant is Array):
-		return base_weight
+		return total_base_weight
 	var tags: Array = tags_variant
 	var tag_mult := 1.0
 	for tag_variant in tags:
@@ -916,4 +1151,4 @@ func _get_upgrade_weight(candidate: Dictionary, tag_weights: Dictionary) -> floa
 		if weight_variant == null:
 			continue
 		tag_mult *= clampf(float(weight_variant), 0.2, 3.0)
-	return maxf(0.0001, base_weight * tag_mult)
+	return maxf(0.0001, total_base_weight * tag_mult)

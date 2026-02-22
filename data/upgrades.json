@@ -5,10 +5,30 @@
     "description": "[Tag: sonar] Range +12%.",
     "rarity": "common",
     "max_stacks": 4,
-    "tags": ["sonar", "speed"],
+    "tags": [
+      "sonar",
+      "speed"
+    ],
     "effects": [
-      { "stat": "weapon_range_mult", "add": 0.12, "target": { "type": "tag", "value": "sonar" } }
-    ]
+      {
+        "stat": "weapon_range_mult",
+        "add": 0.12,
+        "target": {
+          "type": "tag",
+          "value": "sonar"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 4,
+    "blocks": []
   },
   {
     "id": "u_echo_stabilizer",
@@ -16,10 +36,26 @@
     "description": "Sonar reveal duration +14%.",
     "rarity": "uncommon",
     "max_stacks": 3,
-    "tags": ["sonar", "silence"],
+    "tags": [
+      "sonar",
+      "silence"
+    ],
     "effects": [
-      { "stat": "sonar_reveal_duration_mult", "add": 0.14 }
-    ]
+      {
+        "stat": "sonar_reveal_duration_mult",
+        "add": 0.14
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_exposed_breaker",
@@ -27,10 +63,26 @@
     "description": "Damage to revealed enemies +18%.",
     "rarity": "rare",
     "max_stacks": 2,
-    "tags": ["sonar", "damage"],
+    "tags": [
+      "sonar",
+      "damage"
+    ],
     "effects": [
-      { "stat": "revealed_damage_mult", "add": 0.18 }
-    ]
+      {
+        "stat": "revealed_damage_mult",
+        "add": 0.18
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
   },
   {
     "id": "u_ping_accelerant",
@@ -38,10 +90,30 @@
     "description": "[Tag: sonar] Attack rate +10%.",
     "rarity": "common",
     "max_stacks": 3,
-    "tags": ["sonar", "speed"],
+    "tags": [
+      "sonar",
+      "speed"
+    ],
     "effects": [
-      { "stat": "weapon_attack_rate_mult", "add": 0.10, "target": { "type": "tag", "value": "sonar" } }
-    ]
+      {
+        "stat": "weapon_attack_rate_mult",
+        "add": 0.10,
+        "target": {
+          "type": "tag",
+          "value": "sonar"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_silent_baffles",
@@ -49,10 +121,26 @@
     "description": "Noise generation -14%.",
     "rarity": "common",
     "max_stacks": 4,
-    "tags": ["silence", "noise"],
+    "tags": [
+      "silence",
+      "noise"
+    ],
     "effects": [
-      { "stat": "noise_generation_mult", "add": -0.14 }
-    ]
+      {
+        "stat": "noise_generation_mult",
+        "add": -0.14
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 4,
+    "blocks": []
   },
   {
     "id": "u_thermal_sink",
@@ -60,10 +148,26 @@
     "description": "Noise decay +1.6/s.",
     "rarity": "uncommon",
     "max_stacks": 3,
-    "tags": ["silence", "noise"],
+    "tags": [
+      "silence",
+      "noise"
+    ],
     "effects": [
-      { "stat": "noise_decay_bonus", "add": 1.6 }
-    ]
+      {
+        "stat": "noise_decay_bonus",
+        "add": 1.6
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_quiet_stride",
@@ -71,10 +175,26 @@
     "description": "Dash noise -25%.",
     "rarity": "uncommon",
     "max_stacks": 2,
-    "tags": ["silence", "speed"],
+    "tags": [
+      "silence",
+      "speed"
+    ],
     "effects": [
-      { "stat": "dash_noise_mult", "add": -0.25 }
-    ]
+      {
+        "stat": "dash_noise_mult",
+        "add": -0.25
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
   },
   {
     "id": "u_low_profile_processor",
@@ -82,10 +202,26 @@
     "description": "When Noise<=25, damage +17%.",
     "rarity": "rare",
     "max_stacks": 2,
-    "tags": ["silence", "damage"],
+    "tags": [
+      "silence",
+      "damage"
+    ],
     "effects": [
-      { "stat": "low_noise_damage_mult", "add": 0.17 }
-    ]
+      {
+        "stat": "low_noise_damage_mult",
+        "add": 0.17
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
   },
   {
     "id": "u_hardlight_core",
@@ -93,10 +229,26 @@
     "description": "Global damage +10%.",
     "rarity": "common",
     "max_stacks": 5,
-    "tags": ["damage", "crit"],
+    "tags": [
+      "damage",
+      "crit"
+    ],
     "effects": [
-      { "stat": "damage_mult", "add": 0.10 }
-    ]
+      {
+        "stat": "damage_mult",
+        "add": 0.10
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 5,
+    "blocks": []
   },
   {
     "id": "u_critical_lens",
@@ -104,10 +256,30 @@
     "description": "[Tag: crit] Crit chance +5%.",
     "rarity": "uncommon",
     "max_stacks": 4,
-    "tags": ["crit", "weapon"],
+    "tags": [
+      "crit",
+      "weapon"
+    ],
     "effects": [
-      { "stat": "weapon_crit_chance_add", "add": 0.05, "target": { "type": "tag", "value": "crit" } }
-    ]
+      {
+        "stat": "weapon_crit_chance_add",
+        "add": 0.05,
+        "target": {
+          "type": "tag",
+          "value": "crit"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 4,
+    "blocks": []
   },
   {
     "id": "u_overdrive_prism",
@@ -115,10 +287,30 @@
     "description": "[Tag: crit] Crit multiplier +0.28.",
     "rarity": "rare",
     "max_stacks": 3,
-    "tags": ["crit", "damage"],
+    "tags": [
+      "crit",
+      "damage"
+    ],
     "effects": [
-      { "stat": "weapon_crit_multiplier_add", "add": 0.28, "target": { "type": "tag", "value": "crit" } }
-    ]
+      {
+        "stat": "weapon_crit_multiplier_add",
+        "add": 0.28,
+        "target": {
+          "type": "tag",
+          "value": "crit"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_heat_sink_ammo",
@@ -126,10 +318,30 @@
     "description": "[Tag: heat] Damage +14%.",
     "rarity": "uncommon",
     "max_stacks": 3,
-    "tags": ["heat", "damage"],
+    "tags": [
+      "heat",
+      "damage"
+    ],
     "effects": [
-      { "stat": "weapon_damage_mult", "add": 0.14, "target": { "type": "tag", "value": "heat" } }
-    ]
+      {
+        "stat": "weapon_damage_mult",
+        "add": 0.14,
+        "target": {
+          "type": "tag",
+          "value": "heat"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_drill_wake",
@@ -137,10 +349,30 @@
     "description": "[Tag: pierce] Pierce +1.",
     "rarity": "uncommon",
     "max_stacks": 3,
-    "tags": ["pierce", "damage"],
+    "tags": [
+      "pierce",
+      "damage"
+    ],
     "effects": [
-      { "stat": "weapon_pierce_bonus", "add": 1, "target": { "type": "tag", "value": "pierce" } }
-    ]
+      {
+        "stat": "weapon_pierce_bonus",
+        "add": 1,
+        "target": {
+          "type": "tag",
+          "value": "pierce"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_chain_conductor",
@@ -148,10 +380,30 @@
     "description": "[Tag: chain] Damage +12%.",
     "rarity": "uncommon",
     "max_stacks": 3,
-    "tags": ["chain", "control"],
+    "tags": [
+      "chain",
+      "control"
+    ],
     "effects": [
-      { "stat": "weapon_damage_mult", "add": 0.12, "target": { "type": "tag", "value": "chain" } }
-    ]
+      {
+        "stat": "weapon_damage_mult",
+        "add": 0.12,
+        "target": {
+          "type": "tag",
+          "value": "chain"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_chain_velocity",
@@ -159,10 +411,30 @@
     "description": "[Tag: chain] Attack rate +10%.",
     "rarity": "common",
     "max_stacks": 4,
-    "tags": ["chain", "speed"],
+    "tags": [
+      "chain",
+      "speed"
+    ],
     "effects": [
-      { "stat": "weapon_attack_rate_mult", "add": 0.10, "target": { "type": "tag", "value": "chain" } }
-    ]
+      {
+        "stat": "weapon_attack_rate_mult",
+        "add": 0.10,
+        "target": {
+          "type": "tag",
+          "value": "chain"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 4,
+    "blocks": []
   },
   {
     "id": "u_aoe_expander",
@@ -170,10 +442,30 @@
     "description": "[Tag: aoe] Radius +18%.",
     "rarity": "uncommon",
     "max_stacks": 3,
-    "tags": ["aoe", "damage"],
+    "tags": [
+      "aoe",
+      "damage"
+    ],
     "effects": [
-      { "stat": "weapon_aoe_radius_mult", "add": 0.18, "target": { "type": "tag", "value": "aoe" } }
-    ]
+      {
+        "stat": "weapon_aoe_radius_mult",
+        "add": 0.18,
+        "target": {
+          "type": "tag",
+          "value": "aoe"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_blast_density",
@@ -181,10 +473,30 @@
     "description": "[Tag: aoe] Damage +11%.",
     "rarity": "rare",
     "max_stacks": 2,
-    "tags": ["aoe", "crit"],
+    "tags": [
+      "aoe",
+      "crit"
+    ],
     "effects": [
-      { "stat": "weapon_damage_mult", "add": 0.11, "target": { "type": "tag", "value": "aoe" } }
-    ]
+      {
+        "stat": "weapon_damage_mult",
+        "add": 0.11,
+        "target": {
+          "type": "tag",
+          "value": "aoe"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
   },
   {
     "id": "u_drone_bay",
@@ -192,10 +504,26 @@
     "description": "Summon cap +1.",
     "rarity": "rare",
     "max_stacks": 2,
-    "tags": ["summon", "control"],
+    "tags": [
+      "summon",
+      "control"
+    ],
     "effects": [
-      { "stat": "summon_cap_bonus", "add": 1 }
-    ]
+      {
+        "stat": "summon_cap_bonus",
+        "add": 1
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
   },
   {
     "id": "u_summon_link",
@@ -203,10 +531,30 @@
     "description": "[Tag: summon] Damage +14%.",
     "rarity": "uncommon",
     "max_stacks": 4,
-    "tags": ["summon", "damage"],
+    "tags": [
+      "summon",
+      "damage"
+    ],
     "effects": [
-      { "stat": "weapon_damage_mult", "add": 0.14, "target": { "type": "tag", "value": "summon" } }
-    ]
+      {
+        "stat": "weapon_damage_mult",
+        "add": 0.14,
+        "target": {
+          "type": "tag",
+          "value": "summon"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 4,
+    "blocks": []
   },
   {
     "id": "u_summon_clock",
@@ -214,10 +562,30 @@
     "description": "[Tag: summon] Attack rate +13%.",
     "rarity": "uncommon",
     "max_stacks": 3,
-    "tags": ["summon", "speed"],
+    "tags": [
+      "summon",
+      "speed"
+    ],
     "effects": [
-      { "stat": "weapon_attack_rate_mult", "add": 0.13, "target": { "type": "tag", "value": "summon" } }
-    ]
+      {
+        "stat": "weapon_attack_rate_mult",
+        "add": 0.13,
+        "target": {
+          "type": "tag",
+          "value": "summon"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_summon_screen",
@@ -225,10 +593,26 @@
     "description": "Summon damage resistance +18% (future hook).",
     "rarity": "common",
     "max_stacks": 3,
-    "tags": ["summon", "shield"],
+    "tags": [
+      "summon",
+      "shield"
+    ],
     "effects": [
-      { "stat": "summon_resistance", "add": 0.18 }
-    ]
+      {
+        "stat": "summon_resistance",
+        "add": 0.18
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_salvage_loop",
@@ -236,10 +620,26 @@
     "description": "XP gain +16%.",
     "rarity": "common",
     "max_stacks": 4,
-    "tags": ["pickup", "economy"],
+    "tags": [
+      "pickup",
+      "economy"
+    ],
     "effects": [
-      { "stat": "xp_gain_mult", "add": 0.16 }
-    ]
+      {
+        "stat": "xp_gain_mult",
+        "add": 0.16
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 4,
+    "blocks": []
   },
   {
     "id": "u_magnet_fins",
@@ -247,10 +647,26 @@
     "description": "Pickup radius +16%.",
     "rarity": "common",
     "max_stacks": 3,
-    "tags": ["pickup", "sonar"],
+    "tags": [
+      "pickup",
+      "sonar"
+    ],
     "effects": [
-      { "stat": "pickup_radius_mult", "add": 0.16 }
-    ]
+      {
+        "stat": "pickup_radius_mult",
+        "add": 0.16
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_precision_dart_matrix",
@@ -258,11 +674,38 @@
     "description": "[Weapon: silence_dart] Damage +22%, reveal bonus +0.25s.",
     "rarity": "rare",
     "max_stacks": 2,
-    "tags": ["silence", "sonar"],
+    "tags": [
+      "silence",
+      "sonar"
+    ],
     "effects": [
-      { "stat": "weapon_damage_mult", "add": 0.22, "target": { "type": "weapon_id", "value": "silence_dart" } },
-      { "stat": "weapon_reveal_bonus_add", "add": 0.25, "target": { "type": "weapon_id", "value": "silence_dart" } }
-    ]
+      {
+        "stat": "weapon_damage_mult",
+        "add": 0.22,
+        "target": {
+          "type": "weapon_id",
+          "value": "silence_dart"
+        }
+      },
+      {
+        "stat": "weapon_reveal_bonus_add",
+        "add": 0.25,
+        "target": {
+          "type": "weapon_id",
+          "value": "silence_dart"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
   },
   {
     "id": "u_lancer_rail_matrix",
@@ -270,11 +713,38 @@
     "description": "[Weapon: needle_rifle] Attack rate +12%, pierce +1.",
     "rarity": "rare",
     "max_stacks": 2,
-    "tags": ["pierce", "sonar"],
+    "tags": [
+      "pierce",
+      "sonar"
+    ],
     "effects": [
-      { "stat": "weapon_attack_rate_mult", "add": 0.12, "target": { "type": "weapon_id", "value": "needle_rifle" } },
-      { "stat": "weapon_pierce_bonus", "add": 1, "target": { "type": "weapon_id", "value": "needle_rifle" } }
-    ]
+      {
+        "stat": "weapon_attack_rate_mult",
+        "add": 0.12,
+        "target": {
+          "type": "weapon_id",
+          "value": "needle_rifle"
+        }
+      },
+      {
+        "stat": "weapon_pierce_bonus",
+        "add": 1,
+        "target": {
+          "type": "weapon_id",
+          "value": "needle_rifle"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
   },
   {
     "id": "u_burst_vent_tuning",
@@ -282,11 +752,38 @@
     "description": "[Weapon: burst_smg] Damage +10%, noise/shot -12%.",
     "rarity": "uncommon",
     "max_stacks": 3,
-    "tags": ["heat", "crit"],
+    "tags": [
+      "heat",
+      "crit"
+    ],
     "effects": [
-      { "stat": "weapon_damage_mult", "add": 0.10, "target": { "type": "weapon_id", "value": "burst_smg" } },
-      { "stat": "weapon_noise_mult", "add": -0.12, "target": { "type": "weapon_id", "value": "burst_smg" } }
-    ]
+      {
+        "stat": "weapon_damage_mult",
+        "add": 0.10,
+        "target": {
+          "type": "weapon_id",
+          "value": "burst_smg"
+        }
+      },
+      {
+        "stat": "weapon_noise_mult",
+        "add": -0.12,
+        "target": {
+          "type": "weapon_id",
+          "value": "burst_smg"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_shock_harmonics",
@@ -294,11 +791,38 @@
     "description": "[Weapon: shock_pulse] Radius +20%, attack rate +8%.",
     "rarity": "uncommon",
     "max_stacks": 3,
-    "tags": ["aoe", "sonar"],
+    "tags": [
+      "aoe",
+      "sonar"
+    ],
     "effects": [
-      { "stat": "weapon_aoe_radius_mult", "add": 0.20, "target": { "type": "weapon_id", "value": "shock_pulse" } },
-      { "stat": "weapon_attack_rate_mult", "add": 0.08, "target": { "type": "weapon_id", "value": "shock_pulse" } }
-    ]
+      {
+        "stat": "weapon_aoe_radius_mult",
+        "add": 0.20,
+        "target": {
+          "type": "weapon_id",
+          "value": "shock_pulse"
+        }
+      },
+      {
+        "stat": "weapon_attack_rate_mult",
+        "add": 0.08,
+        "target": {
+          "type": "weapon_id",
+          "value": "shock_pulse"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_mine_chain_relay",
@@ -306,11 +830,38 @@
     "description": "[Weapon: abyss_mine] Damage +20%, radius +12%.",
     "rarity": "uncommon",
     "max_stacks": 3,
-    "tags": ["trap", "aoe"],
+    "tags": [
+      "trap",
+      "aoe"
+    ],
     "effects": [
-      { "stat": "weapon_damage_mult", "add": 0.20, "target": { "type": "weapon_id", "value": "abyss_mine" } },
-      { "stat": "weapon_aoe_radius_mult", "add": 0.12, "target": { "type": "weapon_id", "value": "abyss_mine" } }
-    ]
+      {
+        "stat": "weapon_damage_mult",
+        "add": 0.20,
+        "target": {
+          "type": "weapon_id",
+          "value": "abyss_mine"
+        }
+      },
+      {
+        "stat": "weapon_aoe_radius_mult",
+        "add": 0.12,
+        "target": {
+          "type": "weapon_id",
+          "value": "abyss_mine"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_tether_focus",
@@ -318,11 +869,38 @@
     "description": "[Weapon: tether_beam] Damage +15%, range +12%.",
     "rarity": "uncommon",
     "max_stacks": 3,
-    "tags": ["chain", "control"],
+    "tags": [
+      "chain",
+      "control"
+    ],
     "effects": [
-      { "stat": "weapon_damage_mult", "add": 0.15, "target": { "type": "weapon_id", "value": "tether_beam" } },
-      { "stat": "weapon_range_mult", "add": 0.12, "target": { "type": "weapon_id", "value": "tether_beam" } }
-    ]
+      {
+        "stat": "weapon_damage_mult",
+        "add": 0.15,
+        "target": {
+          "type": "weapon_id",
+          "value": "tether_beam"
+        }
+      },
+      {
+        "stat": "weapon_range_mult",
+        "add": 0.12,
+        "target": {
+          "type": "weapon_id",
+          "value": "tether_beam"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 3,
+    "blocks": []
   },
   {
     "id": "u_drone_cluster_ai",
@@ -330,11 +908,38 @@
     "description": "[Weapon: orbital_drone] Summon +1, attack rate +10%.",
     "rarity": "rare",
     "max_stacks": 2,
-    "tags": ["summon", "speed"],
+    "tags": [
+      "summon",
+      "speed"
+    ],
     "effects": [
-      { "stat": "weapon_summon_cap_bonus", "add": 1, "target": { "type": "weapon_id", "value": "orbital_drone" } },
-      { "stat": "weapon_attack_rate_mult", "add": 0.10, "target": { "type": "weapon_id", "value": "orbital_drone" } }
-    ]
+      {
+        "stat": "weapon_summon_cap_bonus",
+        "add": 1,
+        "target": {
+          "type": "weapon_id",
+          "value": "orbital_drone"
+        }
+      },
+      {
+        "stat": "weapon_attack_rate_mult",
+        "add": 0.10,
+        "target": {
+          "type": "weapon_id",
+          "value": "orbital_drone"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
   },
   {
     "id": "u_blade_resonance",
@@ -342,10 +947,37 @@
     "description": "[Weapon: sonar_blade] Damage +16%, attack rate +12%.",
     "rarity": "rare",
     "max_stacks": 2,
-    "tags": ["sonar", "speed"],
+    "tags": [
+      "sonar",
+      "speed"
+    ],
     "effects": [
-      { "stat": "weapon_damage_mult", "add": 0.16, "target": { "type": "weapon_id", "value": "sonar_blade" } },
-      { "stat": "weapon_attack_rate_mult", "add": 0.12, "target": { "type": "weapon_id", "value": "sonar_blade" } }
-    ]
+      {
+        "stat": "weapon_damage_mult",
+        "add": 0.16,
+        "target": {
+          "type": "weapon_id",
+          "value": "sonar_blade"
+        }
+      },
+      {
+        "stat": "weapon_attack_rate_mult",
+        "add": 0.12,
+        "target": {
+          "type": "weapon_id",
+          "value": "sonar_blade"
+        }
+      }
+    ],
+    "base_weight": 1.0,
+    "prereq": {
+      "all": [],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
   }
 ]
