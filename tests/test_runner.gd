@@ -135,6 +135,41 @@ func _run_pool_system_tests() -> void:
 
 
 func _run_character_profile_tests() -> void:
+	var characters_path := "res://data/characters.json"
+	var original_characters := FileAccess.get_file_as_string(characters_path)
+	var parsed_characters: Variant = JSON.parse_string(original_characters)
+	if parsed_characters is Dictionary:
+		var broken_chars := (parsed_characters as Dictionary).duplicate(true)
+		var rows_variant: Variant = broken_chars.get("characters", [])
+		if rows_variant is Array and not (rows_variant as Array).is_empty():
+			var rows: Array = rows_variant
+			if rows[0] is Dictionary:
+				var first_row := (rows[0] as Dictionary).duplicate(true)
+				first_row.erase("starting_weapon_id")
+				rows[0] = first_row
+				broken_chars["characters"] = rows
+				var write_chars := FileAccess.open(characters_path, FileAccess.WRITE)
+				write_chars.store_string(JSON.stringify(broken_chars, "\t"))
+				write_chars.flush()
+				write_chars = null
+				var broken_registry_script: Script = load("res://scripts/core/data_registry.gd")
+				var broken_registry = broken_registry_script.new()
+				var broken_ok: bool = broken_registry.load_all(false)
+				var broken_errors: Array[String] = broken_registry.get_validation_errors()
+				var restore_chars := FileAccess.open(characters_path, FileAccess.WRITE)
+				restore_chars.store_string(original_characters)
+				restore_chars.flush()
+				restore_chars = null
+				_assert_true(not broken_ok, "characters schema fails when starting_weapon_id missing")
+				_assert_true(_array_contains_text(broken_errors, "missing key 'starting_weapon_id'"), "characters schema error reports missing key")
+				broken_registry.free()
+			else:
+				_assert_true(false, "characters schema test: first row must be dictionary")
+		else:
+			_assert_true(false, "characters schema test: characters array exists")
+	else:
+		_assert_true(false, "characters schema test: parse characters json")
+
 	var profile_path := "user://profile.json"
 	var had_backup := FileAccess.file_exists(profile_path)
 	var backup_content := FileAccess.get_file_as_string(profile_path) if had_backup else ""
@@ -224,6 +259,19 @@ func _run_character_profile_tests() -> void:
 	var arc_unlock: Dictionary = arc_unlock_variant if arc_unlock_variant is Dictionary else {}
 	var arc_progress: Dictionary = profile_store_reloaded.get_requirement_progress(arc_unlock)
 	_assert_true(bool(arc_progress.get("met", false)), "progress query returns met after unlock")
+
+	profile_store_reloaded.unlock_all_characters(DataRegistry.get_characters())
+	profile_store_reloaded.set_selected_character_id("scavenger")
+	var game_scene: PackedScene = load("res://scenes/game/GameRoot.tscn")
+	var game = game_scene.instantiate()
+	get_tree().root.add_child.call_deferred(game)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	game._start_run("scavenger")
+	_assert_equal(String(game.world.player.character_id), "scavenger", "selected character applied on run start")
+	_assert_true(is_equal_approx(game.world.player.get_pickup_radius_multiplier(), 1.35), "run-start character multiplier is active")
+	game.queue_free()
+	await get_tree().process_frame
 
 	player.queue_free()
 	profile_store.queue_free()
