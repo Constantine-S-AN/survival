@@ -22,7 +22,17 @@ godot --path .
 
 ### 自动化测试（headless）
 ```bash
-godot --headless --path . --scene res://tests/TestRunner.tscn --quit-after 3600
+godot --headless --path . res://tests/TestRunner.tscn --quit-after 3600
+```
+
+推荐使用统一入口脚本（本地/CI 一致）：
+```bash
+./scripts/ci/run_headless_tests.sh
+```
+
+仅做导入预热（CI 可单独执行）：
+```bash
+godot --headless --path . --import
 ```
 
 ### 构建导出（macOS / Windows）
