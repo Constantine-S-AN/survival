@@ -86,7 +86,11 @@ func _derive_top_tags(hud_data: Dictionary) -> Array[String]:
 			continue
 		pairs.append({"tag": key, "value": value})
 	pairs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return int(a.get("value", 0)) > int(b.get("value", 0))
+		var av := int(a.get("value", 0))
+		var bv := int(b.get("value", 0))
+		if av == bv:
+			return String(a.get("tag", "")) < String(b.get("tag", ""))
+		return av > bv
 	)
 	var out: Array[String] = []
 	for i in range(mini(5, pairs.size())):

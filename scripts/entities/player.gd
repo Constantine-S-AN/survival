@@ -1377,7 +1377,11 @@ func _get_top_build_tags(max_count: int = 5) -> Array[String]:
 			continue
 		pairs.append({"tag": tag, "value": value})
 	pairs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return int(a.get("value", 0)) > int(b.get("value", 0))
+		var av := int(a.get("value", 0))
+		var bv := int(b.get("value", 0))
+		if av == bv:
+			return String(a.get("tag", "")) < String(b.get("tag", ""))
+		return av > bv
 	)
 	var output: Array[String] = []
 	var target_count := mini(max_count, pairs.size())

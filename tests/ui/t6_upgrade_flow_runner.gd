@@ -13,6 +13,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	var lines: Array[String] = []
+	const FIXED_SEED := 424242
 	var game := GAME_ROOT_SCENE.instantiate()
 	add_child(game)
 	await _wait_frames(3)
@@ -24,6 +25,11 @@ func _run() -> void:
 	if player == null:
 		_fail(lines, "player missing")
 		return
+	var player_rng_variant: Variant = player.get("rng")
+	if player_rng_variant is RandomNumberGenerator:
+		var player_rng: RandomNumberGenerator = player_rng_variant
+		player_rng.seed = FIXED_SEED
+		lines.append("fixed_player_seed=%d" % FIXED_SEED)
 	var ui := game.get_node_or_null("UI")
 	if ui == null:
 		_fail(lines, "ui missing")
