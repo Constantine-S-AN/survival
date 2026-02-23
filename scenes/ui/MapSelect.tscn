@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/map_select_panel.gd" id="1"]
+[ext_resource type="Theme" path="res://ui/theme/NeonTheme.tres" id="2"]
 
 [node name="MapSelect" type="Panel"]
 visible = false
@@ -8,6 +9,8 @@ offset_left = 220.0
 offset_top = 110.0
 offset_right = 1380.0
 offset_bottom = 790.0
+theme = ExtResource("2")
+theme_type_variation = &"SurfacePanel"
 script = ExtResource("1")
 
 [node name="Margin" type="MarginContainer" parent="."]
@@ -29,6 +32,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Map Select"
 horizontal_alignment = 1
+theme_type_variation = &"HeadingLabel"
 
 [node name="Body" type="HSplitContainer" parent="Margin/VBox"]
 layout_mode = 2
@@ -88,6 +92,7 @@ alignment = 1
 [node name="StartButton" type="Button" parent="Margin/VBox/Footer"]
 layout_mode = 2
 text = "Start Run"
+theme_type_variation = &"PrimaryButton"
 
 [node name="BackButton" type="Button" parent="Margin/VBox/Footer"]
 layout_mode = 2

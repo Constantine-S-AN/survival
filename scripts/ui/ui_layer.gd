@@ -13,6 +13,7 @@ signal contract_select_back_requested
 signal unlock_all_debug_requested
 
 const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
+const NEON_THEME := preload("res://ui/theme/NeonTheme.tres")
 const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 const MAP_SELECT_SCENE := preload("res://scenes/ui/MapSelect.tscn")
 const CONTRACT_SELECT_SCENE := preload("res://scenes/ui/ContractSelect.tscn")
@@ -166,6 +167,8 @@ var telegraph_flash_tween: Tween
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	if root.theme == null:
+		root.theme = NEON_THEME
 	_create_fog_overlay()
 	_create_telegraph_flash_overlay()
 	apply_fog_overlay_config(DataRegistry.get_fog_config())
@@ -225,6 +228,8 @@ func _create_telegraph_flash_overlay() -> void:
 
 
 func _create_runtime_hud_widgets() -> void:
+	if $Root/HUD != null:
+		$Root/HUD.theme_type_variation = &"HudPanel"
 	noise_bar = ProgressBar.new()
 	noise_bar.name = "NoiseBar"
 	noise_bar.custom_minimum_size = Vector2(0.0, 14.0)
@@ -236,18 +241,21 @@ func _create_runtime_hud_widgets() -> void:
 	noise_tier_label = Label.new()
 	noise_tier_label.name = "NoiseTierLabel"
 	noise_tier_label.text = "Tier: 静默"
+	noise_tier_label.theme_type_variation = &"SubheadingLabel"
 	stats_box.add_child(noise_tier_label)
 	stats_box.move_child(noise_tier_label, stats_box.get_children().find(noise_bar) + 1)
 
 	weapon_label = Label.new()
 	weapon_label.name = "WeaponLabel"
 	weapon_label.text = "Weapon: --"
+	weapon_label.theme_type_variation = &"BodyMutedLabel"
 	stats_box.add_child(weapon_label)
 
 	contract_status_label = Label.new()
 	contract_status_label.name = "ContractStatusLabel"
 	contract_status_label.visible = false
 	contract_status_label.text = "Dash Disabled"
+	contract_status_label.theme_type_variation = &"BodyMutedLabel"
 	contract_status_label.modulate = Color(1.0, 0.72, 0.72, 1.0)
 	stats_box.add_child(contract_status_label)
 
@@ -255,6 +263,7 @@ func _create_runtime_hud_widgets() -> void:
 func _create_debug_panel() -> void:
 	debug_panel = Panel.new()
 	debug_panel.name = "DebugPanel"
+	debug_panel.theme_type_variation = &"SurfacePanel"
 	debug_panel.visible = false
 	debug_panel.position = Vector2(1180.0, 18.0)
 	debug_panel.size = Vector2(390.0, 340.0)
@@ -282,6 +291,7 @@ func _create_debug_panel() -> void:
 func _create_system_message_widget() -> void:
 	system_msg_label = Label.new()
 	system_msg_label.name = "SystemMessage"
+	system_msg_label.theme_type_variation = &"SubheadingLabel"
 	system_msg_label.visible = false
 	system_msg_label.position = Vector2(560.0, 16.0)
 	system_msg_label.size = Vector2(480.0, 30.0)
@@ -307,6 +317,7 @@ func _create_system_message_widget() -> void:
 func _create_main_menu_panel() -> void:
 	main_menu_panel = Panel.new()
 	main_menu_panel.name = "MainMenuPanel"
+	main_menu_panel.theme_type_variation = &"OverlayPanel"
 	main_menu_panel.position = Vector2(520.0, 190.0)
 	main_menu_panel.size = Vector2(560.0, 420.0)
 	root.add_child(main_menu_panel)
@@ -329,15 +340,18 @@ func _create_main_menu_panel() -> void:
 	var title := Label.new()
 	title.text = "Neon Sonar"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.theme_type_variation = &"HeadingLabel"
 	menu_vbox.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "Descend, survive, and manage your noise."
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.theme_type_variation = &"BodyMutedLabel"
 	menu_vbox.add_child(subtitle)
 
 	menu_start_button = Button.new()
 	menu_start_button.text = "Start Run"
+	menu_start_button.theme_type_variation = &"PrimaryButton"
 	menu_start_button.pressed.connect(func() -> void:
 		main_menu_start_requested.emit()
 		main_menu_panel.visible = false

@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/components/neon_button.gd" id="1"]
+
+[node name="NeonButton" type="Button"]
+custom_minimum_size = Vector2(0, 46)
+theme_type_variation = &"PrimaryButton"
+text = "Action"
+script = ExtResource("1")
