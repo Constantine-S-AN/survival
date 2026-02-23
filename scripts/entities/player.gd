@@ -965,6 +965,8 @@ func _draw() -> void:
 
 
 func take_damage(amount: float) -> void:
+	if hp <= 0.0:
+		return
 	if invuln_remaining > 0.0:
 		return
 	hp -= amount

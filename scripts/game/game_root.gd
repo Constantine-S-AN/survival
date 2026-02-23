@@ -345,6 +345,8 @@ func _apply_hitstop(duration: float) -> void:
 
 
 func _on_player_died() -> void:
+	if run_state != STATE_PLAYING:
+		return
 	var newly_unlocked_ids := _evaluate_character_unlocks()
 	var unlocked_names: Array[String] = []
 	for character_id in newly_unlocked_ids:
