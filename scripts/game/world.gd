@@ -32,6 +32,13 @@ var current_map_id: String = ""
 var current_map_modifiers: Dictionary = {}
 var contract_modifiers: Dictionary = {}
 var active_contract_ids: Array[String] = []
+var runtime_reward_multipliers: Dictionary = {
+	"xp": 1.0,
+	"rarity": 1.0,
+	"drop": 1.0,
+	"meta_currency": 1.0
+}
+var runtime_drop_multiplier: float = 1.0
 var last_hazard_active: bool = false
 var last_hazard_warning_active: bool = false
 var boss_fx_layer: Node2D
@@ -78,6 +85,7 @@ func setup_run(
 		pool_manager.reset_stats()
 	player.setup(enemy_manager, projectile_manager, run_rng, character_def)
 	enemy_manager.setup(player, run_rng)
+	set_runtime_reward_multipliers({})
 	set_contract_modifiers(contract_bundle, contract_ids)
 	apply_sonar_config(base_sonar_config if not base_sonar_config.is_empty() else DataRegistry.get_sonar_config())
 	set_current_map(map_id, run_seed)
@@ -312,6 +320,18 @@ func set_contract_modifiers(modifiers: Dictionary, contract_ids: Array = []) -> 
 		enemy_manager.set_contract_spawn_modifiers(spawner_mods)
 
 
+func set_runtime_reward_multipliers(multipliers: Dictionary = {}) -> void:
+	runtime_reward_multipliers = {
+		"xp": maxf(0.0, float(multipliers.get("xp", multipliers.get("xp_mult", 1.0)))),
+		"rarity": maxf(0.0, float(multipliers.get("rarity", multipliers.get("rarity_mult", 1.0)))),
+		"drop": maxf(0.0, float(multipliers.get("drop", multipliers.get("drop_mult", 1.0)))),
+		"meta_currency": maxf(0.0, float(multipliers.get("meta_currency", multipliers.get("meta_currency_mult", 1.0))))
+	}
+	runtime_drop_multiplier = maxf(0.0, float(runtime_reward_multipliers.get("drop", 1.0)))
+	if player != null and is_instance_valid(player) and player.has_method("set_run_reward_multipliers"):
+		player.set_run_reward_multipliers(runtime_reward_multipliers)
+
+
 func get_map_debug_snapshot() -> Dictionary:
 	var snapshot := current_map_snapshot
 	var modifiers_variant: Variant = snapshot.get("modifiers", {})
@@ -441,6 +461,13 @@ func _spawn_event_pickups(count: int, xp_amount: int) -> void:
 	if player == null or not is_instance_valid(player):
 		return
 	var clamped_count := clampi(count, 1, 12)
+	var scaled_total := float(clamped_count) * runtime_drop_multiplier
+	var scaled_count := int(floor(scaled_total))
+	if sfx_rng.randf() < (scaled_total - float(scaled_count)):
+		scaled_count += 1
+	clamped_count = clampi(scaled_count, 0, 24)
+	if clamped_count <= 0:
+		return
 	var amount := maxi(1, xp_amount)
 	for i in range(clamped_count):
 		var angle := sfx_rng.randf_range(0.0, TAU)

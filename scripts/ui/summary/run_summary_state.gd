@@ -44,13 +44,14 @@ static func from_dict(source: Dictionary) -> Dictionary:
 		"map_name": String(source.get("map_name", source.get("map_id", "-"))),
 		"contract_ids": _normalize_string_array(source.get("contract_ids", [])),
 		"contract_names": _normalize_string_array(source.get("contract_names", [])),
+		"drop_pickups_spawned": maxi(0, int(source.get("drop_pickups_spawned", 0))),
 		"multipliers": {
 			"xp": float(multipliers.get("xp", multipliers.get("xp_mult", 1.0))),
 			"rarity": float(multipliers.get("rarity", multipliers.get("rarity_mult", 1.0))),
 			"drop": float(multipliers.get("drop", multipliers.get("drop_mult", 1.0))),
 			"meta_currency": float(multipliers.get("meta_currency", multipliers.get("meta_currency_mult", 1.0)))
 		},
-		"meta_currency_earned": source.get("meta_currency_earned", null),
+		"meta_currency_earned": _normalize_meta_currency(source.get("meta_currency_earned", null)),
 		"unlock_progress": _normalize_unlock_progress(source.get("unlock_progress", [])),
 		"newly_unlocked_names": _normalize_string_array(source.get("newly_unlocked_names", [])),
 		"seed": int(source.get("seed", 0))
@@ -137,3 +138,16 @@ static func _normalize_string_array(value: Variant) -> Array[String]:
 			continue
 		output.append(text)
 	return output
+
+
+static func _normalize_meta_currency(value: Variant) -> Variant:
+	if value == null:
+		return null
+	if value is Dictionary:
+		var payload: Dictionary = value
+		return {
+			"base": maxi(0, int(payload.get("base", payload.get("total", 0)))),
+			"multiplier": maxf(0.0, float(payload.get("multiplier", 1.0))),
+			"total": maxi(0, int(payload.get("total", payload.get("base", 0))))
+		}
+	return maxi(0, int(value))

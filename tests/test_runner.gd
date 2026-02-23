@@ -614,6 +614,17 @@ func _run_upgrade_rules_tests() -> void:
 		{}
 	)
 	_assert_true(common_weight > legendary_weight, "rarity weight makes common heavier than legendary at same base_weight")
+	var rare_base_weight := DataRegistry._get_upgrade_weight(
+		{"id": "tmp_rare_base", "rarity": "rare", "base_weight": 1.0, "tags": []},
+		{},
+		{}
+	)
+	var rare_boosted_weight := DataRegistry._get_upgrade_weight(
+		{"id": "tmp_rare_boosted", "rarity": "rare", "base_weight": 1.0, "tags": []},
+		{},
+		{"rarity_mult": 1.3}
+	)
+	_assert_true(rare_boosted_weight > rare_base_weight, "rarity_mult boosts rare upgrade weight in runtime context")
 
 	_run_upgrade_schema_validation_tests()
 	await _run_placeholder_fix_tests()

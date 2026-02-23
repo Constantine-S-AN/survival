@@ -32,6 +32,14 @@ var last_fog_overlay_signature: String = ""
 var run_started: bool = false
 var run_stats = RunStatsClass.new()
 var telegraph_last_emit_by_key: Dictionary = {}
+var run_reward_multipliers: Dictionary = {
+	"xp": 1.0,
+	"rarity": 1.0,
+	"drop": 1.0,
+	"meta_currency": 1.0
+}
+var reward_rng := RandomNumberGenerator.new()
+var runtime_drop_pickups_spawned: int = 0
 
 
 func _ready() -> void:
@@ -157,7 +165,25 @@ func _on_enemy_killed(enemy_id: String, xp_reward: int, world_position: Vector2,
 		run_stats.elite_or_pursuer_kills += 1
 	if enemy_id.find("pursuer") >= 0 or bool(meta.get("is_pursuer", false)):
 		run_stats.elite_or_pursuer_kills += 1
-	world.call_deferred("spawn_xp_pickup", world_position, xp_reward)
+	var drop_mult := maxf(0.0, float(run_reward_multipliers.get("drop", 1.0)))
+	var spawn_count := 1
+	if not is_equal_approx(drop_mult, 1.0):
+		if drop_mult < 1.0:
+			spawn_count = 1 if reward_rng.randf() < drop_mult else 0
+		else:
+			spawn_count = int(floor(drop_mult))
+			if reward_rng.randf() < (drop_mult - float(spawn_count)):
+				spawn_count += 1
+	if spawn_count <= 0:
+		return
+	runtime_drop_pickups_spawned += spawn_count
+	for i in range(spawn_count):
+		var spawn_position := world_position
+		if spawn_count > 1:
+			var angle := reward_rng.randf_range(0.0, TAU)
+			var radius := reward_rng.randf_range(8.0, 22.0)
+			spawn_position = world_position + Vector2.RIGHT.rotated(angle) * radius
+		world.call_deferred("spawn_xp_pickup", spawn_position, xp_reward)
 
 
 func _on_pickup_collected(_world_position: Vector2, _amount: int) -> void:
@@ -423,7 +449,7 @@ func _on_unlock_all_debug_requested() -> void:
 	ui.show_system_message("Debug: all characters unlocked.", false)
 
 
-func _start_run(character_id: String, map_id: String = "", contract_ids: Array = [], skip_play_transition: bool = false) -> void:
+func _start_run(character_id: String, map_id: String = "", contract_ids: Array = [], skip_play_transition: bool = false, seed_override: int = 0) -> void:
 	var chosen_id := character_id.strip_edges()
 	if chosen_id.is_empty():
 		chosen_id = DataRegistry.get_default_character_id()
@@ -441,19 +467,32 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 	selected_map_id = chosen_map_id
 	selected_contract_ids = DataRegistry.normalize_contract_selection(contract_ids)
 	var contract_modifiers := DataRegistry.compose_contract_modifiers(selected_contract_ids)
+	var reward_preview := DataRegistry.get_contract_reward_preview(selected_contract_ids)
+	run_reward_multipliers = {
+		"xp": float(reward_preview.get("xp_mult", 1.0)),
+		"rarity": float(reward_preview.get("rarity_mult", 1.0)),
+		"drop": float(reward_preview.get("drop_mult", 1.0)),
+		"meta_currency": float(reward_preview.get("meta_currency_mult", 1.0))
+	}
 	ProfileStore.set_selected_character_id(selected_character_id)
 	ProfileStore.set_selected_map_id(selected_map_id)
 	ProfileStore.set_selected_contract_ids(selected_contract_ids)
-	run_seed = int(Time.get_unix_time_from_system())
+	run_seed = seed_override if seed_override != 0 else int(Time.get_unix_time_from_system())
 	rng.seed = run_seed
+	reward_rng.seed = run_seed ^ 0x5F3759DF
 	elapsed_time = 0.0
 	kills = 0
+	runtime_drop_pickups_spawned = 0
 	run_started = true
 	run_stats.reset(run_seed)
 	telegraph_last_emit_by_key.clear()
 
 	var character_def := DataRegistry.get_character(selected_character_id)
 	world.setup_run(rng, character_def, selected_map_id, run_seed, contract_modifiers, selected_contract_ids)
+	if world != null and world.has_method("set_runtime_reward_multipliers"):
+		world.set_runtime_reward_multipliers(run_reward_multipliers)
+	if world != null and world.player != null and world.player.has_method("set_run_reward_multipliers"):
+		world.player.set_run_reward_multipliers(run_reward_multipliers)
 	if world != null and world.has_method("begin_run"):
 		world.begin_run()
 	_sync_runtime_fog_overlay(true)
@@ -495,7 +534,7 @@ func _build_run_summary_state(newly_unlocked_ids: Array[String]) -> Dictionary:
 		var contract := DataRegistry.get_contract(contract_id)
 		contract_names.append(String(contract.get("name", contract_id)))
 
-	var reward_preview := DataRegistry.get_contract_reward_preview(selected_contract_ids)
+	var reward_preview := run_reward_multipliers
 	var top_tags: Array[Dictionary] = []
 	var chosen_upgrades: Array[Dictionary] = []
 	var weapon_name := "--"
@@ -520,6 +559,7 @@ func _build_run_summary_state(newly_unlocked_ids: Array[String]) -> Dictionary:
 		boss_progress = String(boss_debug.get("boss_state", "")).strip_edges()
 
 	var unlock_progress := _build_summary_unlock_progress()
+	var meta_currency_earned := _calculate_meta_currency_earned(level_reached)
 	var newly_unlocked_names: Array[String] = []
 	for character_id in newly_unlocked_ids:
 		var character := DataRegistry.get_character(character_id)
@@ -540,16 +580,29 @@ func _build_run_summary_state(newly_unlocked_ids: Array[String]) -> Dictionary:
 		"map_name": map_name,
 		"contract_ids": selected_contract_ids.duplicate(),
 		"contract_names": contract_names,
+		"drop_pickups_spawned": runtime_drop_pickups_spawned,
 		"multipliers": {
-			"xp": float(reward_preview.get("xp_mult", 1.0)),
-			"rarity": float(reward_preview.get("rarity_mult", 1.0)),
-			"drop": float(reward_preview.get("drop_mult", 1.0)),
-			"meta_currency": float(reward_preview.get("meta_currency_mult", 1.0))
+			"xp": float(reward_preview.get("xp", reward_preview.get("xp_mult", 1.0))),
+			"rarity": float(reward_preview.get("rarity", reward_preview.get("rarity_mult", 1.0))),
+			"drop": float(reward_preview.get("drop", reward_preview.get("drop_mult", 1.0))),
+			"meta_currency": float(reward_preview.get("meta_currency", reward_preview.get("meta_currency_mult", 1.0)))
 		},
-		"meta_currency_earned": null,
+		"meta_currency_earned": meta_currency_earned,
 		"unlock_progress": unlock_progress,
 		"newly_unlocked_names": newly_unlocked_names,
 		"seed": run_seed
+	}
+
+
+func _calculate_meta_currency_earned(level_reached: int) -> Dictionary:
+	var safe_level := maxi(1, level_reached)
+	var base := maxi(1, int(floor(elapsed_time / 30.0)) + int(floor(float(kills) / 12.0)) + int(floor(float(safe_level) / 2.0)))
+	var mult := maxf(0.0, float(run_reward_multipliers.get("meta_currency", 1.0)))
+	var total := maxi(0, int(round(float(base) * mult)))
+	return {
+		"base": base,
+		"multiplier": mult,
+		"total": total
 	}
 
 
@@ -733,12 +786,11 @@ func _refresh_hud() -> void:
 	hud["contract_spawn_rate_multiplier"] = float(noise_debug.get("contract_spawn_rate_multiplier", 1.0))
 	hud["state"] = run_state
 	hud["contracts_active"] = selected_contract_ids.duplicate()
-	var reward_preview := DataRegistry.get_contract_reward_preview(selected_contract_ids)
 	hud["run_reward_multipliers"] = {
-		"xp": float(reward_preview.get("xp_mult", 1.0)),
-		"rarity": float(reward_preview.get("rarity_mult", 1.0)),
-		"drop": float(reward_preview.get("drop_mult", 1.0)),
-		"meta_currency": float(reward_preview.get("meta_currency_mult", 1.0))
+		"xp": float(run_reward_multipliers.get("xp", run_reward_multipliers.get("xp_mult", 1.0))),
+		"rarity": float(run_reward_multipliers.get("rarity", run_reward_multipliers.get("rarity_mult", 1.0))),
+		"drop": float(run_reward_multipliers.get("drop", run_reward_multipliers.get("drop_mult", 1.0))),
+		"meta_currency": float(run_reward_multipliers.get("meta_currency", run_reward_multipliers.get("meta_currency_mult", 1.0)))
 	}
 	ui.update_hud(hud)
 

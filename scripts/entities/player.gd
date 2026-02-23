@@ -96,6 +96,12 @@ var environment_noise_gain_multiplier: float = 1.0
 var environment_noise_decay_multiplier: float = 1.0
 var environment_sonar_reveal_multiplier: float = 1.0
 var environment_xp_gain_multiplier: float = 1.0
+var run_reward_multipliers: Dictionary = {
+	"xp": 1.0,
+	"rarity": 1.0,
+	"drop": 1.0,
+	"meta_currency": 1.0
+}
 var contract_max_hp_multiplier: float = 1.0
 var contract_dash_disabled: bool = false
 var contract_low_noise_damage_multiplier: float = 1.0
@@ -205,6 +211,12 @@ func _reset_run_stats() -> void:
 	environment_noise_decay_multiplier = 1.0
 	environment_sonar_reveal_multiplier = 1.0
 	environment_xp_gain_multiplier = 1.0
+	run_reward_multipliers = {
+		"xp": 1.0,
+		"rarity": 1.0,
+		"drop": 1.0,
+		"meta_currency": 1.0
+	}
 	contract_max_hp_multiplier = 1.0
 	contract_dash_disabled = false
 	contract_low_noise_damage_multiplier = 1.0
@@ -977,13 +989,16 @@ func _request_upgrade_if_needed() -> void:
 
 func _build_upgrade_context() -> Dictionary:
 	var noise_tier = DataRegistry.get_noise_tier(noise)
+	var rarity_mult := float(run_reward_multipliers.get("rarity", run_reward_multipliers.get("rarity_mult", 1.0)))
 	return {
 		"acquired_tags": acquired_tags.duplicate(true),
 		"current_weapon_ids": [active_weapon_id],
 		"active_weapon_id": active_weapon_id,
 		"player_level": level,
 		"survive_time_seconds": 0.0,
-		"noise_tier_id": String(noise_tier.get("id", "silent"))
+		"noise_tier_id": String(noise_tier.get("id", "silent")),
+		"rarity_mult": rarity_mult,
+		"run_reward_multipliers": run_reward_multipliers.duplicate(true)
 	}
 
 
@@ -1182,6 +1197,15 @@ func apply_environment_modifiers(
 	environment_xp_gain_multiplier = maxf(0.05, float(reward_modifiers.get("xp_mult", 1.0)))
 
 
+func set_run_reward_multipliers(multipliers: Dictionary = {}) -> void:
+	run_reward_multipliers = {
+		"xp": maxf(0.0, float(multipliers.get("xp", multipliers.get("xp_mult", 1.0)))),
+		"rarity": maxf(0.0, float(multipliers.get("rarity", multipliers.get("rarity_mult", 1.0)))),
+		"drop": maxf(0.0, float(multipliers.get("drop", multipliers.get("drop_mult", 1.0)))),
+		"meta_currency": maxf(0.0, float(multipliers.get("meta_currency", multipliers.get("meta_currency_mult", 1.0))))
+	}
+
+
 func apply_contract_modifiers(player_modifiers: Dictionary = {}) -> void:
 	contract_max_hp_multiplier = maxf(0.05, float(player_modifiers.get("max_hp_mult", 1.0)))
 	contract_dash_disabled = float(player_modifiers.get("dash_disabled", 0.0)) >= 0.5
@@ -1358,6 +1382,7 @@ func get_hud_data() -> Dictionary:
 		"env_noise_decay_multiplier": environment_noise_decay_multiplier,
 		"env_sonar_reveal_multiplier": environment_sonar_reveal_multiplier,
 		"env_xp_gain_multiplier": environment_xp_gain_multiplier,
+		"run_reward_multipliers": run_reward_multipliers.duplicate(true),
 		"contract_dash_disabled": contract_dash_disabled,
 		"contract_low_noise_damage_multiplier": contract_low_noise_damage_multiplier,
 		"contract_high_noise_damage_multiplier": contract_high_noise_damage_multiplier

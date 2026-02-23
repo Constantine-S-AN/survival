@@ -262,6 +262,11 @@ func _format_multipliers(value: Variant) -> String:
 func _format_meta_currency(value: Variant) -> String:
 	if value == null:
 		return "Meta currency earned: —"
+	if value is Dictionary:
+		var payload: Dictionary = value
+		var total := int(payload.get("total", payload.get("base", 0)))
+		var multiplier := float(payload.get("multiplier", 1.0))
+		return "Meta currency earned: %d (x%.2f)" % [total, multiplier]
 	return "Meta currency earned: %d" % int(value)
 
 

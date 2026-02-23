@@ -27,6 +27,14 @@ const RARITY_WEIGHT: Dictionary = {
 	"legendary": 0.5
 }
 
+const RARITY_CONTEXT_POWER: Dictionary = {
+	"common": 0.0,
+	"uncommon": 0.45,
+	"rare": 0.9,
+	"epic": 1.35,
+	"legendary": 1.8
+}
+
 const CHARACTER_REQUIRED_MODIFIER_KEYS: Array[String] = [
 	"max_hp_multiplier",
 	"max_hp_bonus",
@@ -684,14 +692,17 @@ func get_contract_reward_preview(contract_ids: Array) -> Dictionary:
 	var composed := compose_contract_modifiers(contract_ids)
 	var rewards_variant: Variant = composed.get("rewards", {})
 	var rewards: Dictionary = rewards_variant if rewards_variant is Dictionary else {}
+	var reward_multiplier := float(composed.get("reward_multiplier", 1.0))
+	var meta_from_rewards := float(rewards.get("meta_currency_mult", 1.0))
+	var meta_multiplier := meta_from_rewards if not is_equal_approx(meta_from_rewards, 1.0) else reward_multiplier
 	return {
 		"selected_contracts": composed.get("selected_contracts", []),
 		"reward_pct_sum": float(composed.get("reward_pct_sum", 0.0)),
-		"reward_multiplier": float(composed.get("reward_multiplier", 1.0)),
+		"reward_multiplier": reward_multiplier,
 		"xp_mult": float(rewards.get("xp_mult", 1.0)),
 		"rarity_mult": float(rewards.get("rarity_mult", 1.0)),
 		"drop_mult": float(rewards.get("drop_mult", 1.0)),
-		"meta_currency_mult": float(rewards.get("meta_currency_mult", 1.0))
+		"meta_currency_mult": meta_multiplier
 	}
 
 
@@ -2104,10 +2115,15 @@ func _weighted_pick_upgrade(rng: RandomNumberGenerator, candidates: Array, tag_w
 
 
 func _get_upgrade_weight(candidate: Dictionary, tag_weights: Dictionary, context: Dictionary = {}) -> float:
-	var rarity: String = String(candidate.get("rarity", "common"))
+	var rarity: String = String(candidate.get("rarity", "common")).strip_edges().to_lower()
 	var rarity_weight := float(RARITY_WEIGHT.get(rarity, 1.0))
 	var base_weight := maxf(0.0001, float(candidate.get("base_weight", 1.0)))
 	var total_base_weight := rarity_weight * base_weight
+	var rarity_mult := clampf(float(context.get("rarity_mult", 1.0)), 0.25, 3.0)
+	if not is_equal_approx(rarity_mult, 1.0):
+		var rarity_power := float(RARITY_CONTEXT_POWER.get(rarity, 0.0))
+		if rarity_power > 0.0:
+			total_base_weight *= pow(rarity_mult, rarity_power)
 	var active_weapon_id := String(context.get("active_weapon_id", "")).strip_edges().to_lower()
 	if not active_weapon_id.is_empty():
 		var requires_weapon_ids_variant: Variant = candidate.get("requires_weapon_ids", [])
