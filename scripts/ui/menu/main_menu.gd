@@ -6,13 +6,44 @@ signal profile_pressed
 signal settings_pressed
 signal quit_pressed
 
-const PLACEHOLDER_PROFILE := "Profile page is coming soon."
-const PLACEHOLDER_SETTINGS := "Settings page is coming soon."
+const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
+const MENU_BACKDROP_TEXTURE_PATH := "res://assets/textures/commercial/neon_grid_bg.png"
+const DEFAULT_LANGUAGE_CODE := "en"
+const SUPPORTED_LANGUAGE_CODES: Array[String] = ["en", "zh_CN"]
+const LANGUAGE_LABELS := {
+	"en": "English",
+	"zh_CN": "中文"
+}
+const MENU_TEXT := {
+	"en": {
+		"subtitle": "FOG / SONAR / NOISE",
+		"play": "Play",
+		"profile": "Profile",
+		"settings": "Settings",
+		"quit": "Quit",
+		"language": "Language",
+		"placeholder_profile": "Profile page is coming soon.",
+		"placeholder_settings": "Settings page is coming soon."
+	},
+	"zh_CN": {
+		"subtitle": "迷雾 / 声呐 / 噪声",
+		"play": "开始游戏",
+		"profile": "档案",
+		"settings": "设置",
+		"quit": "退出游戏",
+		"language": "语言",
+		"placeholder_profile": "档案页面即将推出。",
+		"placeholder_settings": "设置页面即将推出。"
+	}
+}
 
 @onready var background_rect: ColorRect = $BackgroundLayer/Background
+@onready var backdrop_texture: TextureRect = $BackgroundLayer/BackdropTexture
 @onready var glow_overlay: ColorRect = $BackgroundLayer/GlowOverlay
 @onready var title_label: Label = $ContentLayer/Stack/Title
 @onready var subtitle_label: Label = $ContentLayer/Stack/Subtitle
+@onready var language_label: Label = $ContentLayer/Stack/LanguageRow/LanguageLabel
+@onready var language_select: OptionButton = $ContentLayer/Stack/LanguageRow/LanguageSelect
 @onready var buttons_box: VBoxContainer = $ContentLayer/Stack/Buttons
 @onready var play_button: Button = $ContentLayer/Stack/Buttons/PlayButton
 @onready var profile_button: Button = $ContentLayer/Stack/Buttons/ProfileButton
@@ -25,6 +56,7 @@ var _buttons: Array[Button] = []
 var _focused_index: int = 0
 var _bg_time: float = 0.0
 var _background_material: ShaderMaterial
+var _current_language_code: String = DEFAULT_LANGUAGE_CODE
 
 
 func _ready() -> void:
@@ -35,11 +67,14 @@ func _ready() -> void:
 	_buttons = [play_button, profile_button, settings_button, quit_button]
 	_connect_signals()
 	_setup_focus_loop()
+	_apply_optional_backdrop_texture()
+	_setup_language_selector()
 	_update_version_text()
 	_set_labels()
 	tooltip_bubble.visible = false
 	_focus_button(0)
 	_set_motion_enabled(true)
+	UIMotionClass.panel_pop_in($ContentLayer/Stack, 0.18, 10.0)
 
 
 func _process(delta: float) -> void:
@@ -97,6 +132,7 @@ func _connect_signals() -> void:
 	profile_button.pressed.connect(_on_profile_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
+	language_select.item_selected.connect(_on_language_selected)
 	for i in range(_buttons.size()):
 		_buttons[i].focus_entered.connect(_on_button_focus_entered.bind(i))
 		_buttons[i].mouse_entered.connect(_on_button_focus_entered.bind(i))
@@ -120,7 +156,12 @@ func _update_version_text() -> void:
 
 func _set_labels() -> void:
 	title_label.text = "s u r v i v e"
-	subtitle_label.text = "FOG / SONAR / NOISE"
+	subtitle_label.text = _localized_text("subtitle")
+	play_button.text = _localized_text("play")
+	profile_button.text = _localized_text("profile")
+	settings_button.text = _localized_text("settings")
+	quit_button.text = _localized_text("quit")
+	language_label.text = _localized_text("language")
 
 
 func _focus_button(index: int) -> void:
@@ -160,12 +201,12 @@ func _on_play_pressed() -> void:
 
 func _on_profile_pressed() -> void:
 	profile_pressed.emit()
-	_show_placeholder(PLACEHOLDER_PROFILE)
+	_show_placeholder(_localized_text("placeholder_profile"))
 
 
 func _on_settings_pressed() -> void:
 	settings_pressed.emit()
-	_show_placeholder(PLACEHOLDER_SETTINGS)
+	_show_placeholder(_localized_text("placeholder_settings"))
 
 
 func _on_quit_pressed() -> void:
@@ -182,10 +223,81 @@ func _show_placeholder(message: String) -> void:
 		tooltip_bubble.call("show_tooltip", message, 1.8)
 
 
+func _apply_optional_backdrop_texture() -> void:
+	if backdrop_texture == null:
+		return
+	if not ResourceLoader.exists(MENU_BACKDROP_TEXTURE_PATH, "Texture2D"):
+		backdrop_texture.visible = false
+		return
+	var texture_variant := load(MENU_BACKDROP_TEXTURE_PATH)
+	if texture_variant is Texture2D:
+		backdrop_texture.texture = texture_variant
+		backdrop_texture.visible = true
+	else:
+		backdrop_texture.visible = false
+
+
 func _set_motion_enabled(enabled: bool) -> void:
 	for button in _buttons:
 		if button != null and button.has_method("set_motion_enabled"):
 			button.call("set_motion_enabled", enabled)
+
+
+func _setup_language_selector() -> void:
+	if language_select == null:
+		return
+	language_select.clear()
+	for language_code in SUPPORTED_LANGUAGE_CODES:
+		var label := String(LANGUAGE_LABELS.get(language_code, language_code))
+		language_select.add_item(label)
+	var stored_language := _load_language_code()
+	_current_language_code = _normalize_language_code(stored_language)
+	var selected_index := SUPPORTED_LANGUAGE_CODES.find(_current_language_code)
+	if selected_index < 0:
+		selected_index = 0
+		_current_language_code = DEFAULT_LANGUAGE_CODE
+	language_select.select(selected_index)
+	_save_language_code(_current_language_code)
+
+
+func _on_language_selected(index: int) -> void:
+	if index < 0 or index >= SUPPORTED_LANGUAGE_CODES.size():
+		return
+	var selected := _normalize_language_code(SUPPORTED_LANGUAGE_CODES[index])
+	if selected == _current_language_code:
+		return
+	_current_language_code = selected
+	_save_language_code(_current_language_code)
+	_set_labels()
+
+
+func _localized_text(key: String) -> String:
+	var locale_pack: Dictionary = MENU_TEXT.get(_current_language_code, MENU_TEXT[DEFAULT_LANGUAGE_CODE])
+	return String(locale_pack.get(key, String(MENU_TEXT[DEFAULT_LANGUAGE_CODE].get(key, key))))
+
+
+func _load_language_code() -> String:
+	if ProfileStore == null:
+		return DEFAULT_LANGUAGE_CODE
+	if not ProfileStore.has_method("get_language_code"):
+		return DEFAULT_LANGUAGE_CODE
+	return String(ProfileStore.call("get_language_code"))
+
+
+func _save_language_code(language_code: String) -> void:
+	if ProfileStore == null:
+		return
+	if ProfileStore.has_method("set_language_code"):
+		ProfileStore.call("set_language_code", language_code)
+
+
+func _normalize_language_code(language_code: String) -> String:
+	var code := language_code.strip_edges()
+	if code.is_empty():
+		return DEFAULT_LANGUAGE_CODE
+	if code == "zh" or code == "zh_CN" or code == "zh-Hans":
+		return "zh_CN"
+	return DEFAULT_LANGUAGE_CODE
 
 
 func _is_transition_busy() -> bool:

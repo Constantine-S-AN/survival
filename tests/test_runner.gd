@@ -78,6 +78,7 @@ func _ready() -> void:
 	await _run_map_biome_tests()
 	await _run_p0f_system_tests()
 	await _run_start_run_hotfix_tests()
+	await _run_level_up_pause_tests()
 	await _run_telegraph_bus_s4_tests()
 	await _run_contract_ux_s3_tests()
 	await _run_enemy_pool_perf_tests()
@@ -1372,10 +1373,13 @@ func _run_start_run_hotfix_tests() -> void:
 			_assert_true(ui_root.mouse_filter == Control.MOUSE_FILTER_IGNORE, "hotfix gameplay root input passthrough enabled")
 		var menu_panel: CanvasItem = ui_node.get_node_or_null("Root/MainMenuPanel") as CanvasItem
 		var contract_panel: CanvasItem = ui_node.get_node_or_null("Root/ContractSelect") as CanvasItem
+		var summary_panel: CanvasItem = ui_node.get_node_or_null("Root/RunSummary") as CanvasItem
 		if menu_panel != null:
 			_assert_true(not menu_panel.visible, "hotfix main menu overlay hidden in playing state")
 		if contract_panel != null:
 			_assert_true(not contract_panel.visible, "hotfix contract overlay hidden in playing state")
+		if summary_panel != null:
+			_assert_true(not summary_panel.visible, "hotfix run summary hidden in playing state")
 
 	var elapsed_before := float(game.get("elapsed_time"))
 	for _i in range(8):
@@ -1402,6 +1406,50 @@ func _run_start_run_hotfix_tests() -> void:
 	await _await_stable_physics_frames(1)
 	get_tree().set_deferred("paused", false)
 	Engine.time_scale = 1.0
+
+
+func _run_level_up_pause_tests() -> void:
+	var game_scene: PackedScene = load("res://scenes/game/GameRoot.tscn")
+	var game_variant: Variant = game_scene.instantiate()
+	_assert_true(game_variant is Node, "level-up pause game root instantiates")
+	if not (game_variant is Node):
+		return
+	var game: Node = game_variant
+	get_tree().root.add_child.call_deferred(game)
+	await _await_stable_physics_frames(2)
+
+	game.call("_on_main_menu_start_requested")
+	game.call("_on_start_run_requested", "diver")
+	game.call("_on_map_select_start_requested", "map_trench_lab")
+	var no_contracts: Array[String] = []
+	game.call("_on_contract_select_start_requested", no_contracts)
+	await _await_stable_physics_frames(3)
+
+	var player: Node = game.get_node_or_null("World/Player")
+	_assert_true(player != null, "level-up pause player exists")
+	if player != null:
+		var xp_to_next := float(player.get("xp_to_next"))
+		player.set("xp", maxf(0.0, xp_to_next - 1.0))
+		player.call("gain_xp", 1)
+	await _await_stable_physics_frames(2)
+
+	_assert_true(String(game.get("run_state")) == String(game.get("STATE_LEVEL_UP")), "level-up pause enters level_up state")
+	_assert_true(get_tree().paused, "level-up pause sets SceneTree paused")
+
+	var upgrade_panel: CanvasItem = game.get_node_or_null("UI/Root/UpgradeSelect") as CanvasItem
+	_assert_true(upgrade_panel != null and upgrade_panel.visible, "level-up pause shows upgrade panel")
+	if upgrade_panel != null and upgrade_panel.has_method("debug_get_snapshot"):
+		var snapshot_variant: Variant = upgrade_panel.call("debug_get_snapshot")
+		if snapshot_variant is Dictionary:
+			var snapshot: Dictionary = snapshot_variant
+			_assert_true(int(snapshot.get("card_count", 0)) >= 3, "level-up pause renders three upgrade cards")
+	var run_hud: CanvasItem = game.get_node_or_null("UI/Root/RunHUD") as CanvasItem
+	if run_hud != null:
+		_assert_true(not run_hud.visible, "level-up pause hides run HUD")
+
+	game.queue_free()
+	await _await_stable_physics_frames(1)
+	get_tree().paused = false
 
 
 func _run_telegraph_bus_s4_tests() -> void:

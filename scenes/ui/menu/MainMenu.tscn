@@ -41,6 +41,18 @@ mouse_filter = 2
 material = SubResource("1")
 color = Color(1, 1, 1, 1)
 
+[node name="BackdropTexture" type="TextureRect" parent="BackgroundLayer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+visible = false
+modulate = Color(0.82, 0.95, 1, 0.14)
+stretch_mode = 5
+
 [node name="GlowOverlay" type="ColorRect" parent="BackgroundLayer"]
 layout_mode = 1
 anchors_preset = 8
@@ -84,6 +96,21 @@ horizontal_alignment = 1
 theme_type_variation = &"SubheadingLabel"
 theme_override_font_sizes/font_size = 20
 
+[node name="LanguageRow" type="HBoxContainer" parent="ContentLayer/Stack"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 10
+
+[node name="LanguageLabel" type="Label" parent="ContentLayer/Stack/LanguageRow"]
+layout_mode = 2
+text = "Language"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="LanguageSelect" type="OptionButton" parent="ContentLayer/Stack/LanguageRow"]
+custom_minimum_size = Vector2(180, 40)
+layout_mode = 2
+theme_type_variation = &"BodyLabel"
+
 [node name="Buttons" type="VBoxContainer" parent="ContentLayer/Stack"]
 layout_mode = 2
 theme_override_constants/separation = 16
@@ -118,6 +145,7 @@ layout_mode = 2
 text = "Quit"
 script = ExtResource("4")
 use_primary_style = false
+button_role = 2
 enable_motion = true
 
 [node name="VersionLabel" type="Label" parent="."]

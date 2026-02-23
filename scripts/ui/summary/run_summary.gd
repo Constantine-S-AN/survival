@@ -6,11 +6,39 @@ signal back_to_menu_requested
 
 const RunSummaryStateClass := preload("res://scripts/ui/summary/run_summary_state.gd")
 const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
+const UISfx := preload("res://scripts/ui/ui_sfx.gd")
+const IconRegistry := preload("res://scripts/ui/icon_registry.gd")
+const TAG_ICON_CODES: Dictionary = {
+	"sonar": "SO",
+	"silence": "SI",
+	"heat": "HT",
+	"crit": "CR",
+	"pierce": "PI",
+	"chain": "CH",
+	"aoe": "AO",
+	"pickup": "PK",
+	"shield": "SH",
+	"speed": "SP",
+	"trap": "TR",
+	"control": "CT",
+	"summon": "SM",
+	"economy": "EC",
+	"damage": "DM",
+	"weapon": "WP",
+	"tempo": "TP",
+	"noise": "NS",
+	"mobility": "MB",
+	"defense": "DF",
+	"hull": "HL"
+}
 
+@onready var backdrop_rect: ColorRect = $Backdrop
 @onready var title_label: Label = $Margin/VBox/Header/TitleGroup/Title
 @onready var subtitle_label: Label = $Margin/VBox/Header/TitleGroup/Subtitle
 @onready var seed_label: Label = $Margin/VBox/Header/SeedBox/Seed
 @onready var seed_copy_button: Button = $Margin/VBox/Header/SeedBox/CopySeedButton
+@onready var unlock_toast: PanelContainer = $Margin/VBox/UnlockToast
+@onready var unlock_toast_text: Label = $Margin/VBox/UnlockToast/UnlockToastMargin/UnlockToastText
 
 @onready var time_value: Label = $Margin/VBox/Columns/LeftColumn/StatsCard/Margin/Content/HeroValues/TimeValue
 @onready var kills_value: Label = $Margin/VBox/Columns/LeftColumn/StatsCard/Margin/Content/HeroValues/KillsValue
@@ -20,7 +48,8 @@ const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 @onready var revealed_badge: PanelContainer = $Margin/VBox/Columns/LeftColumn/StatsCard/Margin/Content/StatsBadges/RevealedBadge
 @onready var boss_progress_label: Label = $Margin/VBox/Columns/LeftColumn/StatsCard/Margin/Content/BossProgress
 
-@onready var weapon_label: Label = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/WeaponLabel
+@onready var weapon_icon: TextureRect = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/WeaponRow/WeaponIcon
+@onready var weapon_label: Label = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/WeaponRow/WeaponLabel
 @onready var top_tags_flow: HFlowContainer = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/TopTagsFlow
 @onready var upgrades_label: Label = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/UpgradesLabel
 @onready var map_contracts_label: Label = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/MapContractsLabel
@@ -39,10 +68,16 @@ const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 var _state: Dictionary = {}
 var _rendered_key_fields: int = 0
 var _copy_seed_tween: Tween
+var _progress_tween: Tween
+var _unlock_toast_tween: Tween
+var _backdrop_material: ShaderMaterial
+var _backdrop_time: float = 0.0
 
 
 func _ready() -> void:
 	visible = false
+	if backdrop_rect != null and backdrop_rect.material is ShaderMaterial:
+		_backdrop_material = backdrop_rect.material
 	retry_button.pressed.connect(func() -> void:
 		retry_requested.emit()
 	)
@@ -52,18 +87,40 @@ func _ready() -> void:
 	seed_copy_button.pressed.connect(_on_copy_seed_pressed)
 	if retry_button.has_method("set_motion_enabled"):
 		retry_button.call("set_motion_enabled", true)
+	if retry_button.has_method("set_button_role"):
+		retry_button.call("set_button_role", 0)
 	if menu_button.has_method("set_motion_enabled"):
 		menu_button.call("set_motion_enabled", true)
+	if unlock_toast != null:
+		unlock_toast.visible = false
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	if not visible:
+		return
+	if _backdrop_material == null:
+		return
+	_backdrop_time += delta
+	_backdrop_material.set_shader_parameter("time_sec", _backdrop_time)
 
 
 func show_summary(data: Dictionary) -> void:
 	set_summary_data(data)
 	visible = true
+	UIMotionClass.panel_pop_in(self, 0.18, 10.0)
+	if UIMotionClass.is_motion_enabled():
+		UIMotionClass.press_bounce(retry_button, 0.12)
+	if _should_play_reward_sfx():
+		UISfx.play_reward()
 	retry_button.grab_focus()
 
 
 func hide_summary() -> void:
 	visible = false
+	modulate = Color(1.0, 1.0, 1.0, 1.0)
+	if unlock_toast != null:
+		unlock_toast.visible = false
 
 
 func set_summary_data(data: Dictionary) -> void:
@@ -140,6 +197,8 @@ func _render() -> void:
 		_rendered_key_fields += 1
 
 	weapon_label.text = "Weapon: %s" % String(_state.get("weapon_name", "--"))
+	if weapon_icon != null:
+		weapon_icon.texture = IconRegistry.get_weapon_icon(String(_state.get("weapon_id", "")))
 	if not String(_state.get("weapon_name", "")).strip_edges().is_empty():
 		_rendered_key_fields += 1
 
@@ -156,14 +215,14 @@ func _render() -> void:
 	var unlock_rows: Array = _state.get("unlock_progress", [])
 	if unlock_rows.is_empty():
 		progress_target_label.text = "All characters unlocked"
-		progress_bar.value = 1.0
+		_animate_progress(1.0)
 		progress_detail_label.text = "No pending target"
 	else:
 		var row_variant: Variant = unlock_rows[0]
 		if row_variant is Dictionary:
 			var row: Dictionary = row_variant
 			progress_target_label.text = "Next target: %s" % String(row.get("name", "Unknown"))
-			progress_bar.value = clampf(float(row.get("ratio", 0.0)), 0.0, 1.0)
+			_animate_progress(clampf(float(row.get("ratio", 0.0)), 0.0, 1.0))
 			var display_text := String(row.get("display", "")).strip_edges()
 			var value_text := String(row.get("text", "")).strip_edges()
 			progress_detail_label.text = "%s\nProgress: %s" % [display_text, value_text]
@@ -174,6 +233,7 @@ func _render() -> void:
 		newly_unlocked_label.text = "New unlocks: —"
 	else:
 		newly_unlocked_label.text = "New unlocks: %s" % ", ".join(newly_unlocked)
+		_show_unlock_toast(newly_unlocked)
 		_rendered_key_fields += 1
 
 	retry_button.disabled = false
@@ -192,15 +252,29 @@ func _render_top_tag_badges(value: Variant) -> void:
 	if not (value is Array):
 		_append_tag_badge("—")
 		return
-	var has_rows := false
+	var rows: Array[Dictionary] = []
 	for row_variant in (value as Array):
 		if not (row_variant is Dictionary):
 			continue
 		var row: Dictionary = row_variant
+		rows.append(row)
+	if rows.is_empty():
+		_append_tag_badge("—")
+		return
+
+	var max_badges := 4
+	var has_rows := false
+	var visible_count := mini(rows.size(), max_badges)
+	for i in range(visible_count):
+		var row: Dictionary = rows[i]
 		var label := String(row.get("label", "Tag"))
 		var weight := int(row.get("weight", 0))
-		_append_tag_badge("%s x%d" % [label, weight])
+		var tag_key := String(row.get("tag", "")).strip_edges().to_lower()
+		var icon_code := String(TAG_ICON_CODES.get(tag_key, "TG"))
+		_append_tag_badge("%s %s x%d" % [icon_code, label, weight])
 		has_rows = true
+	if rows.size() > max_badges:
+		_append_tag_badge("+%d more" % (rows.size() - max_badges))
 	if not has_rows:
 		_append_tag_badge("—")
 
@@ -232,11 +306,15 @@ func _format_upgrades(value: Variant) -> String:
 		var row: Dictionary = row_variant
 		var rarity := String(row.get("rarity", "common")).capitalize()
 		var count := int(row.get("count", 1))
-		output.append("• %s [%s] x%d" % [String(row.get("name", "Unknown")), rarity, count])
+		var name := _truncate_text(String(row.get("name", "Unknown")), 18)
+		output.append("• %s [%s] x%d" % [name, rarity, count])
 	if output.is_empty():
 		return "-"
-	if output.size() > 6:
-		output.resize(6)
+	var max_rows := 2
+	if output.size() > max_rows:
+		var hidden_count := output.size() - max_rows
+		output.resize(max_rows)
+		output.append("• +%d more" % hidden_count)
 	return "\n".join(output)
 
 
@@ -246,12 +324,20 @@ func _format_contracts(value: Variant) -> String:
 	var names: Array[String] = value
 	if names.is_empty():
 		return "None"
-	return ", ".join(names)
+	if names.size() <= 2:
+		var compact: Array[String] = []
+		for name in names:
+			compact.append(_truncate_text(String(name), 16))
+		return ", ".join(compact)
+	var shown: Array[String] = []
+	shown.append(_truncate_text(String(names[0]), 16))
+	shown.append(_truncate_text(String(names[1]), 16))
+	return "%s, %s +%d" % [shown[0], shown[1], names.size() - 2]
 
 
 func _format_multipliers(value: Variant) -> String:
 	var multipliers: Dictionary = value if value is Dictionary else {}
-	return "XP x%.2f | Rarity x%.2f\nDrop x%.2f | Meta x%.2f" % [
+	return "XP x%.2f\nRARITY x%.2f\nDROP x%.2f\nMETA x%.2f" % [
 		float(multipliers.get("xp", 1.0)),
 		float(multipliers.get("rarity", 1.0)),
 		float(multipliers.get("drop", 1.0)),
@@ -261,13 +347,20 @@ func _format_multipliers(value: Variant) -> String:
 
 func _format_meta_currency(value: Variant) -> String:
 	if value == null:
-		return "Meta currency earned: —"
+		return "META CURRENCY: —"
 	if value is Dictionary:
 		var payload: Dictionary = value
 		var total := int(payload.get("total", payload.get("base", 0)))
 		var multiplier := float(payload.get("multiplier", 1.0))
-		return "Meta currency earned: %d (x%.2f)" % [total, multiplier]
-	return "Meta currency earned: %d" % int(value)
+		return "META CURRENCY: %d (x%.2f)" % [total, multiplier]
+	return "META CURRENCY: %d" % int(value)
+
+
+func _truncate_text(text: String, max_chars: int) -> String:
+	var source := text.strip_edges()
+	if source.length() <= max_chars:
+		return source
+	return "%s…" % source.substr(0, max_chars)
 
 
 func _on_copy_seed_pressed() -> void:
@@ -282,4 +375,50 @@ func _on_copy_seed_pressed() -> void:
 	_copy_seed_tween.tween_interval(0.7)
 	_copy_seed_tween.tween_callback(func() -> void:
 		seed_copy_button.text = "Copy"
+	)
+
+
+func _should_play_reward_sfx() -> bool:
+	var meta_variant: Variant = _state.get("meta_currency_earned", null)
+	if meta_variant == null:
+		return false
+	if meta_variant is Dictionary:
+		var meta: Dictionary = meta_variant
+		return int(meta.get("total", 0)) > 0
+	return int(meta_variant) > 0
+
+
+func _animate_progress(target_value: float) -> void:
+	if progress_bar == null:
+		return
+	var clamped := clampf(target_value, 0.0, 1.0)
+	if _progress_tween != null and is_instance_valid(_progress_tween):
+		_progress_tween.kill()
+	if not UIMotionClass.is_motion_enabled():
+		progress_bar.value = clamped
+		return
+	_progress_tween = create_tween()
+	_progress_tween.set_trans(Tween.TRANS_SINE)
+	_progress_tween.set_ease(Tween.EASE_OUT)
+	_progress_tween.tween_property(progress_bar, "value", clamped, 0.30)
+
+
+func _show_unlock_toast(names: Array[String]) -> void:
+	if unlock_toast == null or unlock_toast_text == null:
+		return
+	unlock_toast_text.text = "UNLOCKED: %s" % ", ".join(names)
+	unlock_toast.visible = true
+	unlock_toast.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	if _unlock_toast_tween != null and is_instance_valid(_unlock_toast_tween):
+		_unlock_toast_tween.kill()
+	if not UIMotionClass.is_motion_enabled():
+		unlock_toast.modulate.a = 1.0
+		return
+	_unlock_toast_tween = create_tween()
+	_unlock_toast_tween.tween_property(unlock_toast, "modulate:a", 1.0, 0.14)
+	_unlock_toast_tween.tween_interval(0.9)
+	_unlock_toast_tween.tween_property(unlock_toast, "modulate:a", 0.0, 0.24)
+	_unlock_toast_tween.finished.connect(func() -> void:
+		if unlock_toast != null:
+			unlock_toast.visible = false
 	)

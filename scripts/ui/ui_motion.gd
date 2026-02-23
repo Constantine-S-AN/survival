@@ -62,6 +62,36 @@ static func focus_ring(control: Control) -> void:
 	control.set_meta("ui_motion_focus_tween", tween)
 
 
+static func panel_pop_in(control: Control, duration: float = 0.16, y_offset: float = 10.0) -> void:
+	if control == null:
+		return
+	_kill_tween(control, "ui_motion_panel_tween")
+	var container_managed := _is_container_managed(control)
+	if not _motion_enabled:
+		control.modulate.a = 1.0
+		if container_managed:
+			control.scale = _get_base_scale(control)
+		else:
+			control.position.y = _get_base_position(control).y
+		return
+	var base_scale := _get_base_scale(control)
+	var base_position := _get_base_position(control)
+	if container_managed:
+		control.scale = base_scale * 0.985
+	else:
+		control.position = Vector2(base_position.x, base_position.y + y_offset)
+	control.modulate.a = 0.0
+	var tween := control.create_tween()
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.set_ease(Tween.EASE_OUT)
+	if container_managed:
+		tween.tween_property(control, "scale", base_scale, maxf(0.01, duration))
+	else:
+		tween.tween_property(control, "position", base_position, maxf(0.01, duration))
+	tween.parallel().tween_property(control, "modulate:a", 1.0, maxf(0.01, duration))
+	control.set_meta("ui_motion_panel_tween", tween)
+
+
 static func _get_base_scale(control: Control) -> Vector2:
 	if control.has_meta("ui_motion_base_scale"):
 		var stored: Variant = control.get_meta("ui_motion_base_scale")
@@ -69,6 +99,15 @@ static func _get_base_scale(control: Control) -> Vector2:
 			return stored
 	control.set_meta("ui_motion_base_scale", control.scale)
 	return control.scale
+
+
+static func _get_base_position(control: Control) -> Vector2:
+	if control.has_meta("ui_motion_base_position"):
+		var stored: Variant = control.get_meta("ui_motion_base_position")
+		if stored is Vector2:
+			return stored
+	control.set_meta("ui_motion_base_position", control.position)
+	return control.position
 
 
 static func _kill_tween(control: Control, key: String) -> void:
@@ -80,3 +119,7 @@ static func _kill_tween(control: Control, key: String) -> void:
 		if is_instance_valid(tween):
 			tween.kill()
 	control.remove_meta(key)
+
+
+static func _is_container_managed(control: Control) -> bool:
+	return control.get_parent() is Container

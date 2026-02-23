@@ -35,6 +35,10 @@ func _run() -> void:
 		_fail(lines, "failed to enter run")
 		return
 	lines.append("entered_state=playing")
+	var summary_before_death := game.get_node_or_null("UI/Root/RunSummary")
+	if summary_before_death != null and bool(summary_before_death.visible):
+		_fail(lines, "RunSummary should stay hidden while playing")
+		return
 
 	var player := game.get_node_or_null("World/Player")
 	if player == null:
@@ -44,7 +48,8 @@ func _run() -> void:
 	game.call("_refresh_hud")
 	await get_tree().create_timer(0.12).timeout
 
-	player.call("take_damage", 9999.0)
+	var lethal_damage := maxf(1.0, float(player.get("hp")) + 1.0)
+	player.call("take_damage", lethal_damage)
 	var entered_summary := await _wait_for_state(game, String(game.get("STATE_GAME_OVER")), 2.4)
 	if not entered_summary:
 		_fail(lines, "failed to enter summary state")

@@ -4,7 +4,7 @@
 [ext_resource type="Theme" path="res://ui/theme/NeonTheme.tres" id="2"]
 
 [node name="UpgradeCard" type="PanelContainer"]
-custom_minimum_size = Vector2(320, 360)
+custom_minimum_size = Vector2(260, 340)
 mouse_filter = 2
 theme = ExtResource("2")
 script = ExtResource("1")
@@ -32,6 +32,14 @@ theme_type_variation = &"BodyMutedLabel"
 layout_mode = 2
 custom_minimum_size = Vector2(0, 72)
 theme_type_variation = &"BadgePanel"
+
+[node name="IconCenter" type="CenterContainer" parent="Margin/VBox/IconWrap"]
+layout_mode = 2
+
+[node name="IconTexture" type="TextureRect" parent="Margin/VBox/IconWrap/IconCenter"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+stretch_mode = 5
 
 [node name="IconGlyph" type="Label" parent="Margin/VBox/IconWrap"]
 layout_mode = 2

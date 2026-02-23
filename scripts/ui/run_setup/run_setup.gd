@@ -6,14 +6,17 @@ signal back_requested
 
 const NEON_CARD_SCENE := preload("res://ui/components/NeonCard.tscn")
 const NEON_BUTTON_SCRIPT := preload("res://scripts/ui/components/neon_button.gd")
+const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 
 const STEP_CHARACTER := 0
 const STEP_MAP := 1
 const STEP_CONTRACTS := 2
 
+@onready var backdrop_rect: ColorRect = $Backdrop
 @onready var step_character_btn: Button = $Margin/Columns/Stepper/StepCharacter
 @onready var step_map_btn: Button = $Margin/Columns/Stepper/StepMap
 @onready var step_contracts_btn: Button = $Margin/Columns/Stepper/StepContracts
+@onready var step_status_label: Label = $Margin/Columns/Stepper/StepStatus
 
 @onready var content_title: Label = $Margin/Columns/Content/ContentHeader/Title
 @onready var content_subtitle: Label = $Margin/Columns/Content/ContentHeader/Subtitle
@@ -29,8 +32,10 @@ const STEP_CONTRACTS := 2
 @onready var mult_rarity_label: Label = $Margin/Columns/Summary/SummaryBody/BodyMargin/BodyContent/Multipliers/RarityValue
 @onready var mult_drop_label: Label = $Margin/Columns/Summary/SummaryBody/BodyMargin/BodyContent/Multipliers/DropValue
 @onready var mult_meta_label: Label = $Margin/Columns/Summary/SummaryBody/BodyMargin/BodyContent/Multipliers/MetaValue
+@onready var multiplier_badges: HFlowContainer = $Margin/Columns/Summary/SummaryBody/BodyMargin/BodyContent/MultiplierBadges
 @onready var tag_weights_box: VBoxContainer = $Margin/Columns/Summary/SummaryBody/BodyMargin/BodyContent/TagWeights/Rows
 @onready var start_run_btn: Button = $Margin/Columns/Summary/StartRunButton
+@onready var hover_tooltip: PanelContainer = $HoverTooltip
 
 var current_step: int = STEP_CHARACTER
 
@@ -50,13 +55,28 @@ var _selected_index_by_step: Dictionary = {
 	STEP_MAP: 0,
 	STEP_CONTRACTS: 0
 }
+var _backdrop_material: ShaderMaterial
+var _backdrop_time: float = 0.0
 
 
 func _ready() -> void:
 	visible = false
+	if backdrop_rect != null and backdrop_rect.material is ShaderMaterial:
+		_backdrop_material = backdrop_rect.material
 	_connect_signals()
 	_set_step(STEP_CHARACTER)
 	_refresh_all()
+	visibility_changed.connect(_on_visibility_changed)
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	if not visible:
+		return
+	if _backdrop_material == null:
+		return
+	_backdrop_time += delta
+	_backdrop_material.set_shader_parameter("time_sec", _backdrop_time)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -213,6 +233,8 @@ func _set_step(step_value: int) -> void:
 	_refresh_stepper()
 	_refresh_content()
 	_refresh_nav_buttons()
+	if visible:
+		UIMotionClass.panel_pop_in(cards_scroll, 0.14, 8.0)
 
 
 func _refresh_all() -> void:
@@ -226,12 +248,13 @@ func _refresh_stepper() -> void:
 	step_character_btn.text = _build_step_text("Character", STEP_CHARACTER)
 	step_map_btn.text = _build_step_text("Map", STEP_MAP)
 	step_contracts_btn.text = _build_step_text("Contracts", STEP_CONTRACTS)
+	step_status_label.text = "%d/3 • %s" % [current_step + 1, _step_name(current_step)]
 	step_character_btn.disabled = false
 	step_map_btn.disabled = not _can_enter_step(STEP_MAP)
 	step_contracts_btn.disabled = not _can_enter_step(STEP_CONTRACTS)
-	step_character_btn.theme_type_variation = "PrimaryButton" if current_step == STEP_CHARACTER else "Button"
-	step_map_btn.theme_type_variation = "PrimaryButton" if current_step == STEP_MAP else "Button"
-	step_contracts_btn.theme_type_variation = "PrimaryButton" if current_step == STEP_CONTRACTS else "Button"
+	step_character_btn.theme_type_variation = "PrimaryButton" if current_step == STEP_CHARACTER else "SecondaryButton"
+	step_map_btn.theme_type_variation = "PrimaryButton" if current_step == STEP_MAP else "SecondaryButton"
+	step_contracts_btn.theme_type_variation = "PrimaryButton" if current_step == STEP_CONTRACTS else "SecondaryButton"
 
 
 func _build_step_text(name: String, step_index: int) -> String:
@@ -285,7 +308,8 @@ func _build_character_cards() -> void:
 			desc = "[Locked] %s" % String(row.get("unlock", {}).get("display", ""))
 		var action_text := "Selected" if is_selected else "Select"
 		var action_disabled := (not unlocked) or is_selected
-		var card_btn := _add_card_item(title, desc, action_text, action_disabled)
+		var tooltip_text := _build_character_tooltip(row, unlocked)
+		var card_btn := _add_card_item(title, desc, action_text, action_disabled, tooltip_text)
 		_card_buttons.append(card_btn)
 		card_btn.pressed.connect(_on_character_card_pressed.bind(character_id, index))
 
@@ -303,7 +327,8 @@ func _build_map_cards() -> void:
 		var title := String(row.get("name", map_id))
 		var desc := "%s\n%s" % [String(row.get("description", "")), String(row.get("hazard_summary", ""))]
 		var action_text := "Selected" if is_selected else "Select"
-		var card_btn := _add_card_item(title, desc, action_text, is_selected)
+		var tooltip_text := _build_map_tooltip(row)
+		var card_btn := _add_card_item(title, desc, action_text, is_selected, tooltip_text)
 		_card_buttons.append(card_btn)
 		card_btn.pressed.connect(_on_map_card_pressed.bind(map_id, index))
 
@@ -325,12 +350,13 @@ func _build_contract_cards() -> void:
 			desc = impact_line if desc.is_empty() else "%s\n%s" % [desc, impact_line]
 		var action_text := "Remove" if selected else "Add"
 		var disabled := (not selected and max_contract_select > 0 and selected_contract_ids.size() >= max_contract_select)
-		var card_btn := _add_card_item(title, desc, action_text, false if selected else disabled)
+		var tooltip_text := _build_contract_tooltip(row, selected)
+		var card_btn := _add_card_item(title, desc, action_text, false if selected else disabled, tooltip_text)
 		_card_buttons.append(card_btn)
 		card_btn.pressed.connect(_on_contract_card_pressed.bind(contract_id, index))
 
 
-func _add_card_item(title: String, desc: String, button_text: String, disabled: bool) -> Button:
+func _add_card_item(title: String, desc: String, button_text: String, disabled: bool, tooltip_text: String = "") -> Button:
 	var card: PanelContainer = NEON_CARD_SCENE.instantiate()
 	card.custom_minimum_size = Vector2(0.0, 148.0)
 	cards_box.add_child(card)
@@ -352,6 +378,11 @@ func _add_card_item(title: String, desc: String, button_text: String, disabled: 
 	button.set("enable_motion", true)
 	if content != null:
 		content.add_child(button)
+	if not tooltip_text.strip_edges().is_empty():
+		card.mouse_entered.connect(_show_card_tooltip.bind(card, tooltip_text))
+		card.mouse_exited.connect(_hide_card_tooltip)
+		button.mouse_entered.connect(_show_card_tooltip.bind(card, tooltip_text))
+		button.mouse_exited.connect(_hide_card_tooltip)
 	return button
 
 
@@ -417,6 +448,7 @@ func _refresh_summary() -> void:
 	mult_rarity_label.text = _format_multiplier_display(float(preview.get("rarity_mult", 1.0)))
 	mult_drop_label.text = _format_multiplier_display(float(preview.get("drop_mult", 1.0)))
 	mult_meta_label.text = _format_multiplier_display(float(preview.get("meta_currency_mult", 1.0)))
+	_refresh_multiplier_badges(preview)
 
 	_refresh_tag_weight_rows(selected_character_id)
 
@@ -726,3 +758,117 @@ func _format_contract_impact_line(contract: Dictionary) -> String:
 	if parts.is_empty():
 		return ""
 	return "Affects: %s" % ", ".join(parts)
+
+
+func _refresh_multiplier_badges(preview: Dictionary) -> void:
+	if multiplier_badges == null:
+		return
+	for child in multiplier_badges.get_children():
+		child.queue_free()
+	_append_multiplier_badge("XP", float(preview.get("xp_mult", 1.0)))
+	_append_multiplier_badge("RARITY", float(preview.get("rarity_mult", 1.0)))
+	_append_multiplier_badge("DROP", float(preview.get("drop_mult", 1.0)))
+	_append_multiplier_badge("META", float(preview.get("meta_currency_mult", 1.0)))
+
+
+func _append_multiplier_badge(label: String, value: float) -> void:
+	var badge := PanelContainer.new()
+	badge.theme_type_variation = &"BadgePanel"
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
+	var text := Label.new()
+	text.theme_type_variation = &"BodyMutedLabel"
+	text.text = "%s %s" % [label, _format_multiplier_display(value)]
+	if value > 1.0001:
+		text.modulate = Color(0.66, 0.96, 1.0, 1.0)
+	elif value < 0.9999:
+		text.modulate = Color(1.0, 0.78, 0.78, 1.0)
+	margin.add_child(text)
+	badge.add_child(margin)
+	multiplier_badges.add_child(badge)
+
+
+func _build_character_tooltip(character: Dictionary, unlocked: bool) -> String:
+	var name := String(character.get("display_name", character.get("id", "Character")))
+	var desc := String(character.get("short_desc", "")).strip_edges()
+	var details: Array[String] = []
+	var modifiers_variant: Variant = character.get("stat_modifiers", {})
+	if modifiers_variant is Dictionary:
+		var modifiers: Dictionary = modifiers_variant
+		if modifiers.has("move_speed_multiplier"):
+			details.append("Move x%.2f" % float(modifiers.get("move_speed_multiplier", 1.0)))
+		if modifiers.has("noise_gain_multiplier"):
+			details.append("Noise x%.2f" % float(modifiers.get("noise_gain_multiplier", 1.0)))
+		if modifiers.has("damage_multiplier"):
+			details.append("Damage x%.2f" % float(modifiers.get("damage_multiplier", 1.0)))
+	var unlock_line := ""
+	if not unlocked:
+		unlock_line = "Unlock: %s" % String(character.get("unlock", {}).get("display", "Unknown requirement"))
+	var lines: Array[String] = ["%s" % name]
+	if not desc.is_empty():
+		lines.append(desc)
+	if not details.is_empty():
+		lines.append("Stats: %s" % ", ".join(details))
+	if not unlock_line.is_empty():
+		lines.append(unlock_line)
+	return "\n".join(lines)
+
+
+func _build_map_tooltip(map_row: Dictionary) -> String:
+	var name := String(map_row.get("name", map_row.get("id", "Map")))
+	var desc := String(map_row.get("description", "")).strip_edges()
+	var hazard := String(map_row.get("hazard_summary", "")).strip_edges()
+	var lines: Array[String] = [name]
+	if not desc.is_empty():
+		lines.append(desc)
+	if not hazard.is_empty():
+		lines.append("Hazard: %s" % hazard)
+	return "\n".join(lines)
+
+
+func _build_contract_tooltip(contract: Dictionary, selected: bool) -> String:
+	var name := String(contract.get("name", contract.get("id", "Contract")))
+	var desc := String(contract.get("description", "")).strip_edges()
+	var impact := _format_contract_impact_line(contract)
+	var lines: Array[String] = [name]
+	if not desc.is_empty():
+		lines.append(desc)
+	if not impact.is_empty():
+		lines.append(impact)
+	lines.append("Status: %s" % ("Selected" if selected else "Optional"))
+	return "\n".join(lines)
+
+
+func _show_card_tooltip(card: Control, text: String) -> void:
+	if hover_tooltip == null or not hover_tooltip.has_method("show_tooltip"):
+		return
+	var global_pos := card.get_global_position()
+	hover_tooltip.global_position = Vector2(global_pos.x + card.size.x + 12.0, global_pos.y + 6.0)
+	hover_tooltip.call("show_tooltip", text, 0.0)
+
+
+func _hide_card_tooltip() -> void:
+	if hover_tooltip != null and hover_tooltip.has_method("hide_tooltip"):
+		hover_tooltip.call("hide_tooltip")
+
+
+func _step_name(step_index: int) -> String:
+	match step_index:
+		STEP_CHARACTER:
+			return "Character"
+		STEP_MAP:
+			return "Map"
+		STEP_CONTRACTS:
+			return "Contracts"
+		_:
+			return "Setup"
+
+
+func _on_visibility_changed() -> void:
+	if not visible:
+		_hide_card_tooltip()
+		return
+	UIMotionClass.panel_pop_in(self, 0.16, 10.0)

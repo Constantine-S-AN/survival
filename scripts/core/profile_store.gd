@@ -4,6 +4,7 @@ const PROFILE_PATH := "user://profile.json"
 const PROFILE_TMP_PATH := "user://profile.json.tmp"
 const PROFILE_SCHEMA_VERSION := 2
 const TEST_SESSION_META_KEY := "profile_store_test_session_id"
+const DEFAULT_LANGUAGE_CODE := "en"
 
 const DEFAULT_PROGRESS: Dictionary = {
 	"total_kills": 0,
@@ -88,6 +89,18 @@ func get_selected_contract_ids() -> Array[String]:
 func set_selected_contract_ids(contract_ids: Array) -> void:
 	var normalized := _normalize_string_array(contract_ids)
 	profile["last_selected_contract_ids"] = normalized
+	save_profile()
+
+
+func get_language_code() -> String:
+	return _normalize_language_code(String(profile.get("language_code", DEFAULT_LANGUAGE_CODE)))
+
+
+func set_language_code(language_code: String) -> void:
+	var normalized := _normalize_language_code(language_code)
+	if String(profile.get("language_code", "")) == normalized:
+		return
+	profile["language_code"] = normalized
 	save_profile()
 
 
@@ -343,6 +356,7 @@ func _migrate_profile(raw_profile: Dictionary, default_character_id: String, def
 	migrated["progress"] = progress
 	if not migrated.has("run_count"):
 		migrated["run_count"] = 0
+	migrated["language_code"] = _normalize_language_code(String(migrated.get("language_code", DEFAULT_LANGUAGE_CODE)))
 
 	if schema_version < PROFILE_SCHEMA_VERSION:
 		migrated["schema_version"] = PROFILE_SCHEMA_VERSION
@@ -405,3 +419,12 @@ func _maybe_enable_auto_test_session() -> void:
 	var stamp := int(Time.get_unix_time_from_system())
 	var nonce := int(Time.get_ticks_usec() % 1000000)
 	begin_test_session("%s_%d_%d" % [scene_name, stamp, nonce], true)
+
+
+func _normalize_language_code(language_code: String) -> String:
+	var code := language_code.strip_edges()
+	if code.is_empty():
+		return DEFAULT_LANGUAGE_CODE
+	if code == "zh" or code == "zh_CN" or code == "zh-Hans":
+		return "zh_CN"
+	return DEFAULT_LANGUAGE_CODE

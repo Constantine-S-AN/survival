@@ -30,6 +30,10 @@ Unify all in-game UI around a neon tactical style so T2-T7 can focus on layout a
 - `HeadingLabel`: page or modal title
 - `SubheadingLabel`: emphasis line / context subtitle
 - `BodyMutedLabel`: helper text and secondary stats
+- Font strategy:
+  - Heading / Subheading: futuristic geometric sans (`Orbitron` family preference, then system fallback).
+  - Body / controls: readable modern sans (`Exo2` family preference, then system fallback).
+  - Runtime uses `SystemFont` fallback chain to avoid missing-font crashes in CI/headless.
 
 ## Panel Variations
 - `SurfacePanel`: default page panel
@@ -42,7 +46,13 @@ Unify all in-game UI around a neon tactical style so T2-T7 can focus on layout a
 ## Buttons
 - `Button`: default action style
 - `PrimaryButton`: primary path action (`Start`, `Retry`, confirmation)
+- `SecondaryButton`: lower-priority utility actions (`Back`, `Settings`, `Profile`)
+- `DangerButton`: destructive/exit action (quiet idle, prominent on hover)
 - Hover/focus/pressed states are defined in theme and can be enhanced by component scripts.
+- `NeonButton` roles:
+  - `PRIMARY`: brighter border + glow + confirm SFX
+  - `SECONDARY`: lower contrast, reduced hover scale
+  - `DANGER`: restrained idle, strong hover emphasis
 
 ## Transitions & Motion
 - Global transition entry: autoload `SceneTransition` (`res://scenes/ui/SceneTransition.tscn`).
@@ -195,9 +205,12 @@ Unify all in-game UI around a neon tactical style so T2-T7 can focus on layout a
   - Two-column body:
     - Left card (`Run Stats`): survival time, kills, level, peak noise tier, enemies/revealed, optional boss progress.
     - Right cards (`Build Recap` + `Progress`): weapon, top tags, chosen upgrades, map/contracts, multipliers, unlock target/progress, newly unlocked.
-  - Bottom CTA row:
-    - Primary `Retry`
-    - Secondary `Back to Menu`
+- Bottom CTA row:
+  - Primary `Retry`
+  - Secondary `Back to Menu`
+- Backdrop treatment:
+  - Overlay pages (`RunSetup` / `Upgrade` / `Summary`) include a low-contrast animated shader backdrop plus glass tint.
+  - Motion remains subtle and must not reduce text contrast.
 - Data contract:
   - Summary view consumes only a summary state dictionary.
   - Missing fields must hide or degrade to placeholders safely without runtime errors.
@@ -206,9 +219,41 @@ Unify all in-game UI around a neon tactical style so T2-T7 can focus on layout a
 - Use large numeric treatment for headline stats:
   - Survival time and kill count use elevated display size.
   - Unit/context labels remain muted and smaller.
+- Multipliers should follow the same hierarchy:
+  - label small (`XP`, `RARITY`, `DROP`, `META`)
+  - value visually dominant (`x1.20`)
 - Hierarchy order:
   - `Retry` CTA > headline stats > progress target > detail lists.
 - Dense sections (`Chosen upgrades`, contracts) use muted body text and line breaks for scanability.
+
+## Card Motion Rules
+- `NeonCard` supports low-frequency breathing motion by default.
+- Breathing is subtle alpha drift only; no large translation while idle.
+- Pop-in pattern for modal/card surfaces:
+  - slight upward movement (`~8-10px`)
+  - quick fade (`0.14s - 0.18s`)
+  - route through `UIMotion.panel_pop_in(...)`
+- Motion must respect global reduce-motion switch (`UIMotion.set_motion_enabled`).
+
+## Tag And Rarity Presentation
+- Tags should render as badge-like tokens with compact icon code prefix:
+  - Example: `[SO Sonar]`, `[DM Damage]`
+- Upgrade rarity must be visible without reading description:
+  - color-coded rarity label
+  - border thickness escalation by rarity tier
+  - focus ring reuses rarity hue for readability
+
+## UI SFX Baseline
+- Event set:
+  - hover
+  - click
+  - confirm
+  - tier-up
+  - reward
+- Runtime entry: `res://scripts/ui/ui_sfx.gd`
+- Toggle contract:
+  - global enable/disable API exists now
+  - TODO for Settings: bind to future UI SFX switch
 
 ## Progress And CTA Rules
 - Progress card:

@@ -174,6 +174,8 @@ var telegraph_flash_tween: Tween
 var latest_hud_data: Dictionary = {}
 var latest_run_multipliers: Dictionary = {}
 var latest_summary_data: Dictionary = {}
+var _active_state: String = ""
+var _summary_requested: bool = false
 
 
 func _ready() -> void:
@@ -202,6 +204,10 @@ func _ready() -> void:
 	retry_button.pressed.connect(func() -> void:
 		retry_requested.emit()
 	)
+
+
+func _process(_delta: float) -> void:
+	_enforce_summary_visibility()
 
 
 func _create_fog_overlay() -> void:
@@ -528,6 +534,10 @@ func set_fog_overlay_enabled(enabled: bool) -> void:
 func update_hud(data: Dictionary) -> void:
 	latest_hud_data = data.duplicate(true)
 	latest_run_multipliers = _extract_run_multipliers(data)
+	var hud_state := String(data.get("state", "")).strip_edges().to_lower()
+	if hud_state != "game_over":
+		_summary_requested = false
+		_set_run_summary_visible(false)
 
 	if run_hud != null and run_hud.has_method("apply_hud_dict"):
 		run_hud.call("apply_hud_dict", data)
@@ -745,6 +755,8 @@ func _play_noise_tier_change(tier_color: Color) -> void:
 func set_main_menu_visible(enabled: bool) -> void:
 	if main_menu_panel != null:
 		main_menu_panel.visible = enabled
+	if enabled:
+		_set_run_summary_visible(false)
 	if enabled and run_setup_panel != null:
 		run_setup_panel.visible = false
 	if enabled and character_select_panel != null:
@@ -761,6 +773,8 @@ func set_character_select_visible(enabled: bool) -> void:
 		run_setup_panel.visible = enabled
 		if enabled and run_setup_panel.has_method("set_step_by_state"):
 			run_setup_panel.call("set_step_by_state", "character_select")
+	if enabled:
+		_set_run_summary_visible(false)
 	if character_select_panel != null:
 		character_select_panel.visible = false
 	if enabled and main_menu_panel != null:
@@ -777,6 +791,8 @@ func set_map_select_visible(enabled: bool) -> void:
 		run_setup_panel.visible = enabled
 		if enabled and run_setup_panel.has_method("set_step_by_state"):
 			run_setup_panel.call("set_step_by_state", "map_select")
+	if enabled:
+		_set_run_summary_visible(false)
 	if map_select_panel != null:
 		map_select_panel.visible = false
 	if enabled and main_menu_panel != null:
@@ -793,6 +809,8 @@ func set_contract_select_visible(enabled: bool) -> void:
 		run_setup_panel.visible = enabled
 		if enabled and run_setup_panel.has_method("set_step_by_state"):
 			run_setup_panel.call("set_step_by_state", "contract_select")
+	if enabled:
+		_set_run_summary_visible(false)
 	if contract_select_panel != null:
 		contract_select_panel.visible = false
 	if enabled and main_menu_panel != null:
@@ -873,9 +891,38 @@ func _set_upgrade_select_visible(visible_state: bool) -> void:
 func _set_run_summary_visible(visible_state: bool) -> void:
 	if run_summary_panel == null:
 		return
-	run_summary_panel.visible = visible_state
-	if visible_state and run_summary_panel.has_method("set_summary_data"):
-		run_summary_panel.call("set_summary_data", latest_summary_data)
+	if visible_state:
+		if _active_state != "game_over" or not _summary_requested:
+			if run_summary_panel.has_method("hide_summary"):
+				run_summary_panel.call("hide_summary")
+			else:
+				run_summary_panel.visible = false
+			return
+		if run_summary_panel.has_method("show_summary"):
+			run_summary_panel.call("show_summary", latest_summary_data)
+		else:
+			run_summary_panel.visible = true
+			if run_summary_panel.has_method("set_summary_data"):
+				run_summary_panel.call("set_summary_data", latest_summary_data)
+		return
+	if run_summary_panel.has_method("hide_summary"):
+		run_summary_panel.call("hide_summary")
+	else:
+		run_summary_panel.visible = false
+
+
+func _enforce_summary_visibility() -> void:
+	if run_summary_panel == null:
+		return
+	var can_show := _active_state == "game_over" and _summary_requested
+	if can_show:
+		return
+	if not run_summary_panel.visible:
+		return
+	if run_summary_panel.has_method("hide_summary"):
+		run_summary_panel.call("hide_summary")
+	else:
+		run_summary_panel.visible = false
 
 
 func _set_root_input_passthrough(enabled: bool) -> void:
@@ -928,12 +975,23 @@ func hide_level_up() -> void:
 	current_options.clear()
 
 
+func clear_run_summary() -> void:
+	_summary_requested = false
+	latest_summary_data.clear()
+	_set_run_summary_visible(false)
+
+
 func show_game_over(summary: Dictionary) -> void:
 	latest_summary_data = summary.duplicate(true)
+	_summary_requested = true
 	level_up_panel.visible = false
-	if run_summary_panel != null and run_summary_panel.has_method("show_summary"):
+	if run_summary_panel != null:
+		if _active_state != "game_over":
+			push_warning("RunSummary show_game_over ignored: active state is %s" % _active_state)
+			_set_run_summary_visible(false)
+			return
 		game_over_panel.visible = false
-		run_summary_panel.call("show_summary", latest_summary_data)
+		_set_run_summary_visible(true)
 		return
 
 	var lines := [
@@ -951,6 +1009,9 @@ func show_game_over(summary: Dictionary) -> void:
 
 
 func on_game_state_changed(state: String) -> void:
+	_active_state = state
+	if state != "game_over":
+		_summary_requested = false
 	match state:
 		"menu":
 			_set_root_input_passthrough(false)
@@ -1000,12 +1061,13 @@ func on_game_state_changed(state: String) -> void:
 			set_character_select_visible(false)
 			set_map_select_visible(false)
 			set_contract_select_visible(false)
-			_set_hud_visible(true)
+			_set_hud_visible(false)
 		"game_over":
 			_set_root_input_passthrough(false)
 			_set_upgrade_select_visible(false)
 			game_over_panel.visible = run_summary_panel == null
-			_set_run_summary_visible(true)
+			if run_summary_panel != null:
+				_set_run_summary_visible(false)
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
 			set_map_select_visible(false)

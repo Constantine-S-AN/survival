@@ -1,6 +1,17 @@
 .godot/
 .import/
+*.import
+*.uid
 export/*.pck
 export/*.zip
 assets/audio/*.wav
 .DS_Store
+
+# build outputs
+exports/
+dist/
+.godot/
+.import/
+*.log
+.DS_Store
+tmp/logs/

@@ -1,10 +1,21 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/summary/run_summary.gd" id="1"]
 [ext_resource type="Theme" path="res://ui/theme/NeonTheme.tres" id="2"]
 [ext_resource type="PackedScene" path="res://ui/components/NeonCard.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://ui/components/StatBadge.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://ui/components/NeonButton.tscn" id="5"]
+[ext_resource type="Shader" path="res://assets/shaders/menu_background.gdshader" id="6"]
+
+[sub_resource type="ShaderMaterial" id="1"]
+shader = ExtResource("6")
+shader_parameter/top_color = Color(0.018, 0.031, 0.062, 1)
+shader_parameter/bottom_color = Color(0.006, 0.01, 0.024, 1)
+shader_parameter/accent_color = Color(0.3, 0.73, 0.97, 1)
+shader_parameter/scanline_strength = 0.019
+shader_parameter/noise_strength = 0.016
+shader_parameter/pulse_strength = 0.02
+shader_parameter/time_sec = 0.0
 
 [node name="RunSummary" type="Panel"]
 visible = false
@@ -15,13 +26,34 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 offset_left = 90.0
-offset_top = 96.0
+offset_top = 74.0
 offset_right = -90.0
-offset_bottom = -84.0
+offset_bottom = -28.0
 mouse_filter = 0
 theme = ExtResource("2")
 theme_type_variation = &"OverlayPanel"
 script = ExtResource("1")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+material = SubResource("1")
+color = Color(1, 1, 1, 0.22)
+
+[node name="GlassTint" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.01, 0.025, 0.058, 0.46)
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 2
@@ -67,23 +99,45 @@ theme_type_variation = &"BodyMutedLabel"
 layout_mode = 2
 custom_minimum_size = Vector2(62, 28)
 text = "Copy"
-theme_type_variation = &"Button"
+theme_type_variation = &"SecondaryButton"
+
+[node name="UnlockToast" type="PanelContainer" parent="Margin/VBox"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 8
+theme_type_variation = &"BadgePanel"
+
+[node name="UnlockToastMargin" type="MarginContainer" parent="Margin/VBox/UnlockToast"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 4
+
+[node name="UnlockToastText" type="Label" parent="Margin/VBox/UnlockToast/UnlockToastMargin"]
+layout_mode = 2
+horizontal_alignment = 1
+text = "UNLOCKED"
 
 [node name="Columns" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 14
+theme_override_constants/separation = 18
 
 [node name="LeftColumn" type="VBoxContainer" parent="Margin/VBox/Columns"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+size_flags_stretch_ratio = 0.98
 
 [node name="StatsCard" parent="Margin/VBox/Columns/LeftColumn" instance=ExtResource("3")]
+clip_contents = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 custom_minimum_size = Vector2(0, 0)
+play_intro_on_show = false
 
 [node name="Title" parent="Margin/VBox/Columns/LeftColumn/StatsCard/Margin/Content"]
 layout_mode = 2
@@ -152,16 +206,20 @@ text = "Boss progress: -"
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="RightColumn" type="VBoxContainer" parent="Margin/VBox/Columns"]
+custom_minimum_size = Vector2(460, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 10
+size_flags_stretch_ratio = 1.12
+theme_override_constants/separation = 14
 
 [node name="BuildCard" parent="Margin/VBox/Columns/RightColumn" instance=ExtResource("3")]
+clip_contents = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-custom_minimum_size = Vector2(0, 0)
+custom_minimum_size = Vector2(0, 278)
+play_intro_on_show = false
 
 [node name="Title" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
 layout_mode = 2
@@ -171,8 +229,18 @@ text = "Build Recap"
 visible = false
 layout_mode = 2
 
-[node name="WeaponLabel" type="Label" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
+[node name="WeaponRow" type="HBoxContainer" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
 layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="WeaponIcon" type="TextureRect" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/WeaponRow"]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+stretch_mode = 5
+
+[node name="WeaponLabel" type="Label" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/WeaponRow"]
+layout_mode = 2
+size_flags_horizontal = 3
 text = "Weapon: --"
 
 [node name="TopTagsTitle" type="Label" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
@@ -182,6 +250,7 @@ theme_type_variation = &"BodyMutedLabel"
 
 [node name="TopTagsFlow" type="HFlowContainer" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
 layout_mode = 2
+clip_contents = true
 theme_override_constants/h_separation = 6
 theme_override_constants/v_separation = 6
 
@@ -190,17 +259,21 @@ layout_mode = 2
 text = "Chosen upgrades:\n-"
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
+theme_override_constants/line_spacing = 1
 
 [node name="MapContractsLabel" type="Label" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
 layout_mode = 2
 text = "Map: -\nContracts: None"
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
+theme_override_constants/line_spacing = 1
 
 [node name="MultipliersLabel" type="Label" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
 layout_mode = 2
 text = "XP x1.00 | Rarity x1.00\nDrop x1.00 | Meta x1.00"
 autowrap_mode = 3
+theme_override_font_sizes/font_size = 17
+theme_override_constants/line_spacing = 1
 
 [node name="MetaCurrencyLabel" type="Label" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
 layout_mode = 2
@@ -208,10 +281,12 @@ text = "Meta currency earned: —"
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="ProgressCard" parent="Margin/VBox/Columns/RightColumn" instance=ExtResource("3")]
+clip_contents = true
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 3
-custom_minimum_size = Vector2(0, 0)
+size_flags_vertical = 0
+custom_minimum_size = Vector2(0, 164)
+play_intro_on_show = false
 
 [node name="Title" parent="Margin/VBox/Columns/RightColumn/ProgressCard/Margin/Content"]
 layout_mode = 2
@@ -225,6 +300,7 @@ layout_mode = 2
 layout_mode = 2
 text = "Next target: -"
 theme_type_variation = &"SubheadingLabel"
+autowrap_mode = 3
 
 [node name="ProgressBar" type="ProgressBar" parent="Margin/VBox/Columns/RightColumn/ProgressCard/Margin/Content"]
 layout_mode = 2
@@ -251,15 +327,15 @@ theme_override_constants/separation = 10
 
 [node name="RetryButton" parent="Margin/VBox/CTA" instance=ExtResource("5")]
 layout_mode = 2
-custom_minimum_size = Vector2(180, 46)
-text = "Retry"
+custom_minimum_size = Vector2(220, 52)
+text = "Retry Run"
 
 [node name="MenuButton" parent="Margin/VBox/CTA" instance=ExtResource("5")]
 layout_mode = 2
 custom_minimum_size = Vector2(180, 46)
 text = "Back to Menu"
 use_primary_style = false
-theme_type_variation = &"Button"
+theme_type_variation = &"SecondaryButton"
 
 [node name="KeyHint" type="Label" parent="Margin/VBox"]
 layout_mode = 2

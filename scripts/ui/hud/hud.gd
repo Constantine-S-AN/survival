@@ -3,6 +3,31 @@ class_name RunHUD
 
 const HUDStateClass := preload("res://scripts/ui/hud/hud_state.gd")
 const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
+const UISfx := preload("res://scripts/ui/ui_sfx.gd")
+const IconRegistry := preload("res://scripts/ui/icon_registry.gd")
+const TAG_ICON_CODES: Dictionary = {
+	"sonar": "SO",
+	"silence": "SI",
+	"heat": "HT",
+	"crit": "CR",
+	"pierce": "PI",
+	"chain": "CH",
+	"aoe": "AO",
+	"pickup": "PK",
+	"shield": "SH",
+	"speed": "SP",
+	"trap": "TR",
+	"control": "CT",
+	"summon": "SM",
+	"economy": "EC",
+	"damage": "DM",
+	"weapon": "WP",
+	"tempo": "TP",
+	"noise": "NS",
+	"mobility": "MB",
+	"defense": "DF",
+	"hull": "HL"
+}
 
 @onready var noise_panel: PanelContainer = $TopNoise/NoisePanel
 @onready var noise_meter: VBoxContainer = $TopNoise/NoisePanel/Margin/VBox/NoiseMeter
@@ -19,13 +44,16 @@ const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 @onready var time_badge: PanelContainer = $LeftSurvival/SurvivalPanel/Margin/VBox/Badges/TimeBadge
 @onready var enemy_info_label: Label = $LeftSurvival/SurvivalPanel/Margin/VBox/EnemyInfo
 
-@onready var weapon_name_label: Label = $RightBuild/BuildCard/BuildMargin/BuildVBox/WeaponName
+@onready var weapon_name_label: Label = $RightBuild/BuildCard/BuildMargin/BuildVBox/WeaponRow/WeaponName
+@onready var weapon_icon: TextureRect = $RightBuild/BuildCard/BuildMargin/BuildVBox/WeaponRow/WeaponIcon
 @onready var key_tags_label: Label = $RightBuild/BuildCard/BuildMargin/BuildVBox/KeyTags
 
 @onready var sonar_block: VBoxContainer = $BottomActions/ActionPanel/Margin/Row/SonarBlock
+@onready var sonar_icon: TextureRect = $BottomActions/ActionPanel/Margin/Row/SonarBlock/SonarHeader/SonarIcon
 @onready var sonar_bar: ProgressBar = $BottomActions/ActionPanel/Margin/Row/SonarBlock/SonarBar
 @onready var sonar_hint_label: Label = $BottomActions/ActionPanel/Margin/Row/SonarBlock/SonarHint
 @onready var dash_block: VBoxContainer = $BottomActions/ActionPanel/Margin/Row/DashBlock
+@onready var dash_icon: TextureRect = $BottomActions/ActionPanel/Margin/Row/DashBlock/DashHeader/DashIcon
 @onready var dash_bar: ProgressBar = $BottomActions/ActionPanel/Margin/Row/DashBlock/DashBar
 @onready var dash_hint_label: Label = $BottomActions/ActionPanel/Margin/Row/DashBlock/DashHint
 @onready var contract_status_label: Label = $BottomActions/ActionPanel/Margin/Row/ContractStatusLabel
@@ -34,9 +62,12 @@ const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 
 var _last_tier_id: String = ""
 var _last_hp_ratio: float = 1.0
+var _last_sonar_ping_sequence: int = 0
 var _tier_tween: Tween
 var _threat_tween: Tween
 var _damage_tween: Tween
+var _sonar_tween: Tween
+var _intro_played: bool = false
 
 
 func _ready() -> void:
@@ -47,7 +78,12 @@ func _ready() -> void:
 	threshold_bar.value = 0.0
 	sonar_bar.min_value = 0.0
 	dash_bar.min_value = 0.0
+	sonar_hint_label.text = "Ready"
 	contract_status_label.visible = false
+	if sonar_icon != null:
+		sonar_icon.texture = IconRegistry.get_skill_icon("sonar")
+	if dash_icon != null:
+		dash_icon.texture = IconRegistry.get_skill_icon("dash")
 	if noise_meter != null:
 		var title := noise_meter.get_node_or_null("Title") as Label
 		var tier := noise_meter.get_node_or_null("Tier") as Label
@@ -55,6 +91,7 @@ func _ready() -> void:
 			title.visible = false
 		if tier != null:
 			tier.visible = false
+	visibility_changed.connect(_on_visibility_changed)
 
 
 func apply_hud_dict(data: Dictionary) -> void:
@@ -79,11 +116,15 @@ func apply_state(state) -> void:
 	var noise_tier_name := String(state.get("noise_tier_name", "Silent"))
 	var noise_tier_id := String(state.get("noise_tier_id", "silent"))
 	var noise_tier_color := Color(state.get("noise_tier_color", Color(0.45, 0.9, 1.0, 1.0)))
+	var weapon_id := String(state.get("weapon_id", ""))
 	var weapon_name := String(state.get("weapon_name", "--"))
 	var build_tags: Array[String] = HUDStateClass._string_array(state.get("build_tags", []))
 	var weapon_tags: Array[String] = HUDStateClass._string_array(state.get("weapon_tags", []))
 	var sonar_cd_remaining := float(state.get("sonar_cd_remaining", 0.0))
 	var sonar_cd_total := float(state.get("sonar_cd_total", 0.0))
+	var sonar_feedback_timer := float(state.get("sonar_feedback_timer", 0.0))
+	var sonar_ping_count := int(state.get("sonar_ping_count", 0))
+	var sonar_ping_sequence := int(state.get("sonar_ping_sequence", 0))
 	var dash_cd_remaining := float(state.get("dash_cd_remaining", 0.0))
 	var dash_cd_total := float(state.get("dash_cd_total", 0.0))
 	var contract_dash_disabled := bool(state.get("contract_dash_disabled", false))
@@ -115,10 +156,12 @@ func apply_state(state) -> void:
 		_last_tier_id = noise_tier_id
 
 	weapon_name_label.text = "Weapon: %s" % weapon_name
+	if weapon_icon != null:
+		weapon_icon.texture = IconRegistry.get_weapon_icon(weapon_id)
 	var tags: Array[String] = build_tags if not build_tags.is_empty() else weapon_tags
 	_update_key_tags(tags)
 
-	_update_cooldown_block(sonar_block, sonar_bar, sonar_hint_label, sonar_cd_remaining, sonar_cd_total, "Q Sonar")
+	_update_sonar_block(sonar_cd_remaining, sonar_cd_total, sonar_feedback_timer, sonar_ping_count, sonar_ping_sequence)
 
 	if contract_dash_disabled:
 		dash_block.visible = true
@@ -147,6 +190,7 @@ func get_debug_snapshot() -> Dictionary:
 		"hp_text": hp_value_label.text,
 		"hp_ratio": clampf(hp_bar.value / maxf(1.0, hp_bar.max_value), 0.0, 1.0),
 		"sonar_hint": sonar_hint_label.text,
+		"sonar_ping_sequence": _last_sonar_ping_sequence,
 		"dash_hint": dash_hint_label.text,
 		"contract_visible": contract_status_label.visible
 	}
@@ -186,7 +230,9 @@ func _update_threshold_progress(state, tier_index: int) -> void:
 func _update_key_tags(tags: Array[String]) -> void:
 	var parts: Array[String] = []
 	for i in range(mini(4, tags.size())):
-		parts.append("[%s]" % String(tags[i]).capitalize())
+		var tag := String(tags[i]).strip_edges().to_lower()
+		var icon_code := String(TAG_ICON_CODES.get(tag, "TG"))
+		parts.append("[%s %s]" % [icon_code, tag.capitalize()])
 	key_tags_label.text = "Key tags: %s" % (" ".join(parts) if not parts.is_empty() else "-")
 
 
@@ -203,7 +249,44 @@ func _update_cooldown_block(block: VBoxContainer, bar: ProgressBar, hint: Label,
 		hint.text = "(%.1fs)" % remaining
 
 
+func _update_sonar_block(
+	remaining: float,
+	total: float,
+	feedback_timer: float,
+	ping_count: int,
+	ping_sequence: int
+) -> void:
+	_update_cooldown_block(sonar_block, sonar_bar, sonar_hint_label, remaining, total, "Q Sonar")
+	if ping_sequence > _last_sonar_ping_sequence:
+		_last_sonar_ping_sequence = ping_sequence
+		_play_sonar_feedback_pulse()
+	if total <= 0.01:
+		return
+	if feedback_timer > 0.0:
+		sonar_hint_label.text = "Ping: %d contact%s" % [ping_count, "" if ping_count == 1 else "s"]
+		return
+	if remaining <= 0.01:
+		sonar_hint_label.text = "Ready"
+	else:
+		sonar_hint_label.text = "(%.1fs)" % remaining
+
+
+func _play_sonar_feedback_pulse() -> void:
+	if _sonar_tween != null and is_instance_valid(_sonar_tween):
+		_sonar_tween.kill()
+	if not UIMotionClass.is_motion_enabled():
+		return
+	sonar_block.scale = Vector2.ONE
+	sonar_bar.modulate = Color(0.58, 0.96, 1.0, 1.0)
+	_sonar_tween = create_tween()
+	_sonar_tween.tween_property(sonar_block, "scale", Vector2(1.02, 1.02), 0.08)
+	_sonar_tween.parallel().tween_property(sonar_bar, "modulate", Color(0.80, 1.0, 1.0, 1.0), 0.08)
+	_sonar_tween.tween_property(sonar_block, "scale", Vector2.ONE, 0.10)
+	_sonar_tween.parallel().tween_property(sonar_bar, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.12)
+
+
 func _play_tier_change_feedback(tier_index: int, tier_color: Color) -> void:
+	UISfx.play_tier_up()
 	threat_flash_label.text = "THREAT TIER %d" % maxi(0, tier_index)
 	threat_flash_label.modulate = Color(1.0, 1.0, 1.0, 1.0).lerp(tier_color, 0.30)
 	threat_flash_label.visible = true
@@ -286,3 +369,16 @@ func _set_badge(badge: PanelContainer, label_text: String, value_text: String) -
 		return
 	if badge.has_method("set_badge"):
 		badge.call("set_badge", label_text, value_text)
+
+
+func _on_visibility_changed() -> void:
+	if not visible:
+		_intro_played = false
+		return
+	if _intro_played:
+		return
+	_intro_played = true
+	UIMotionClass.panel_pop_in(noise_panel, 0.14, 8.0)
+	UIMotionClass.panel_pop_in($LeftSurvival/SurvivalPanel, 0.15, 8.0)
+	UIMotionClass.panel_pop_in($RightBuild/BuildCard, 0.16, 8.0)
+	UIMotionClass.panel_pop_in($BottomActions/ActionPanel, 0.17, 8.0)

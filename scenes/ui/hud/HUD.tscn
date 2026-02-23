@@ -31,10 +31,10 @@ layout_mode = 1
 anchors_preset = 10
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -260.0
-offset_top = 12.0
-offset_right = 260.0
-offset_bottom = 220.0
+offset_left = -160.0
+offset_top = 10.0
+offset_right = 160.0
+offset_bottom = 142.0
 mouse_filter = 2
 
 [node name="NoisePanel" type="PanelContainer" parent="TopNoise"]
@@ -44,14 +44,14 @@ theme_type_variation = &"HudPanel"
 
 [node name="Margin" type="MarginContainer" parent="TopNoise/NoisePanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 12
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
 
 [node name="VBox" type="VBoxContainer" parent="TopNoise/NoisePanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 6
 
 [node name="Header" type="HBoxContainer" parent="TopNoise/NoisePanel/Margin/VBox"]
 layout_mode = 2
@@ -70,19 +70,21 @@ theme_type_variation = &"BodyMutedLabel"
 layout_mode = 2
 text = "Noise 0"
 theme_type_variation = &"HeadingLabel"
+theme_override_font_sizes/font_size = 38
 
 [node name="TierIndex" type="Label" parent="TopNoise/NoisePanel/Margin/VBox/Header"]
 layout_mode = 2
 horizontal_alignment = 2
 text = "TIER 0"
 theme_type_variation = &"SubheadingLabel"
+theme_override_font_sizes/font_size = 18
 
 [node name="NoiseMeter" parent="TopNoise/NoisePanel/Margin/VBox" instance=ExtResource("3")]
 layout_mode = 2
 
 [node name="ThresholdBar" type="ProgressBar" parent="TopNoise/NoisePanel/Margin/VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 14)
+custom_minimum_size = Vector2(0, 10)
 show_percentage = false
 
 [node name="ThresholdLabel" type="Label" parent="TopNoise/NoisePanel/Margin/VBox"]
@@ -96,6 +98,7 @@ layout_mode = 2
 text = "THREAT TIER 0"
 horizontal_alignment = 1
 theme_type_variation = &"SubheadingLabel"
+theme_override_font_sizes/font_size = 15
 
 [node name="LeftSurvival" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -134,6 +137,7 @@ show_percentage = false
 [node name="HPValue" type="Label" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
 layout_mode = 2
 text = "HP 100/100"
+theme_override_font_sizes/font_size = 24
 
 [node name="Badges" type="HBoxContainer" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
 layout_mode = 2
@@ -191,8 +195,18 @@ layout_mode = 2
 text = "Build Snapshot"
 theme_type_variation = &"SubheadingLabel"
 
-[node name="WeaponName" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox"]
+[node name="WeaponRow" type="HBoxContainer" parent="RightBuild/BuildCard/BuildMargin/BuildVBox"]
 layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="WeaponIcon" type="TextureRect" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/WeaponRow"]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+stretch_mode = 5
+
+[node name="WeaponName" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/WeaponRow"]
+layout_mode = 2
+size_flags_horizontal = 3
 text = "Weapon --"
 
 [node name="KeyTags" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox"]
@@ -233,7 +247,16 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
-[node name="SonarLabel" type="Label" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock"]
+[node name="SonarHeader" type="HBoxContainer" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SonarIcon" type="TextureRect" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock/SonarHeader"]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+stretch_mode = 5
+
+[node name="SonarLabel" type="Label" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock/SonarHeader"]
 layout_mode = 2
 text = "Q Sonar"
 
@@ -252,7 +275,16 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
-[node name="DashLabel" type="Label" parent="BottomActions/ActionPanel/Margin/Row/DashBlock"]
+[node name="DashHeader" type="HBoxContainer" parent="BottomActions/ActionPanel/Margin/Row/DashBlock"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DashIcon" type="TextureRect" parent="BottomActions/ActionPanel/Margin/Row/DashBlock/DashHeader"]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+stretch_mode = 5
+
+[node name="DashLabel" type="Label" parent="BottomActions/ActionPanel/Margin/Row/DashBlock/DashHeader"]
 layout_mode = 2
 text = "Space Dash"
 

@@ -6,6 +6,7 @@ signal hazard_state_changed(active: bool, warning_text: String)
 
 const MapRuntimeClass := preload("res://scripts/core/map_runtime.gd")
 const BossTelegraphEffectClass := preload("res://scripts/effects/boss_telegraph_effect.gd")
+const BACKDROP_TEXTURE_PATH := "res://assets/textures/commercial/neon_grid_bg.png"
 
 @onready var projectile_manager = $ProjectileManager
 @onready var pool_manager = $PoolManager
@@ -16,6 +17,8 @@ const BossTelegraphEffectClass := preload("res://scripts/effects/boss_telegraph_
 @onready var camera = $Player/Camera2D
 @onready var fog_darkness: CanvasModulate = $FogDarkness
 @onready var fog_light: PointLight2D = $Player/FogLight
+@onready var backdrop_main: Sprite2D = $Backdrop/BackdropMain
+@onready var backdrop_accent: Sprite2D = $Backdrop/BackdropAccent
 @onready var hit_sfx = $HitSfx
 @onready var shot_sfx = $ShotSfx
 
@@ -42,6 +45,7 @@ var runtime_drop_multiplier: float = 1.0
 var last_hazard_active: bool = false
 var last_hazard_warning_active: bool = false
 var boss_fx_layer: Node2D
+var _fog_light_texture_cache: Texture2D = null
 const PROJECTILE_POOL_KEY := "projectile"
 const PICKUP_POOL_KEY := "pickup"
 const ENEMY_POOL_KEY := "enemy"
@@ -52,6 +56,7 @@ const ENEMY_POOL_PREWARM := 120
 
 func _ready() -> void:
 	sfx_rng.seed = int(Time.get_unix_time_from_system())
+	_apply_optional_backdrop_texture()
 	boss_fx_layer = Node2D.new()
 	boss_fx_layer.name = "BossFxLayer"
 	add_child(boss_fx_layer)
@@ -64,11 +69,32 @@ func _ready() -> void:
 	current_map_id = DataRegistry.get_default_map_id()
 	FeedbackBus.hit_landed.connect(_on_hit_landed)
 	FeedbackBus.shot_fired.connect(_on_shot_fired)
+	if not FeedbackBus.sonar_pulse_requested.is_connected(_on_sonar_pulse_requested):
+		FeedbackBus.sonar_pulse_requested.connect(_on_sonar_pulse_requested)
 	if enemy_manager != null:
 		enemy_manager.boss_telegraph_requested.connect(_on_boss_telegraph_requested)
 		enemy_manager.boss_echoes_spawned.connect(_on_boss_echoes_spawned)
 		enemy_manager.boss_true_form_revealed.connect(_on_boss_true_form_revealed)
 	queue_redraw()
+
+
+func _apply_optional_backdrop_texture() -> void:
+	if backdrop_main == null or backdrop_accent == null:
+		return
+	if not ResourceLoader.exists(BACKDROP_TEXTURE_PATH, "Texture2D"):
+		backdrop_main.visible = false
+		backdrop_accent.visible = false
+		return
+	var texture_variant := load(BACKDROP_TEXTURE_PATH)
+	if not (texture_variant is Texture2D):
+		backdrop_main.visible = false
+		backdrop_accent.visible = false
+		return
+	var texture: Texture2D = texture_variant
+	backdrop_main.texture = texture
+	backdrop_accent.texture = texture
+	backdrop_main.visible = true
+	backdrop_accent.visible = true
 
 
 func setup_run(
@@ -111,7 +137,7 @@ func apply_fog_config(config: Dictionary) -> void:
 	var dark := Color.from_string(String(effective_fog_config.get("darkness_color", "#0a1422")), Color(0.039, 0.078, 0.133))
 	fog_darkness.color = dark
 
-	fog_light.texture = _build_fog_light_texture()
+	_ensure_fog_light_texture()
 	var radius := float(effective_fog_config.get("vision_radius", 440.0))
 	fog_light.texture_scale = maxf(0.2, radius / 256.0)
 	fog_light.energy = float(effective_fog_config.get("vision_energy", 1.25))
@@ -409,9 +435,19 @@ func _apply_fog_modifier_bundle(fog_modifiers: Dictionary) -> void:
 	fog_config = updated.duplicate(true)
 	var dark := Color.from_string(String(updated.get("darkness_color", "#0a1422")), Color(0.039, 0.078, 0.133))
 	fog_darkness.color = dark
-	fog_light.texture = _build_fog_light_texture()
+	_ensure_fog_light_texture()
 	fog_light.texture_scale = maxf(0.2, float(updated.get("vision_radius", 440.0)) / 256.0)
 	fog_light.energy = float(updated.get("vision_energy", 1.25))
+
+
+func _ensure_fog_light_texture() -> void:
+	if fog_light == null:
+		return
+	if fog_light.texture != null:
+		return
+	if _fog_light_texture_cache == null:
+		_fog_light_texture_cache = _build_fog_light_texture()
+	fog_light.texture = _fog_light_texture_cache
 
 
 func _handle_map_notifications(snapshot: Dictionary) -> void:
@@ -505,6 +541,37 @@ func _on_shot_fired(_world_position: Vector2, intensity: float) -> void:
 	_play_shot_sfx(intensity)
 
 
+func _on_sonar_pulse_requested(world_position: Vector2, payload: Dictionary) -> void:
+	var source := String(payload.get("source", "")).strip_edges().to_lower()
+	if source != "skill":
+		return
+	var strength := clampf(float(payload.get("strength", 1.0)), 0.2, 2.0)
+	var ping_count := int(payload.get("ping_count", -1))
+	_play_sonar_skill_sfx(strength, ping_count)
+	apply_screen_shake(0.09 + strength * 0.05)
+	spawn_boss_telegraph("ring", {
+		"origin": world_position,
+		"radius": 130.0 + strength * 95.0,
+		"duration": 0.30,
+		"line_width": 5.8,
+		"color": "#8befff"
+	})
+	var tree := get_tree()
+	if tree == null:
+		return
+	tree.create_timer(0.11).timeout.connect(func() -> void:
+		if not is_inside_tree():
+			return
+		spawn_boss_telegraph("ring", {
+			"origin": world_position,
+			"radius": 170.0 + strength * 130.0,
+			"duration": 0.26,
+			"line_width": 3.9,
+			"color": "#6ee8ff"
+		})
+	)
+
+
 func _on_boss_telegraph_requested(telegraph_type: String, payload: Dictionary) -> void:
 	spawn_boss_telegraph(telegraph_type, payload)
 
@@ -577,6 +644,24 @@ func _play_shot_sfx(intensity: float) -> void:
 			var wave := sin(TAU * (freq_base - 260.0 * t) * t)
 			var sample := wave * env * (0.09 + intensity * 0.18)
 			generator.push_frame(Vector2(sample, sample))
+
+
+func _play_sonar_skill_sfx(intensity: float, ping_count: int = -1) -> void:
+	shot_sfx.play()
+	var playback = shot_sfx.get_stream_playback()
+	if not (playback is AudioStreamGeneratorPlayback):
+		return
+	var generator: AudioStreamGeneratorPlayback = playback
+	var sample_rate := 44100.0
+	var length := 0.20
+	var count_boost := 1.0 + clampf(float(maxi(0, ping_count)) * 0.03, 0.0, 0.24)
+	for i in range(int(sample_rate * length)):
+		var t := float(i) / sample_rate
+		var env := exp(-t * 10.8)
+		var chirp := sin(TAU * (440.0 + 920.0 * t) * t)
+		var tail := sin(TAU * (220.0 + 45.0 * sin(t * 24.0)) * t)
+		var sample := (chirp * 0.72 + tail * 0.28) * env * (0.14 + intensity * 0.08) * count_boost
+		generator.push_frame(Vector2(sample, sample))
 
 
 func _play_hit_sfx(intensity: float, killed: bool) -> void:

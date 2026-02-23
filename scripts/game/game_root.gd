@@ -40,6 +40,7 @@ var run_reward_multipliers: Dictionary = {
 }
 var reward_rng := RandomNumberGenerator.new()
 var runtime_drop_pickups_spawned: int = 0
+var last_sonar_ping_sequence: int = 0
 
 
 func _ready() -> void:
@@ -483,6 +484,7 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 	elapsed_time = 0.0
 	kills = 0
 	runtime_drop_pickups_spawned = 0
+	last_sonar_ping_sequence = 0
 	run_started = true
 	run_stats.reset(run_seed)
 	telegraph_last_emit_by_key.clear()
@@ -493,15 +495,16 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 		world.set_runtime_reward_multipliers(run_reward_multipliers)
 	if world != null and world.player != null and world.player.has_method("set_run_reward_multipliers"):
 		world.player.set_run_reward_multipliers(run_reward_multipliers)
+	if ui != null and ui.has_method("clear_run_summary"):
+		ui.clear_run_summary()
 	if world != null and world.has_method("begin_run"):
 		world.begin_run()
 	_sync_runtime_fog_overlay(true)
 	fixed_noise_value = world.player.noise
 	Engine.time_scale = 1.0
-	if skip_play_transition:
-		_set_state(STATE_PLAYING)
-	else:
-		_transition_to_state(STATE_PLAYING, 0.16)
+	_set_state(STATE_PLAYING)
+	if not skip_play_transition and _can_use_scene_transition() and SceneTransition.has_method("play_pulse"):
+		SceneTransition.play_pulse(0.14)
 	_refresh_hud()
 
 
@@ -537,6 +540,7 @@ func _build_run_summary_state(newly_unlocked_ids: Array[String]) -> Dictionary:
 	var reward_preview := run_reward_multipliers
 	var top_tags: Array[Dictionary] = []
 	var chosen_upgrades: Array[Dictionary] = []
+	var weapon_id := ""
 	var weapon_name := "--"
 	var level_reached := 1
 	var revealed_count := 0
@@ -546,6 +550,7 @@ func _build_run_summary_state(newly_unlocked_ids: Array[String]) -> Dictionary:
 	var boss_debug: Dictionary = {}
 	if world != null and world.player != null:
 		var hud_data: Dictionary = world.player.get_hud_data()
+		weapon_id = String(hud_data.get("active_weapon_id", ""))
 		weapon_name = String(hud_data.get("active_weapon_name", hud_data.get("active_weapon_id", "--")))
 		level_reached = int(hud_data.get("level", level_reached))
 		top_tags = _build_summary_top_tags(hud_data.get("acquired_tags", {}))
@@ -573,6 +578,7 @@ func _build_run_summary_state(newly_unlocked_ids: Array[String]) -> Dictionary:
 		"enemies_seen": enemies_seen,
 		"revealed_count": revealed_count,
 		"boss_progress": boss_progress,
+		"weapon_id": weapon_id,
 		"weapon_name": weapon_name,
 		"top_tags": top_tags,
 		"chosen_upgrades": chosen_upgrades,
@@ -741,9 +747,9 @@ func _set_state(next_state: String) -> void:
 	run_state = next_state
 	if run_state == STATE_PLAYING:
 		Engine.time_scale = 1.0
-		get_tree().set_deferred("paused", false)
+		get_tree().paused = false
 	else:
-		get_tree().set_deferred("paused", true)
+		get_tree().paused = true
 	ui.on_game_state_changed(run_state)
 
 
@@ -792,6 +798,12 @@ func _refresh_hud() -> void:
 		"drop": float(run_reward_multipliers.get("drop", run_reward_multipliers.get("drop_mult", 1.0))),
 		"meta_currency": float(run_reward_multipliers.get("meta_currency", run_reward_multipliers.get("meta_currency_mult", 1.0)))
 	}
+	var sonar_ping_sequence := int(hud.get("sonar_ping_sequence", 0))
+	if run_state == STATE_PLAYING and sonar_ping_sequence > last_sonar_ping_sequence:
+		last_sonar_ping_sequence = sonar_ping_sequence
+		var sonar_ping_count := int(hud.get("sonar_ping_count", -1))
+		if sonar_ping_count >= 0:
+			ui.show_system_message("Sonar ping: %d contacts" % sonar_ping_count, false)
 	ui.update_hud(hud)
 
 

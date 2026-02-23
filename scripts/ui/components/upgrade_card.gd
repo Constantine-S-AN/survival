@@ -4,6 +4,8 @@ class_name UpgradeCard
 signal card_selected(upgrade_id: String, card_index: int)
 
 const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
+const UISfx := preload("res://scripts/ui/ui_sfx.gd")
+const IconRegistry := preload("res://scripts/ui/icon_registry.gd")
 
 const RARITY_STYLE := {
 	"common": {"color": Color(0.56, 0.72, 0.84, 1.0), "width": 1},
@@ -12,10 +14,34 @@ const RARITY_STYLE := {
 	"epic": {"color": Color(0.78, 0.62, 1.0, 1.0), "width": 3},
 	"legendary": {"color": Color(1.0, 0.78, 0.42, 1.0), "width": 3}
 }
+const TAG_ICON_CODES := {
+	"sonar": "SO",
+	"silence": "SI",
+	"heat": "HT",
+	"crit": "CR",
+	"pierce": "PI",
+	"chain": "CH",
+	"aoe": "AO",
+	"pickup": "PK",
+	"shield": "SH",
+	"speed": "SP",
+	"trap": "TR",
+	"control": "CT",
+	"summon": "SM",
+	"economy": "EC",
+	"damage": "DM",
+	"weapon": "WP",
+	"tempo": "TP",
+	"noise": "NS",
+	"mobility": "MB",
+	"defense": "DF",
+	"hull": "HL"
+}
 
 @export var enable_motion: bool = true
 
 @onready var rarity_label: Label = $Margin/VBox/TopRow/Rarity
+@onready var icon_texture: TextureRect = $Margin/VBox/IconWrap/IconCenter/IconTexture
 @onready var icon_glyph: Label = $Margin/VBox/IconWrap/IconGlyph
 @onready var title_label: Label = $Margin/VBox/Title
 @onready var desc_label: Label = $Margin/VBox/Desc
@@ -33,10 +59,16 @@ var _upgrade_id: String = ""
 var _card_index: int = -1
 var _pending_option: Dictionary = {}
 var _pending_tag_display_names: Dictionary = {}
+var _float_time: float = 0.0
+var _is_hovering: bool = false
+var _is_focused: bool = false
+var _base_scale: Vector2 = Vector2.ONE
 
 
 func _ready() -> void:
 	focus_ring.visible = false
+	UIMotionClass.panel_pop_in(self, 0.12, 6.0)
+	_base_scale = scale
 	hitbox.pressed.connect(_on_pressed)
 	hitbox.mouse_entered.connect(_on_hover_enter)
 	hitbox.mouse_exited.connect(_on_hover_exit)
@@ -46,6 +78,17 @@ func _ready() -> void:
 		_apply_upgrade_data(_pending_option, _pending_tag_display_names)
 		_pending_option.clear()
 		_pending_tag_display_names.clear()
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	if not enable_motion or not UIMotionClass.is_motion_enabled():
+		return
+	if _is_hovering or _is_focused:
+		return
+	_float_time += delta
+	var wave := sin(_float_time * TAU * 0.34) * 0.008
+	scale = _base_scale * (1.0 + wave)
 
 
 func set_card_index(value: int) -> void:
@@ -68,7 +111,11 @@ func _apply_upgrade_data(option: Dictionary, tag_display_names: Dictionary) -> v
 	rarity_label.text = rarity.capitalize()
 	title_label.text = String(option.get("name", "Unknown Upgrade"))
 	desc_label.text = _extract_short_description(option)
-	icon_glyph.text = _resolve_icon_glyph(option)
+	if icon_texture != null:
+		icon_texture.texture = IconRegistry.get_upgrade_icon(option)
+	var fallback_glyph := _resolve_icon_glyph(option)
+	icon_glyph.text = fallback_glyph
+	icon_glyph.visible = icon_texture == null or icon_texture.texture == null
 	stats_label.text = _build_key_stats_text(option)
 	_populate_tags(option.get("tags", []), tag_display_names)
 	_apply_rarity_style(rarity)
@@ -93,31 +140,37 @@ func get_upgrade_id() -> String:
 func _on_pressed() -> void:
 	if _upgrade_id.is_empty():
 		return
+	UISfx.play_confirm()
 	if enable_motion:
 		UIMotionClass.press_bounce(self, 0.10)
 	card_selected.emit(_upgrade_id, _card_index)
 
 
 func _on_hover_enter() -> void:
+	UISfx.play_hover()
+	_is_hovering = true
 	if enable_motion:
 		UIMotionClass.hover_scale(self, 1.015, 0.08)
 
 
 func _on_hover_exit() -> void:
+	_is_hovering = false
 	if not enable_motion:
 		return
 	var tween := create_tween()
-	tween.tween_property(self, "scale", Vector2.ONE, 0.08)
+	tween.tween_property(self, "scale", _base_scale, 0.08)
 
 
 func _on_focus_enter() -> void:
 	focus_ring.visible = true
+	_is_focused = true
 	if enable_motion:
 		UIMotionClass.focus_ring(self)
 
 
 func _on_focus_exit() -> void:
 	focus_ring.visible = false
+	_is_focused = false
 
 
 func _extract_short_description(option: Dictionary) -> String:
@@ -188,17 +241,21 @@ func _format_amount(stat: String, value: float) -> String:
 
 
 func _populate_tags(tags_variant: Variant, tag_display_names: Dictionary) -> void:
-	var tags: Array[String] = []
+	var tags: Array[Dictionary] = []
 	if tags_variant is Array:
 		for tag_variant in (tags_variant as Array):
 			var tag := String(tag_variant).strip_edges().to_lower()
 			if tag.is_empty():
 				continue
-			tags.append(String(tag_display_names.get(tag, tag.capitalize())))
+			tags.append({
+				"label": String(tag_display_names.get(tag, tag.capitalize())),
+				"icon": String(TAG_ICON_CODES.get(tag, "TG"))
+			})
 	for i in range(tag_labels.size()):
 		var label := tag_labels[i]
 		if i < tags.size():
-			label.text = "[%s]" % tags[i]
+			var row: Dictionary = tags[i]
+			label.text = "[%s %s]" % [String(row.get("icon", "TG")), String(row.get("label", "Tag"))]
 			label.visible = true
 		else:
 			label.visible = false
@@ -214,6 +271,8 @@ func _apply_rarity_style(rarity: String) -> void:
 	panel_style.bg_color = Color(0.07, 0.11, 0.16, 0.95)
 	panel_style.border_color = color
 	panel_style.set_border_width_all(width)
+	panel_style.shadow_color = color.darkened(0.28)
+	panel_style.shadow_size = 7 + width * 2
 	panel_style.corner_radius_top_left = 12
 	panel_style.corner_radius_top_right = 12
 	panel_style.corner_radius_bottom_left = 12

@@ -13,6 +13,7 @@ const BASE_DASH_COOLDOWN = 2.2
 const BASE_MAX_HP = 100.0
 const BASE_XP_TO_NEXT = 20.0
 const BASE_ACTIVE_WEAPON_ID = "needle_rifle"
+const PLAYER_TEXTURE_PATH := "res://assets/textures/player/diver_ship.png"
 const LOW_NOISE_THRESHOLD = 25.0
 const DRONE_MAX_HP = 40.0
 const DRONE_RESPAWN_SECONDS = 3.0
@@ -22,6 +23,9 @@ const MINE_QUERY_INTERVAL = 0.2
 const DRONE_QUERY_INTERVAL = 0.2
 const TARGET_QUERY_MAX_RESULTS = 32
 const WeaponRuntimeClass = preload("res://scripts/weapons/weapon_runtime.gd")
+
+@onready var body_polygon: Polygon2D = $Body
+@onready var sprite_node: Sprite2D = $Sprite
 
 var enemy_manager: Node
 var projectile_manager: Node
@@ -70,6 +74,10 @@ var auto_attack = true
 var active_weapon_id = BASE_ACTIVE_WEAPON_ID
 var skill_cd_remaining = 0.0
 var skill_cooldown = 8.0
+var sonar_feedback_timer = 0.0
+var sonar_feedback_duration = 0.9
+var sonar_ping_count = 0
+var sonar_ping_sequence = 0
 var character_id: String = "diver"
 var character_name: String = "Silent Diver"
 var character_short_desc: String = ""
@@ -132,6 +140,7 @@ var target_query_count_per_sec: float = 0.0
 
 func _ready() -> void:
 	add_to_group("player")
+	_apply_optional_player_texture()
 	enemy_query_params.shape = enemy_query_shape
 	enemy_query_params.collide_with_bodies = true
 	enemy_query_params.collide_with_areas = true
@@ -143,6 +152,20 @@ func _ready() -> void:
 	beam_visual.z_index = 12
 	add_child(beam_visual)
 	emit_stats_changed()
+
+
+func _apply_optional_player_texture() -> void:
+	if sprite_node == null or body_polygon == null:
+		return
+	if ResourceLoader.exists(PLAYER_TEXTURE_PATH, "Texture2D"):
+		var texture_variant := load(PLAYER_TEXTURE_PATH)
+		if texture_variant is Texture2D:
+			sprite_node.texture = texture_variant
+			sprite_node.visible = true
+			body_polygon.visible = false
+			return
+	sprite_node.visible = false
+	body_polygon.visible = true
 
 
 func setup(enemy_manager_ref: Node, projectile_manager_ref: Node, run_rng: RandomNumberGenerator, character_def: Dictionary = {}) -> void:
@@ -189,6 +212,9 @@ func _reset_run_stats() -> void:
 	active_weapon_id = BASE_ACTIVE_WEAPON_ID
 	skill_cd_remaining = 0.0
 	skill_cooldown = 8.0
+	sonar_feedback_timer = 0.0
+	sonar_ping_count = 0
+	sonar_ping_sequence = 0
 	character_move_speed_multiplier = 1.0
 	character_dash_cooldown_multiplier = 1.0
 	character_sonar_reveal_duration_multiplier = 1.0
@@ -317,6 +343,7 @@ func _physics_process(delta: float) -> void:
 	attack_cd_remaining = max(0.0, attack_cd_remaining - delta)
 	dash_time_remaining = max(0.0, dash_time_remaining - delta)
 	skill_cd_remaining = max(0.0, skill_cd_remaining - delta)
+	sonar_feedback_timer = max(0.0, sonar_feedback_timer - delta)
 	beam_visual_timer = max(0.0, beam_visual_timer - delta)
 
 	if regen_per_second > 0.0 and hp > 0.0:
@@ -337,12 +364,7 @@ func _physics_process(delta: float) -> void:
 		_add_noise_source("dash")
 
 	if Input.is_action_just_pressed("sonar_skill") and skill_cd_remaining <= 0.0:
-		skill_cd_remaining = skill_cooldown
-		_add_noise_source("skill")
-		FeedbackBus.emit_sonar_pulse(global_position, {
-			"source": "skill",
-			"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
-		})
+		_trigger_sonar_skill()
 
 	if dash_time_remaining > 0.0:
 		velocity = dash_direction * BASE_DASH_SPEED
@@ -360,6 +382,30 @@ func _physics_process(delta: float) -> void:
 	_update_beam_visual()
 	if not deployed_mines.is_empty():
 		queue_redraw()
+
+
+func _trigger_sonar_skill() -> void:
+	skill_cd_remaining = skill_cooldown
+	_add_noise_source("skill")
+	var sonar_cfg := DataRegistry.get_sonar_config()
+	var base_radius := maxf(120.0, float(sonar_cfg.get("max_radius", 720.0)))
+	var ping_radius := base_radius * 1.12
+	sonar_ping_count = _estimate_enemy_count_in_radius(global_position, ping_radius)
+	sonar_ping_sequence += 1
+	sonar_feedback_timer = sonar_feedback_duration
+	FeedbackBus.emit_sonar_pulse(global_position, {
+		"source": "skill",
+		"strength": 1.18,
+		"radius_scale": 1.12,
+		"speed": 1220.0,
+		"line_width": 7.2,
+		"ping_count": sonar_ping_count,
+		"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
+	})
+
+
+func _estimate_enemy_count_in_radius(center: Vector2, radius: float) -> int:
+	return _query_enemy_nodes(center, radius, 96, true).size()
 
 
 func _attempt_fire() -> void:
@@ -1357,6 +1403,9 @@ func get_hud_data() -> Dictionary:
 		"dash_cd_total": _current_dash_cooldown(),
 		"skill_cd": skill_cd_remaining,
 		"skill_cd_total": skill_cooldown,
+		"sonar_feedback_timer": sonar_feedback_timer,
+		"sonar_ping_count": sonar_ping_count,
+		"sonar_ping_sequence": sonar_ping_sequence,
 		"attack_mode": "AUTO" if auto_attack else "AIM",
 		"character_id": character_id,
 		"character_name": character_name,

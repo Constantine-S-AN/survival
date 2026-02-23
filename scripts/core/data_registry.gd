@@ -836,6 +836,37 @@ func get_upgrade_choices(
 				remaining.append(item)
 		candidates = remaining
 
+	# Keep UI consistent with a three-card level-up surface even when strict runtime
+	# rules temporarily leave too few valid candidates.
+	if picked.size() < count:
+		var picked_ids := {}
+		for picked_variant in picked:
+			if picked_variant is Dictionary:
+				var picked_row: Dictionary = picked_variant
+				picked_ids[String(picked_row.get("id", ""))] = true
+		var fallback_pool: Array = []
+		for upgrade_variant in upgrades:
+			if not (upgrade_variant is Dictionary):
+				continue
+			var upgrade: Dictionary = upgrade_variant
+			var upgrade_id := String(upgrade.get("id", ""))
+			if upgrade_id.is_empty() or picked_ids.has(upgrade_id):
+				continue
+			fallback_pool.append(upgrade)
+		while picked.size() < count and not fallback_pool.is_empty():
+			var fallback_choice: Dictionary = _weighted_pick_upgrade(rng, fallback_pool, tag_weights, runtime_context)
+			picked.append(fallback_choice)
+			picked_ids[String(fallback_choice.get("id", ""))] = true
+			var fallback_remaining: Array = []
+			var chosen_fallback_id := String(fallback_choice.get("id", ""))
+			for pool_variant in fallback_pool:
+				if not (pool_variant is Dictionary):
+					continue
+				var pool_item: Dictionary = pool_variant
+				if String(pool_item.get("id", "")) != chosen_fallback_id:
+					fallback_remaining.append(pool_item)
+			fallback_pool = fallback_remaining
+
 	return picked
 
 

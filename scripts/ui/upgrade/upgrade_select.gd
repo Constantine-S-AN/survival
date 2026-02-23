@@ -5,6 +5,7 @@ signal upgrade_selected(upgrade_id: String)
 signal cancel_requested
 
 const UPGRADE_CARD_SCENE := preload("res://ui/components/UpgradeCard.tscn")
+const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 
 const TAG_DISPLAY_NAMES: Dictionary = {
 	"sonar": "Sonar",
@@ -32,6 +33,7 @@ const TAG_DISPLAY_NAMES: Dictionary = {
 
 @export var allow_cancel: bool = false
 
+@onready var backdrop_rect: ColorRect = $Backdrop
 @onready var subtitle_label: Label = $Margin/Columns/Main/Subtitle
 @onready var cards_row: HBoxContainer = $Margin/Columns/Main/CardsRow
 @onready var input_hint_label: Label = $Margin/Columns/Main/InputHint
@@ -42,11 +44,26 @@ var _current_options: Array = []
 var _focused_index: int = 0
 var _latest_hud_data: Dictionary = {}
 var _run_multipliers: Dictionary = {}
+var _selection_in_progress: bool = false
+var _backdrop_material: ShaderMaterial
+var _backdrop_time: float = 0.0
 
 
 func _ready() -> void:
 	visible = false
+	if backdrop_rect != null and backdrop_rect.material is ShaderMaterial:
+		_backdrop_material = backdrop_rect.material
 	input_hint_label.text = "←/→ focus  Enter select  ↑/↓ scroll build"
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	if not visible:
+		return
+	if _backdrop_material == null:
+		return
+	_backdrop_time += delta
+	_backdrop_material.set_shader_parameter("time_sec", _backdrop_time)
 
 
 func show_options(options: Array, hud_data: Dictionary = {}, run_multipliers: Dictionary = {}) -> void:
@@ -56,6 +73,7 @@ func show_options(options: Array, hud_data: Dictionary = {}, run_multipliers: Di
 	visible = true
 	_build_cards()
 	_update_build_panel()
+	UIMotionClass.panel_pop_in(self, 0.14, 8.0)
 	if not _cards.is_empty():
 		_focus_card(0)
 
@@ -64,6 +82,7 @@ func hide_panel() -> void:
 	visible = false
 	_current_options.clear()
 	_cards.clear()
+	_selection_in_progress = false
 
 
 func update_build_context(hud_data: Dictionary, run_multipliers: Dictionary = {}) -> void:
@@ -153,7 +172,7 @@ func _build_cards() -> void:
 		if card.has_signal("card_selected"):
 			card.connect("card_selected", Callable(self, "_on_card_selected"))
 		_cards.append(card)
-	subtitle_label.text = "Choose one upgrade to shape this run."
+	subtitle_label.text = "Pick one. Build direction updates on the right."
 
 
 func _update_build_panel() -> void:
@@ -180,5 +199,35 @@ func _select_focused_card() -> void:
 
 
 func _on_card_selected(upgrade_id: String, card_index: int) -> void:
+	if _selection_in_progress:
+		return
+	_selection_in_progress = true
 	_focused_index = clampi(card_index, 0, maxi(0, _cards.size() - 1))
+	var preview_hud := _build_preview_hud_data(upgrade_id)
+	if build_panel != null and build_panel.has_method("set_build_data"):
+		build_panel.call("set_build_data", preview_hud, _run_multipliers)
+	if build_panel != null and UIMotionClass.is_motion_enabled():
+		UIMotionClass.panel_pop_in(build_panel, 0.10, 4.0)
+		await get_tree().create_timer(0.08).timeout
 	upgrade_selected.emit(upgrade_id)
+	_selection_in_progress = false
+
+
+func _build_preview_hud_data(upgrade_id: String) -> Dictionary:
+	var preview: Dictionary = _latest_hud_data.duplicate(true)
+	var acquired_variant: Variant = preview.get("acquired_tags", {})
+	var acquired_tags: Dictionary = acquired_variant.duplicate(true) if acquired_variant is Dictionary else {}
+	var stacks_variant: Variant = preview.get("upgrade_stacks", {})
+	var stacks: Dictionary = stacks_variant.duplicate(true) if stacks_variant is Dictionary else {}
+	var upgrade := DataRegistry.get_upgrade(upgrade_id)
+	stacks[upgrade_id] = int(stacks.get(upgrade_id, 0)) + 1
+	var tags_variant: Variant = upgrade.get("tags", [])
+	if tags_variant is Array:
+		for tag_variant in (tags_variant as Array):
+			var tag := String(tag_variant).strip_edges().to_lower()
+			if tag.is_empty():
+				continue
+			acquired_tags[tag] = int(acquired_tags.get(tag, 0)) + 1
+	preview["acquired_tags"] = acquired_tags
+	preview["upgrade_stacks"] = stacks
+	return preview

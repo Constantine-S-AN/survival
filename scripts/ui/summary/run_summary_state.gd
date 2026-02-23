@@ -37,6 +37,7 @@ static func from_dict(source: Dictionary) -> Dictionary:
 		"enemies_seen": maxi(0, int(source.get("enemies_seen", source.get("enemy_count", 0)))),
 		"revealed_count": maxi(0, int(source.get("revealed_count", 0))),
 		"boss_progress": String(source.get("boss_progress", "")),
+		"weapon_id": String(source.get("weapon_id", "")),
 		"weapon_name": String(source.get("weapon_name", "--")),
 		"top_tags": _normalize_top_tags(source.get("top_tags", [])),
 		"chosen_upgrades": _normalize_upgrades(source.get("chosen_upgrades", [])),
