@@ -14,7 +14,7 @@ signal unlock_all_debug_requested
 
 const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
 const NEON_THEME := preload("res://ui/theme/NeonTheme.tres")
-const NEON_BUTTON_SCRIPT := preload("res://scripts/ui/components/neon_button.gd")
+const MAIN_MENU_SCENE := preload("res://scenes/ui/menu/MainMenu.tscn")
 const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 const MAP_SELECT_SCENE := preload("res://scenes/ui/MapSelect.tscn")
 const CONTRACT_SELECT_SCENE := preload("res://scenes/ui/ContractSelect.tscn")
@@ -155,9 +155,7 @@ var debug_label: RichTextLabel
 var system_msg_label: Label
 var system_msg_timer: Timer
 var last_noise_tier_id: String = ""
-var main_menu_panel: Panel
-var menu_start_button: Button
-var menu_quit_button: Button
+var main_menu_panel: CanvasItem
 var character_select_panel: CanvasItem
 var map_select_panel: CanvasItem
 var contract_select_panel: CanvasItem
@@ -316,55 +314,23 @@ func _create_system_message_widget() -> void:
 
 
 func _create_main_menu_panel() -> void:
-	main_menu_panel = Panel.new()
+	if MAIN_MENU_SCENE == null:
+		return
+	var panel_variant := MAIN_MENU_SCENE.instantiate()
+	if panel_variant == null:
+		return
+	main_menu_panel = panel_variant
 	main_menu_panel.name = "MainMenuPanel"
-	main_menu_panel.theme_type_variation = &"OverlayPanel"
-	main_menu_panel.position = Vector2(520.0, 190.0)
-	main_menu_panel.size = Vector2(560.0, 420.0)
+	main_menu_panel.visible = false
 	root.add_child(main_menu_panel)
-
-	var margin := MarginContainer.new()
-	margin.name = "Margin"
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.offset_left = 22.0
-	margin.offset_top = 22.0
-	margin.offset_right = -22.0
-	margin.offset_bottom = -22.0
-	main_menu_panel.add_child(margin)
-
-	var menu_vbox := VBoxContainer.new()
-	menu_vbox.name = "VBox"
-	menu_vbox.add_theme_constant_override("separation", 16)
-	menu_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_child(menu_vbox)
-
-	var title := Label.new()
-	title.text = "Neon Sonar"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.theme_type_variation = &"HeadingLabel"
-	menu_vbox.add_child(title)
-
-	var subtitle := Label.new()
-	subtitle.text = "Descend, survive, and manage your noise."
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.theme_type_variation = &"BodyMutedLabel"
-	menu_vbox.add_child(subtitle)
-
-	menu_start_button = NEON_BUTTON_SCRIPT.new()
-	menu_start_button.text = "Start Run"
-	menu_start_button.set("use_primary_style", true)
-	menu_start_button.pressed.connect(func() -> void:
-		main_menu_start_requested.emit()
-	)
-	menu_vbox.add_child(menu_start_button)
-
-	menu_quit_button = NEON_BUTTON_SCRIPT.new()
-	menu_quit_button.text = "Quit"
-	menu_quit_button.set("use_primary_style", false)
-	menu_quit_button.pressed.connect(func() -> void:
-		get_tree().quit()
-	)
-	menu_vbox.add_child(menu_quit_button)
+	if main_menu_panel.has_signal("play_pressed"):
+		main_menu_panel.connect("play_pressed", Callable(self, "_on_main_menu_play_pressed"))
+	if main_menu_panel.has_signal("profile_pressed"):
+		main_menu_panel.connect("profile_pressed", Callable(self, "_on_main_menu_profile_pressed"))
+	if main_menu_panel.has_signal("settings_pressed"):
+		main_menu_panel.connect("settings_pressed", Callable(self, "_on_main_menu_settings_pressed"))
+	if main_menu_panel.has_signal("quit_pressed"):
+		main_menu_panel.connect("quit_pressed", Callable(self, "_on_main_menu_quit_pressed"))
 
 
 func _create_character_select_panel() -> void:
@@ -429,6 +395,22 @@ func _create_unlock_toast_widget() -> void:
 
 func _on_character_select_start_pressed(character_id: String) -> void:
 	start_run_requested.emit(character_id)
+
+
+func _on_main_menu_play_pressed() -> void:
+	main_menu_start_requested.emit()
+
+
+func _on_main_menu_profile_pressed() -> void:
+	show_system_message("Profile page is coming in a follow-up update.", false)
+
+
+func _on_main_menu_settings_pressed() -> void:
+	show_system_message("Settings page is coming in a follow-up update.", false)
+
+
+func _on_main_menu_quit_pressed() -> void:
+	get_tree().quit()
 
 
 func _on_character_select_back_pressed() -> void:

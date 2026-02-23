@@ -64,6 +64,31 @@ Unify all in-game UI around a neon tactical style so T2-T7 can focus on layout a
   - Global: `UIMotion.set_motion_enabled(enabled)`
   - Reserved for future Settings integration: `Reduce Motion`.
 
+## Main Menu Layout Spec
+- Scene: `res://scenes/ui/menu/MainMenu.tscn`
+- Script: `res://scripts/ui/menu/main_menu.gd`
+- Structure:
+  - Full-screen background layer with gradient + scanline/noise shader.
+  - Centered information stack:
+    - Title (`s u r v i v e`) with expanded tracking feel.
+    - Subtitle (`FOG / SONAR / NOISE`) as compact product pitch line.
+    - Primary action stack with fixed spacing (`16px`):
+      - `Play`
+      - `Profile` (placeholder feedback)
+      - `Settings` (placeholder feedback)
+      - `Quit`
+  - Bottom-right version line (`project version + Godot version`).
+- Interaction:
+  - Keyboard navigation: `Up/Down` focus, `Enter` activate, `Esc` quit.
+  - All actions use `NeonButton` with motion enabled.
+
+## Background Motion Rules
+- Motion must remain low-frequency and low-amplitude to avoid distraction:
+  - Pulse band alpha oscillation target: about `0.5% - 1.5%`.
+  - Background pulse speed target: roughly `0.4 - 0.7 Hz`.
+  - No fast strobe or large positional swings in menu idle state.
+- Visual noise/scanline should stay subtle and never reduce text readability.
+
 ## Reusable Components Added In T1
 - `NeonButton.tscn`: button with hover/press scale affordance.
 - `NeonCard.tscn`: card container with subtle lift-on-hover.
