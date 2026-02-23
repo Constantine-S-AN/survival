@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - codex/**
+  workflow_dispatch:
+    inputs:
+      run_export_validation:
+        description: "Run optional macOS export validation"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  headless-tests:
+    name: Headless Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot
+        uses: vitorgus/setup-godot@v1
+        with:
+          godot-version: 4.6.1
+          include-dotnet: false
+          download-templates: false
+
+      - name: Prewarm import
+        shell: bash
+        run: |
+          mkdir -p tmp/logs
+          godot --headless --path . --import > tmp/logs/ci_import.log 2>&1
+          echo "Import prewarm complete. Log: tmp/logs/ci_import.log"
+
+      - name: Run headless tests
+        shell: bash
+        run: |
+          ./scripts/ci/run_headless_tests.sh --skip-import
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-test-logs
+          path: tmp/logs
+          if-no-files-found: warn
+
+  export-validation:
+    name: Optional macOS Export Validation
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_export_validation }}
+    needs: headless-tests
+    runs-on: macos-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot with export templates
+        uses: vitorgus/setup-godot@v1
+        with:
+          godot-version: 4.6.1
+          include-dotnet: false
+          download-templates: true
+
+      - name: Import prewarm
+        shell: bash
+        run: |
+          mkdir -p tmp/logs
+          godot --headless --path . --import > tmp/logs/ci_export_import.log 2>&1
+
+      - name: Export macOS preset
+        shell: bash
+        run: |
+          mkdir -p exports/macos
+          godot --headless --path . --export-release "macOS" exports/macos/Survive-Neon-Sonar.app > tmp/logs/ci_export.log 2>&1
+
+      - name: Upload export logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: export-validation-logs
+          path: |
+            tmp/logs
+            exports/macos
+          if-no-files-found: warn
