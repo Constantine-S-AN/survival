@@ -52,7 +52,9 @@ Unify all in-game UI around a neon tactical style so T2-T7 can focus on layout a
   - `transition_to(scene_path, duration := 0.2)`
   - `play_pulse(duration := 0.14)`
 - Reentrancy rule: transitions are queue-driven; rapid repeated button presses are serialized to avoid stuck black screens.
+- Queue policy: for blocking transitions, `last-wins` is applied while one transition is running (older pending transitions are dropped).
 - Input rule: during blocking transitions, both pointer and keyboard input are intercepted globally.
+- Safety rule: transition watchdog auto-unblocks input if a blocking transition stalls unexpectedly.
 - Motion baseline (`res://scripts/ui/ui_motion.gd`):
   - `hover_scale(control, scale := 1.02, duration := 0.08)`
   - `press_bounce(control, duration := 0.10)`

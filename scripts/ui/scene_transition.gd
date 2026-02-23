@@ -12,6 +12,7 @@ const OP_PULSE := "pulse"
 
 @onready var input_blocker: Control = $InputBlocker
 @onready var fade_rect: ColorRect = $FadeRect
+@onready var unlock_watchdog: Timer = $UnlockWatchdog
 
 var _operation_queue: Array[Dictionary] = []
 var _processing: bool = false
@@ -28,6 +29,9 @@ func _ready() -> void:
 	fade_rect.visible = false
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fade_rect.modulate.a = 0.0
+	unlock_watchdog.one_shot = true
+	if not unlock_watchdog.timeout.is_connected(_on_unlock_watchdog_timeout):
+		unlock_watchdog.timeout.connect(_on_unlock_watchdog_timeout)
 	set_process_input(true)
 	set_process_unhandled_input(true)
 
@@ -92,6 +96,10 @@ func _unhandled_input(_event: InputEvent) -> void:
 
 
 func _enqueue_operation(operation: Dictionary) -> void:
+	var block_input := bool(operation.get("block_input", true))
+	if block_input and _processing:
+		_enqueue_last_wins(operation)
+		return
 	_operation_queue.append(operation)
 	if _processing:
 		return
@@ -104,6 +112,7 @@ func _drain_queue() -> void:
 		var operation: Dictionary = _operation_queue.pop_front()
 		await _run_operation(operation)
 	_processing = false
+	_disarm_unlock_watchdog()
 	_set_input_blocked(false)
 
 
@@ -112,6 +121,8 @@ func _run_operation(operation: Dictionary) -> void:
 	var duration := maxf(0.0, float(operation.get("duration", 0.2)))
 	var block_input := bool(operation.get("block_input", true))
 	_set_input_blocked(block_input)
+	if block_input:
+		_arm_unlock_watchdog(operation_type, duration)
 	transition_started.emit(operation_type)
 
 	match operation_type:
@@ -133,6 +144,8 @@ func _run_operation(operation: Dictionary) -> void:
 			push_warning("SceneTransition ignored unknown operation: %s" % operation_type)
 
 	transition_finished.emit(operation_type)
+	if block_input:
+		_disarm_unlock_watchdog()
 	if _operation_queue.is_empty():
 		_set_input_blocked(false)
 
@@ -202,3 +215,36 @@ func _is_valid_scene_path(scene_path: String) -> bool:
 	if scene_path.is_empty():
 		return false
 	return ResourceLoader.exists(scene_path, "PackedScene")
+
+
+func _enqueue_last_wins(operation: Dictionary) -> void:
+	var retained: Array[Dictionary] = []
+	for queued in _operation_queue:
+		if not bool(queued.get("block_input", true)):
+			retained.append(queued)
+	_operation_queue = retained
+	_operation_queue.append(operation)
+
+
+func _arm_unlock_watchdog(operation_type: String, duration: float) -> void:
+	var watchdog_sec := 1.0
+	match operation_type:
+		OP_TRANSITION_TO, OP_TRANSITION_CALL:
+			watchdog_sec = maxf(1.0, duration * 2.0 + 0.9)
+		OP_FADE_IN, OP_FADE_OUT:
+			watchdog_sec = maxf(1.0, duration + 0.8)
+		_:
+			watchdog_sec = maxf(1.0, duration + 0.8)
+	unlock_watchdog.start(watchdog_sec)
+
+
+func _disarm_unlock_watchdog() -> void:
+	if unlock_watchdog != null:
+		unlock_watchdog.stop()
+
+
+func _on_unlock_watchdog_timeout() -> void:
+	push_warning("SceneTransition watchdog unlocked stale input block.")
+	_operation_queue.clear()
+	_processing = false
+	_set_input_blocked(false)
