@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/ui/t7_summary_flow_runner.gd" id="1"]
+
+[node name="T7SummaryFlowRunner" type="Node"]
+script = ExtResource("1")

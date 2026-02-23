@@ -186,6 +186,40 @@ Unify all in-game UI around a neon tactical style so T2-T7 can focus on layout a
   - BuildPanel refreshes when level-up options open and after each upgrade pick.
   - Changes should be visible in the next level-up panel without requiring scene reload.
 
+## Summary Layout Spec
+- Scene: `res://scenes/ui/summary/RunSummary.tscn`
+- Script: `res://scripts/ui/summary/run_summary.gd`
+- State adapter: `res://scripts/ui/summary/run_summary_state.gd`
+- Layout:
+  - Header row: `Run Summary` title + seed.
+  - Two-column body:
+    - Left card (`Run Stats`): survival time, kills, level, peak noise tier, enemies/revealed, optional boss progress.
+    - Right cards (`Build Recap` + `Progress`): weapon, top tags, chosen upgrades, map/contracts, multipliers, unlock target/progress, newly unlocked.
+  - Bottom CTA row:
+    - Primary `Retry`
+    - Secondary `Back to Menu`
+- Data contract:
+  - Summary view consumes only a summary state dictionary.
+  - Missing fields must hide or degrade to placeholders safely without runtime errors.
+
+## Typography Rules
+- Use large numeric treatment for headline stats:
+  - Survival time and kill count use elevated display size.
+  - Unit/context labels remain muted and smaller.
+- Hierarchy order:
+  - `Retry` CTA > headline stats > progress target > detail lists.
+- Dense sections (`Chosen upgrades`, contracts) use muted body text and line breaks for scanability.
+
+## Progress And CTA Rules
+- Progress card:
+  - Always show one next target line when any unlock remains.
+  - Progress bar range stays normalized (`0.0 - 1.0`).
+  - Display requirement description + numeric progress text together.
+- CTA behavior:
+  - `Retry` and `Back to Menu` must both route through `SceneTransition.transition_call`.
+  - `Retry` should start a new run with current run setup selection.
+  - `Back to Menu` should return UI state to menu without hard dependency on scene-node paths.
+
 ## Reusable Components Added In T1
 - `NeonButton.tscn`: button with hover/press scale affordance.
 - `NeonCard.tscn`: card container with subtle lift-on-hover.

@@ -97,6 +97,8 @@ func _ready() -> void:
 	ui.contract_select_back_requested.connect(_on_contract_select_back_requested)
 	ui.run_setup_start_requested.connect(_on_run_setup_start_requested)
 	ui.unlock_all_debug_requested.connect(_on_unlock_all_debug_requested)
+	if ui.has_signal("summary_back_to_menu_requested"):
+		ui.summary_back_to_menu_requested.connect(_on_summary_back_to_menu_requested)
 
 	ui.configure_character_select(
 		DataRegistry.get_characters(),
@@ -324,26 +326,29 @@ func _on_player_died() -> void:
 	if not unlocked_names.is_empty():
 		ui.show_unlock_toast(unlocked_names)
 		ui.refresh_character_unlocks(ProfileStore.get_unlocked_characters())
+	var summary_state := _build_run_summary_state(newly_unlocked_ids)
 	if _can_use_scene_transition() and SceneTransition.has_method("play_pulse"):
 		SceneTransition.play_pulse(0.18)
 	_set_state(STATE_GAME_OVER)
-	ui.show_game_over({
-		"time": elapsed_time,
-		"kills": kills,
-		"level": world.player.level,
-		"seed": run_seed,
-		"unlocked_count": unlocked_names.size()
-	})
+	ui.show_game_over(summary_state)
 
 
 func _on_retry_requested() -> void:
 	get_tree().set_deferred("paused", false)
 	Engine.time_scale = 1.0
-	var main_scene_path := String(ProjectSettings.get_setting("application/run/main_scene", "res://scenes/game/GameRoot.tscn"))
-	if _can_use_scene_transition() and SceneTransition.has_method("transition_to"):
-		SceneTransition.transition_to(main_scene_path, 0.2)
+	if _can_use_scene_transition() and SceneTransition.has_method("transition_call"):
+		SceneTransition.transition_call(Callable(self, "_retry_run"), 0.18)
 		return
-	get_tree().reload_current_scene()
+	_retry_run()
+
+
+func _on_summary_back_to_menu_requested() -> void:
+	get_tree().set_deferred("paused", false)
+	Engine.time_scale = 1.0
+	if _can_use_scene_transition() and SceneTransition.has_method("transition_call"):
+		SceneTransition.transition_call(Callable(self, "_return_to_menu"), 0.16)
+		return
+	_return_to_menu()
 
 
 func _on_main_menu_start_requested() -> void:
@@ -418,7 +423,7 @@ func _on_unlock_all_debug_requested() -> void:
 	ui.show_system_message("Debug: all characters unlocked.", false)
 
 
-func _start_run(character_id: String, map_id: String = "", contract_ids: Array = []) -> void:
+func _start_run(character_id: String, map_id: String = "", contract_ids: Array = [], skip_play_transition: bool = false) -> void:
 	var chosen_id := character_id.strip_edges()
 	if chosen_id.is_empty():
 		chosen_id = DataRegistry.get_default_character_id()
@@ -454,7 +459,10 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 	_sync_runtime_fog_overlay(true)
 	fixed_noise_value = world.player.noise
 	Engine.time_scale = 1.0
-	_transition_to_state(STATE_PLAYING, 0.16)
+	if skip_play_transition:
+		_set_state(STATE_PLAYING)
+	else:
+		_transition_to_state(STATE_PLAYING, 0.16)
 	_refresh_hud()
 
 
@@ -468,6 +476,184 @@ func _evaluate_character_unlocks() -> Array[String]:
 	var noise_tier: Dictionary = DataRegistry.get_noise_tier(float(summary.get("max_noise_reached", 0.0)))
 	summary["max_noise_tier_id"] = String(noise_tier.get("id", summary.get("max_noise_tier_id", "silent")))
 	return ProfileStore.evaluate_character_unlocks(DataRegistry.get_characters(), summary)
+
+
+func _retry_run() -> void:
+	_start_run(selected_character_id, selected_map_id, selected_contract_ids, true)
+
+
+func _return_to_menu() -> void:
+	run_started = false
+	_set_state(STATE_MENU)
+
+
+func _build_run_summary_state(newly_unlocked_ids: Array[String]) -> Dictionary:
+	var map_def := DataRegistry.get_map(selected_map_id)
+	var map_name := String(map_def.get("name", selected_map_id))
+	var contract_names: Array[String] = []
+	for contract_id in selected_contract_ids:
+		var contract := DataRegistry.get_contract(contract_id)
+		contract_names.append(String(contract.get("name", contract_id)))
+
+	var reward_preview := DataRegistry.get_contract_reward_preview(selected_contract_ids)
+	var top_tags: Array[Dictionary] = []
+	var chosen_upgrades: Array[Dictionary] = []
+	var weapon_name := "--"
+	var level_reached := 1
+	var revealed_count := 0
+	var enemies_seen := kills
+	var noise_peak_tier := String(run_stats.max_noise_tier_id)
+	var boss_progress := ""
+	var boss_debug: Dictionary = {}
+	if world != null and world.player != null:
+		var hud_data: Dictionary = world.player.get_hud_data()
+		weapon_name = String(hud_data.get("active_weapon_name", hud_data.get("active_weapon_id", "--")))
+		level_reached = int(hud_data.get("level", level_reached))
+		top_tags = _build_summary_top_tags(hud_data.get("acquired_tags", {}))
+		chosen_upgrades = _build_summary_chosen_upgrades(hud_data.get("upgrade_stacks", {}))
+		var peak_tier := DataRegistry.get_noise_tier(float(run_stats.max_noise_reached))
+		noise_peak_tier = String(peak_tier.get("name", noise_peak_tier))
+		revealed_count = world.get_revealed_enemy_count()
+	if world != null and world.enemy_manager != null:
+		enemies_seen = kills + int(world.enemy_manager.get_alive_enemy_count())
+		boss_debug = world.enemy_manager.get_noise_debug_snapshot()
+		boss_progress = String(boss_debug.get("boss_state", "")).strip_edges()
+
+	var unlock_progress := _build_summary_unlock_progress()
+	var newly_unlocked_names: Array[String] = []
+	for character_id in newly_unlocked_ids:
+		var character := DataRegistry.get_character(character_id)
+		newly_unlocked_names.append(String(character.get("display_name", character_id)))
+
+	return {
+		"time_survived_sec": elapsed_time,
+		"kills": kills,
+		"level": level_reached,
+		"noise_peak_tier": noise_peak_tier,
+		"enemies_seen": enemies_seen,
+		"revealed_count": revealed_count,
+		"boss_progress": boss_progress,
+		"weapon_name": weapon_name,
+		"top_tags": top_tags,
+		"chosen_upgrades": chosen_upgrades,
+		"map_id": selected_map_id,
+		"map_name": map_name,
+		"contract_ids": selected_contract_ids.duplicate(),
+		"contract_names": contract_names,
+		"multipliers": {
+			"xp": float(reward_preview.get("xp_mult", 1.0)),
+			"rarity": float(reward_preview.get("rarity_mult", 1.0)),
+			"drop": float(reward_preview.get("drop_mult", 1.0)),
+			"meta_currency": float(reward_preview.get("meta_currency_mult", 1.0))
+		},
+		"meta_currency_earned": null,
+		"unlock_progress": unlock_progress,
+		"newly_unlocked_names": newly_unlocked_names,
+		"seed": run_seed
+	}
+
+
+func _build_summary_top_tags(acquired_variant: Variant) -> Array[Dictionary]:
+	if not (acquired_variant is Dictionary):
+		return []
+	var acquired_tags: Dictionary = acquired_variant
+	var rows: Array[Dictionary] = []
+	for key_variant in acquired_tags.keys():
+		var tag := String(key_variant).strip_edges().to_lower()
+		var weight := int(acquired_tags.get(key_variant, 0))
+		if tag.is_empty() or weight <= 0:
+			continue
+		rows.append({"tag": tag, "weight": weight})
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var av := int(a.get("weight", 0))
+		var bv := int(b.get("weight", 0))
+		if av == bv:
+			return String(a.get("tag", "")) < String(b.get("tag", ""))
+		return av > bv
+	)
+	if rows.size() > 5:
+		rows.resize(5)
+	return rows
+
+
+func _build_summary_chosen_upgrades(stacks_variant: Variant) -> Array[Dictionary]:
+	if not (stacks_variant is Dictionary):
+		return []
+	var stacks: Dictionary = stacks_variant
+	var rows: Array[Dictionary] = []
+	for key_variant in stacks.keys():
+		var upgrade_id := String(key_variant).strip_edges()
+		var count := int(stacks.get(key_variant, 0))
+		if upgrade_id.is_empty() or count <= 0:
+			continue
+		var upgrade := DataRegistry.get_upgrade(upgrade_id)
+		var rarity := String(upgrade.get("rarity", "common")).to_lower()
+		rows.append({
+			"id": upgrade_id,
+			"name": String(upgrade.get("name", upgrade_id)),
+			"rarity": rarity,
+			"tags": upgrade.get("tags", []),
+			"count": count,
+			"rarity_score": _summary_rarity_score(rarity)
+		})
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var ar := int(a.get("rarity_score", 0))
+		var br := int(b.get("rarity_score", 0))
+		if ar == br:
+			return int(a.get("count", 0)) > int(b.get("count", 0))
+		return ar > br
+	)
+	if rows.size() > 6:
+		rows.resize(6)
+	return rows
+
+
+func _build_summary_unlock_progress() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for character_variant in DataRegistry.get_characters():
+		if not (character_variant is Dictionary):
+			continue
+		var character: Dictionary = character_variant
+		var character_id := String(character.get("id", "")).strip_edges()
+		if character_id.is_empty() or ProfileStore.is_character_unlocked(character_id):
+			continue
+		var unlock_variant: Variant = character.get("unlock", {})
+		if not (unlock_variant is Dictionary):
+			continue
+		var unlock_req: Dictionary = unlock_variant
+		var progress := ProfileStore.get_requirement_progress(unlock_req)
+		rows.append({
+			"character_id": character_id,
+			"name": String(character.get("display_name", character_id)),
+			"display": String(unlock_req.get("display", "")),
+			"ratio": float(progress.get("ratio", 0.0)),
+			"text": String(progress.get("text", "")),
+			"met": bool(progress.get("met", false))
+		})
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var ar := float(a.get("ratio", 0.0))
+		var br := float(b.get("ratio", 0.0))
+		if is_equal_approx(ar, br):
+			return String(a.get("name", "")) < String(b.get("name", ""))
+		return ar > br
+	)
+	if rows.size() > 3:
+		rows.resize(3)
+	return rows
+
+
+func _summary_rarity_score(rarity: String) -> int:
+	match rarity:
+		"legendary":
+			return 5
+		"epic":
+			return 4
+		"rare":
+			return 3
+		"uncommon":
+			return 2
+		_:
+			return 1
 
 
 func _unhandled_input(event: InputEvent) -> void:

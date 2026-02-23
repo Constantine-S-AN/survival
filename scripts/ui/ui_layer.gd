@@ -12,12 +12,14 @@ signal contract_select_start_requested(contract_ids: Array[String])
 signal contract_select_back_requested
 signal run_setup_start_requested(run_config: Dictionary)
 signal unlock_all_debug_requested
+signal summary_back_to_menu_requested
 
 const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
 const NEON_THEME := preload("res://ui/theme/NeonTheme.tres")
 const MAIN_MENU_SCENE := preload("res://scenes/ui/menu/MainMenu.tscn")
 const RUN_SETUP_SCENE := preload("res://scenes/ui/run_setup/RunSetup.tscn")
 const UPGRADE_SELECT_SCENE := preload("res://scenes/ui/upgrade/UpgradeSelect.tscn")
+const RUN_SUMMARY_SCENE := preload("res://scenes/ui/summary/RunSummary.tscn")
 const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 const MAP_SELECT_SCENE := preload("res://scenes/ui/MapSelect.tscn")
 const CONTRACT_SELECT_SCENE := preload("res://scenes/ui/ContractSelect.tscn")
@@ -162,6 +164,7 @@ var last_noise_tier_id: String = ""
 var main_menu_panel: CanvasItem
 var run_setup_panel: CanvasItem
 var upgrade_select_panel: CanvasItem
+var run_summary_panel: CanvasItem
 var character_select_panel: CanvasItem
 var map_select_panel: CanvasItem
 var contract_select_panel: CanvasItem
@@ -170,6 +173,7 @@ var telegraph_flash_overlay: ColorRect
 var telegraph_flash_tween: Tween
 var latest_hud_data: Dictionary = {}
 var latest_run_multipliers: Dictionary = {}
+var latest_summary_data: Dictionary = {}
 
 
 func _ready() -> void:
@@ -186,6 +190,7 @@ func _ready() -> void:
 	_create_main_menu_panel()
 	_create_run_setup_panel()
 	_create_upgrade_select_panel()
+	_create_run_summary_panel()
 	_create_unlock_toast_widget()
 	set_debug_visible(false)
 
@@ -367,6 +372,22 @@ func _create_upgrade_select_panel() -> void:
 		upgrade_select_panel.connect("cancel_requested", Callable(self, "_on_upgrade_select_cancel_requested"))
 
 
+func _create_run_summary_panel() -> void:
+	if RUN_SUMMARY_SCENE == null:
+		return
+	var panel_variant := RUN_SUMMARY_SCENE.instantiate()
+	if panel_variant == null:
+		return
+	run_summary_panel = panel_variant
+	run_summary_panel.name = "RunSummary"
+	run_summary_panel.visible = false
+	root.add_child(run_summary_panel)
+	if run_summary_panel.has_signal("retry_requested"):
+		run_summary_panel.connect("retry_requested", Callable(self, "_on_summary_retry_requested"))
+	if run_summary_panel.has_signal("back_to_menu_requested"):
+		run_summary_panel.connect("back_to_menu_requested", Callable(self, "_on_summary_back_to_menu_requested"))
+
+
 func _create_map_select_panel() -> void:
 	if MAP_SELECT_SCENE == null:
 		return
@@ -428,6 +449,14 @@ func _on_upgrade_select_upgrade_selected(upgrade_id: String) -> void:
 
 func _on_upgrade_select_cancel_requested() -> void:
 	show_system_message("Upgrade selection must be confirmed to continue.", false)
+
+
+func _on_summary_retry_requested() -> void:
+	retry_requested.emit()
+
+
+func _on_summary_back_to_menu_requested() -> void:
+	summary_back_to_menu_requested.emit()
 
 
 func _on_main_menu_play_pressed() -> void:
@@ -841,6 +870,14 @@ func _set_upgrade_select_visible(visible_state: bool) -> void:
 		upgrade_select_panel.call("update_build_context", latest_hud_data, latest_run_multipliers)
 
 
+func _set_run_summary_visible(visible_state: bool) -> void:
+	if run_summary_panel == null:
+		return
+	run_summary_panel.visible = visible_state
+	if visible_state and run_summary_panel.has_method("set_summary_data"):
+		run_summary_panel.call("set_summary_data", latest_summary_data)
+
+
 func _set_root_input_passthrough(enabled: bool) -> void:
 	if root == null:
 		return
@@ -850,6 +887,7 @@ func _set_root_input_passthrough(enabled: bool) -> void:
 func show_level_up(options: Array) -> void:
 	current_options = options
 	game_over_panel.visible = false
+	_set_run_summary_visible(false)
 	if upgrade_select_panel != null and upgrade_select_panel.has_method("show_options"):
 		level_up_panel.visible = false
 		upgrade_select_panel.visible = true
@@ -891,6 +929,13 @@ func hide_level_up() -> void:
 
 
 func show_game_over(summary: Dictionary) -> void:
+	latest_summary_data = summary.duplicate(true)
+	level_up_panel.visible = false
+	if run_summary_panel != null and run_summary_panel.has_method("show_summary"):
+		game_over_panel.visible = false
+		run_summary_panel.call("show_summary", latest_summary_data)
+		return
+
 	var lines := [
 		"Run Ended",
 		"Time: %s" % _format_time(float(summary.get("time", 0.0))),
@@ -902,7 +947,6 @@ func show_game_over(summary: Dictionary) -> void:
 	if unlocked_count > 0:
 		lines.append("New Unlocks: %d" % unlocked_count)
 	game_over_summary.text = "\n".join(lines)
-	level_up_panel.visible = false
 	game_over_panel.visible = true
 
 
@@ -913,30 +957,35 @@ func on_game_state_changed(state: String) -> void:
 			level_up_panel.visible = false
 			_set_upgrade_select_visible(false)
 			game_over_panel.visible = false
+			_set_run_summary_visible(false)
 			set_main_menu_visible(true)
 		"character_select":
 			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
 			_set_upgrade_select_visible(false)
 			game_over_panel.visible = false
+			_set_run_summary_visible(false)
 			set_character_select_visible(true)
 		"map_select":
 			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
 			_set_upgrade_select_visible(false)
 			game_over_panel.visible = false
+			_set_run_summary_visible(false)
 			set_map_select_visible(true)
 		"contract_select":
 			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
 			_set_upgrade_select_visible(false)
 			game_over_panel.visible = false
+			_set_run_summary_visible(false)
 			set_contract_select_visible(true)
 		"playing":
 			_set_root_input_passthrough(true)
 			level_up_panel.visible = false
 			_set_upgrade_select_visible(false)
 			game_over_panel.visible = false
+			_set_run_summary_visible(false)
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
 			set_map_select_visible(false)
@@ -946,6 +995,7 @@ func on_game_state_changed(state: String) -> void:
 			_set_root_input_passthrough(false)
 			_set_upgrade_select_visible(true)
 			game_over_panel.visible = false
+			_set_run_summary_visible(false)
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
 			set_map_select_visible(false)
@@ -954,6 +1004,8 @@ func on_game_state_changed(state: String) -> void:
 		"game_over":
 			_set_root_input_passthrough(false)
 			_set_upgrade_select_visible(false)
+			game_over_panel.visible = run_summary_panel == null
+			_set_run_summary_visible(true)
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
 			set_map_select_visible(false)
