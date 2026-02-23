@@ -53,11 +53,21 @@ layout_mode = 2
 text = "Build recap and progression snapshot"
 theme_type_variation = &"BodyMutedLabel"
 
-[node name="Seed" type="Label" parent="Margin/VBox/Header"]
+[node name="SeedBox" type="HBoxContainer" parent="Margin/VBox/Header"]
 layout_mode = 2
-horizontal_alignment = 2
+alignment = 2
+theme_override_constants/separation = 6
+
+[node name="Seed" type="Label" parent="Margin/VBox/Header/SeedBox"]
+layout_mode = 2
 text = "Seed 0"
 theme_type_variation = &"BodyMutedLabel"
+
+[node name="CopySeedButton" type="Button" parent="Margin/VBox/Header/SeedBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(62, 28)
+text = "Copy"
+theme_type_variation = &"Button"
 
 [node name="Columns" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
@@ -165,11 +175,15 @@ layout_mode = 2
 layout_mode = 2
 text = "Weapon: --"
 
-[node name="TopTagsLabel" type="Label" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
+[node name="TopTagsTitle" type="Label" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
 layout_mode = 2
-text = "Top tags: -"
+text = "Top tags"
 theme_type_variation = &"BodyMutedLabel"
-autowrap_mode = 3
+
+[node name="TopTagsFlow" type="HFlowContainer" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
 
 [node name="UpgradesLabel" type="Label" parent="Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content"]
 layout_mode = 2
@@ -246,3 +260,9 @@ custom_minimum_size = Vector2(180, 46)
 text = "Back to Menu"
 use_primary_style = false
 theme_type_variation = &"Button"
+
+[node name="KeyHint" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+horizontal_alignment = 2
+text = "Enter: Retry   Esc: Back to Menu"
+theme_type_variation = &"BodyMutedLabel"

@@ -9,7 +9,8 @@ const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 
 @onready var title_label: Label = $Margin/VBox/Header/TitleGroup/Title
 @onready var subtitle_label: Label = $Margin/VBox/Header/TitleGroup/Subtitle
-@onready var seed_label: Label = $Margin/VBox/Header/Seed
+@onready var seed_label: Label = $Margin/VBox/Header/SeedBox/Seed
+@onready var seed_copy_button: Button = $Margin/VBox/Header/SeedBox/CopySeedButton
 
 @onready var time_value: Label = $Margin/VBox/Columns/LeftColumn/StatsCard/Margin/Content/HeroValues/TimeValue
 @onready var kills_value: Label = $Margin/VBox/Columns/LeftColumn/StatsCard/Margin/Content/HeroValues/KillsValue
@@ -20,7 +21,7 @@ const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 @onready var boss_progress_label: Label = $Margin/VBox/Columns/LeftColumn/StatsCard/Margin/Content/BossProgress
 
 @onready var weapon_label: Label = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/WeaponLabel
-@onready var top_tags_label: Label = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/TopTagsLabel
+@onready var top_tags_flow: HFlowContainer = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/TopTagsFlow
 @onready var upgrades_label: Label = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/UpgradesLabel
 @onready var map_contracts_label: Label = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/MapContractsLabel
 @onready var multipliers_label: Label = $Margin/VBox/Columns/RightColumn/BuildCard/Margin/Content/MultipliersLabel
@@ -37,6 +38,7 @@ const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 
 var _state: Dictionary = {}
 var _rendered_key_fields: int = 0
+var _copy_seed_tween: Tween
 
 
 func _ready() -> void:
@@ -47,6 +49,7 @@ func _ready() -> void:
 	menu_button.pressed.connect(func() -> void:
 		back_to_menu_requested.emit()
 	)
+	seed_copy_button.pressed.connect(_on_copy_seed_pressed)
 	if retry_button.has_method("set_motion_enabled"):
 		retry_button.call("set_motion_enabled", true)
 	if menu_button.has_method("set_motion_enabled"):
@@ -100,9 +103,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not event.pressed or event.echo:
 		return
-	if event.keycode == KEY_ESCAPE:
-		back_to_menu_requested.emit()
-		accept_event()
+	match event.keycode:
+		KEY_ESCAPE:
+			back_to_menu_requested.emit()
+			accept_event()
+		KEY_ENTER, KEY_KP_ENTER:
+			if not retry_button.disabled:
+				retry_requested.emit()
+				accept_event()
+		_:
+			pass
 
 
 func _render() -> void:
@@ -110,6 +120,8 @@ func _render() -> void:
 	title_label.text = "Run Summary"
 	subtitle_label.text = "Build recap and progression snapshot"
 	seed_label.text = "Seed %d" % int(_state.get("seed", 0))
+	seed_copy_button.text = "Copy"
+	seed_copy_button.disabled = int(_state.get("seed", 0)) <= 0
 
 	time_value.text = RunSummaryStateClass.format_time(float(_state.get("time_survived_sec", 0.0)))
 	kills_value.text = str(int(_state.get("kills", 0)))
@@ -120,7 +132,9 @@ func _render() -> void:
 	_rendered_key_fields += 4
 
 	var boss_progress := String(_state.get("boss_progress", "")).strip_edges()
-	boss_progress_label.visible = not boss_progress.is_empty()
+	var boss_normalized := boss_progress.to_lower()
+	var hide_boss_progress := boss_normalized.is_empty() or boss_normalized == "idle" or boss_normalized == "none"
+	boss_progress_label.visible = not hide_boss_progress
 	if boss_progress_label.visible:
 		boss_progress_label.text = "Boss progress: %s" % boss_progress.capitalize()
 		_rendered_key_fields += 1
@@ -129,7 +143,7 @@ func _render() -> void:
 	if not String(_state.get("weapon_name", "")).strip_edges().is_empty():
 		_rendered_key_fields += 1
 
-	top_tags_label.text = "Top tags: %s" % _format_top_tags(_state.get("top_tags", []))
+	_render_top_tag_badges(_state.get("top_tags", []))
 	upgrades_label.text = "Chosen upgrades:\n%s" % _format_upgrades(_state.get("chosen_upgrades", []))
 	map_contracts_label.text = "Map: %s\nContracts: %s" % [
 		String(_state.get("map_name", "-")),
@@ -172,18 +186,40 @@ func _set_badge(badge_node: PanelContainer, label: String, value: String) -> voi
 		badge_node.call("set_badge", label, value)
 
 
-func _format_top_tags(value: Variant) -> String:
+func _render_top_tag_badges(value: Variant) -> void:
+	for child in top_tags_flow.get_children():
+		child.queue_free()
 	if not (value is Array):
-		return "-"
-	var output: Array[String] = []
+		_append_tag_badge("—")
+		return
+	var has_rows := false
 	for row_variant in (value as Array):
 		if not (row_variant is Dictionary):
 			continue
 		var row: Dictionary = row_variant
-		output.append("[%s x%d]" % [String(row.get("label", "Tag")), int(row.get("weight", 0))])
-	if output.is_empty():
-		return "-"
-	return " ".join(output)
+		var label := String(row.get("label", "Tag"))
+		var weight := int(row.get("weight", 0))
+		_append_tag_badge("%s x%d" % [label, weight])
+		has_rows = true
+	if not has_rows:
+		_append_tag_badge("—")
+
+
+func _append_tag_badge(text: String) -> void:
+	var badge := PanelContainer.new()
+	badge.theme_type_variation = &"BadgePanel"
+	badge.custom_minimum_size = Vector2(0.0, 26.0)
+	var margin := MarginContainer.new()
+	margin.set("theme_override_constants/margin_left", 8)
+	margin.set("theme_override_constants/margin_top", 2)
+	margin.set("theme_override_constants/margin_right", 8)
+	margin.set("theme_override_constants/margin_bottom", 2)
+	var label := Label.new()
+	label.text = text
+	label.theme_type_variation = &"BodyMutedLabel"
+	margin.add_child(label)
+	badge.add_child(margin)
+	top_tags_flow.add_child(badge)
 
 
 func _format_upgrades(value: Variant) -> String:
@@ -227,3 +263,18 @@ func _format_meta_currency(value: Variant) -> String:
 	if value == null:
 		return "Meta currency earned: —"
 	return "Meta currency earned: %d" % int(value)
+
+
+func _on_copy_seed_pressed() -> void:
+	var seed_value := int(_state.get("seed", 0))
+	if seed_value <= 0:
+		return
+	DisplayServer.clipboard_set(str(seed_value))
+	seed_copy_button.text = "Copied"
+	if _copy_seed_tween != null and is_instance_valid(_copy_seed_tween):
+		_copy_seed_tween.kill()
+	_copy_seed_tween = create_tween()
+	_copy_seed_tween.tween_interval(0.7)
+	_copy_seed_tween.tween_callback(func() -> void:
+		seed_copy_button.text = "Copy"
+	)
