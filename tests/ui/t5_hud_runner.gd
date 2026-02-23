@@ -5,6 +5,7 @@ const LOG_PATH := "res://tmp/logs/t5_hud_runner.log"
 const SHOT_OVERVIEW := "res://tmp/logs/t5_hud_overview.png"
 const SHOT_TIER := "res://tmp/logs/t5_hud_tier_pulse.png"
 const SHOT_LOW_HP := "res://tmp/logs/t5_hud_low_hp.png"
+const SESSION_TAG := "t5_hud_runner"
 
 
 func _ready() -> void:
@@ -12,6 +13,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
+	_setup_profile_isolation(SESSION_TAG)
 	var lines: Array[String] = []
 	var game := GAME_ROOT_SCENE.instantiate()
 	add_child(game)
@@ -75,6 +77,7 @@ func _run() -> void:
 	lines.append("t5 hud runner: PASS")
 	_write_log(lines)
 	print("t5 hud runner: PASS")
+	_cleanup_profile_isolation()
 	get_tree().quit(0)
 
 
@@ -82,6 +85,7 @@ func _fail(lines: Array[String], reason: String) -> void:
 	lines.append("t5 hud runner: FAIL - %s" % reason)
 	_write_log(lines)
 	push_error(reason)
+	_cleanup_profile_isolation()
 	get_tree().quit(1)
 
 
@@ -112,3 +116,18 @@ func _wait_draw() -> void:
 func _wait_frames(count: int) -> void:
 	for _i in range(maxi(1, count)):
 		await get_tree().process_frame
+
+
+func _setup_profile_isolation(tag: String) -> void:
+	if ProfileStore == null or not ProfileStore.has_method("begin_test_session"):
+		return
+	var session_id := "%s_%d_%d" % [tag, int(Time.get_unix_time_from_system()), int(Time.get_ticks_usec() % 1000000)]
+	ProfileStore.begin_test_session(session_id, true)
+	if ProfileStore.has_method("load_profile"):
+		ProfileStore.load_profile("diver", "map_trench_lab")
+
+
+func _cleanup_profile_isolation() -> void:
+	if ProfileStore == null or not ProfileStore.has_method("end_test_session"):
+		return
+	ProfileStore.end_test_session(true)

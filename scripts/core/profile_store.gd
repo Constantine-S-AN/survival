@@ -3,6 +3,7 @@ extends Node
 const PROFILE_PATH := "user://profile.json"
 const PROFILE_TMP_PATH := "user://profile.json.tmp"
 const PROFILE_SCHEMA_VERSION := 2
+const TEST_SESSION_META_KEY := "profile_store_test_session_id"
 
 const DEFAULT_PROGRESS: Dictionary = {
 	"total_kills": 0,
@@ -15,9 +16,13 @@ const DEFAULT_PROGRESS: Dictionary = {
 
 var profile: Dictionary = {}
 var loaded: bool = false
+var _profile_path_override: String = ""
+var _profile_tmp_path_override: String = ""
+var _active_test_session_id: String = ""
 
 
 func _ready() -> void:
+	_maybe_enable_auto_test_session()
 	var default_character_id := DataRegistry.get_default_character_id()
 	var default_map_id := DataRegistry.get_default_map_id()
 	load_profile(
@@ -28,8 +33,9 @@ func _ready() -> void:
 
 func load_profile(default_character_id: String, default_map_id: String = "") -> Dictionary:
 	var raw_profile: Dictionary = {}
-	if FileAccess.file_exists(PROFILE_PATH):
-		var text: String = FileAccess.get_file_as_string(PROFILE_PATH)
+	var profile_path := _resolve_profile_path()
+	if FileAccess.file_exists(profile_path):
+		var text: String = FileAccess.get_file_as_string(profile_path)
 		var parsed: Variant = JSON.parse_string(text)
 		if parsed is Dictionary:
 			raw_profile = (parsed as Dictionary).duplicate(true)
@@ -225,23 +231,72 @@ func get_requirement_progress(requirement: Dictionary) -> Dictionary:
 
 
 func save_profile() -> bool:
+	var profile_path := _resolve_profile_path()
+	var profile_tmp_path := _resolve_profile_tmp_path()
 	var output := profile.duplicate(true)
 	var content := JSON.stringify(output, "\t")
-	var file := FileAccess.open(PROFILE_TMP_PATH, FileAccess.WRITE)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(profile_path.get_base_dir()))
+	var file := FileAccess.open(profile_tmp_path, FileAccess.WRITE)
 	if file == null:
-		push_error("[profile] failed to open tmp profile for write: %s" % PROFILE_TMP_PATH)
+		push_error("[profile] failed to open tmp profile for write: %s" % profile_tmp_path)
 		return false
 	file.store_string(content)
 	file.flush()
 	file = null
 
-	if FileAccess.file_exists(PROFILE_PATH):
-		DirAccess.remove_absolute(PROFILE_PATH)
-	var err := DirAccess.rename_absolute(PROFILE_TMP_PATH, PROFILE_PATH)
+	var profile_abs_path := ProjectSettings.globalize_path(profile_path)
+	var profile_tmp_abs_path := ProjectSettings.globalize_path(profile_tmp_path)
+	if FileAccess.file_exists(profile_path):
+		DirAccess.remove_absolute(profile_abs_path)
+	var err := DirAccess.rename_absolute(profile_tmp_abs_path, profile_abs_path)
 	if err != OK:
-		push_error("[profile] failed to move tmp profile to profile.json (err=%d)" % err)
+		push_error("[profile] failed to move tmp profile to profile path %s (err=%d)" % [profile_path, err])
 		return false
 	return true
+
+
+func begin_test_session(session_id: String, clean_existing: bool = true) -> void:
+	var normalized_session := session_id.strip_edges().replace("/", "_").replace("\\", "_")
+	if normalized_session.is_empty():
+		normalized_session = "test_%d" % int(Time.get_unix_time_from_system())
+	var root_dir := "user://tmp/profile_sessions/%s" % normalized_session
+	_active_test_session_id = normalized_session
+	_profile_path_override = "%s/profile.json" % root_dir
+	_profile_tmp_path_override = "%s/profile.json.tmp" % root_dir
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root_dir))
+	if clean_existing:
+		_remove_path_if_exists(_profile_path_override)
+		_remove_path_if_exists(_profile_tmp_path_override)
+	Engine.set_meta(TEST_SESSION_META_KEY, normalized_session)
+
+
+func end_test_session(cleanup_files: bool = true) -> void:
+	if _profile_path_override.is_empty():
+		return
+	var profile_path := _profile_path_override
+	var profile_tmp_path := _profile_tmp_path_override
+	var root_dir := profile_path.get_base_dir()
+	if cleanup_files:
+		_remove_path_if_exists(profile_path)
+		_remove_path_if_exists(profile_tmp_path)
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(root_dir))
+	_profile_path_override = ""
+	_profile_tmp_path_override = ""
+	_active_test_session_id = ""
+	if Engine.has_meta(TEST_SESSION_META_KEY):
+		Engine.remove_meta(TEST_SESSION_META_KEY)
+
+
+func get_profile_path() -> String:
+	return _resolve_profile_path()
+
+
+func get_profile_tmp_path() -> String:
+	return _resolve_profile_tmp_path()
+
+
+func get_active_test_session_id() -> String:
+	return _active_test_session_id
 
 
 func _is_unlock_requirement_met(requirement: Dictionary) -> bool:
@@ -314,3 +369,39 @@ func _normalize_string_array(source: Variant) -> Array[String]:
 			continue
 		output.append(text)
 	return output
+
+
+func _resolve_profile_path() -> String:
+	return _profile_path_override if not _profile_path_override.is_empty() else PROFILE_PATH
+
+
+func _resolve_profile_tmp_path() -> String:
+	return _profile_tmp_path_override if not _profile_tmp_path_override.is_empty() else PROFILE_TMP_PATH
+
+
+func _remove_path_if_exists(path: String) -> void:
+	if not FileAccess.file_exists(path):
+		return
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func _maybe_enable_auto_test_session() -> void:
+	if not _profile_path_override.is_empty():
+		return
+	var test_scene := ""
+	for arg in OS.get_cmdline_args():
+		var value := String(arg).strip_edges()
+		if value.begins_with("res://tests/") and value.ends_with(".tscn"):
+			test_scene = value
+			break
+	if test_scene.is_empty():
+		return
+	if Engine.has_meta(TEST_SESSION_META_KEY):
+		var existing_id := String(Engine.get_meta(TEST_SESSION_META_KEY)).strip_edges()
+		if not existing_id.is_empty():
+			begin_test_session(existing_id, false)
+			return
+	var scene_name := test_scene.get_file().get_basename().to_lower()
+	var stamp := int(Time.get_unix_time_from_system())
+	var nonce := int(Time.get_ticks_usec() % 1000000)
+	begin_test_session("%s_%d_%d" % [scene_name, stamp, nonce], true)

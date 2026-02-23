@@ -5,6 +5,7 @@ const LOG_PATH := "res://tmp/logs/t6_upgrade_flow.log"
 const SHOT_CARDS := "res://tmp/logs/t6_upgrade_cards.png"
 const SHOT_FOCUS := "res://tmp/logs/t6_upgrade_focus.png"
 const SHOT_AFTER := "res://tmp/logs/t6_upgrade_after_select.png"
+const SESSION_TAG := "t6_upgrade_runner"
 
 
 func _ready() -> void:
@@ -12,6 +13,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
+	_setup_profile_isolation(SESSION_TAG)
 	var lines: Array[String] = []
 	const FIXED_SEED := 424242
 	var game := GAME_ROOT_SCENE.instantiate()
@@ -90,6 +92,7 @@ func _run() -> void:
 	lines.append("t6 upgrade flow: PASS")
 	_write_log(lines)
 	print("t6 upgrade flow: PASS")
+	_cleanup_profile_isolation()
 	get_tree().quit(0)
 
 
@@ -116,6 +119,7 @@ func _fail(lines: Array[String], reason: String) -> void:
 	lines.append("t6 upgrade flow: FAIL - %s" % reason)
 	_write_log(lines)
 	push_error(reason)
+	_cleanup_profile_isolation()
 	get_tree().quit(1)
 
 
@@ -145,3 +149,18 @@ func _wait_draw() -> void:
 func _wait_frames(count: int) -> void:
 	for _i in range(maxi(1, count)):
 		await get_tree().process_frame
+
+
+func _setup_profile_isolation(tag: String) -> void:
+	if ProfileStore == null or not ProfileStore.has_method("begin_test_session"):
+		return
+	var session_id := "%s_%d_%d" % [tag, int(Time.get_unix_time_from_system()), int(Time.get_ticks_usec() % 1000000)]
+	ProfileStore.begin_test_session(session_id, true)
+	if ProfileStore.has_method("load_profile"):
+		ProfileStore.load_profile("diver", "map_trench_lab")
+
+
+func _cleanup_profile_isolation() -> void:
+	if ProfileStore == null or not ProfileStore.has_method("end_test_session"):
+		return
+	ProfileStore.end_test_session(true)

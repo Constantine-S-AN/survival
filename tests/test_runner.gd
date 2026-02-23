@@ -59,9 +59,11 @@ class DummyDamageEnemy:
 
 
 var failed: int = 0
+var _profile_test_session_started: bool = false
 
 
 func _ready() -> void:
+	_setup_profile_isolation()
 	_bootstrap_script_mode_singletons()
 	var input_config_script: Script = load("res://scripts/core/input_config.gd")
 	if input_config_script != null and input_config_script.has_method("ensure_default_actions"):
@@ -82,6 +84,7 @@ func _ready() -> void:
 	await _run_boss_showcase_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
+	_cleanup_profile_isolation()
 	get_tree().quit(failed)
 
 
@@ -288,7 +291,7 @@ func _run_character_profile_tests() -> void:
 		_assert_true(false, "characters schema test: parse characters json")
 	_assert_true(FileAccess.get_file_as_string(characters_path) == original_characters, "characters schema tests do not mutate res characters data")
 
-	var profile_path := "user://profile.json"
+	var profile_path := _current_profile_path()
 	var had_backup := FileAccess.file_exists(profile_path)
 	var backup_content := FileAccess.get_file_as_string(profile_path) if had_backup else ""
 
@@ -1100,7 +1103,7 @@ func _run_map_biome_tests() -> void:
 	else:
 		_assert_true(false, "maps json parse for event table reference test")
 
-	var profile_path := "user://profile.json"
+	var profile_path := _current_profile_path()
 	var had_profile_backup := FileAccess.file_exists(profile_path)
 	var profile_backup_content := FileAccess.get_file_as_string(profile_path) if had_profile_backup else ""
 	var profile_script: Script = load("res://scripts/core/profile_store.gd")
@@ -1192,7 +1195,7 @@ func _run_p0f_system_tests() -> void:
 		_assert_true(false, "p0f enemies schema test parse")
 	_assert_true(FileAccess.get_file_as_string(enemies_path) == original_enemies, "p0f enemies schema tests do not mutate res data")
 
-	var profile_path := "user://profile.json"
+	var profile_path := _current_profile_path()
 	var had_profile_backup := FileAccess.file_exists(profile_path)
 	var profile_backup_content := FileAccess.get_file_as_string(profile_path) if had_profile_backup else ""
 	var profile_script: Script = load("res://scripts/core/profile_store.gd")
@@ -1951,7 +1954,7 @@ func _write_json_value(path: String, value: Variant) -> void:
 func _remove_file_if_exists(path: String) -> void:
 	if not FileAccess.file_exists(path):
 		return
-	DirAccess.remove_absolute(path)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 func _mutate_upgrade_field(rows: Array, upgrade_id: String, field: String, value: Variant) -> bool:
@@ -1981,3 +1984,29 @@ func _count_choices_with_tag(choices: Array, tag: String) -> int:
 		if tags.has(tag):
 			count += 1
 	return count
+
+
+func _setup_profile_isolation() -> void:
+	if ProfileStore == null:
+		return
+	if not ProfileStore.has_method("begin_test_session"):
+		return
+	var session_id := "test_runner_%d_%d" % [int(Time.get_unix_time_from_system()), int(Time.get_ticks_usec() % 1000000)]
+	ProfileStore.begin_test_session(session_id, true)
+	_profile_test_session_started = true
+	if ProfileStore.has_method("load_profile"):
+		ProfileStore.load_profile("diver", "map_trench_lab")
+
+
+func _cleanup_profile_isolation() -> void:
+	if not _profile_test_session_started:
+		return
+	if ProfileStore != null and ProfileStore.has_method("end_test_session"):
+		ProfileStore.end_test_session(true)
+	_profile_test_session_started = false
+
+
+func _current_profile_path() -> String:
+	if ProfileStore != null and ProfileStore.has_method("get_profile_path"):
+		return String(ProfileStore.get_profile_path())
+	return "user://profile.json"
