@@ -110,6 +110,8 @@ func _ready() -> void:
 	)
 
 	_set_state(STATE_MENU)
+	if _can_use_scene_transition() and SceneTransition.has_method("fade_in"):
+		SceneTransition.fade_in(0.16)
 	_refresh_hud()
 
 
@@ -321,6 +323,8 @@ func _on_player_died() -> void:
 	if not unlocked_names.is_empty():
 		ui.show_unlock_toast(unlocked_names)
 		ui.refresh_character_unlocks(ProfileStore.get_unlocked_characters())
+	if _can_use_scene_transition() and SceneTransition.has_method("play_pulse"):
+		SceneTransition.play_pulse(0.18)
 	_set_state(STATE_GAME_OVER)
 	ui.show_game_over({
 		"time": elapsed_time,
@@ -334,6 +338,10 @@ func _on_player_died() -> void:
 func _on_retry_requested() -> void:
 	get_tree().set_deferred("paused", false)
 	Engine.time_scale = 1.0
+	var main_scene_path := String(ProjectSettings.get_setting("application/run/main_scene", "res://scenes/game/GameRoot.tscn"))
+	if _can_use_scene_transition() and SceneTransition.has_method("transition_to"):
+		SceneTransition.transition_to(main_scene_path, 0.2)
+		return
 	get_tree().reload_current_scene()
 
 
@@ -349,7 +357,7 @@ func _on_main_menu_start_requested() -> void:
 		selected_contract_ids,
 		DataRegistry.get_contract_max_select()
 	)
-	_set_state(STATE_CHARACTER_SELECT)
+	_transition_to_state(STATE_CHARACTER_SELECT, 0.14)
 
 
 func _on_start_run_requested(character_id: String) -> void:
@@ -362,11 +370,11 @@ func _on_start_run_requested(character_id: String) -> void:
 	selected_character_id = chosen_id
 	ProfileStore.set_selected_character_id(selected_character_id)
 	ui.configure_map_select(DataRegistry.get_maps(), selected_map_id)
-	_set_state(STATE_MAP_SELECT)
+	_transition_to_state(STATE_MAP_SELECT, 0.14)
 
 
 func _on_character_select_back_requested() -> void:
-	_set_state(STATE_MENU)
+	_transition_to_state(STATE_MENU, 0.12)
 
 
 func _on_map_select_start_requested(map_id: String) -> void:
@@ -376,11 +384,11 @@ func _on_map_select_start_requested(map_id: String) -> void:
 		selected_contract_ids,
 		DataRegistry.get_contract_max_select()
 	)
-	_set_state(STATE_CONTRACT_SELECT)
+	_transition_to_state(STATE_CONTRACT_SELECT, 0.14)
 
 
 func _on_map_select_back_requested() -> void:
-	_set_state(STATE_CHARACTER_SELECT)
+	_transition_to_state(STATE_CHARACTER_SELECT, 0.12)
 
 
 func _on_contract_select_start_requested(contract_ids: Array[String]) -> void:
@@ -388,7 +396,7 @@ func _on_contract_select_start_requested(contract_ids: Array[String]) -> void:
 
 
 func _on_contract_select_back_requested() -> void:
-	_set_state(STATE_MAP_SELECT)
+	_transition_to_state(STATE_MAP_SELECT, 0.12)
 
 
 func _on_unlock_all_debug_requested() -> void:
@@ -435,7 +443,7 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 	_sync_runtime_fog_overlay(true)
 	fixed_noise_value = world.player.noise
 	Engine.time_scale = 1.0
-	_set_state(STATE_PLAYING)
+	_transition_to_state(STATE_PLAYING, 0.16)
 	_refresh_hud()
 
 
@@ -487,6 +495,22 @@ func _set_state(next_state: String) -> void:
 	else:
 		get_tree().set_deferred("paused", true)
 	ui.on_game_state_changed(run_state)
+
+
+func _transition_to_state(next_state: String, duration: float = 0.14) -> void:
+	if not _can_use_scene_transition():
+		_set_state(next_state)
+		return
+	if not SceneTransition.has_method("transition_call"):
+		_set_state(next_state)
+		return
+	SceneTransition.transition_call(Callable(self, "_set_state").bind(next_state), duration)
+
+
+func _can_use_scene_transition() -> bool:
+	if DisplayServer.get_name() == "headless":
+		return false
+	return SceneTransition != null
 
 
 func _refresh_hud() -> void:

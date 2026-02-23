@@ -44,6 +44,24 @@ Unify all in-game UI around a neon tactical style so T2-T7 can focus on layout a
 - `PrimaryButton`: primary path action (`Start`, `Retry`, confirmation)
 - Hover/focus/pressed states are defined in theme and can be enhanced by component scripts.
 
+## Transitions & Motion
+- Global transition entry: autoload `SceneTransition` (`res://scenes/ui/SceneTransition.tscn`).
+- Transition API:
+  - `fade_in(duration := 0.2)`
+  - `fade_out(duration := 0.2)`
+  - `transition_to(scene_path, duration := 0.2)`
+  - `play_pulse(duration := 0.14)`
+- Reentrancy rule: transitions are queue-driven; rapid repeated button presses are serialized to avoid stuck black screens.
+- Input rule: during blocking transitions, both pointer and keyboard input are intercepted globally.
+- Motion baseline (`res://scripts/ui/ui_motion.gd`):
+  - `hover_scale(control, scale := 1.02, duration := 0.08)`
+  - `press_bounce(control, duration := 0.10)`
+  - `focus_ring(control)`
+- Motion toggles:
+  - Per-component: `NeonButton.enable_motion`
+  - Global: `UIMotion.set_motion_enabled(enabled)`
+  - Reserved for future Settings integration: `Reduce Motion`.
+
 ## Reusable Components Added In T1
 - `NeonButton.tscn`: button with hover/press scale affordance.
 - `NeonCard.tscn`: card container with subtle lift-on-hover.

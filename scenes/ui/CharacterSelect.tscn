@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/character_select_panel.gd" id="1"]
 [ext_resource type="Theme" path="res://ui/theme/NeonTheme.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/ui/components/neon_button.gd" id="3"]
 
 [node name="CharacterSelect" type="Panel"]
 visible = false
@@ -88,15 +89,19 @@ alignment = 1
 layout_mode = 2
 text = "Start"
 theme_type_variation = &"PrimaryButton"
+script = ExtResource("3")
 
 [node name="RandomButton" type="Button" parent="Margin/VBox/Footer"]
 layout_mode = 2
 text = "Random Unlocked"
+script = ExtResource("3")
 
 [node name="BackButton" type="Button" parent="Margin/VBox/Footer"]
 layout_mode = 2
 text = "Back"
+script = ExtResource("3")
 
 [node name="UnlockAllButton" type="Button" parent="Margin/VBox/Footer"]
 layout_mode = 2
 text = "Unlock All (Debug)"
+script = ExtResource("3")

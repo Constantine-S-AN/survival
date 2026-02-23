@@ -14,6 +14,7 @@ signal unlock_all_debug_requested
 
 const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
 const NEON_THEME := preload("res://ui/theme/NeonTheme.tres")
+const NEON_BUTTON_SCRIPT := preload("res://scripts/ui/components/neon_button.gd")
 const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 const MAP_SELECT_SCENE := preload("res://scenes/ui/MapSelect.tscn")
 const CONTRACT_SELECT_SCENE := preload("res://scenes/ui/ContractSelect.tscn")
@@ -349,19 +350,17 @@ func _create_main_menu_panel() -> void:
 	subtitle.theme_type_variation = &"BodyMutedLabel"
 	menu_vbox.add_child(subtitle)
 
-	menu_start_button = Button.new()
+	menu_start_button = NEON_BUTTON_SCRIPT.new()
 	menu_start_button.text = "Start Run"
-	menu_start_button.theme_type_variation = &"PrimaryButton"
+	menu_start_button.set("use_primary_style", true)
 	menu_start_button.pressed.connect(func() -> void:
 		main_menu_start_requested.emit()
-		main_menu_panel.visible = false
-		if character_select_panel != null:
-			character_select_panel.visible = true
 	)
 	menu_vbox.add_child(menu_start_button)
 
-	menu_quit_button = Button.new()
+	menu_quit_button = NEON_BUTTON_SCRIPT.new()
 	menu_quit_button.text = "Quit"
+	menu_quit_button.set("use_primary_style", false)
 	menu_quit_button.pressed.connect(func() -> void:
 		get_tree().quit()
 	)
