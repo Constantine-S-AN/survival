@@ -10,11 +10,13 @@ signal map_select_start_requested(map_id: String)
 signal map_select_back_requested
 signal contract_select_start_requested(contract_ids: Array[String])
 signal contract_select_back_requested
+signal run_setup_start_requested(run_config: Dictionary)
 signal unlock_all_debug_requested
 
 const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
 const NEON_THEME := preload("res://ui/theme/NeonTheme.tres")
 const MAIN_MENU_SCENE := preload("res://scenes/ui/menu/MainMenu.tscn")
+const RUN_SETUP_SCENE := preload("res://scenes/ui/run_setup/RunSetup.tscn")
 const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 const MAP_SELECT_SCENE := preload("res://scenes/ui/MapSelect.tscn")
 const CONTRACT_SELECT_SCENE := preload("res://scenes/ui/ContractSelect.tscn")
@@ -156,6 +158,7 @@ var system_msg_label: Label
 var system_msg_timer: Timer
 var last_noise_tier_id: String = ""
 var main_menu_panel: CanvasItem
+var run_setup_panel: CanvasItem
 var character_select_panel: CanvasItem
 var map_select_panel: CanvasItem
 var contract_select_panel: CanvasItem
@@ -176,9 +179,7 @@ func _ready() -> void:
 	_create_debug_panel()
 	_create_system_message_widget()
 	_create_main_menu_panel()
-	_create_character_select_panel()
-	_create_map_select_panel()
-	_create_contract_select_panel()
+	_create_run_setup_panel()
 	_create_unlock_toast_widget()
 	set_debug_visible(false)
 
@@ -350,6 +351,22 @@ func _create_character_select_panel() -> void:
 		character_select_panel.connect("debug_unlock_all_pressed", Callable(self, "_on_character_select_unlock_all_pressed"))
 
 
+func _create_run_setup_panel() -> void:
+	if RUN_SETUP_SCENE == null:
+		return
+	var panel_variant := RUN_SETUP_SCENE.instantiate()
+	if panel_variant == null:
+		return
+	run_setup_panel = panel_variant
+	run_setup_panel.name = "RunSetup"
+	run_setup_panel.visible = false
+	root.add_child(run_setup_panel)
+	if run_setup_panel.has_signal("run_submitted"):
+		run_setup_panel.connect("run_submitted", Callable(self, "_on_run_setup_submitted"))
+	if run_setup_panel.has_signal("back_requested"):
+		run_setup_panel.connect("back_requested", Callable(self, "_on_run_setup_back_requested"))
+
+
 func _create_map_select_panel() -> void:
 	if MAP_SELECT_SCENE == null:
 		return
@@ -395,6 +412,14 @@ func _create_unlock_toast_widget() -> void:
 
 func _on_character_select_start_pressed(character_id: String) -> void:
 	start_run_requested.emit(character_id)
+
+
+func _on_run_setup_submitted(run_config: Dictionary) -> void:
+	run_setup_start_requested.emit(run_config)
+
+
+func _on_run_setup_back_requested() -> void:
+	character_select_back_requested.emit()
 
 
 func _on_main_menu_play_pressed() -> void:
@@ -697,6 +722,8 @@ func _play_noise_tier_change(tier_color: Color) -> void:
 func set_main_menu_visible(enabled: bool) -> void:
 	if main_menu_panel != null:
 		main_menu_panel.visible = enabled
+	if enabled and run_setup_panel != null:
+		run_setup_panel.visible = false
 	if enabled and character_select_panel != null:
 		character_select_panel.visible = false
 	if enabled and map_select_panel != null:
@@ -707,8 +734,12 @@ func set_main_menu_visible(enabled: bool) -> void:
 
 
 func set_character_select_visible(enabled: bool) -> void:
+	if run_setup_panel != null:
+		run_setup_panel.visible = enabled
+		if enabled and run_setup_panel.has_method("set_step_by_state"):
+			run_setup_panel.call("set_step_by_state", "character_select")
 	if character_select_panel != null:
-		character_select_panel.visible = enabled
+		character_select_panel.visible = false
 	if enabled and main_menu_panel != null:
 		main_menu_panel.visible = false
 	if enabled and map_select_panel != null:
@@ -719,8 +750,12 @@ func set_character_select_visible(enabled: bool) -> void:
 
 
 func set_map_select_visible(enabled: bool) -> void:
+	if run_setup_panel != null:
+		run_setup_panel.visible = enabled
+		if enabled and run_setup_panel.has_method("set_step_by_state"):
+			run_setup_panel.call("set_step_by_state", "map_select")
 	if map_select_panel != null:
-		map_select_panel.visible = enabled
+		map_select_panel.visible = false
 	if enabled and main_menu_panel != null:
 		main_menu_panel.visible = false
 	if enabled and character_select_panel != null:
@@ -731,8 +766,12 @@ func set_map_select_visible(enabled: bool) -> void:
 
 
 func set_contract_select_visible(enabled: bool) -> void:
+	if run_setup_panel != null:
+		run_setup_panel.visible = enabled
+		if enabled and run_setup_panel.has_method("set_step_by_state"):
+			run_setup_panel.call("set_step_by_state", "contract_select")
 	if contract_select_panel != null:
-		contract_select_panel.visible = enabled
+		contract_select_panel.visible = false
 	if enabled and main_menu_panel != null:
 		main_menu_panel.visible = false
 	if enabled and character_select_panel != null:
@@ -743,6 +782,8 @@ func set_contract_select_visible(enabled: bool) -> void:
 
 
 func configure_character_select(characters: Array, unlocked_character_ids: Array[String], selected_id: String) -> void:
+	if run_setup_panel != null and run_setup_panel.has_method("set_character_data"):
+		run_setup_panel.call("set_character_data", characters, unlocked_character_ids, selected_id)
 	if character_select_panel == null:
 		return
 	if character_select_panel.has_method("set_character_data"):
@@ -750,6 +791,8 @@ func configure_character_select(characters: Array, unlocked_character_ids: Array
 
 
 func configure_map_select(maps: Array, selected_map_id: String) -> void:
+	if run_setup_panel != null and run_setup_panel.has_method("set_map_data"):
+		run_setup_panel.call("set_map_data", maps, selected_map_id)
 	if map_select_panel == null:
 		return
 	if map_select_panel.has_method("set_map_data"):
@@ -757,6 +800,8 @@ func configure_map_select(maps: Array, selected_map_id: String) -> void:
 
 
 func configure_contract_select(contracts: Array, selected_contract_ids: Array[String], max_select: int) -> void:
+	if run_setup_panel != null and run_setup_panel.has_method("set_contract_data"):
+		run_setup_panel.call("set_contract_data", contracts, selected_contract_ids, max_select)
 	if contract_select_panel == null:
 		return
 	if contract_select_panel.has_method("set_contract_data"):
@@ -764,6 +809,8 @@ func configure_contract_select(contracts: Array, selected_contract_ids: Array[St
 
 
 func refresh_character_unlocks(unlocked_character_ids: Array[String]) -> void:
+	if run_setup_panel != null and run_setup_panel.has_method("refresh_unlocks"):
+		run_setup_panel.call("refresh_unlocks", unlocked_character_ids)
 	if character_select_panel == null:
 		return
 	if character_select_panel.has_method("refresh_unlocks"):

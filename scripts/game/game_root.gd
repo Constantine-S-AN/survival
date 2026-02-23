@@ -95,6 +95,7 @@ func _ready() -> void:
 	ui.map_select_back_requested.connect(_on_map_select_back_requested)
 	ui.contract_select_start_requested.connect(_on_contract_select_start_requested)
 	ui.contract_select_back_requested.connect(_on_contract_select_back_requested)
+	ui.run_setup_start_requested.connect(_on_run_setup_start_requested)
 	ui.unlock_all_debug_requested.connect(_on_unlock_all_debug_requested)
 
 	ui.configure_character_select(
@@ -393,6 +394,16 @@ func _on_map_select_back_requested() -> void:
 
 func _on_contract_select_start_requested(contract_ids: Array[String]) -> void:
 	_start_run(selected_character_id, selected_map_id, contract_ids)
+
+
+func _on_run_setup_start_requested(run_config: Dictionary) -> void:
+	var character_id := String(run_config.get("character_id", selected_character_id)).strip_edges()
+	var map_id := String(run_config.get("map_id", selected_map_id)).strip_edges()
+	var contract_ids: Array = []
+	var contract_ids_variant: Variant = run_config.get("contract_ids", [])
+	if contract_ids_variant is Array:
+		contract_ids = (contract_ids_variant as Array).duplicate()
+	_start_run(character_id, map_id, contract_ids)
 
 
 func _on_contract_select_back_requested() -> void:

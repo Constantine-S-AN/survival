@@ -89,6 +89,32 @@ Unify all in-game UI around a neon tactical style so T2-T7 can focus on layout a
   - No fast strobe or large positional swings in menu idle state.
 - Visual noise/scanline should stay subtle and never reduce text readability.
 
+## Run Setup Wizard Spec
+- Scene: `res://scenes/ui/run_setup/RunSetup.tscn`
+- Script: `res://scripts/ui/run_setup/run_setup.gd`
+- Three-step flow:
+  - `Step 1`: Character
+  - `Step 2`: Map
+  - `Step 3`: Contracts (max 3)
+- Layout:
+  - Left: stepper with current highlight and completed check marks.
+  - Center: card list using `NeonCard` + `NeonButton`.
+  - Right: live summary with selected entries + contract multipliers + top-5 `tag_weights`.
+  - Contract cards must show an explicit `Affects:` line so players can see reward impact without opening docs.
+- Summary multipliers preview keys:
+  - `xp_mult`
+  - `rarity_mult`
+  - `drop_mult`
+  - `meta_currency_mult`
+  - Display format recommendation: `x1.20 (+20%)`.
+- Output contract for start:
+  - `character_id`, `map_id`, `contract_ids`, and derived `multipliers` payload.
+- Keyboard baseline:
+  - Arrow keys move within cards (when cards area is focused).
+  - `Enter` activates focused control.
+  - `Tab` rotates `Stepper -> Cards -> Nav -> Start`.
+  - `Shift+Tab` rotates backward.
+
 ## Reusable Components Added In T1
 - `NeonButton.tscn`: button with hover/press scale affordance.
 - `NeonCard.tscn`: card container with subtle lift-on-hover.
