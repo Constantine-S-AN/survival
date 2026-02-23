@@ -115,6 +115,25 @@ Unify all in-game UI around a neon tactical style so T2-T7 can focus on layout a
   - `Tab` rotates `Stepper -> Cards -> Nav -> Start`.
   - `Shift+Tab` rotates backward.
 
+## In-Run HUD Spec
+- Scene: `res://scenes/ui/hud/HUD.tscn`
+- Script: `res://scripts/ui/hud/hud.gd`
+- Adapter: `res://scripts/ui/hud/hud_state.gd`
+- Hierarchy:
+  - Top center: noise-first panel (value, `Tier N`, tier progress, threshold hint).
+  - Left top: survival status (`HP` bar + level/kills/time badges).
+  - Right top: build snapshot (weapon + top tags).
+  - Bottom center: action cooldowns (`Q Sonar`, `Space Dash`) + contract status.
+- Tier change feedback:
+  - On tier boundary transitions, show `THREAT TIER N` and a short pulse.
+  - Target duration: `0.12s - 0.18s`.
+- Damage feedback:
+  - Low-health tint is subtle and persistent at low HP.
+  - Damage spike flash is short and low-alpha; avoid full-screen strobe.
+- Cooldown display:
+  - Show module only if cooldown total exists.
+  - `Ready` and remaining seconds must be explicit.
+
 ## Reusable Components Added In T1
 - `NeonButton.tscn`: button with hover/press scale affordance.
 - `NeonCard.tscn`: card container with subtle lift-on-hover.

@@ -1,0 +1,295 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/hud/hud.gd" id="1"]
+[ext_resource type="Theme" path="res://ui/theme/NeonTheme.tres" id="2"]
+[ext_resource type="PackedScene" path="res://ui/components/NoiseMeter.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://ui/components/StatBadge.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://ui/components/NeonCard.tscn" id="5"]
+
+[node name="HUD" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2")
+script = ExtResource("1")
+
+[node name="DamageFlash" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.98, 0.18, 0.18, 0)
+
+[node name="TopNoise" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -260.0
+offset_top = 12.0
+offset_right = 260.0
+offset_bottom = 212.0
+mouse_filter = 2
+
+[node name="NoisePanel" type="PanelContainer" parent="TopNoise"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"HudPanel"
+
+[node name="Margin" type="MarginContainer" parent="TopNoise/NoisePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="TopNoise/NoisePanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="TopNoise/NoisePanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="NoiseValue" type="Label" parent="TopNoise/NoisePanel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Noise 0"
+theme_type_variation = &"HeadingLabel"
+
+[node name="TierIndex" type="Label" parent="TopNoise/NoisePanel/Margin/VBox/Header"]
+layout_mode = 2
+text = "Tier 0"
+theme_type_variation = &"SubheadingLabel"
+
+[node name="NoiseMeter" parent="TopNoise/NoisePanel/Margin/VBox" instance=ExtResource("3")]
+layout_mode = 2
+
+[node name="ThresholdBar" type="ProgressBar" parent="TopNoise/NoisePanel/Margin/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 14)
+show_percentage = false
+
+[node name="ThresholdLabel" type="Label" parent="TopNoise/NoisePanel/Margin/VBox"]
+layout_mode = 2
+text = "Next tier at --"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="ThreatFlash" type="Label" parent="TopNoise/NoisePanel/Margin/VBox"]
+visible = false
+layout_mode = 2
+text = "THREAT TIER 0"
+horizontal_alignment = 1
+theme_type_variation = &"SubheadingLabel"
+
+[node name="LeftSurvival" type="MarginContainer" parent="."]
+layout_mode = 1
+offset_left = 14.0
+offset_top = 16.0
+offset_right = 334.0
+offset_bottom = 228.0
+mouse_filter = 2
+
+[node name="SurvivalPanel" type="PanelContainer" parent="LeftSurvival"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"HudPanel"
+
+[node name="Margin" type="MarginContainer" parent="LeftSurvival/SurvivalPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="LeftSurvival/SurvivalPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
+layout_mode = 2
+text = "Survival"
+theme_type_variation = &"SubheadingLabel"
+
+[node name="HPBar" type="ProgressBar" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 14)
+show_percentage = false
+
+[node name="HPValue" type="Label" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
+layout_mode = 2
+text = "HP 100/100"
+
+[node name="Badges" type="HBoxContainer" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="LevelBadge" parent="LeftSurvival/SurvivalPanel/Margin/VBox/Badges" instance=ExtResource("4")]
+layout_mode = 2
+label_text = "Lvl"
+value_text = "1"
+
+[node name="KillsBadge" parent="LeftSurvival/SurvivalPanel/Margin/VBox/Badges" instance=ExtResource("4")]
+layout_mode = 2
+label_text = "Kills"
+value_text = "0"
+
+[node name="TimeBadge" parent="LeftSurvival/SurvivalPanel/Margin/VBox/Badges" instance=ExtResource("4")]
+layout_mode = 2
+label_text = "Time"
+value_text = "00:00"
+
+[node name="EnemyInfo" type="Label" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
+layout_mode = 2
+text = "Enemies 0 / Revealed 0"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="RightBuild" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -334.0
+offset_top = 16.0
+offset_right = -14.0
+offset_bottom = 232.0
+mouse_filter = 2
+
+[node name="BuildCard" parent="RightBuild" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BuildMargin" type="MarginContainer" parent="RightBuild/BuildCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="BuildVBox" type="VBoxContainer" parent="RightBuild/BuildCard/BuildMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="BuildTitle" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox"]
+layout_mode = 2
+text = "Build Snapshot"
+theme_type_variation = &"SubheadingLabel"
+
+[node name="WeaponName" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox"]
+layout_mode = 2
+text = "Weapon --"
+
+[node name="BuildHint" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox"]
+layout_mode = 2
+text = "Key Passives"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="TagRow" type="HBoxContainer" parent="RightBuild/BuildCard/BuildMargin/BuildVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Tag1" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow"]
+layout_mode = 2
+text = "-"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="Tag2" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow"]
+layout_mode = 2
+text = "-"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="Tag3" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow"]
+layout_mode = 2
+text = "-"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="Tag4" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow"]
+layout_mode = 2
+text = "-"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="Tag5" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow"]
+layout_mode = 2
+text = "-"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="BottomActions" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 14
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 430.0
+offset_top = -154.0
+offset_right = -430.0
+offset_bottom = -12.0
+mouse_filter = 2
+
+[node name="ActionPanel" type="PanelContainer" parent="BottomActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"HudPanel"
+
+[node name="Margin" type="MarginContainer" parent="BottomActions/ActionPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="Row" type="HBoxContainer" parent="BottomActions/ActionPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="SonarBlock" type="VBoxContainer" parent="BottomActions/ActionPanel/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="SonarLabel" type="Label" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock"]
+layout_mode = 2
+text = "Q Sonar"
+
+[node name="SonarBar" type="ProgressBar" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 14)
+show_percentage = false
+
+[node name="SonarHint" type="Label" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock"]
+layout_mode = 2
+text = "Ready"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="DashBlock" type="VBoxContainer" parent="BottomActions/ActionPanel/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="DashLabel" type="Label" parent="BottomActions/ActionPanel/Margin/Row/DashBlock"]
+layout_mode = 2
+text = "Space Dash"
+
+[node name="DashBar" type="ProgressBar" parent="BottomActions/ActionPanel/Margin/Row/DashBlock"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 14)
+show_percentage = false
+
+[node name="DashHint" type="Label" parent="BottomActions/ActionPanel/Margin/Row/DashBlock"]
+layout_mode = 2
+text = "Ready"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="ContractStatusLabel" type="Label" parent="BottomActions/ActionPanel/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 2
+text = "Dash Disabled"
+visible = false
+theme_type_variation = &"BodyMutedLabel"

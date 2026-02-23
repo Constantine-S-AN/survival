@@ -1318,6 +1318,7 @@ func get_hud_data() -> Dictionary:
 	var weapon_noise_rate = runtime.noise_per_attack * runtime.attack_rate if runtime != null else 0.0
 	var weapon_dps = runtime.estimate_dps() if runtime != null else 0.0
 	var weapon_level = runtime.level if runtime != null else int(weapon_levels.get(active_weapon_id, 1))
+	var build_tags := _get_top_build_tags(5)
 	var chain_params := _get_chain_parameters(runtime) if runtime != null else {"enabled": false, "chance": 0.0, "max_hops": 0}
 	return {
 		"hp": hp,
@@ -1329,7 +1330,9 @@ func get_hud_data() -> Dictionary:
 		"noise_min": noise_min,
 		"noise_max": noise_max,
 		"dash_cd": dash_cd_remaining,
+		"dash_cd_total": _current_dash_cooldown(),
 		"skill_cd": skill_cd_remaining,
+		"skill_cd_total": skill_cooldown,
 		"attack_mode": "AUTO" if auto_attack else "AIM",
 		"character_id": character_id,
 		"character_name": character_name,
@@ -1339,6 +1342,7 @@ func get_hud_data() -> Dictionary:
 		"active_weapon_model": weapon_model,
 		"active_weapon_level": weapon_level,
 		"weapon_tags": weapon_tags,
+		"build_tags": build_tags,
 		"weapon_noise_per_attack": weapon_noise,
 		"weapon_noise_rate": weapon_noise_rate,
 		"weapon_dps_estimate": weapon_dps,
@@ -1360,3 +1364,22 @@ func get_hud_data() -> Dictionary:
 
 func emit_stats_changed() -> void:
 	stats_changed.emit(get_hud_data())
+
+
+func _get_top_build_tags(max_count: int = 5) -> Array[String]:
+	var pairs: Array = []
+	for key_variant in acquired_tags.keys():
+		var tag := String(key_variant).strip_edges().to_lower()
+		var value := int(acquired_tags.get(key_variant, 0))
+		if tag.is_empty() or value <= 0:
+			continue
+		pairs.append({"tag": tag, "value": value})
+	pairs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("value", 0)) > int(b.get("value", 0))
+	)
+	var output: Array[String] = []
+	var target_count := mini(max_count, pairs.size())
+	for i in range(target_count):
+		var pair: Dictionary = pairs[i]
+		output.append(String(pair.get("tag", "")))
+	return output

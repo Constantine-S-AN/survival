@@ -128,6 +128,7 @@ const SECONDS_STAT_KEYS: Dictionary = {
 @onready var time_label: Label = $Root/HUD/Stats/TimeLabel
 @onready var kills_label: Label = $Root/HUD/Stats/KillsLabel
 @onready var enemies_label: Label = $Root/HUD/Stats/EnemiesLabel
+@onready var run_hud: Control = $Root/RunHUD
 
 @onready var level_up_panel: Panel = $Root/LevelUpPanel
 @onready var level_up_title: Label = $Root/LevelUpPanel/PanelMargin/VBox/TitleLabel
@@ -229,35 +230,13 @@ func _create_telegraph_flash_overlay() -> void:
 
 func _create_runtime_hud_widgets() -> void:
 	if $Root/HUD != null:
-		$Root/HUD.theme_type_variation = &"HudPanel"
-	noise_bar = ProgressBar.new()
-	noise_bar.name = "NoiseBar"
-	noise_bar.custom_minimum_size = Vector2(0.0, 14.0)
-	noise_bar.show_percentage = false
-	noise_bar.value = 0.0
-	stats_box.add_child(noise_bar)
-	stats_box.move_child(noise_bar, stats_box.get_children().find(noise_label) + 1)
-
-	noise_tier_label = Label.new()
-	noise_tier_label.name = "NoiseTierLabel"
-	noise_tier_label.text = "Tier: 静默"
-	noise_tier_label.theme_type_variation = &"SubheadingLabel"
-	stats_box.add_child(noise_tier_label)
-	stats_box.move_child(noise_tier_label, stats_box.get_children().find(noise_bar) + 1)
-
-	weapon_label = Label.new()
-	weapon_label.name = "WeaponLabel"
-	weapon_label.text = "Weapon: --"
-	weapon_label.theme_type_variation = &"BodyMutedLabel"
-	stats_box.add_child(weapon_label)
-
-	contract_status_label = Label.new()
-	contract_status_label.name = "ContractStatusLabel"
-	contract_status_label.visible = false
-	contract_status_label.text = "Dash Disabled"
-	contract_status_label.theme_type_variation = &"BodyMutedLabel"
-	contract_status_label.modulate = Color(1.0, 0.72, 0.72, 1.0)
-	stats_box.add_child(contract_status_label)
+		$Root/HUD.visible = false
+	if run_hud == null:
+		return
+	if run_hud.has_method("get_contract_status_label"):
+		var label_variant: Variant = run_hud.call("get_contract_status_label")
+		if label_variant is Label:
+			contract_status_label = label_variant
 
 
 func _create_debug_panel() -> void:
@@ -489,42 +468,22 @@ func set_fog_overlay_enabled(enabled: bool) -> void:
 
 
 func update_hud(data: Dictionary) -> void:
+	if run_hud != null and run_hud.has_method("apply_hud_dict"):
+		run_hud.call("apply_hud_dict", data)
+		if run_hud.has_method("get_contract_status_label"):
+			var label_variant: Variant = run_hud.call("get_contract_status_label")
+			if label_variant is Label:
+				contract_status_label = label_variant
+		return
+
+	# Fallback legacy HUD path for scenes that do not include RunHUD.
 	hp_label.text = "HP: %d / %d" % [int(round(float(data.get("hp", 0.0)))), int(round(float(data.get("max_hp", 0.0))))]
 	xp_label.text = "XP: %d / %d" % [int(round(float(data.get("xp", 0.0)))), int(round(float(data.get("xp_to_next", 1.0))))]
 	level_label.text = "Level: %d" % int(data.get("level", 1))
-
-	var noise_value := float(data.get("noise", 0.0))
-	var noise_tier_name := String(data.get("noise_tier_name", "静默"))
-	noise_label.text = "Noise: %d [%s]" % [int(round(noise_value)), noise_tier_name]
-	noise_bar.min_value = float(data.get("noise_min", 0.0))
-	noise_bar.max_value = float(data.get("noise_max", 100.0))
-	noise_bar.value = noise_value
-	noise_tier_label.text = "Tier: %s" % noise_tier_name
-	var tier_color := Color.from_string(String(data.get("noise_tier_color", "#74e7ff")), Color(0.45, 0.9, 1.0, 1.0))
-	noise_tier_label.modulate = tier_color
-	noise_bar.modulate = tier_color
-	var current_tier_id := String(data.get("noise_tier_id", noise_tier_name))
-	if current_tier_id != last_noise_tier_id:
-		_play_noise_tier_change(tier_color)
-		last_noise_tier_id = current_tier_id
-
 	mode_label.text = "Attack: %s" % String(data.get("attack_mode", "AUTO"))
 	time_label.text = "Time: %s" % _format_time(float(data.get("elapsed_time", 0.0)))
 	kills_label.text = "Kills: %d" % int(data.get("kills", 0))
-	enemies_label.text = "Enemies: %d  Revealed: %d" % [
-		int(data.get("enemy_count", 0)),
-		int(data.get("revealed_count", 0))
-	]
-	var elite_count := int(data.get("elite_count", 0))
-	var pursuer_count := int(data.get("pursuer_count", 0))
-	if elite_count > 0 or pursuer_count > 0:
-		enemies_label.text += "  Elite:%d Pursuer:%d" % [elite_count, pursuer_count]
-	if weapon_label != null:
-		weapon_label.text = "Weapon: %s Lv.%d (%s)" % [
-			String(data.get("active_weapon_name", String(data.get("active_weapon_id", "--")))),
-			int(data.get("active_weapon_level", 1)),
-			String(data.get("active_weapon_model", "unknown"))
-		]
+	enemies_label.text = "Enemies: %d  Revealed: %d" % [int(data.get("enemy_count", 0)), int(data.get("revealed_count", 0))]
 	if contract_status_label != null:
 		var dash_disabled := bool(data.get("contract_dash_disabled", false))
 		contract_status_label.visible = dash_disabled
@@ -833,8 +792,10 @@ func show_unlock_toast(unlocked_character_names: Array[String]) -> void:
 
 
 func _set_hud_visible(visible_state: bool) -> void:
+	if run_hud != null:
+		run_hud.visible = visible_state
 	if $Root/HUD != null:
-		$Root/HUD.visible = visible_state
+		$Root/HUD.visible = false
 
 
 func _set_root_input_passthrough(enabled: bool) -> void:
