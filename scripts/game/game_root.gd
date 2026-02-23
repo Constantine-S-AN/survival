@@ -41,6 +41,7 @@ var run_reward_multipliers: Dictionary = {
 var reward_rng := RandomNumberGenerator.new()
 var runtime_drop_pickups_spawned: int = 0
 var last_sonar_ping_sequence: int = 0
+var _level_up_option_ids: Dictionary = {}
 
 
 func _ready() -> void:
@@ -131,6 +132,9 @@ func _process(delta: float) -> void:
 	if hitstop_active and Time.get_ticks_usec() >= hitstop_end_usec:
 		Engine.time_scale = 1.0
 		hitstop_active = false
+
+	if run_state == STATE_LEVEL_UP and not get_tree().paused:
+		get_tree().paused = true
 
 	if fixed_noise_enabled:
 		world.player.set_noise_value(fixed_noise_value)
@@ -287,13 +291,32 @@ func _on_boss_true_form_revealed(_boss_id: String, _world_position: Vector2) -> 
 
 
 func _on_player_level_up_requested(options: Array) -> void:
+	_level_up_option_ids.clear()
+	for option_variant in options:
+		if not (option_variant is Dictionary):
+			continue
+		var option: Dictionary = option_variant
+		var option_id := String(option.get("id", "")).strip_edges()
+		if option_id.is_empty():
+			continue
+		_level_up_option_ids[option_id] = true
+	if _level_up_option_ids.is_empty():
+		push_warning("Level-up requested without valid options; ignoring.")
+		return
 	_set_state(STATE_LEVEL_UP)
 	ui.show_level_up(options)
 
 
 func _on_upgrade_selected(upgrade_id: String) -> void:
+	if run_state != STATE_LEVEL_UP:
+		return
+	var resolved_upgrade_id := upgrade_id.strip_edges()
+	if resolved_upgrade_id.is_empty() or not _level_up_option_ids.has(resolved_upgrade_id):
+		push_warning("Ignoring unexpected upgrade selection outside current level-up options: %s" % upgrade_id)
+		return
+	_level_up_option_ids.clear()
 	ui.hide_level_up()
-	world.player.apply_upgrade(upgrade_id)
+	world.player.apply_upgrade(resolved_upgrade_id)
 	if not world.player.level_up_open:
 		_set_state(STATE_PLAYING)
 	_refresh_hud()
@@ -487,6 +510,7 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 	kills = 0
 	runtime_drop_pickups_spawned = 0
 	last_sonar_ping_sequence = 0
+	_level_up_option_ids.clear()
 	run_started = true
 	run_stats.reset(run_seed)
 	telegraph_last_emit_by_key.clear()
@@ -747,6 +771,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _set_state(next_state: String) -> void:
 	run_state = next_state
+	if run_state != STATE_LEVEL_UP:
+		_level_up_option_ids.clear()
 	if run_state == STATE_PLAYING:
 		Engine.time_scale = 1.0
 		get_tree().paused = false

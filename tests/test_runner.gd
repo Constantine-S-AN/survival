@@ -1447,6 +1447,12 @@ func _run_level_up_pause_tests() -> void:
 	if run_hud != null:
 		_assert_true(not run_hud.visible, "level-up pause hides run HUD")
 
+	for _i in range(180):
+		await get_tree().process_frame
+	_assert_true(String(game.get("run_state")) == String(game.get("STATE_LEVEL_UP")), "level-up pause remains active until manual selection")
+	_assert_true(get_tree().paused, "level-up pause stays paused while waiting for selection")
+	_assert_true(upgrade_panel != null and upgrade_panel.visible, "level-up panel remains visible without selection")
+
 	game.queue_free()
 	await _await_stable_physics_frames(1)
 	get_tree().paused = false

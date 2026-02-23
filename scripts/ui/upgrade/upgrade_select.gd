@@ -208,7 +208,7 @@ func _on_card_selected(upgrade_id: String, card_index: int) -> void:
 		build_panel.call("set_build_data", preview_hud, _run_multipliers)
 	if build_panel != null and UIMotionClass.is_motion_enabled():
 		UIMotionClass.panel_pop_in(build_panel, 0.10, 4.0)
-		await get_tree().create_timer(0.08).timeout
+		await get_tree().create_timer(0.08, true, false, true).timeout
 	upgrade_selected.emit(upgrade_id)
 	_selection_in_progress = false
 
