@@ -1,10 +1,9 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/hud/hud.gd" id="1"]
 [ext_resource type="Theme" path="res://ui/theme/NeonTheme.tres" id="2"]
 [ext_resource type="PackedScene" path="res://ui/components/NoiseMeter.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://ui/components/StatBadge.tscn" id="4"]
-[ext_resource type="PackedScene" path="res://ui/components/NeonCard.tscn" id="5"]
 
 [node name="HUD" type="Control"]
 layout_mode = 3
@@ -35,7 +34,7 @@ anchor_right = 0.5
 offset_left = -260.0
 offset_top = 12.0
 offset_right = 260.0
-offset_bottom = 212.0
+offset_bottom = 220.0
 mouse_filter = 2
 
 [node name="NoisePanel" type="PanelContainer" parent="TopNoise"]
@@ -52,21 +51,30 @@ theme_override_constants/margin_bottom = 12
 
 [node name="VBox" type="VBoxContainer" parent="TopNoise/NoisePanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 10
 
 [node name="Header" type="HBoxContainer" parent="TopNoise/NoisePanel/Margin/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 12
 
-[node name="NoiseValue" type="Label" parent="TopNoise/NoisePanel/Margin/VBox/Header"]
+[node name="NoiseReadout" type="VBoxContainer" parent="TopNoise/NoisePanel/Margin/VBox/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
+
+[node name="NoiseLabel" type="Label" parent="TopNoise/NoisePanel/Margin/VBox/Header/NoiseReadout"]
+layout_mode = 2
+text = "NOISE"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="NoiseValue" type="Label" parent="TopNoise/NoisePanel/Margin/VBox/Header/NoiseReadout"]
+layout_mode = 2
 text = "Noise 0"
 theme_type_variation = &"HeadingLabel"
 
 [node name="TierIndex" type="Label" parent="TopNoise/NoisePanel/Margin/VBox/Header"]
 layout_mode = 2
-text = "Tier 0"
+horizontal_alignment = 2
+text = "TIER 0"
 theme_type_variation = &"SubheadingLabel"
 
 [node name="NoiseMeter" parent="TopNoise/NoisePanel/Margin/VBox" instance=ExtResource("3")]
@@ -94,7 +102,7 @@ layout_mode = 1
 offset_left = 14.0
 offset_top = 16.0
 offset_right = 334.0
-offset_bottom = 228.0
+offset_bottom = 236.0
 mouse_filter = 2
 
 [node name="SurvivalPanel" type="PanelContainer" parent="LeftSurvival"]
@@ -111,7 +119,7 @@ theme_override_constants/margin_bottom = 10
 
 [node name="VBox" type="VBoxContainer" parent="LeftSurvival/SurvivalPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
 layout_mode = 2
@@ -120,7 +128,7 @@ theme_type_variation = &"SubheadingLabel"
 
 [node name="HPBar" type="ProgressBar" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 14)
+custom_minimum_size = Vector2(0, 18)
 show_percentage = false
 
 [node name="HPValue" type="Label" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
@@ -148,7 +156,7 @@ value_text = "00:00"
 
 [node name="EnemyInfo" type="Label" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
 layout_mode = 2
-text = "Enemies 0 / Revealed 0"
+text = "Enemies 0 | Revealed 0"
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="RightBuild" type="MarginContainer" parent="."]
@@ -159,12 +167,13 @@ anchor_right = 1.0
 offset_left = -334.0
 offset_top = 16.0
 offset_right = -14.0
-offset_bottom = 232.0
+offset_bottom = 220.0
 mouse_filter = 2
 
-[node name="BuildCard" parent="RightBuild" instance=ExtResource("5")]
+[node name="BuildCard" type="PanelContainer" parent="RightBuild"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"HudPanel"
 
 [node name="BuildMargin" type="MarginContainer" parent="RightBuild/BuildCard"]
 layout_mode = 2
@@ -175,7 +184,7 @@ theme_override_constants/margin_bottom = 10
 
 [node name="BuildVBox" type="VBoxContainer" parent="RightBuild/BuildCard/BuildMargin"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 8
 
 [node name="BuildTitle" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox"]
 layout_mode = 2
@@ -186,38 +195,9 @@ theme_type_variation = &"SubheadingLabel"
 layout_mode = 2
 text = "Weapon --"
 
-[node name="BuildHint" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox"]
+[node name="KeyTags" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox"]
 layout_mode = 2
-text = "Key Passives"
-theme_type_variation = &"BodyMutedLabel"
-
-[node name="TagRow" type="HBoxContainer" parent="RightBuild/BuildCard/BuildMargin/BuildVBox"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="Tag1" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow"]
-layout_mode = 2
-text = "-"
-theme_type_variation = &"BodyMutedLabel"
-
-[node name="Tag2" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow"]
-layout_mode = 2
-text = "-"
-theme_type_variation = &"BodyMutedLabel"
-
-[node name="Tag3" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow"]
-layout_mode = 2
-text = "-"
-theme_type_variation = &"BodyMutedLabel"
-
-[node name="Tag4" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow"]
-layout_mode = 2
-text = "-"
-theme_type_variation = &"BodyMutedLabel"
-
-[node name="Tag5" type="Label" parent="RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow"]
-layout_mode = 2
-text = "-"
+text = "Key tags: -"
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="BottomActions" type="MarginContainer" parent="."]
@@ -246,7 +226,7 @@ theme_override_constants/margin_bottom = 10
 
 [node name="Row" type="HBoxContainer" parent="BottomActions/ActionPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 22
+theme_override_constants/separation = 18
 
 [node name="SonarBlock" type="VBoxContainer" parent="BottomActions/ActionPanel/Margin/Row"]
 layout_mode = 2
@@ -264,7 +244,7 @@ show_percentage = false
 
 [node name="SonarHint" type="Label" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock"]
 layout_mode = 2
-text = "Ready"
+text = ""
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="DashBlock" type="VBoxContainer" parent="BottomActions/ActionPanel/Margin/Row"]
@@ -283,7 +263,7 @@ show_percentage = false
 
 [node name="DashHint" type="Label" parent="BottomActions/ActionPanel/Margin/Row/DashBlock"]
 layout_mode = 2
-text = "Ready"
+text = ""
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="ContractStatusLabel" type="Label" parent="BottomActions/ActionPanel/Margin/Row"]

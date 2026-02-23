@@ -6,7 +6,7 @@ const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 
 @onready var noise_panel: PanelContainer = $TopNoise/NoisePanel
 @onready var noise_meter: VBoxContainer = $TopNoise/NoisePanel/Margin/VBox/NoiseMeter
-@onready var noise_value_label: Label = $TopNoise/NoisePanel/Margin/VBox/Header/NoiseValue
+@onready var noise_value_label: Label = $TopNoise/NoisePanel/Margin/VBox/Header/NoiseReadout/NoiseValue
 @onready var tier_index_label: Label = $TopNoise/NoisePanel/Margin/VBox/Header/TierIndex
 @onready var threshold_bar: ProgressBar = $TopNoise/NoisePanel/Margin/VBox/ThresholdBar
 @onready var threshold_label: Label = $TopNoise/NoisePanel/Margin/VBox/ThresholdLabel
@@ -20,13 +20,7 @@ const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 @onready var enemy_info_label: Label = $LeftSurvival/SurvivalPanel/Margin/VBox/EnemyInfo
 
 @onready var weapon_name_label: Label = $RightBuild/BuildCard/BuildMargin/BuildVBox/WeaponName
-@onready var tag_labels: Array[Label] = [
-	$RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow/Tag1,
-	$RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow/Tag2,
-	$RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow/Tag3,
-	$RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow/Tag4,
-	$RightBuild/BuildCard/BuildMargin/BuildVBox/TagRow/Tag5
-]
+@onready var key_tags_label: Label = $RightBuild/BuildCard/BuildMargin/BuildVBox/KeyTags
 
 @onready var sonar_block: VBoxContainer = $BottomActions/ActionPanel/Margin/Row/SonarBlock
 @onready var sonar_bar: ProgressBar = $BottomActions/ActionPanel/Margin/Row/SonarBlock/SonarBar
@@ -54,6 +48,13 @@ func _ready() -> void:
 	sonar_bar.min_value = 0.0
 	dash_bar.min_value = 0.0
 	contract_status_label.visible = false
+	if noise_meter != null:
+		var title := noise_meter.get_node_or_null("Title") as Label
+		var tier := noise_meter.get_node_or_null("Tier") as Label
+		if title != null:
+			title.visible = false
+		if tier != null:
+			tier.visible = false
 
 
 func apply_hud_dict(data: Dictionary) -> void:
@@ -99,11 +100,12 @@ func apply_state(state) -> void:
 	_set_badge(level_badge, "Lvl", str(level))
 	_set_badge(kills_badge, "Kills", str(kills))
 	_set_badge(time_badge, "Time", _format_time(elapsed_time))
-	enemy_info_label.text = "Enemies %d / Revealed %d" % [enemy_count, revealed_count]
+	enemy_info_label.text = "Enemies %d | Revealed %d" % [enemy_count, revealed_count]
 
-	noise_value_label.text = "Noise %d" % int(round(noise_value))
+	noise_value_label.text = "%d" % int(round(noise_value))
 	var tier_index := _resolve_tier_index(state)
-	tier_index_label.text = "Tier %d" % maxi(0, tier_index)
+	tier_index_label.text = "TIER %d · %s" % [maxi(0, tier_index), noise_tier_name]
+	tier_index_label.modulate = Color(1.0, 1.0, 1.0, 1.0).lerp(noise_tier_color, 0.24)
 	if noise_meter != null and noise_meter.has_method("update_meter"):
 		noise_meter.call("update_meter", noise_value, noise_min, noise_max, noise_tier_name, noise_tier_color)
 	_update_threshold_progress(state, tier_index)
@@ -114,7 +116,7 @@ func apply_state(state) -> void:
 
 	weapon_name_label.text = "Weapon: %s" % weapon_name
 	var tags: Array[String] = build_tags if not build_tags.is_empty() else weapon_tags
-	_update_tag_labels(tags)
+	_update_key_tags(tags)
 
 	_update_cooldown_block(sonar_block, sonar_bar, sonar_hint_label, sonar_cd_remaining, sonar_cd_total, "Q Sonar")
 
@@ -181,15 +183,11 @@ func _update_threshold_progress(state, tier_index: int) -> void:
 		threshold_label.text = "Tier stable (%.0f%%)" % [progress * 100.0]
 
 
-func _update_tag_labels(tags: Array[String]) -> void:
-	for i in range(tag_labels.size()):
-		var label := tag_labels[i]
-		if i < tags.size():
-			label.text = "[%s]" % String(tags[i]).capitalize()
-			label.visible = true
-		else:
-			label.text = ""
-			label.visible = false
+func _update_key_tags(tags: Array[String]) -> void:
+	var parts: Array[String] = []
+	for i in range(mini(4, tags.size())):
+		parts.append("[%s]" % String(tags[i]).capitalize())
+	key_tags_label.text = "Key tags: %s" % (" ".join(parts) if not parts.is_empty() else "-")
 
 
 func _update_cooldown_block(block: VBoxContainer, bar: ProgressBar, hint: Label, remaining: float, total: float, action_name: String) -> void:
@@ -200,14 +198,14 @@ func _update_cooldown_block(block: VBoxContainer, bar: ProgressBar, hint: Label,
 	bar.max_value = total
 	bar.value = clampf(total - remaining, 0.0, total)
 	if remaining <= 0.01:
-		hint.text = "%s Ready" % action_name
+		hint.text = ""
 	else:
-		hint.text = "%s %.1fs" % [action_name, remaining]
+		hint.text = "(%.1fs)" % remaining
 
 
 func _play_tier_change_feedback(tier_index: int, tier_color: Color) -> void:
 	threat_flash_label.text = "THREAT TIER %d" % maxi(0, tier_index)
-	threat_flash_label.modulate = tier_color
+	threat_flash_label.modulate = Color(1.0, 1.0, 1.0, 1.0).lerp(tier_color, 0.30)
 	threat_flash_label.visible = true
 	if _tier_tween != null and is_instance_valid(_tier_tween):
 		_tier_tween.kill()
@@ -229,10 +227,10 @@ func _play_tier_change_feedback(tier_index: int, tier_color: Color) -> void:
 
 
 func _update_damage_feedback(current_ratio: float) -> void:
-	var low_health_alpha := clampf((0.34 - current_ratio) * 0.35, 0.0, 0.12)
+	var low_health_alpha := clampf((0.34 - current_ratio) * 0.30, 0.0, 0.10)
 	var hit_alpha := 0.0
 	if current_ratio + 0.01 < _last_hp_ratio:
-		hit_alpha = 0.18
+		hit_alpha = 0.14
 	if _damage_tween != null and is_instance_valid(_damage_tween):
 		_damage_tween.kill()
 	if hit_alpha > 0.0 and UIMotionClass.is_motion_enabled():
