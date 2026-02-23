@@ -17,6 +17,7 @@ const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
 const NEON_THEME := preload("res://ui/theme/NeonTheme.tres")
 const MAIN_MENU_SCENE := preload("res://scenes/ui/menu/MainMenu.tscn")
 const RUN_SETUP_SCENE := preload("res://scenes/ui/run_setup/RunSetup.tscn")
+const UPGRADE_SELECT_SCENE := preload("res://scenes/ui/upgrade/UpgradeSelect.tscn")
 const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 const MAP_SELECT_SCENE := preload("res://scenes/ui/MapSelect.tscn")
 const CONTRACT_SELECT_SCENE := preload("res://scenes/ui/ContractSelect.tscn")
@@ -160,12 +161,15 @@ var system_msg_timer: Timer
 var last_noise_tier_id: String = ""
 var main_menu_panel: CanvasItem
 var run_setup_panel: CanvasItem
+var upgrade_select_panel: CanvasItem
 var character_select_panel: CanvasItem
 var map_select_panel: CanvasItem
 var contract_select_panel: CanvasItem
 var unlock_toast_label: Label
 var telegraph_flash_overlay: ColorRect
 var telegraph_flash_tween: Tween
+var latest_hud_data: Dictionary = {}
+var latest_run_multipliers: Dictionary = {}
 
 
 func _ready() -> void:
@@ -181,6 +185,7 @@ func _ready() -> void:
 	_create_system_message_widget()
 	_create_main_menu_panel()
 	_create_run_setup_panel()
+	_create_upgrade_select_panel()
 	_create_unlock_toast_widget()
 	set_debug_visible(false)
 
@@ -346,6 +351,22 @@ func _create_run_setup_panel() -> void:
 		run_setup_panel.connect("back_requested", Callable(self, "_on_run_setup_back_requested"))
 
 
+func _create_upgrade_select_panel() -> void:
+	if UPGRADE_SELECT_SCENE == null:
+		return
+	var panel_variant := UPGRADE_SELECT_SCENE.instantiate()
+	if panel_variant == null:
+		return
+	upgrade_select_panel = panel_variant
+	upgrade_select_panel.name = "UpgradeSelect"
+	upgrade_select_panel.visible = false
+	root.add_child(upgrade_select_panel)
+	if upgrade_select_panel.has_signal("upgrade_selected"):
+		upgrade_select_panel.connect("upgrade_selected", Callable(self, "_on_upgrade_select_upgrade_selected"))
+	if upgrade_select_panel.has_signal("cancel_requested"):
+		upgrade_select_panel.connect("cancel_requested", Callable(self, "_on_upgrade_select_cancel_requested"))
+
+
 func _create_map_select_panel() -> void:
 	if MAP_SELECT_SCENE == null:
 		return
@@ -399,6 +420,14 @@ func _on_run_setup_submitted(run_config: Dictionary) -> void:
 
 func _on_run_setup_back_requested() -> void:
 	character_select_back_requested.emit()
+
+
+func _on_upgrade_select_upgrade_selected(upgrade_id: String) -> void:
+	upgrade_selected.emit(upgrade_id)
+
+
+func _on_upgrade_select_cancel_requested() -> void:
+	show_system_message("Upgrade selection must be confirmed to continue.", false)
 
 
 func _on_main_menu_play_pressed() -> void:
@@ -468,12 +497,18 @@ func set_fog_overlay_enabled(enabled: bool) -> void:
 
 
 func update_hud(data: Dictionary) -> void:
+	latest_hud_data = data.duplicate(true)
+	latest_run_multipliers = _extract_run_multipliers(data)
+
 	if run_hud != null and run_hud.has_method("apply_hud_dict"):
 		run_hud.call("apply_hud_dict", data)
 		if run_hud.has_method("get_contract_status_label"):
 			var label_variant: Variant = run_hud.call("get_contract_status_label")
 			if label_variant is Label:
 				contract_status_label = label_variant
+	if upgrade_select_panel != null and upgrade_select_panel.visible and upgrade_select_panel.has_method("update_build_context"):
+		upgrade_select_panel.call("update_build_context", latest_hud_data, latest_run_multipliers)
+	if run_hud != null and run_hud.has_method("apply_hud_dict"):
 		return
 
 	# Fallback legacy HUD path for scenes that do not include RunHUD.
@@ -798,6 +833,14 @@ func _set_hud_visible(visible_state: bool) -> void:
 		$Root/HUD.visible = false
 
 
+func _set_upgrade_select_visible(visible_state: bool) -> void:
+	if upgrade_select_panel == null:
+		return
+	upgrade_select_panel.visible = visible_state and not current_options.is_empty()
+	if upgrade_select_panel.visible and upgrade_select_panel.has_method("update_build_context"):
+		upgrade_select_panel.call("update_build_context", latest_hud_data, latest_run_multipliers)
+
+
 func _set_root_input_passthrough(enabled: bool) -> void:
 	if root == null:
 		return
@@ -806,6 +849,13 @@ func _set_root_input_passthrough(enabled: bool) -> void:
 
 func show_level_up(options: Array) -> void:
 	current_options = options
+	game_over_panel.visible = false
+	if upgrade_select_panel != null and upgrade_select_panel.has_method("show_options"):
+		level_up_panel.visible = false
+		upgrade_select_panel.visible = true
+		upgrade_select_panel.call("show_options", current_options, latest_hud_data, latest_run_multipliers)
+		return
+
 	level_up_title.text = "Signal Upgrade - Choose One"
 	for i in range(upgrade_buttons.size()):
 		var button := upgrade_buttons[i]
@@ -828,12 +878,14 @@ func show_level_up(options: Array) -> void:
 		else:
 			button.disabled = true
 			button.visible = false
-
-	game_over_panel.visible = false
 	level_up_panel.visible = true
 
 
 func hide_level_up() -> void:
+	if upgrade_select_panel != null:
+		upgrade_select_panel.visible = false
+		if upgrade_select_panel.has_method("hide_panel"):
+			upgrade_select_panel.call("hide_panel")
 	level_up_panel.visible = false
 	current_options.clear()
 
@@ -859,26 +911,31 @@ func on_game_state_changed(state: String) -> void:
 		"menu":
 			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
+			_set_upgrade_select_visible(false)
 			game_over_panel.visible = false
 			set_main_menu_visible(true)
 		"character_select":
 			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
+			_set_upgrade_select_visible(false)
 			game_over_panel.visible = false
 			set_character_select_visible(true)
 		"map_select":
 			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
+			_set_upgrade_select_visible(false)
 			game_over_panel.visible = false
 			set_map_select_visible(true)
 		"contract_select":
 			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
+			_set_upgrade_select_visible(false)
 			game_over_panel.visible = false
 			set_contract_select_visible(true)
 		"playing":
 			_set_root_input_passthrough(true)
 			level_up_panel.visible = false
+			_set_upgrade_select_visible(false)
 			game_over_panel.visible = false
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
@@ -887,6 +944,7 @@ func on_game_state_changed(state: String) -> void:
 			_set_hud_visible(true)
 		"level_up":
 			_set_root_input_passthrough(false)
+			_set_upgrade_select_visible(true)
 			game_over_panel.visible = false
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
@@ -895,6 +953,7 @@ func on_game_state_changed(state: String) -> void:
 			_set_hud_visible(true)
 		"game_over":
 			_set_root_input_passthrough(false)
+			_set_upgrade_select_visible(false)
 			set_main_menu_visible(false)
 			set_character_select_visible(false)
 			set_map_select_visible(false)
@@ -988,3 +1047,21 @@ func _format_upgrade_target(effect: Dictionary) -> String:
 		var tag_name := String(TAG_DISPLAY_NAMES.get(target_value, target_value))
 		return "Target: Tag %s" % tag_name
 	return "Target: Global"
+
+
+func _extract_run_multipliers(hud_data: Dictionary) -> Dictionary:
+	var reward_variant: Variant = hud_data.get("run_reward_multipliers", {})
+	if reward_variant is Dictionary:
+		var reward: Dictionary = reward_variant
+		return {
+			"xp": float(reward.get("xp", reward.get("xp_mult", 1.0))),
+			"rarity": float(reward.get("rarity", reward.get("rarity_mult", 1.0))),
+			"drop": float(reward.get("drop", reward.get("drop_mult", 1.0))),
+			"meta_currency": float(reward.get("meta_currency", reward.get("meta_currency_mult", 1.0)))
+		}
+	return {
+		"xp": float(hud_data.get("env_xp_gain_multiplier", 1.0)),
+		"rarity": 1.0,
+		"drop": 1.0,
+		"meta_currency": 1.0
+	}

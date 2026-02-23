@@ -140,6 +140,52 @@ Unify all in-game UI around a neon tactical style so T2-T7 can focus on layout a
 - Verification runner:
   - `res://tests/ui/t5_hud_runner.tscn`
 
+## Upgrade Cards Layout Spec
+- Components:
+  - Card: `res://ui/components/UpgradeCard.tscn`
+  - Select view: `res://scenes/ui/upgrade/UpgradeSelect.tscn`
+  - Build panel: `res://scenes/ui/upgrade/BuildPanel.tscn`
+- Card structure (top -> bottom):
+  - Rarity chip (`Common/Rare/Epic...`).
+  - Icon slot (placeholder glyph when icon is missing).
+  - Upgrade title.
+  - One-line short description (truncate after ~80 chars).
+  - Key stats (`max 2` lines).
+  - Tag badges (`max 4`).
+- Input and focus:
+  - `Left/Right`: move card focus.
+  - `Enter`: confirm focused card.
+  - `Esc`: cancel only if current game state allows it.
+  - `Up/Down`: scroll right-side BuildPanel.
+
+## Rarity Visual Rules
+- Base background uses `CardPanel` dark surface with rounded corners.
+- Border and rarity label color communicate rarity tier.
+- Border width escalates with rarity:
+  - `Common`: width `1`
+  - `Uncommon/Rare`: width `2`
+  - `Epic/Legendary`: width `3`
+- Focus state:
+  - Always visible ring with slightly lightened rarity color.
+  - Focus ring must remain readable over hover/press motion.
+- Motion range:
+  - Hover scale target: `1.015 - 1.02`.
+  - Press bounce duration: around `0.10s`.
+
+## BuildPanel Content Rules
+- Priority order:
+  - `Current Weapon`
+  - `Top Tags` (`Top 5`, sorted by acquired count)
+  - `Key Passives` (`Top 3`, prefer upgrade stack + rarity ranking)
+  - `Run Modifiers` (`XP`, `Rarity`, `Drop`, `Meta`)
+- Data fallback:
+  - If `upgrade_stacks` absent, derive passives from tag counts.
+  - If run multipliers absent, fall back to neutral (`x1.00`) values.
+  - Missing descriptions/icons must render safe placeholders (no hard errors).
+- Update rule:
+  - BuildPanel refreshes when level-up options open and after each upgrade pick.
+  - Changes should be visible in the next level-up panel without requiring scene reload.
+
 ## Reusable Components Added In T1
 - `NeonButton.tscn`: button with hover/press scale affordance.
 - `NeonCard.tscn`: card container with subtle lift-on-hover.

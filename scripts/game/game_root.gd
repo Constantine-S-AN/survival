@@ -547,6 +547,13 @@ func _refresh_hud() -> void:
 	hud["contract_spawn_rate_multiplier"] = float(noise_debug.get("contract_spawn_rate_multiplier", 1.0))
 	hud["state"] = run_state
 	hud["contracts_active"] = selected_contract_ids.duplicate()
+	var reward_preview := DataRegistry.get_contract_reward_preview(selected_contract_ids)
+	hud["run_reward_multipliers"] = {
+		"xp": float(reward_preview.get("xp_mult", 1.0)),
+		"rarity": float(reward_preview.get("rarity_mult", 1.0)),
+		"drop": float(reward_preview.get("drop_mult", 1.0)),
+		"meta_currency": float(reward_preview.get("meta_currency_mult", 1.0))
+	}
 	ui.update_hud(hud)
 
 

@@ -1343,6 +1343,8 @@ func get_hud_data() -> Dictionary:
 		"active_weapon_level": weapon_level,
 		"weapon_tags": weapon_tags,
 		"build_tags": build_tags,
+		"upgrade_stacks": upgrade_stacks.duplicate(true),
+		"acquired_tags": acquired_tags.duplicate(true),
 		"weapon_noise_per_attack": weapon_noise,
 		"weapon_noise_rate": weapon_noise_rate,
 		"weapon_dps_estimate": weapon_dps,
