@@ -10,6 +10,12 @@ script = ExtResource("1")
 collision_layer = 2
 collision_mask = 0
 
+[node name="Outline" type="Polygon2D" parent="."]
+visible = false
+color = Color(0.831373, 0.980392, 1, 0.92)
+polygon = PackedVector2Array(-11, -10, 10, -9, 13, 0, 10, 10, -11, 11, -15, 0)
+scale = Vector2(1.24, 1.24)
+
 [node name="Body" type="Polygon2D" parent="."]
 color = Color(0.222, 0.906, 1, 1)
 polygon = PackedVector2Array(-11, -10, 10, -9, 13, 0, 10, 10, -11, 11, -15, 0)

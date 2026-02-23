@@ -1,62 +1,133 @@
 # Survive: Neon Sonar (Godot 4.x)
 
-2D 俯视角幸存者游戏原型。当前完成 **M1 + M1.5**：工程骨架 + 最小可玩循环 + 最低反馈雏形。
+在黑暗深海里生存：你依赖短暂声呐获取信息，但每次攻击、冲刺与技能都会抬高噪声，噪声越高，敌潮越凶。
 
-## 当前里程碑状态（M1 + M1.5）
-- 已实现：移动、冲刺、自动/指向攻击切换、刷怪、击杀得经验、升级三选一、死亡结算、重开。
-- 已实现：`GameRoot / World / Player / EnemyManager / ProjectileManager / UI` 场景分层。
-- 已实现：`DataRegistry` 统一加载 JSON（武器/敌人/升级/刷怪曲线）并做基础 schema 校验。
-- 已实现：噪声值已接入（攻击/冲刺叠加 + 随时间衰减）并影响刷怪速率/上限。
-- 已实现（M1.5）：命中粒子、命中/开火占位音效（运行时合成）、轻屏震、短 hitstop。
-- 还未实现：声呐迷雾视觉、完整内容量、局外成长、设置菜单、导出脚本等（后续里程碑）。
+## Why It Stands Out
+- **信息不是常量**：默认迷雾视野，必须主动“制造信息”（声呐揭示）。
+- **输出有代价**：高火力会抬噪，直接推高刷怪与追猎者压力。
+- **开局风险交易**：0–3 契约叠加，换取 XP / 稀有度 / 掉落收益。
+- **构筑偏置明确**：角色 `tag_weights` + 升级规则（稀有度/前置/互斥）决定流派。
+- **可复盘可调参**：固定 seed、全数据配置、热重载与 Debug 面板。
 
-## 运行
+## Quick Start
+### 运行（编辑器）
+1. 使用 Godot `4.2+` 打开项目目录。
+2. 主场景：`res://scenes/game/GameRoot.tscn`。
+3. 点击 Play。
 
-### 方式 A：Godot 编辑器
-1. 用 Godot 4.2+ 打开项目目录：`/Users/shijiean/Desktop/project/survive`
-2. 主场景是 `res://scenes/game/GameRoot.tscn`
-3. 点击 Play 运行。
-
-### 方式 B：命令行（需要 Godot CLI）
+### 运行（CLI）
 ```bash
-godot4 --path /Users/shijiean/Desktop/project/survive
-```
-或（若你的命令是 `godot`）：
-```bash
-godot --path /Users/shijiean/Desktop/project/survive
+godot --path .
 ```
 
-## 操作
-- `WASD` / `方向键`：移动
-- `Space` / `Shift`：冲刺（冷却）
-- `Tab`：切换攻击模式
-- 自动模式 `AUTO`：自动锁定威胁最高敌人
-- 指向模式 `AIM`：朝鼠标方向自动射击
-
-## 数据调参入口
-- 武器：`/Users/shijiean/Desktop/project/survive/data/weapons.json`
-- 敌人：`/Users/shijiean/Desktop/project/survive/data/enemies.json`
-- 升级池：`/Users/shijiean/Desktop/project/survive/data/upgrades.json`
-- 刷怪曲线：`/Users/shijiean/Desktop/project/survive/data/spawn_curve.json`
-- 数据加载与校验：`/Users/shijiean/Desktop/project/survive/scripts/core/data_registry.gd`
-
-## 自动化测试（当前）
-数据层脚本测试：
+### 自动化测试（headless）
 ```bash
-godot4 --headless --path /Users/shijiean/Desktop/project/survive --script res://tests/test_runner.gd
+godot --headless --path . --scene res://tests/TestRunner.tscn --quit-after 3600
 ```
 
-## 目录结构（M1）
-- `scenes/`：主场景与实体场景
-- `scripts/`：核心逻辑、实体逻辑、管理器、UI
-- `data/`：JSON 数据配置
-- `tests/`：脚本化测试入口
-- `assets/`：占位资源
-- `exports/`：后续导出产物目录
-- `assets_inbox/`：外部素材暂存目录
-- `tmp/`：临时文件
+### 构建导出（macOS / Windows）
+仓库已提交 `export_presets.cfg`。若本地首次打开看不到预设，按以下步骤创建：
+1. 打开 Godot 编辑器，进入 `Project -> Export...`。
+2. 点击 `Add...`，选择 `macOS`，预设名设为 `macOS`。
+3. `Export Path` 填写为 `exports/macos/Survive-Neon-Sonar.app`。
+4. 保存后确认项目根目录生成/更新 `export_presets.cfg`。
 
-## 外部资源与许可
-- 本里程碑未引入外部下载素材。
-- 图标 `assets/textures/icon.svg` 为本地生成占位图（原创占位）。
-- 音效为运行时程序合成占位，不依赖外部素材授权。
+```bash
+godot --headless --path . --export-release "macOS" exports/macos/Survive-Neon-Sonar.app
+godot --headless --path . --export-release "Windows Desktop" exports/NeonSonar.exe
+```
+
+## macOS Release Artifacts
+
+### 1) 导出 `.app`
+```bash
+godot --headless --path . --export-release "macOS" exports/macos/Survive-Neon-Sonar.app
+```
+
+### 2) 打包 DMG（App + Applications alias）
+```bash
+./scripts/build_macos_dmg.sh exports/macos/Survive-Neon-Sonar.app
+```
+
+默认输出：`dist/Survive-Neon-Sonar-macOS.dmg`
+
+### 3) 验证 DMG 结构
+```bash
+./scripts/verify_macos_artifacts.sh dist/Survive-Neon-Sonar-macOS.dmg
+```
+
+验证项：
+- DMG 可挂载
+- 根目录包含 `.app`
+- 根目录包含 `Applications` alias/link
+- DMG 内无 `.command` 文件
+
+### 4) macOS 用户安装
+1. 双击 `dist/Survive-Neon-Sonar-macOS.dmg` 挂载。
+2. 将 `Survive-Neon-Sonar.app` 拖到 `Applications`。
+3. 从 `Applications` 启动游戏。
+
+## Gameplay Loop
+```mermaid
+flowchart LR
+  A[Start Run] --> B[Move + Auto/Aim Attack]
+  B --> C[Gain XP]
+  C --> D[Pick 1 of 3 Upgrades]
+  D --> E[Build Synergy: sonar / silence / crit / summon]
+  E --> F[Noise Climbs]
+  F --> G[Spawn Pressure + Pursuer Risk]
+  G --> B
+  G --> H[Boss Phase]
+  H --> I[Run End: Summary + Unlocks]
+```
+
+## Core Controls
+- `WASD / Arrow`: 移动
+- `Space / Shift`: 冲刺
+- `Q / E`: 主动声呐技能
+- `Tab`: 自动攻击 / 指向攻击切换
+- `F1`: Debug 面板
+- `F2`: Fog 开关
+- `F3`: Sonar 视觉开关
+- `F5`: 调试热重载数据
+
+## Current M3 Snapshot
+- 角色：5（含解锁条件、起始武器与被动）
+- 武器：8（projectile / pulse / mine / beam / drone / melee）
+- 升级：31（含稀有度、前置、互斥、武器/Tag定向）
+- 地图：2（各自危害与事件表）
+- 敌人：10+ 普通 + 6 精英词缀 + 追猎者 + 1 两阶段 Boss
+- 契约：12（开局 0–3 选择，奖励预览与参数联动）
+
+## Design Notes
+为什么这款游戏和 VS/Brotato 节奏相近但机制体验不同：
+- 关键差异轴是 **视野/信息** 与 **噪声代价**，不是单纯数值膨胀。
+- 高伤害与高安全不能长期共存，玩家持续在“输出效率 vs 暴露风险”间做选择。
+
+详细说明见：[`docs/DESIGN_NOTES.md`](docs/DESIGN_NOTES.md)
+
+## Media Kit
+- 录屏脚本与流程：[`media/TRAILER_CAPTURE.md`](media/TRAILER_CAPTURE.md)
+- 截图拍摄清单：[`media/SHOTLIST.md`](media/SHOTLIST.md)
+
+## Data-Driven Tuning Entry
+- 角色：`data/characters.json`
+- 武器：`data/weapons.json`
+- 升级：`data/upgrades.json`
+- 地图/危害/事件：`data/maps.json` / `data/hazards.json` / `data/events.json`
+- 敌人/精英/Boss：`data/enemies.json` / `data/elites.json` / `data/bosses.json`
+- 契约：`data/contracts.json`
+- 迷雾/声呐/噪声：`data/fog.json` / `data/sonar.json` / `data/noise.json`
+
+## Repo Structure
+- `scenes/`：场景层（GameRoot / World / UI / Entities）
+- `scripts/`：核心逻辑、系统模块、UI 控制器
+- `data/`：所有可调配置（JSON）
+- `tests/`：`TestRunner.tscn` + 回归测试
+- `assets/`：占位素材（可替换）
+- `exports/`：导出产物目录
+- `media/`：录屏与截图制作文档
+
+## License & Credits
+- License：[`LICENSE`](LICENSE)
+- Third-party / asset credits：[`CREDITS.md`](CREDITS.md)

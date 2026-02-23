@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "bosses": [
+    {
+      "id": "abyss_siren",
+      "name": "Abyss Siren",
+      "description": "Signal predator that manipulates sonar echoes.",
+      "spawn_time_seconds": 540.0,
+      "max_hp": 2800.0,
+      "speed": 62.0,
+      "damage": 22.0,
+      "xp_reward": 450,
+      "size": 44.0,
+      "color": "#ff7fb9",
+      "telegraph_color": "#8be8ff",
+      "fake_echoes": 2,
+      "phase_transition_noise_delta": 22.0,
+      "phase_transition_black_tide_seconds": 7.0,
+      "summon_pool": ["drifter", "sprinter", "lurker"],
+      "phases": [
+        {
+          "id": "phase_1",
+          "start_hp_ratio": 1.0,
+          "label": "Echo Barrage",
+          "description": "Fires sonar spikes and summons fast chasers.",
+          "telegraph_text": "Abyss Siren charging echo barrage",
+          "attack_interval": 2.4,
+          "summon_interval": 8.0,
+          "summon_count": 2,
+          "fog_radius_mult": 1.0,
+          "spawn_rate_mult": 1.0,
+          "sonar_lock_required": false
+        },
+        {
+          "id": "phase_2",
+          "start_hp_ratio": 0.55,
+          "label": "False Resonance",
+          "description": "Triggers black tide surge and hides in false echoes.",
+          "telegraph_text": "False resonance detected - identify the true core",
+          "attack_interval": 1.8,
+          "summon_interval": 6.2,
+          "summon_count": 3,
+          "fog_radius_mult": 0.78,
+          "spawn_rate_mult": 1.18,
+          "sonar_lock_required": true
+        }
+      ]
+    }
+  ]
+}

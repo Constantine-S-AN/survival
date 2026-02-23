@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "enabled": true,
+  "darkness_color": "#0a1422",
+  "vision_radius": 440.0,
+  "vision_energy": 1.35,
+  "scanline_enabled": true,
+  "scanline_density": 320.0,
+  "scanline_strength": 0.08,
+  "noise_strength": 0.045,
+  "tint_color": "#0b1a2a",
+  "tint_alpha": 0.30,
+  "pulse_speed": 0.65
+}

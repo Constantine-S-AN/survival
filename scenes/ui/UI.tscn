@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/ui_layer.gd" id="1"]
+[ext_resource type="Theme" path="res://ui/theme/NeonTheme.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/ui/components/neon_button.gd" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud/HUD.tscn" id="4"]
 
 [node name="UI" type="CanvasLayer"]
 script = ExtResource("1")
@@ -12,13 +15,20 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("2")
 
 [node name="HUD" type="Panel" parent="Root"]
+visible = false
 layout_mode = 1
 offset_left = 18.0
 offset_top = 18.0
 offset_right = 300.0
 offset_bottom = 238.0
+theme_type_variation = &"HudPanel"
+
+[node name="RunHUD" parent="Root" instance=ExtResource("4")]
+visible = false
+layout_mode = 1
 
 [node name="Stats" type="VBoxContainer" parent="Root/HUD"]
 layout_mode = 1
@@ -59,6 +69,7 @@ offset_left = 222.0
 offset_top = 264.0
 offset_right = 1378.0
 offset_bottom = 664.0
+theme_type_variation = &"OverlayPanel"
 
 [node name="PanelMargin" type="MarginContainer" parent="Root/LevelUpPanel"]
 layout_mode = 2
@@ -74,6 +85,7 @@ theme_override_constants/separation = 16
 [node name="TitleLabel" type="Label" parent="Root/LevelUpPanel/PanelMargin/VBox"]
 text = "Signal Upgrade"
 horizontal_alignment = 1
+theme_type_variation = &"HeadingLabel"
 
 [node name="Choices" type="HBoxContainer" parent="Root/LevelUpPanel/PanelMargin/VBox"]
 layout_mode = 2
@@ -85,6 +97,8 @@ size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 270)
 autowrap_mode = 3
 text = "Option 1"
+theme_type_variation = &"PrimaryButton"
+script = ExtResource("3")
 
 [node name="UpgradeBtn2" type="Button" parent="Root/LevelUpPanel/PanelMargin/VBox/Choices"]
 layout_mode = 2
@@ -92,6 +106,8 @@ size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 270)
 autowrap_mode = 3
 text = "Option 2"
+theme_type_variation = &"PrimaryButton"
+script = ExtResource("3")
 
 [node name="UpgradeBtn3" type="Button" parent="Root/LevelUpPanel/PanelMargin/VBox/Choices"]
 layout_mode = 2
@@ -99,6 +115,8 @@ size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 270)
 autowrap_mode = 3
 text = "Option 3"
+theme_type_variation = &"PrimaryButton"
+script = ExtResource("3")
 
 [node name="GameOverPanel" type="Panel" parent="Root"]
 visible = false
@@ -107,6 +125,7 @@ offset_left = 500.0
 offset_top = 250.0
 offset_right = 1100.0
 offset_bottom = 650.0
+theme_type_variation = &"OverlayPanel"
 
 [node name="PanelMargin" type="MarginContainer" parent="Root/GameOverPanel"]
 layout_mode = 2
@@ -122,6 +141,7 @@ theme_override_constants/separation = 14
 [node name="TitleLabel" type="Label" parent="Root/GameOverPanel/PanelMargin/VBox"]
 text = "Run Failed"
 horizontal_alignment = 1
+theme_type_variation = &"HeadingLabel"
 
 [node name="SummaryLabel" type="Label" parent="Root/GameOverPanel/PanelMargin/VBox"]
 text = "Summary"
@@ -131,3 +151,5 @@ horizontal_alignment = 1
 [node name="RetryButton" type="Button" parent="Root/GameOverPanel/PanelMargin/VBox"]
 text = "Retry"
 size_flags_horizontal = 4
+theme_type_variation = &"PrimaryButton"
+script = ExtResource("3")

@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "min": 0.0,
+  "max": 100.0,
+  "decay_per_second": 4.6,
+  "sources": {
+    "attack": 1.2,
+    "attack_weapon_scale": 0.68,
+    "dash": 6.0,
+    "skill": 13.0
+  },
+  "skill": {
+    "cooldown": 8.0
+  },
+  "tiers": [
+    {
+      "id": "silent",
+      "name": "静默",
+      "min": 0.0,
+      "max": 25.0,
+      "spawn_rate_multiplier": 0.92,
+      "spawn_cap_multiplier": 0.90,
+      "pursuer_chance": 0.0,
+      "hud_color": "#74e7ff"
+    },
+    {
+      "id": "alert",
+      "name": "警戒",
+      "min": 25.0,
+      "max": 60.0,
+      "spawn_rate_multiplier": 1.18,
+      "spawn_cap_multiplier": 1.12,
+      "pursuer_chance": 0.018,
+      "hud_color": "#ffd48a"
+    },
+    {
+      "id": "exposed",
+      "name": "暴露",
+      "min": 60.0,
+      "max": 100.0,
+      "spawn_rate_multiplier": 1.52,
+      "spawn_cap_multiplier": 1.35,
+      "pursuer_chance": 0.065,
+      "hud_color": "#ff8b8b"
+    }
+  ],
+  "pursuer": {
+    "enemy_id": "pursuer_stalker",
+    "min_noise": 60.0,
+    "spawn_cooldown": 14.0
+  }
+}

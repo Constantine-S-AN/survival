@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "enabled": true,
+  "wave_speed": 980.0,
+  "max_radius": 720.0,
+  "line_width": 5.5,
+  "glow_intensity": 1.0,
+  "reveal_duration": 1.8,
+  "color": "#63e8ff",
+  "hit_strength": 0.62,
+  "pickup_strength": 0.48,
+  "skill_strength": 0.92,
+  "hit_radius_scale": 0.85,
+  "pickup_radius_scale": 0.72,
+  "skill_radius_scale": 1.0
+}

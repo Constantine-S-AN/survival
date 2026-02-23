@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "default_map_id": "map_trench_lab",
+  "maps": [
+    {
+      "id": "map_trench_lab",
+      "name": "Trench Lab",
+      "description": "Neon industrial trench with unstable magnetic storms.",
+      "hazard_id": "hazard_magnetic_interference",
+      "event_table_id": "event_table_trench_lab",
+      "hazard_summary": "Magnetic storms disrupt sonar and raise noise risk.",
+      "event_summary": "Supply pods and rift surges create tempo spikes.",
+      "modifiers": {
+        "fog": {
+          "vision_radius_mult": 0.95,
+          "noise_strength_add": 0.015,
+          "scanline_strength_add": 0.010
+        },
+        "sonar": {
+          "wave_speed_mult": 0.94,
+          "max_radius_mult": 0.96,
+          "reveal_duration_mult": 0.92
+        },
+        "noise": {
+          "gain_mult": 1.08,
+          "decay_mult": 0.96
+        },
+        "spawner": {
+          "spawn_rate_mult": 1.06,
+          "spawn_cap_mult": 1.04,
+          "pursuer_chance_add": 0.008
+        },
+        "rewards": {
+          "xp_mult": 1.03
+        }
+      }
+    },
+    {
+      "id": "map_black_tide",
+      "name": "Black Tide",
+      "description": "Light-starved abyss plain swept by violent black currents.",
+      "hazard_id": "hazard_black_tide_surge",
+      "event_table_id": "event_table_black_tide",
+      "hazard_summary": "Black surge shrinks vision but boosts tempo and rewards.",
+      "event_summary": "Quiet pockets and surges alternate between risk and payoff.",
+      "modifiers": {
+        "fog": {
+          "vision_radius_mult": 0.86,
+          "noise_strength_add": 0.030,
+          "scanline_strength_add": 0.022
+        },
+        "sonar": {
+          "wave_speed_mult": 1.02,
+          "max_radius_mult": 0.92,
+          "reveal_duration_mult": 0.90
+        },
+        "noise": {
+          "gain_mult": 1.12,
+          "decay_mult": 0.90
+        },
+        "spawner": {
+          "spawn_rate_mult": 1.12,
+          "spawn_cap_mult": 1.10,
+          "pursuer_chance_add": 0.015
+        },
+        "rewards": {
+          "xp_mult": 1.08
+        }
+      }
+    }
+  ]
+}

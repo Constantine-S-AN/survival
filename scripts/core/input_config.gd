@@ -7,6 +7,7 @@ static func ensure_default_actions() -> void:
 	_ensure_action("move_left", [KEY_A, KEY_LEFT])
 	_ensure_action("move_right", [KEY_D, KEY_RIGHT])
 	_ensure_action("dash", [KEY_SPACE, KEY_SHIFT])
+	_ensure_action("sonar_skill", [KEY_Q, KEY_E])
 	_ensure_action("toggle_attack_mode", [KEY_TAB])
 	_ensure_mouse_action("manual_fire", [MOUSE_BUTTON_LEFT])
 
