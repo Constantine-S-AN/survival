@@ -7,33 +7,10 @@ signal cancel_requested
 const UPGRADE_CARD_SCENE := preload("res://ui/components/UpgradeCard.tscn")
 const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 
-const TAG_DISPLAY_NAMES: Dictionary = {
-	"sonar": "Sonar",
-	"silence": "Silence",
-	"heat": "Heat",
-	"crit": "Crit",
-	"pierce": "Pierce",
-	"chain": "Chain",
-	"aoe": "AOE",
-	"pickup": "Pickup",
-	"shield": "Shield",
-	"speed": "Speed",
-	"trap": "Trap",
-	"control": "Control",
-	"summon": "Summon",
-	"economy": "Economy",
-	"damage": "Damage",
-	"weapon": "Weapon",
-	"tempo": "Tempo",
-	"noise": "Noise",
-	"mobility": "Mobility",
-	"defense": "Defense",
-	"hull": "Hull"
-}
-
 @export var allow_cancel: bool = false
 
 @onready var backdrop_rect: ColorRect = $Backdrop
+@onready var title_label: Label = $Margin/Columns/Main/Title
 @onready var subtitle_label: Label = $Margin/Columns/Main/Subtitle
 @onready var cards_row: HBoxContainer = $Margin/Columns/Main/CardsRow
 @onready var input_hint_label: Label = $Margin/Columns/Main/InputHint
@@ -51,9 +28,12 @@ var _backdrop_time: float = 0.0
 
 func _ready() -> void:
 	visible = false
+	if Localization != null and Localization.has_signal("language_changed"):
+		Localization.language_changed.connect(_on_language_changed)
 	if backdrop_rect != null and backdrop_rect.material is ShaderMaterial:
 		_backdrop_material = backdrop_rect.material
-	input_hint_label.text = "←/→ focus  Enter select  ↑/↓ scroll build"
+	title_label.text = _t("upgrade.title")
+	input_hint_label.text = _t("upgrade.input_hint")
 	set_process(true)
 
 
@@ -168,11 +148,12 @@ func _build_cards() -> void:
 		if card.has_method("set_card_index"):
 			card.call("set_card_index", i)
 		if card.has_method("set_upgrade_data"):
-			card.call("set_upgrade_data", option, TAG_DISPLAY_NAMES)
+			card.call("set_upgrade_data", option, _build_tag_display_names())
 		if card.has_signal("card_selected"):
 			card.connect("card_selected", Callable(self, "_on_card_selected"))
 		_cards.append(card)
-	subtitle_label.text = "Pick one. Build direction updates on the right."
+	title_label.text = _t("upgrade.title")
+	subtitle_label.text = _t("upgrade.subtitle")
 
 
 func _update_build_panel() -> void:
@@ -231,3 +212,40 @@ func _build_preview_hud_data(upgrade_id: String) -> Dictionary:
 	preview["acquired_tags"] = acquired_tags
 	preview["upgrade_stacks"] = stacks
 	return preview
+
+
+func _build_tag_display_names() -> Dictionary:
+	var out: Dictionary = {}
+	var tags := [
+		"sonar", "silence", "heat", "crit", "pierce", "chain", "aoe", "pickup",
+		"shield", "speed", "trap", "control", "summon", "economy", "damage",
+		"weapon", "tempo", "noise", "mobility", "defense", "hull"
+	]
+	for tag in tags:
+		out[tag] = _tag_name(tag)
+	return out
+
+
+func _on_language_changed(_language_code: String) -> void:
+	title_label.text = _t("upgrade.title")
+	subtitle_label.text = _t("upgrade.subtitle")
+	input_hint_label.text = _t("upgrade.input_hint")
+	if not visible:
+		return
+	var target_focus_index := clampi(_focused_index, 0, maxi(0, _current_options.size() - 1))
+	_build_cards()
+	if not _cards.is_empty():
+		_focus_card(target_focus_index)
+	_update_build_panel()
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	if Localization == null or not Localization.has_method("t"):
+		return key
+	return String(Localization.call("t", key, args))
+
+
+func _tag_name(tag: String) -> String:
+	if Localization == null or not Localization.has_method("tag_name"):
+		return tag.capitalize()
+	return String(Localization.call("tag_name", tag))

@@ -120,8 +120,19 @@ func _run_data_registry_tests() -> void:
 		"abyss_mine",
 		"tether_beam",
 		"orbital_drone",
-		"sonar_blade"
+		"sonar_blade",
+		"flare_lance",
+		"night_carbine",
+		"pulse_emitter",
+		"ion_repeater",
+		"ember_pike",
+		"frost_shard",
+		"grav_harpoon",
+		"prism_caster",
+		"venom_sprayer",
+		"echo_revolver"
 	]
+	_assert_true(registry.weapons.size() >= 18, "weapons has at least 18 entries")
 	for weapon_id in required_weapon_ids:
 		_assert_true(registry.weapons.has(weapon_id), "weapons includes %s" % weapon_id)
 	_assert_true(registry.enemies.size() >= 4, "enemies has at least 4 entries")

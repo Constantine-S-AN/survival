@@ -4,22 +4,55 @@
     "name": "Needle Rifle",
     "description": "Mid-speed puncture rifle tuned for trench lanes.",
     "attack_model": "projectile",
-    "tags": ["pierce", "sonar"],
+    "tags": [
+      "pierce",
+      "sonar"
+    ],
     "base_damage": 18.0,
     "attack_rate": 2.1,
     "range": 820.0,
     "projectile_speed": 760.0,
     "projectile_pierce": 1,
     "crit_chance": 0.06,
-    "crit_multiplier": 1.70,
+    "crit_multiplier": 1.7,
     "aoe_radius": 0.0,
     "noise_per_attack": 2.8,
     "level_growth": [
-      {"level": 1, "damage_mult": 1.00, "attack_rate_mult": 1.00, "range_mult": 1.00, "pierce_bonus": 0},
-      {"level": 2, "damage_mult": 1.15, "attack_rate_mult": 1.05, "range_mult": 1.03, "pierce_bonus": 0},
-      {"level": 3, "damage_mult": 1.32, "attack_rate_mult": 1.08, "range_mult": 1.06, "pierce_bonus": 1},
-      {"level": 4, "damage_mult": 1.50, "attack_rate_mult": 1.12, "range_mult": 1.08, "pierce_bonus": 1},
-      {"level": 5, "damage_mult": 1.72, "attack_rate_mult": 1.18, "range_mult": 1.12, "pierce_bonus": 2}
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.15,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.03,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.32,
+        "attack_rate_mult": 1.08,
+        "range_mult": 1.06,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.5,
+        "attack_rate_mult": 1.12,
+        "range_mult": 1.08,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.72,
+        "attack_rate_mult": 1.18,
+        "range_mult": 1.12,
+        "pierce_bonus": 2
+      }
     ]
   },
   "burst_smg": {
@@ -27,7 +60,10 @@
     "name": "Burst SMG",
     "description": "High-rate muzzle storm with heavy acoustic footprint.",
     "attack_model": "projectile",
-    "tags": ["heat", "crit"],
+    "tags": [
+      "heat",
+      "crit"
+    ],
     "base_damage": 7.5,
     "attack_rate": 7.2,
     "range": 620.0,
@@ -38,11 +74,41 @@
     "aoe_radius": 0.0,
     "noise_per_attack": 4.2,
     "level_growth": [
-      {"level": 1, "damage_mult": 1.00, "attack_rate_mult": 1.00, "range_mult": 1.00, "pierce_bonus": 0},
-      {"level": 2, "damage_mult": 1.10, "attack_rate_mult": 1.07, "range_mult": 1.02, "pierce_bonus": 0},
-      {"level": 3, "damage_mult": 1.24, "attack_rate_mult": 1.12, "range_mult": 1.04, "pierce_bonus": 0},
-      {"level": 4, "damage_mult": 1.40, "attack_rate_mult": 1.18, "range_mult": 1.06, "pierce_bonus": 1},
-      {"level": 5, "damage_mult": 1.58, "attack_rate_mult": 1.24, "range_mult": 1.08, "pierce_bonus": 1}
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.1,
+        "attack_rate_mult": 1.07,
+        "range_mult": 1.02,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.24,
+        "attack_rate_mult": 1.12,
+        "range_mult": 1.04,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.4,
+        "attack_rate_mult": 1.18,
+        "range_mult": 1.06,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.58,
+        "attack_rate_mult": 1.24,
+        "range_mult": 1.08,
+        "pierce_bonus": 1
+      }
     ]
   },
   "silence_dart": {
@@ -50,7 +116,10 @@
     "name": "Silence Dart",
     "description": "Low-signature dart that extends sonar reveal windows.",
     "attack_model": "projectile",
-    "tags": ["silence", "sonar"],
+    "tags": [
+      "silence",
+      "sonar"
+    ],
     "base_damage": 10.5,
     "attack_rate": 3.0,
     "range": 780.0,
@@ -62,11 +131,41 @@
     "noise_per_attack": 1.4,
     "reveal_bonus_duration": 0.55,
     "level_growth": [
-      {"level": 1, "damage_mult": 1.00, "attack_rate_mult": 1.00, "range_mult": 1.00, "reveal_bonus": 0.55},
-      {"level": 2, "damage_mult": 1.14, "attack_rate_mult": 1.05, "range_mult": 1.04, "reveal_bonus": 0.70},
-      {"level": 3, "damage_mult": 1.28, "attack_rate_mult": 1.09, "range_mult": 1.08, "reveal_bonus": 0.85},
-      {"level": 4, "damage_mult": 1.44, "attack_rate_mult": 1.13, "range_mult": 1.11, "reveal_bonus": 1.05},
-      {"level": 5, "damage_mult": 1.62, "attack_rate_mult": 1.18, "range_mult": 1.15, "reveal_bonus": 1.25}
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "reveal_bonus": 0.55
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.14,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.04,
+        "reveal_bonus": 0.7
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.28,
+        "attack_rate_mult": 1.09,
+        "range_mult": 1.08,
+        "reveal_bonus": 0.85
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.44,
+        "attack_rate_mult": 1.13,
+        "range_mult": 1.11,
+        "reveal_bonus": 1.05
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.62,
+        "attack_rate_mult": 1.18,
+        "range_mult": 1.15,
+        "reveal_bonus": 1.25
+      }
     ]
   },
   "shock_pulse": {
@@ -74,7 +173,10 @@
     "name": "Shock Pulse",
     "description": "Near-field ring pulse for close swarm clearing.",
     "attack_model": "pulse",
-    "tags": ["aoe", "sonar"],
+    "tags": [
+      "aoe",
+      "sonar"
+    ],
     "base_damage": 24.0,
     "attack_rate": 1.05,
     "range": 180.0,
@@ -85,11 +187,36 @@
     "aoe_radius": 176.0,
     "noise_per_attack": 3.4,
     "level_growth": [
-      {"level": 1, "damage_mult": 1.00, "attack_rate_mult": 1.00, "aoe_mult": 1.00},
-      {"level": 2, "damage_mult": 1.14, "attack_rate_mult": 1.04, "aoe_mult": 1.08},
-      {"level": 3, "damage_mult": 1.30, "attack_rate_mult": 1.07, "aoe_mult": 1.16},
-      {"level": 4, "damage_mult": 1.48, "attack_rate_mult": 1.10, "aoe_mult": 1.22},
-      {"level": 5, "damage_mult": 1.68, "attack_rate_mult": 1.14, "aoe_mult": 1.30}
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.14,
+        "attack_rate_mult": 1.04,
+        "aoe_mult": 1.08
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.3,
+        "attack_rate_mult": 1.07,
+        "aoe_mult": 1.16
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.48,
+        "attack_rate_mult": 1.1,
+        "aoe_mult": 1.22
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.68,
+        "attack_rate_mult": 1.14,
+        "aoe_mult": 1.3
+      }
     ]
   },
   "abyss_mine": {
@@ -97,23 +224,51 @@
     "name": "Abyss Mine",
     "description": "Timed abyss charge that detonates on proximity.",
     "attack_model": "mine",
-    "tags": ["aoe", "trap"],
+    "tags": [
+      "aoe",
+      "trap"
+    ],
     "base_damage": 42.0,
     "attack_rate": 0.78,
     "range": 480.0,
     "projectile_speed": 260.0,
     "projectile_pierce": 99,
     "crit_chance": 0.05,
-    "crit_multiplier": 1.60,
+    "crit_multiplier": 1.6,
     "aoe_radius": 148.0,
     "noise_per_attack": 3.8,
     "activation_delay": 0.65,
     "level_growth": [
-      {"level": 1, "damage_mult": 1.00, "attack_rate_mult": 1.00, "aoe_mult": 1.00},
-      {"level": 2, "damage_mult": 1.16, "attack_rate_mult": 1.03, "aoe_mult": 1.08},
-      {"level": 3, "damage_mult": 1.34, "attack_rate_mult": 1.06, "aoe_mult": 1.14},
-      {"level": 4, "damage_mult": 1.54, "attack_rate_mult": 1.09, "aoe_mult": 1.21},
-      {"level": 5, "damage_mult": 1.76, "attack_rate_mult": 1.13, "aoe_mult": 1.30}
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.16,
+        "attack_rate_mult": 1.03,
+        "aoe_mult": 1.08
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.34,
+        "attack_rate_mult": 1.06,
+        "aoe_mult": 1.14
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.54,
+        "attack_rate_mult": 1.09,
+        "aoe_mult": 1.21
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.76,
+        "attack_rate_mult": 1.13,
+        "aoe_mult": 1.3
+      }
     ]
   },
   "tether_beam": {
@@ -121,7 +276,10 @@
     "name": "Tether Beam",
     "description": "Locks one target with continuous control damage.",
     "attack_model": "beam",
-    "tags": ["chain", "control"],
+    "tags": [
+      "chain",
+      "control"
+    ],
     "base_damage": 13.0,
     "attack_rate": 5.5,
     "range": 540.0,
@@ -133,11 +291,36 @@
     "noise_per_attack": 2.6,
     "beam_tick_interval": 0.16,
     "level_growth": [
-      {"level": 1, "damage_mult": 1.00, "attack_rate_mult": 1.00, "range_mult": 1.00},
-      {"level": 2, "damage_mult": 1.13, "attack_rate_mult": 1.05, "range_mult": 1.04},
-      {"level": 3, "damage_mult": 1.28, "attack_rate_mult": 1.10, "range_mult": 1.08},
-      {"level": 4, "damage_mult": 1.45, "attack_rate_mult": 1.15, "range_mult": 1.12},
-      {"level": 5, "damage_mult": 1.64, "attack_rate_mult": 1.21, "range_mult": 1.18}
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.04
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.28,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.08
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.45,
+        "attack_rate_mult": 1.15,
+        "range_mult": 1.12
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.64,
+        "attack_rate_mult": 1.21,
+        "range_mult": 1.18
+      }
     ]
   },
   "orbital_drone": {
@@ -145,24 +328,51 @@
     "name": "Orbital Drone",
     "description": "Summons an orbiting drone that auto-fires around you.",
     "attack_model": "drone",
-    "tags": ["summon"],
+    "tags": [
+      "summon"
+    ],
     "base_damage": 11.0,
     "attack_rate": 2.4,
     "range": 220.0,
     "projectile_speed": 690.0,
     "projectile_pierce": 0,
     "crit_chance": 0.05,
-    "crit_multiplier": 1.50,
+    "crit_multiplier": 1.5,
     "aoe_radius": 0.0,
     "noise_per_attack": 2.9,
     "orbit_radius": 120.0,
     "drone_count": 1,
     "level_growth": [
-      {"level": 1, "damage_mult": 1.00, "attack_rate_mult": 1.00, "drone_count_bonus": 0},
-      {"level": 2, "damage_mult": 1.12, "attack_rate_mult": 1.06, "drone_count_bonus": 0},
-      {"level": 3, "damage_mult": 1.26, "attack_rate_mult": 1.12, "drone_count_bonus": 1},
-      {"level": 4, "damage_mult": 1.42, "attack_rate_mult": 1.18, "drone_count_bonus": 1},
-      {"level": 5, "damage_mult": 1.60, "attack_rate_mult": 1.24, "drone_count_bonus": 2}
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "drone_count_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.12,
+        "attack_rate_mult": 1.06,
+        "drone_count_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.26,
+        "attack_rate_mult": 1.12,
+        "drone_count_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.42,
+        "attack_rate_mult": 1.18,
+        "drone_count_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.6,
+        "attack_rate_mult": 1.24,
+        "drone_count_bonus": 2
+      }
     ]
   },
   "sonar_blade": {
@@ -170,23 +380,592 @@
     "name": "Sonar Blade",
     "description": "Close-range arc strike that emits amplified sonar.",
     "attack_model": "melee",
-    "tags": ["sonar", "speed"],
+    "tags": [
+      "sonar",
+      "speed"
+    ],
     "base_damage": 28.0,
     "attack_rate": 1.9,
     "range": 164.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
-    "crit_chance": 0.10,
-    "crit_multiplier": 1.70,
+    "crit_chance": 0.1,
+    "crit_multiplier": 1.7,
     "aoe_radius": 132.0,
     "noise_per_attack": 2.2,
     "sonar_pulse_strength": 1.4,
     "level_growth": [
-      {"level": 1, "damage_mult": 1.00, "attack_rate_mult": 1.00, "aoe_mult": 1.00},
-      {"level": 2, "damage_mult": 1.14, "attack_rate_mult": 1.07, "aoe_mult": 1.05},
-      {"level": 3, "damage_mult": 1.30, "attack_rate_mult": 1.12, "aoe_mult": 1.10},
-      {"level": 4, "damage_mult": 1.48, "attack_rate_mult": 1.18, "aoe_mult": 1.16},
-      {"level": 5, "damage_mult": 1.68, "attack_rate_mult": 1.24, "aoe_mult": 1.22}
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.14,
+        "attack_rate_mult": 1.07,
+        "aoe_mult": 1.05
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.3,
+        "attack_rate_mult": 1.12,
+        "aoe_mult": 1.1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.48,
+        "attack_rate_mult": 1.18,
+        "aoe_mult": 1.16
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.68,
+        "attack_rate_mult": 1.24,
+        "aoe_mult": 1.22
+      }
+    ]
+  },
+  "flare_lance": {
+    "id": "flare_lance",
+    "name": "Flare Lance",
+    "description": "High-velocity lance round with bright muzzle burn.",
+    "attack_model": "projectile",
+    "tags": [
+      "damage",
+      "kinetic"
+    ],
+    "base_damage": 20.0,
+    "attack_rate": 1.9,
+    "range": 900.0,
+    "projectile_speed": 860.0,
+    "projectile_pierce": 1,
+    "crit_chance": 0.07,
+    "crit_multiplier": 1.75,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 3.0,
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.03,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.27,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.06,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.43,
+        "attack_rate_mult": 1.16,
+        "range_mult": 1.1,
+        "pierce_bonus": 2
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.61,
+        "attack_rate_mult": 1.22,
+        "range_mult": 1.14,
+        "pierce_bonus": 2
+      }
+    ]
+  },
+  "night_carbine": {
+    "id": "night_carbine",
+    "name": "Night Carbine",
+    "description": "Stable mid-range carbine tuned for clean burst control.",
+    "attack_model": "projectile",
+    "tags": [
+      "starter",
+      "pierce"
+    ],
+    "base_damage": 14.0,
+    "attack_rate": 3.6,
+    "range": 760.0,
+    "projectile_speed": 740.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.09,
+    "crit_multiplier": 1.62,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 2.4,
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.03,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.27,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.06,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.43,
+        "attack_rate_mult": 1.16,
+        "range_mult": 1.1,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.61,
+        "attack_rate_mult": 1.22,
+        "range_mult": 1.14,
+        "pierce_bonus": 1
+      }
+    ]
+  },
+  "pulse_emitter": {
+    "id": "pulse_emitter",
+    "name": "Pulse Emitter",
+    "description": "Emits rhythmic control pulses that carve nearby packs.",
+    "attack_model": "pulse",
+    "tags": [
+      "aoe",
+      "control"
+    ],
+    "base_damage": 22.0,
+    "attack_rate": 1.2,
+    "range": 210.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.05,
+    "crit_multiplier": 1.48,
+    "aoe_radius": 190.0,
+    "noise_per_attack": 3.2,
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.12,
+        "attack_rate_mult": 1.05,
+        "aoe_mult": 1.08
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.28,
+        "attack_rate_mult": 1.1,
+        "aoe_mult": 1.14
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.46,
+        "attack_rate_mult": 1.15,
+        "aoe_mult": 1.22
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.66,
+        "attack_rate_mult": 1.2,
+        "aoe_mult": 1.3
+      }
+    ]
+  },
+  "ion_repeater": {
+    "id": "ion_repeater",
+    "name": "Ion Repeater",
+    "description": "Fast repeater with ion bursts and high crit cadence.",
+    "attack_model": "projectile",
+    "tags": [
+      "speed",
+      "crit"
+    ],
+    "base_damage": 8.8,
+    "attack_rate": 6.4,
+    "range": 640.0,
+    "projectile_speed": 820.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.15,
+    "crit_multiplier": 1.68,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 3.7,
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.03,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.27,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.06,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.43,
+        "attack_rate_mult": 1.16,
+        "range_mult": 1.1,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.61,
+        "attack_rate_mult": 1.22,
+        "range_mult": 1.14,
+        "pierce_bonus": 1
+      }
+    ]
+  },
+  "ember_pike": {
+    "id": "ember_pike",
+    "name": "Ember Pike",
+    "description": "Close pike sweep that spikes tempo at knife distance.",
+    "attack_model": "melee",
+    "tags": [
+      "tempo",
+      "damage"
+    ],
+    "base_damage": 30.0,
+    "attack_rate": 1.7,
+    "range": 170.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.11,
+    "crit_multiplier": 1.74,
+    "aoe_radius": 136.0,
+    "noise_per_attack": 2.6,
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.15,
+        "attack_rate_mult": 1.06,
+        "aoe_mult": 1.06
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.32,
+        "attack_rate_mult": 1.12,
+        "aoe_mult": 1.12
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.5,
+        "attack_rate_mult": 1.18,
+        "aoe_mult": 1.18
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.7,
+        "attack_rate_mult": 1.25,
+        "aoe_mult": 1.24
+      }
+    ]
+  },
+  "frost_shard": {
+    "id": "frost_shard",
+    "name": "Frost Shard",
+    "description": "Cold shard shots trade raw DPS for safer control windows.",
+    "attack_model": "projectile",
+    "tags": [
+      "silence",
+      "control"
+    ],
+    "base_damage": 12.0,
+    "attack_rate": 2.8,
+    "range": 840.0,
+    "projectile_speed": 880.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.06,
+    "crit_multiplier": 1.56,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 1.9,
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.03,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.27,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.06,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.43,
+        "attack_rate_mult": 1.16,
+        "range_mult": 1.1,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.61,
+        "attack_rate_mult": 1.22,
+        "range_mult": 1.14,
+        "pierce_bonus": 2
+      }
+    ]
+  },
+  "grav_harpoon": {
+    "id": "grav_harpoon",
+    "name": "Grav Harpoon",
+    "description": "Harpoon tether that pins priority threats under pressure.",
+    "attack_model": "beam",
+    "tags": [
+      "chain",
+      "pierce"
+    ],
+    "base_damage": 15.0,
+    "attack_rate": 4.7,
+    "range": 600.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.04,
+    "crit_multiplier": 1.42,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 2.8,
+    "beam_tick_interval": 0.14,
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.1,
+        "attack_rate_mult": 1.07,
+        "range_mult": 1.04
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.24,
+        "attack_rate_mult": 1.13,
+        "range_mult": 1.09
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.4,
+        "attack_rate_mult": 1.19,
+        "range_mult": 1.14
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.58,
+        "attack_rate_mult": 1.25,
+        "range_mult": 1.2
+      }
+    ]
+  },
+  "prism_caster": {
+    "id": "prism_caster",
+    "name": "Prism Caster",
+    "description": "Short-wave prism blast with dense multi-hit spectrum.",
+    "attack_model": "pulse",
+    "tags": [
+      "aoe",
+      "crit"
+    ],
+    "base_damage": 18.5,
+    "attack_rate": 1.5,
+    "range": 220.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.12,
+    "crit_multiplier": 1.8,
+    "aoe_radius": 158.0,
+    "noise_per_attack": 3.3,
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.12,
+        "attack_rate_mult": 1.05,
+        "aoe_mult": 1.08
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.28,
+        "attack_rate_mult": 1.1,
+        "aoe_mult": 1.14
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.46,
+        "attack_rate_mult": 1.15,
+        "aoe_mult": 1.22
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.66,
+        "attack_rate_mult": 1.2,
+        "aoe_mult": 1.3
+      }
+    ]
+  },
+  "venom_sprayer": {
+    "id": "venom_sprayer",
+    "name": "Venom Sprayer",
+    "description": "Wide toxic spray pattern for close pack suppression.",
+    "attack_model": "projectile",
+    "tags": [
+      "aoe",
+      "trap"
+    ],
+    "base_damage": 9.0,
+    "attack_rate": 5.2,
+    "range": 560.0,
+    "projectile_speed": 620.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.08,
+    "crit_multiplier": 1.55,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 3.5,
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.03,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.27,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.06,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.43,
+        "attack_rate_mult": 1.16,
+        "range_mult": 1.1,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.61,
+        "attack_rate_mult": 1.22,
+        "range_mult": 1.14,
+        "pierce_bonus": 1
+      }
+    ]
+  },
+  "echo_revolver": {
+    "id": "echo_revolver",
+    "name": "Echo Revolver",
+    "description": "Heavy sidearm with sharp crit spikes and echo rebound feel.",
+    "attack_model": "projectile",
+    "tags": [
+      "silence",
+      "crit"
+    ],
+    "base_damage": 23.0,
+    "attack_rate": 2.0,
+    "range": 700.0,
+    "projectile_speed": 760.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.17,
+    "crit_multiplier": 1.86,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 2.7,
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.03,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.27,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.06,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.43,
+        "attack_rate_mult": 1.16,
+        "range_mult": 1.1,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.61,
+        "attack_rate_mult": 1.22,
+        "range_mult": 1.14,
+        "pierce_bonus": 1
+      }
     ]
   }
 }

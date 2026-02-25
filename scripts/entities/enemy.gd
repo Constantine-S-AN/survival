@@ -9,6 +9,8 @@ signal boss_echoes_spawned(count: int, world_position: Vector2)
 signal boss_true_form_revealed(world_position: Vector2)
 
 const BossEchoDecoyScene := preload("res://scenes/enemy/BossEchoDecoy.tscn")
+const PixelStickerRegistry := preload("res://scripts/visual/pixel_sticker_registry.gd")
+const ENEMY_IDLE_FRAME_SEC := 0.30
 
 var enemy_id := "drifter"
 var enemy_name := "Drifter"
@@ -102,15 +104,22 @@ var recycle_handler: Callable = Callable()
 var pooled_active: bool = false
 var default_collision_layer: int = 2
 var default_collision_mask: int = 0
+var _sticker_frames: Array[Texture2D] = []
+var _sticker_idle_timer: float = 0.0
+var _sticker_frame_idx: int = 0
+var _sticker_base_position: Vector2 = Vector2.ZERO
 
 @onready var outline_visual: Polygon2D = $Outline
 @onready var body_visual: Polygon2D = $Body
+@onready var sticker_visual: Sprite2D = $Sticker
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 
 
 func _ready() -> void:
 	default_collision_layer = collision_layer
 	default_collision_mask = collision_mask
+	if sticker_visual != null:
+		_sticker_base_position = sticker_visual.position
 	on_pool_recycle()
 
 
@@ -227,6 +236,7 @@ func setup(new_enemy_id: String, definition: Dictionary, player_target: Node2D, 
 		shape.radius = body_radius
 	body_visual.scale = Vector2.ONE * (body_radius / 15.0)
 	outline_visual.scale = Vector2.ONE * ((body_radius / 15.0) * 1.24)
+	_apply_enemy_sticker()
 	_update_reveal_visual()
 
 	add_to_group("enemy")
@@ -241,6 +251,7 @@ func setup(new_enemy_id: String, definition: Dictionary, player_target: Node2D, 
 func _physics_process(delta: float) -> void:
 	if not pooled_active:
 		return
+	_tick_idle_sticker(delta)
 	if target == null or not is_instance_valid(target):
 		return
 
@@ -507,11 +518,14 @@ func _on_death(from_explosion: bool) -> bool:
 
 func _flash_hit(shield_only: bool) -> void:
 	if shield_only:
-		body_visual.modulate = Color(0.9, 1.35, 1.6, 1.0)
+		_set_enemy_visual_modulate(Color(0.9, 1.35, 1.6, 1.0))
 	else:
-		body_visual.modulate = Color(1.6, 1.6, 1.6, 1.0)
+		_set_enemy_visual_modulate(Color(1.6, 1.6, 1.6, 1.0))
 	var tween := create_tween()
-	tween.tween_property(body_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.08)
+	if sticker_visual != null and sticker_visual.visible:
+		tween.tween_property(sticker_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.08)
+	else:
+		tween.tween_property(body_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.08)
 
 
 func set_revealed(duration_sec: float) -> void:
@@ -545,11 +559,11 @@ func _update_reveal_visual() -> void:
 	var revealed := is_revealed()
 	outline_visual.visible = revealed or shield_hp > 0.0 or is_elite
 	if revealed:
-		body_visual.modulate = Color(1.12, 1.12, 1.16, 1.0)
+		_set_enemy_visual_modulate(Color(1.12, 1.12, 1.16, 1.0))
 	elif shield_hp > 0.0:
-		body_visual.modulate = Color(0.85, 1.12, 1.3, 1.0)
+		_set_enemy_visual_modulate(Color(0.85, 1.12, 1.3, 1.0))
 	else:
-		body_visual.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		_set_enemy_visual_modulate(Color(1.0, 1.0, 1.0, 1.0))
 
 
 func apply_elite_affix(affix: Dictionary) -> void:
@@ -815,7 +829,57 @@ func on_pool_recycle() -> void:
 	collision_mask = 0
 	visible = false
 	set_physics_process(false)
+	if sticker_visual != null:
+		sticker_visual.texture = null
+		sticker_visual.visible = false
+		sticker_visual.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		sticker_visual.position = _sticker_base_position
+	body_visual.visible = true
+	_sticker_frames.clear()
+	_sticker_idle_timer = 0.0
+	_sticker_frame_idx = 0
 	_update_reveal_visual()
+
+
+func _apply_enemy_sticker() -> void:
+	if sticker_visual == null:
+		return
+	_sticker_frames = PixelStickerRegistry.get_enemy_idle_frames(enemy_id)
+	var texture := _sticker_frames[0] if not _sticker_frames.is_empty() else null
+	if texture == null:
+		sticker_visual.visible = false
+		body_visual.visible = true
+		_sticker_frames.clear()
+		return
+	_sticker_idle_timer = 0.0
+	_sticker_frame_idx = 0
+	sticker_visual.position = _sticker_base_position
+	sticker_visual.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sticker_visual.texture = texture
+	sticker_visual.visible = true
+	var max_dim := maxf(texture.get_size().x, texture.get_size().y)
+	var desired_world_size := maxf(14.0, body_radius * 2.1)
+	sticker_visual.scale = Vector2.ONE * (desired_world_size / maxf(1.0, max_dim))
+	body_visual.visible = false
+
+
+func _tick_idle_sticker(delta: float) -> void:
+	if sticker_visual == null or not sticker_visual.visible or _sticker_frames.size() <= 1:
+		return
+	_sticker_idle_timer += delta
+	if _sticker_idle_timer < ENEMY_IDLE_FRAME_SEC:
+		return
+	_sticker_idle_timer = 0.0
+	_sticker_frame_idx = (_sticker_frame_idx + 1) % _sticker_frames.size()
+	sticker_visual.texture = _sticker_frames[_sticker_frame_idx]
+	sticker_visual.position = _sticker_base_position + Vector2(0.0, -0.6 if _sticker_frame_idx == 1 else 0.0)
+
+
+func _set_enemy_visual_modulate(modulate_color: Color) -> void:
+	if sticker_visual != null and sticker_visual.visible:
+		sticker_visual.modulate = modulate_color
+	else:
+		body_visual.modulate = modulate_color
 
 
 func _request_recycle() -> void:

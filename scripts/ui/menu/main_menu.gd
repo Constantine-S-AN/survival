@@ -8,34 +8,6 @@ signal quit_pressed
 
 const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 const MENU_BACKDROP_TEXTURE_PATH := "res://assets/textures/commercial/neon_grid_bg.png"
-const DEFAULT_LANGUAGE_CODE := "en"
-const SUPPORTED_LANGUAGE_CODES: Array[String] = ["en", "zh_CN"]
-const LANGUAGE_LABELS := {
-	"en": "English",
-	"zh_CN": "中文"
-}
-const MENU_TEXT := {
-	"en": {
-		"subtitle": "FOG / SONAR / NOISE",
-		"play": "Play",
-		"profile": "Profile",
-		"settings": "Settings",
-		"quit": "Quit",
-		"language": "Language",
-		"placeholder_profile": "Profile page is coming soon.",
-		"placeholder_settings": "Settings page is coming soon."
-	},
-	"zh_CN": {
-		"subtitle": "迷雾 / 声呐 / 噪声",
-		"play": "开始游戏",
-		"profile": "档案",
-		"settings": "设置",
-		"quit": "退出游戏",
-		"language": "语言",
-		"placeholder_profile": "档案页面即将推出。",
-		"placeholder_settings": "设置页面即将推出。"
-	}
-}
 
 @onready var background_rect: ColorRect = $BackgroundLayer/Background
 @onready var backdrop_texture: TextureRect = $BackgroundLayer/BackdropTexture
@@ -56,7 +28,8 @@ var _buttons: Array[Button] = []
 var _focused_index: int = 0
 var _bg_time: float = 0.0
 var _background_material: ShaderMaterial
-var _current_language_code: String = DEFAULT_LANGUAGE_CODE
+var _current_language_code: String = "en"
+var _supported_language_codes: Array[String] = []
 
 
 func _ready() -> void:
@@ -68,6 +41,8 @@ func _ready() -> void:
 	_connect_signals()
 	_setup_focus_loop()
 	_apply_optional_backdrop_texture()
+	if Localization != null and Localization.has_signal("language_changed"):
+		Localization.language_changed.connect(_on_language_changed)
 	_setup_language_selector()
 	_update_version_text()
 	_set_labels()
@@ -156,12 +131,12 @@ func _update_version_text() -> void:
 
 func _set_labels() -> void:
 	title_label.text = "s u r v i v e"
-	subtitle_label.text = _localized_text("subtitle")
-	play_button.text = _localized_text("play")
-	profile_button.text = _localized_text("profile")
-	settings_button.text = _localized_text("settings")
-	quit_button.text = _localized_text("quit")
-	language_label.text = _localized_text("language")
+	subtitle_label.text = _t("menu.subtitle")
+	play_button.text = _t("menu.play")
+	profile_button.text = _t("menu.profile")
+	settings_button.text = _t("menu.settings")
+	quit_button.text = _t("menu.quit")
+	language_label.text = _t("menu.language")
 
 
 func _focus_button(index: int) -> void:
@@ -201,12 +176,12 @@ func _on_play_pressed() -> void:
 
 func _on_profile_pressed() -> void:
 	profile_pressed.emit()
-	_show_placeholder(_localized_text("placeholder_profile"))
+	_show_placeholder(_t("menu.placeholder_profile"))
 
 
 func _on_settings_pressed() -> void:
 	settings_pressed.emit()
-	_show_placeholder(_localized_text("placeholder_settings"))
+	_show_placeholder(_t("menu.placeholder_settings"))
 
 
 func _on_quit_pressed() -> void:
@@ -247,57 +222,48 @@ func _setup_language_selector() -> void:
 	if language_select == null:
 		return
 	language_select.clear()
-	for language_code in SUPPORTED_LANGUAGE_CODES:
-		var label := String(LANGUAGE_LABELS.get(language_code, language_code))
+	_supported_language_codes.clear()
+	if Localization != null and Localization.has_method("get_supported_language_codes"):
+		_supported_language_codes = Localization.call("get_supported_language_codes")
+	if _supported_language_codes.is_empty():
+		_supported_language_codes = ["en", "zh_CN"]
+	for language_code in _supported_language_codes:
+		var label := language_code
+		if Localization != null and Localization.has_method("get_language_display_name"):
+			label = String(Localization.call("get_language_display_name", language_code))
 		language_select.add_item(label)
-	var stored_language := _load_language_code()
-	_current_language_code = _normalize_language_code(stored_language)
-	var selected_index := SUPPORTED_LANGUAGE_CODES.find(_current_language_code)
+	if Localization != null and Localization.has_method("get_language_code"):
+		_current_language_code = String(Localization.call("get_language_code"))
+	var selected_index := _supported_language_codes.find(_current_language_code)
 	if selected_index < 0:
 		selected_index = 0
-		_current_language_code = DEFAULT_LANGUAGE_CODE
+		_current_language_code = "en"
 	language_select.select(selected_index)
-	_save_language_code(_current_language_code)
 
 
 func _on_language_selected(index: int) -> void:
-	if index < 0 or index >= SUPPORTED_LANGUAGE_CODES.size():
+	if index < 0 or index >= _supported_language_codes.size():
 		return
-	var selected := _normalize_language_code(SUPPORTED_LANGUAGE_CODES[index])
+	var selected := String(_supported_language_codes[index])
 	if selected == _current_language_code:
 		return
-	_current_language_code = selected
-	_save_language_code(_current_language_code)
+	if Localization != null and Localization.has_method("set_language_code"):
+		Localization.call("set_language_code", selected)
+	else:
+		_current_language_code = selected
+		_set_labels()
+
+
+func _on_language_changed(language_code: String) -> void:
+	_current_language_code = language_code
+	_setup_language_selector()
 	_set_labels()
 
 
-func _localized_text(key: String) -> String:
-	var locale_pack: Dictionary = MENU_TEXT.get(_current_language_code, MENU_TEXT[DEFAULT_LANGUAGE_CODE])
-	return String(locale_pack.get(key, String(MENU_TEXT[DEFAULT_LANGUAGE_CODE].get(key, key))))
-
-
-func _load_language_code() -> String:
-	if ProfileStore == null:
-		return DEFAULT_LANGUAGE_CODE
-	if not ProfileStore.has_method("get_language_code"):
-		return DEFAULT_LANGUAGE_CODE
-	return String(ProfileStore.call("get_language_code"))
-
-
-func _save_language_code(language_code: String) -> void:
-	if ProfileStore == null:
-		return
-	if ProfileStore.has_method("set_language_code"):
-		ProfileStore.call("set_language_code", language_code)
-
-
-func _normalize_language_code(language_code: String) -> String:
-	var code := language_code.strip_edges()
-	if code.is_empty():
-		return DEFAULT_LANGUAGE_CODE
-	if code == "zh" or code == "zh_CN" or code == "zh-Hans":
-		return "zh_CN"
-	return DEFAULT_LANGUAGE_CODE
+func _t(key: String, args: Dictionary = {}) -> String:
+	if Localization == null or not Localization.has_method("t"):
+		return key
+	return String(Localization.call("t", key, args))
 
 
 func _is_transition_busy() -> bool:

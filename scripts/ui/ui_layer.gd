@@ -454,7 +454,7 @@ func _on_upgrade_select_upgrade_selected(upgrade_id: String) -> void:
 
 
 func _on_upgrade_select_cancel_requested() -> void:
-	show_system_message("Upgrade selection must be confirmed to continue.", false)
+	show_system_message(_t("sys.upgrade_confirm"), false)
 
 
 func _on_summary_retry_requested() -> void:
@@ -470,11 +470,11 @@ func _on_main_menu_play_pressed() -> void:
 
 
 func _on_main_menu_profile_pressed() -> void:
-	show_system_message("Profile page is coming in a follow-up update.", false)
+	show_system_message(_t("sys.profile_coming"), false)
 
 
 func _on_main_menu_settings_pressed() -> void:
-	show_system_message("Settings page is coming in a follow-up update.", false)
+	show_system_message(_t("sys.settings_coming"), false)
 
 
 func _on_main_menu_quit_pressed() -> void:
@@ -551,17 +551,17 @@ func update_hud(data: Dictionary) -> void:
 		return
 
 	# Fallback legacy HUD path for scenes that do not include RunHUD.
-	hp_label.text = "HP: %d / %d" % [int(round(float(data.get("hp", 0.0)))), int(round(float(data.get("max_hp", 0.0))))]
-	xp_label.text = "XP: %d / %d" % [int(round(float(data.get("xp", 0.0)))), int(round(float(data.get("xp_to_next", 1.0))))]
-	level_label.text = "Level: %d" % int(data.get("level", 1))
-	mode_label.text = "Attack: %s" % String(data.get("attack_mode", "AUTO"))
-	time_label.text = "Time: %s" % _format_time(float(data.get("elapsed_time", 0.0)))
-	kills_label.text = "Kills: %d" % int(data.get("kills", 0))
-	enemies_label.text = "Enemies: %d  Revealed: %d" % [int(data.get("enemy_count", 0)), int(data.get("revealed_count", 0))]
+	hp_label.text = _l("HP: %d / %d", "生命：%d / %d") % [int(round(float(data.get("hp", 0.0)))), int(round(float(data.get("max_hp", 0.0))))]
+	xp_label.text = _l("XP: %d / %d", "经验：%d / %d") % [int(round(float(data.get("xp", 0.0)))), int(round(float(data.get("xp_to_next", 1.0))))]
+	level_label.text = _l("Level: %d", "等级：%d") % int(data.get("level", 1))
+	mode_label.text = _l("Attack: %s", "攻击模式：%s") % String(data.get("attack_mode", "AUTO"))
+	time_label.text = _l("Time: %s", "时间：%s") % _format_time(float(data.get("elapsed_time", 0.0)))
+	kills_label.text = _l("Kills: %d", "击杀：%d") % int(data.get("kills", 0))
+	enemies_label.text = _l("Enemies: %d  Revealed: %d", "敌人：%d  显形：%d") % [int(data.get("enemy_count", 0)), int(data.get("revealed_count", 0))]
 	if contract_status_label != null:
 		var dash_disabled := bool(data.get("contract_dash_disabled", false))
 		contract_status_label.visible = dash_disabled
-		contract_status_label.text = "Dash Disabled" if dash_disabled else ""
+		contract_status_label.text = _l("Dash Disabled", "冲刺已禁用") if dash_disabled else ""
 
 
 func set_debug_visible(enabled: bool) -> void:
@@ -861,7 +861,7 @@ func refresh_character_unlocks(unlocked_character_ids: Array[String]) -> void:
 func show_unlock_toast(unlocked_character_names: Array[String]) -> void:
 	if unlock_toast_label == null or unlocked_character_names.is_empty():
 		return
-	unlock_toast_label.text = "Unlocked:\n%s" % "\n".join(unlocked_character_names)
+	unlock_toast_label.text = _t("sys.unlocked_list", {"value": "\n".join(unlocked_character_names)})
 	unlock_toast_label.visible = true
 	unlock_toast_label.modulate = Color(0.72, 0.96, 1.0, 0.0)
 	var tween := create_tween()
@@ -941,7 +941,7 @@ func show_level_up(options: Array) -> void:
 		upgrade_select_panel.call("show_options", current_options, latest_hud_data, latest_run_multipliers)
 		return
 
-	level_up_title.text = "Signal Upgrade - Choose One"
+	level_up_title.text = _l("Signal Upgrade - Choose One", "信号升级 - 请选择一项")
 	for i in range(upgrade_buttons.size()):
 		var button := upgrade_buttons[i]
 		if i < current_options.size():
@@ -953,7 +953,7 @@ func show_level_up(options: Array) -> void:
 			var effects_text := _format_upgrade_effects(option.get("effects", []))
 			button.disabled = false
 			button.visible = true
-			button.text = "%s [%s]\nTags: %s\n%s\n%s" % [
+			button.text = _l("%s [%s]\nTags: %s\n%s\n%s", "%s [%s]\n标签：%s\n%s\n%s") % [
 				String(option.get("name", "Unknown")),
 				String(option.get("rarity", "common")).to_upper(),
 				tags_text,
@@ -995,15 +995,15 @@ func show_game_over(summary: Dictionary) -> void:
 		return
 
 	var lines := [
-		"Run Ended",
-		"Time: %s" % _format_time(float(summary.get("time", 0.0))),
-		"Kills: %d" % int(summary.get("kills", 0)),
-		"Level: %d" % int(summary.get("level", 1)),
-		"Seed: %d" % int(summary.get("seed", 0))
+		_l("Run Ended", "本局结束"),
+		_l("Time: %s", "时间：%s") % _format_time(float(summary.get("time", 0.0))),
+		_l("Kills: %d", "击杀：%d") % int(summary.get("kills", 0)),
+		_l("Level: %d", "等级：%d") % int(summary.get("level", 1)),
+		_l("Seed: %d", "种子：%d") % int(summary.get("seed", 0))
 	]
 	var unlocked_count := int(summary.get("unlocked_count", 0))
 	if unlocked_count > 0:
-		lines.append("New Unlocks: %d" % unlocked_count)
+		lines.append(_l("New Unlocks: %d", "新解锁：%d") % unlocked_count)
 	game_over_summary.text = "\n".join(lines)
 	game_over_panel.visible = true
 
@@ -1110,7 +1110,7 @@ func _format_tags_text(tags_variant: Variant) -> String:
 
 func _format_upgrade_effects(effects_variant: Variant) -> String:
 	if not (effects_variant is Array):
-		return "Affects: -"
+		return _t("upgrade.affects_none")
 	var effects: Array = effects_variant
 	var lines: Array[String] = []
 	for effect_variant in effects:
@@ -1119,13 +1119,17 @@ func _format_upgrade_effects(effects_variant: Variant) -> String:
 		var effect: Dictionary = effect_variant
 		lines.append(_format_upgrade_effect_line(effect))
 	if lines.is_empty():
-		return "Affects: -"
-	return "Affects: %s" % " | ".join(lines)
+		return _t("upgrade.affects_none")
+	return _t("upgrade.affects", {"value": " | ".join(lines)})
 
 
 func _format_upgrade_effect_line(effect: Dictionary) -> String:
 	var stat := String(effect.get("stat", "")).strip_edges()
-	var stat_name := String(UPGRADE_STAT_DISPLAY_NAMES.get(stat, "Attribute"))
+	var stat_name := stat
+	if Localization != null and Localization.has_method("stat_name"):
+		stat_name = String(Localization.call("stat_name", stat))
+	else:
+		stat_name = String(UPGRADE_STAT_DISPLAY_NAMES.get(stat, "Attribute"))
 	var add_value := float(effect.get("add", 0.0))
 	var value_text := _format_upgrade_effect_value(stat, add_value)
 	var target_text := _format_upgrade_target(effect)
@@ -1150,17 +1154,21 @@ func _format_upgrade_effect_value(stat: String, add_value: float) -> String:
 func _format_upgrade_target(effect: Dictionary) -> String:
 	var target_variant: Variant = effect.get("target", null)
 	if not (target_variant is Dictionary):
-		return "Target: Global"
+		return _t("upgrade.target.global")
 	var target: Dictionary = target_variant
 	var target_type := String(target.get("type", "")).strip_edges().to_lower()
 	var target_value := String(target.get("value", "")).strip_edges().to_lower()
 	if target_type == "weapon_id":
 		var weapon_name := String(DataRegistry.get_weapon(target_value).get("name", target_value))
-		return "Target: %s" % weapon_name
+		return _t("upgrade.target.weapon", {"value": weapon_name})
 	if target_type == "tag":
-		var tag_name := String(TAG_DISPLAY_NAMES.get(target_value, target_value))
-		return "Target: Tag %s" % tag_name
-	return "Target: Global"
+		var tag_name := target_value
+		if Localization != null and Localization.has_method("tag_name"):
+			tag_name = String(Localization.call("tag_name", target_value))
+		else:
+			tag_name = String(TAG_DISPLAY_NAMES.get(target_value, target_value))
+		return _t("upgrade.target.tag", {"value": tag_name})
+	return _t("upgrade.target.global")
 
 
 func _extract_run_multipliers(hud_data: Dictionary) -> Dictionary:
@@ -1179,3 +1187,19 @@ func _extract_run_multipliers(hud_data: Dictionary) -> Dictionary:
 		"drop": 1.0,
 		"meta_currency": 1.0
 	}
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	if Localization == null or not Localization.has_method("t"):
+		return key
+	return String(Localization.call("t", key, args))
+
+
+func _is_zh() -> bool:
+	if Localization == null or not Localization.has_method("is_chinese"):
+		return false
+	return bool(Localization.call("is_chinese"))
+
+
+func _l(en: String, zh: String) -> String:
+	return zh if _is_zh() else en

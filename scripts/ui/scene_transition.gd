@@ -161,14 +161,14 @@ func _run_transition_to(scene_path: String, duration: float) -> void:
 		push_error("SceneTransition.transition_to failed (%d): %s" % [error, scene_path])
 		await _run_fade(1.0, 0.0, duration)
 		return
-	await get_tree().process_frame
+	await get_tree().create_timer(0.0, true, false, true).timeout
 	await _run_fade(1.0, 0.0, duration)
 
 
 func _run_transition_call(action: Callable, duration: float) -> void:
 	await _run_fade(0.0, 1.0, duration)
 	action.call()
-	await get_tree().process_frame
+	await get_tree().create_timer(0.0, true, false, true).timeout
 	await _run_fade(1.0, 0.0, duration)
 
 

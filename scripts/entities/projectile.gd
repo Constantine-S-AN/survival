@@ -1,6 +1,9 @@
 extends Area2D
 class_name Projectile
 
+const PixelStickerRegistry := preload("res://scripts/visual/pixel_sticker_registry.gd")
+const PROJECTILE_IDLE_FRAME_SEC := 0.16
+
 var direction := Vector2.RIGHT
 var speed := 520.0
 var damage := 10.0
@@ -15,8 +18,12 @@ var weapon_tags: Array = []
 var source_owner: Node = null
 var recycle_handler: Callable = Callable()
 var active: bool = false
+var _weapon_sticker_frames: Array[Texture2D] = []
+var _weapon_sticker_timer: float = 0.0
+var _weapon_sticker_frame_idx: int = 0
 
 @onready var body_visual: Polygon2D = $Body
+@onready var sticker_visual: Sprite2D = $Sticker
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 
 
@@ -43,11 +50,13 @@ func configure(origin: Vector2, fire_direction: Vector2, projectile_data: Dictio
 	var tags_variant: Variant = projectile_data.get("tags", [])
 	weapon_tags = tags_variant if tags_variant is Array else []
 	source_owner = owner_ref
+	var weapon_id := String(projectile_data.get("weapon_id", "")).strip_edges()
 
 	var shape := collision_shape.shape
 	if shape is CircleShape2D:
 		shape.radius = radius
 	body_visual.scale = Vector2.ONE * (radius / 6.0)
+	_apply_projectile_sticker(weapon_id, radius)
 
 	rotation = direction.angle()
 	on_pool_spawned()
@@ -56,6 +65,7 @@ func configure(origin: Vector2, fire_direction: Vector2, projectile_data: Dictio
 func _physics_process(delta: float) -> void:
 	if not active:
 		return
+	_tick_weapon_sticker(delta)
 	var motion := direction * speed * delta
 	global_position += motion
 	remaining_range -= motion.length()
@@ -101,6 +111,13 @@ func on_pool_recycle() -> void:
 	set_deferred("monitorable", false)
 	set_physics_process(false)
 	source_owner = null
+	if sticker_visual != null:
+		sticker_visual.texture = null
+		sticker_visual.visible = false
+	_weapon_sticker_frames.clear()
+	_weapon_sticker_timer = 0.0
+	_weapon_sticker_frame_idx = 0
+	body_visual.visible = true
 	visible = false
 
 
@@ -119,3 +136,35 @@ func _dispatch_recycle_request() -> void:
 		recycle_handler.call(self)
 		return
 	queue_free()
+
+
+func _apply_projectile_sticker(weapon_id: String, projectile_radius: float) -> void:
+	if sticker_visual == null:
+		return
+	_weapon_sticker_frames = PixelStickerRegistry.get_weapon_idle_frames(weapon_id)
+	var texture := _weapon_sticker_frames[0] if not _weapon_sticker_frames.is_empty() else null
+	if texture == null:
+		sticker_visual.visible = false
+		body_visual.visible = true
+		_weapon_sticker_frames.clear()
+		return
+	_weapon_sticker_timer = 0.0
+	_weapon_sticker_frame_idx = 0
+	sticker_visual.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sticker_visual.texture = texture
+	sticker_visual.visible = true
+	var max_dim := maxf(texture.get_size().x, texture.get_size().y)
+	var desired_world_size := maxf(8.0, projectile_radius * 2.8)
+	sticker_visual.scale = Vector2.ONE * (desired_world_size / maxf(1.0, max_dim))
+	body_visual.visible = false
+
+
+func _tick_weapon_sticker(delta: float) -> void:
+	if sticker_visual == null or not sticker_visual.visible or _weapon_sticker_frames.size() <= 1:
+		return
+	_weapon_sticker_timer += delta
+	if _weapon_sticker_timer < PROJECTILE_IDLE_FRAME_SEC:
+		return
+	_weapon_sticker_timer = 0.0
+	_weapon_sticker_frame_idx = (_weapon_sticker_frame_idx + 1) % _weapon_sticker_frames.size()
+	sticker_visual.texture = _weapon_sticker_frames[_weapon_sticker_frame_idx]

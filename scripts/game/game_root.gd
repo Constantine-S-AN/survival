@@ -42,6 +42,7 @@ var reward_rng := RandomNumberGenerator.new()
 var runtime_drop_pickups_spawned: int = 0
 var last_sonar_ping_sequence: int = 0
 var _level_up_option_ids: Dictionary = {}
+var _game_over_latched: bool = false
 
 
 func _ready() -> void:
@@ -261,7 +262,7 @@ func _on_boss_attack_telegraph_requested(telegraph_type: String, _payload: Dicti
 func _on_boss_defeated(_boss_id: String) -> void:
 	if run_state != STATE_PLAYING:
 		return
-	ui.show_system_message("Boss eliminated. Signal field stabilizing.", false)
+	ui.show_system_message(_t("sys.boss_eliminated"), false)
 
 
 func _on_boss_echoes_spawned(_boss_id: String, count: int, _world_position: Vector2) -> void:
@@ -338,7 +339,7 @@ func _on_map_event_triggered(_event_id: String, event_name: String, message: Str
 		return
 	var text := message
 	if text.strip_edges().is_empty():
-		text = "%s triggered" % event_name
+		text = _t("sys.event_triggered", {"name": event_name})
 	ui.show_system_message(text, false)
 
 
@@ -347,7 +348,7 @@ func _on_hazard_state_changed(active: bool, warning_text: String) -> void:
 		return
 	var text := warning_text.strip_edges()
 	if text.is_empty():
-		text = "Hazard shift"
+		text = _t("sys.hazard_shift")
 	_emit_telegraph_warning(
 		"hazard",
 		1.85 if active else 1.2,
@@ -370,6 +371,9 @@ func _apply_hitstop(duration: float) -> void:
 func _on_player_died() -> void:
 	if run_state != STATE_PLAYING:
 		return
+	if _game_over_latched:
+		return
+	_game_over_latched = true
 	var newly_unlocked_ids := _evaluate_character_unlocks()
 	var unlocked_names: Array[String] = []
 	for character_id in newly_unlocked_ids:
@@ -423,7 +427,7 @@ func _on_start_run_requested(character_id: String) -> void:
 	if chosen_id.is_empty():
 		chosen_id = DataRegistry.get_default_character_id()
 	if not ProfileStore.is_character_unlocked(chosen_id):
-		ui.show_system_message("Character is locked.", true)
+		ui.show_system_message(_t("sys.character_locked"), true)
 		return
 	selected_character_id = chosen_id
 	ProfileStore.set_selected_character_id(selected_character_id)
@@ -472,7 +476,7 @@ func _on_unlock_all_debug_requested() -> void:
 		return
 	ProfileStore.unlock_all_characters(DataRegistry.get_characters())
 	ui.refresh_character_unlocks(ProfileStore.get_unlocked_characters())
-	ui.show_system_message("Debug: all characters unlocked.", false)
+	ui.show_system_message(_t("sys.debug_unlock_all"), false)
 
 
 func _start_run(character_id: String, map_id: String = "", contract_ids: Array = [], skip_play_transition: bool = false, seed_override: int = 0) -> void:
@@ -480,13 +484,13 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 	if chosen_id.is_empty():
 		chosen_id = DataRegistry.get_default_character_id()
 	if not ProfileStore.is_character_unlocked(chosen_id):
-		ui.show_system_message("Character is locked.", true)
+		ui.show_system_message(_t("sys.character_locked"), true)
 		return
 	var chosen_map_id := map_id.strip_edges()
 	if chosen_map_id.is_empty() or not DataRegistry.has_map(chosen_map_id):
 		chosen_map_id = DataRegistry.get_default_map_id()
 	if chosen_map_id.is_empty() or not DataRegistry.has_map(chosen_map_id):
-		ui.show_system_message("Map data unavailable.", true)
+		ui.show_system_message(_t("sys.map_unavailable"), true)
 		return
 
 	selected_character_id = chosen_id
@@ -511,6 +515,7 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 	runtime_drop_pickups_spawned = 0
 	last_sonar_ping_sequence = 0
 	_level_up_option_ids.clear()
+	_game_over_latched = false
 	run_started = true
 	run_stats.reset(run_seed)
 	telegraph_last_emit_by_key.clear()
@@ -552,6 +557,7 @@ func _retry_run() -> void:
 
 func _return_to_menu() -> void:
 	run_started = false
+	_game_over_latched = false
 	_set_state(STATE_MENU)
 
 
@@ -805,7 +811,7 @@ func _refresh_hud() -> void:
 	hud["enemy_count"] = world.enemy_manager.get_alive_enemy_count()
 	hud["revealed_count"] = world.get_revealed_enemy_count()
 	var noise_tier: Dictionary = DataRegistry.get_noise_tier(world.player.noise)
-	hud["noise_tier_name"] = String(noise_tier.get("name", "静默"))
+	hud["noise_tier_name"] = String(noise_tier.get("name", "Silent"))
 	hud["noise_tier_color"] = String(noise_tier.get("hud_color", "#74e7ff"))
 	hud["noise_tier_id"] = String(noise_tier.get("id", "silent"))
 	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
@@ -831,7 +837,7 @@ func _refresh_hud() -> void:
 		last_sonar_ping_sequence = sonar_ping_sequence
 		var sonar_ping_count := int(hud.get("sonar_ping_count", -1))
 		if sonar_ping_count >= 0:
-			ui.show_system_message("Sonar ping: %d contacts" % sonar_ping_count, false)
+			ui.show_system_message(_t("sys.sonar_ping", {"count": sonar_ping_count}), false)
 	ui.update_hud(hud)
 
 
@@ -843,7 +849,7 @@ func _push_debug_snapshot() -> void:
 	var pool_stats: Dictionary = world.get_pool_stats()
 	var enemy_pool_stats: Dictionary = world.get_enemy_pool_stats()
 	var map_debug: Dictionary = world.get_map_debug_snapshot()
-	snapshot["noise_tier_name"] = String(noise_tier_debug.get("name", "静默"))
+	snapshot["noise_tier_name"] = String(noise_tier_debug.get("name", "Silent"))
 	snapshot["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
 	snapshot["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
 	snapshot["elite_count"] = int(noise_debug.get("elite_count", 0))
@@ -918,7 +924,7 @@ func _sync_runtime_fog_overlay(force: bool = false) -> void:
 func _reload_runtime_data() -> void:
 	if not DataRegistry.reload_in_debug():
 		var errs: Array[String] = DataRegistry.get_validation_errors()
-		var msg := "Data reload failed."
+		var msg := _t("sys.data_reload_failed")
 		if not errs.is_empty():
 			msg += " " + errs[0]
 		ui.show_system_message(msg, true)
@@ -945,7 +951,7 @@ func _reload_runtime_data() -> void:
 		selected_contract_ids,
 		DataRegistry.get_contract_max_select()
 	)
-	ui.show_system_message("Data reloaded (fog/sonar/noise/maps).", false)
+	ui.show_system_message(_t("sys.data_reloaded"), false)
 
 
 func _emit_telegraph_warning(
@@ -979,6 +985,12 @@ func _on_telegraph_warning_emitted(payload: Dictionary) -> void:
 		float(payload.get("severity", 1.0)),
 		String(payload.get("text_key", ""))
 	)
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	if Localization == null or not Localization.has_method("t"):
+		return key
+	return String(Localization.call("t", key, args))
 
 
 func _exit_tree() -> void:

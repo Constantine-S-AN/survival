@@ -2,29 +2,7 @@ extends PanelContainer
 class_name UpgradeBuildPanel
 
 const IconRegistry := preload("res://scripts/ui/icon_registry.gd")
-const TAG_DISPLAY_NAMES: Dictionary = {
-	"sonar": "Sonar",
-	"silence": "Silence",
-	"heat": "Heat",
-	"crit": "Crit",
-	"pierce": "Pierce",
-	"chain": "Chain",
-	"aoe": "AOE",
-	"pickup": "Pickup",
-	"shield": "Shield",
-	"speed": "Speed",
-	"trap": "Trap",
-	"control": "Control",
-	"summon": "Summon",
-	"economy": "Economy",
-	"damage": "Damage",
-	"weapon": "Weapon",
-	"tempo": "Tempo",
-	"noise": "Noise",
-	"mobility": "Mobility",
-	"defense": "Defense",
-	"hull": "Hull"
-}
+const WEAPON_ICON_ANIM_SEC := 0.20
 const TAG_ICON_CODES: Dictionary = {
 	"sonar": "SO",
 	"silence": "SI",
@@ -43,6 +21,8 @@ const TAG_ICON_CODES: Dictionary = {
 	"damage": "DM",
 	"weapon": "WP",
 	"tempo": "TP",
+	"starter": "ST",
+	"kinetic": "KN",
 	"noise": "NS",
 	"mobility": "MB",
 	"defense": "DF",
@@ -50,21 +30,43 @@ const TAG_ICON_CODES: Dictionary = {
 }
 
 @onready var body_scroll: ScrollContainer = $Margin/BodyScroll
+@onready var title_label: Label = $Margin/BodyScroll/Body/Title
 @onready var weapon_icon: TextureRect = $Margin/BodyScroll/Body/WeaponRow/WeaponIcon
 @onready var weapon_label: Label = $Margin/BodyScroll/Body/WeaponRow/WeaponLabel
+@onready var top_tags_title_label: Label = $Margin/BodyScroll/Body/TopTagsTitle
 @onready var top_tags_flow: HFlowContainer = $Margin/BodyScroll/Body/TopTagsFlow
+@onready var key_passives_title_label: Label = $Margin/BodyScroll/Body/KeyPassivesTitle
 @onready var key_passives_list: VBoxContainer = $Margin/BodyScroll/Body/KeyPassivesList
+@onready var modifiers_title_label: Label = $Margin/BodyScroll/Body/ModifiersTitle
 @onready var modifiers_value: Label = $Margin/BodyScroll/Body/ModifiersValue
 
 var _last_snapshot: Dictionary = {}
+var _last_hud_data: Dictionary = {}
+var _last_run_multipliers: Dictionary = {}
+var _weapon_icon_frames: Array[Texture2D] = []
+var _weapon_icon_timer: float = 0.0
+var _weapon_icon_frame_idx: int = 0
+
+
+func _ready() -> void:
+	if Localization != null and Localization.has_signal("language_changed"):
+		Localization.language_changed.connect(_on_language_changed)
+	_apply_static_texts()
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	_tick_weapon_icon(delta)
 
 
 func set_build_data(hud_data: Dictionary, run_multipliers: Dictionary = {}) -> void:
+	_last_hud_data = hud_data.duplicate(true)
+	_last_run_multipliers = run_multipliers.duplicate(true)
 	var weapon_id := String(hud_data.get("active_weapon_id", hud_data.get("weapon_id", "")))
 	var weapon_name := String(hud_data.get("active_weapon_name", hud_data.get("weapon_name", "--")))
-	weapon_label.text = "Current Weapon: %s" % weapon_name
+	weapon_label.text = _t("build.current_weapon", {"value": weapon_name})
 	if weapon_icon != null:
-		weapon_icon.texture = IconRegistry.get_weapon_icon(weapon_id)
+		_set_weapon_icon_frames(IconRegistry.get_weapon_icon_frames(weapon_id))
 
 	var top_tags := _derive_top_tags(hud_data)
 	_render_top_tags(top_tags)
@@ -124,7 +126,7 @@ func _derive_top_tags(hud_data: Dictionary) -> Array[String]:
 	for i in range(mini(5, pairs.size())):
 		var pair: Dictionary = pairs[i]
 		var tag := String(pair.get("tag", ""))
-		var label := String(TAG_DISPLAY_NAMES.get(tag, tag.capitalize()))
+		var label := _tag_name(tag)
 		var icon_code := String(TAG_ICON_CODES.get(tag, "TG"))
 		out.append("[%s %s]" % [icon_code, label])
 	return out
@@ -136,7 +138,7 @@ func _render_top_tags(tags: Array[String]) -> void:
 	for child in top_tags_flow.get_children():
 		child.queue_free()
 	if tags.is_empty():
-		_add_badge(top_tags_flow, "—")
+		_add_badge(top_tags_flow, _t("build.none"))
 		return
 	for tag in tags:
 		_add_badge(top_tags_flow, tag)
@@ -149,7 +151,7 @@ func _render_key_passives(rows: Array[String]) -> void:
 		child.queue_free()
 	if rows.is_empty():
 		var placeholder := Label.new()
-		placeholder.text = "—"
+		placeholder.text = _t("build.none")
 		placeholder.theme_type_variation = &"BodyMutedLabel"
 		key_passives_list.add_child(placeholder)
 		return
@@ -175,6 +177,37 @@ func _add_badge(parent: Control, text: String) -> void:
 	margin.add_child(label)
 	badge.add_child(margin)
 	parent.add_child(badge)
+
+
+func _set_weapon_icon_frames(frames: Array[Texture2D]) -> void:
+	if weapon_icon == null:
+		return
+	if frames.is_empty():
+		_weapon_icon_frames.clear()
+		weapon_icon.texture = null
+		return
+	var changed := _weapon_icon_frames.size() != frames.size()
+	if not changed:
+		for i in range(frames.size()):
+			if _weapon_icon_frames[i] != frames[i]:
+				changed = true
+				break
+	if changed:
+		_weapon_icon_frames = frames
+		_weapon_icon_timer = 0.0
+		_weapon_icon_frame_idx = 0
+		weapon_icon.texture = _weapon_icon_frames[0]
+
+
+func _tick_weapon_icon(delta: float) -> void:
+	if weapon_icon == null or _weapon_icon_frames.size() <= 1:
+		return
+	_weapon_icon_timer += delta
+	if _weapon_icon_timer < WEAPON_ICON_ANIM_SEC:
+		return
+	_weapon_icon_timer = 0.0
+	_weapon_icon_frame_idx = (_weapon_icon_frame_idx + 1) % _weapon_icon_frames.size()
+	weapon_icon.texture = _weapon_icon_frames[_weapon_icon_frame_idx]
 
 
 func _derive_key_passives(hud_data: Dictionary) -> Array[String]:
@@ -207,7 +240,7 @@ func _derive_key_passives(hud_data: Dictionary) -> Array[String]:
 	var output: Array[String] = []
 	for i in range(mini(3, ranked.size())):
 		var row: Dictionary = ranked[i]
-		output.append("• %s x%d" % [String(row.get("name", "Unknown")), int(row.get("count", 1))])
+		output.append("• %s x%d" % [String(row.get("name", _t("upgrade.unknown"))), int(row.get("count", 1))])
 	return output
 
 
@@ -221,7 +254,12 @@ func _format_modifiers(hud_data: Dictionary, run_multipliers: Dictionary) -> Str
 	var rarity := float(source.get("rarity", source.get("rarity_mult", 1.0)))
 	var drop := float(source.get("drop", source.get("drop_mult", 1.0)))
 	var meta := float(source.get("meta_currency", source.get("meta_currency_mult", 1.0)))
-	return "XP x%.2f\nRARITY x%.2f\nDROP x%.2f\nMETA x%.2f" % [xp, rarity, drop, meta]
+	return _t("build.modifiers", {
+		"xp": "%.2f" % xp,
+		"rarity": "%.2f" % rarity,
+		"drop": "%.2f" % drop,
+		"meta": "%.2f" % meta
+	})
 
 
 func _rarity_score(rarity: String) -> int:
@@ -236,3 +274,28 @@ func _rarity_score(rarity: String) -> int:
 			return 2
 		_:
 			return 1
+
+
+func _on_language_changed(_language_code: String) -> void:
+	_apply_static_texts()
+	if not _last_hud_data.is_empty():
+		set_build_data(_last_hud_data, _last_run_multipliers)
+
+
+func _apply_static_texts() -> void:
+	title_label.text = _t("build.title")
+	top_tags_title_label.text = _t("build.top_tags")
+	key_passives_title_label.text = _t("build.key_passives")
+	modifiers_title_label.text = _t("build.run_modifiers")
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	if Localization == null or not Localization.has_method("t"):
+		return key
+	return String(Localization.call("t", key, args))
+
+
+func _tag_name(tag: String) -> String:
+	if Localization == null or not Localization.has_method("tag_name"):
+		return tag.capitalize()
+	return String(Localization.call("tag_name", tag))

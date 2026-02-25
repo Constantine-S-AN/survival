@@ -16,6 +16,10 @@ monitorable = true
 color = Color(0.76, 0.98, 1, 1)
 polygon = PackedVector2Array(-4, -2, 5, 0, -4, 2)
 
+[node name="Sticker" type="Sprite2D" parent="."]
+visible = false
+z_index = 1
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("1")
 

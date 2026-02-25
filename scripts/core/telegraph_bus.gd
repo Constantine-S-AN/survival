@@ -36,32 +36,38 @@ func resolve_text(payload: Dictionary) -> String:
 		return String(context.get("text_override", ""))
 	match text_key:
 		"pursuer_inbound":
-			return "Pursuer inbound! (%d) next ETA %.1fs" % [
-				int(context.get("spawned_total", 1)),
-				float(context.get("next_eta", -1.0))
-			]
+			return _t("telegraph.pursuer_inbound", {
+				"count": int(context.get("spawned_total", 1)),
+				"eta": "%.1f" % float(context.get("next_eta", -1.0))
+			})
 		"hazard_warning":
 			var warning_text := String(context.get("warning_text", "")).strip_edges()
-			return warning_text if not warning_text.is_empty() else "Hazard shift incoming."
+			return warning_text if not warning_text.is_empty() else _t("telegraph.hazard_warning")
 		"hazard_active":
 			var hazard_text := String(context.get("warning_text", "")).strip_edges()
 			if hazard_text.is_empty():
-				hazard_text = "Hazard shift"
-			return "%s (ACTIVE)" % hazard_text
+				hazard_text = _t("telegraph.hazard_warning")
+			return _t("telegraph.hazard_active", {"text": hazard_text})
 		"boss_spawn":
 			var boss_spawn_text := String(context.get("telegraph_text", "")).strip_edges()
-			return boss_spawn_text if not boss_spawn_text.is_empty() else "Boss detected."
+			return boss_spawn_text if not boss_spawn_text.is_empty() else _t("telegraph.boss_detected")
 		"boss_phase_shift":
 			var phase_text := String(context.get("telegraph_text", "")).strip_edges()
-			return phase_text if not phase_text.is_empty() else "Boss phase shift."
+			return phase_text if not phase_text.is_empty() else _t("telegraph.boss_phase")
 		"boss_attack_warning":
-			return "High-energy attack telegraphed."
+			return _t("telegraph.boss_attack")
 		"boss_echoes":
-			return "False echoes deployed: %d" % int(context.get("count", 0))
+			return _t("telegraph.boss_echoes", {"count": int(context.get("count", 0))})
 		"boss_true_form_revealed":
-			return "True core exposed. Push damage now."
+			return _t("telegraph.boss_true_form")
 		_:
 			return String(context.get("fallback_text", "")).strip_edges()
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	if Localization == null or not Localization.has_method("t"):
+		return key
+	return String(Localization.call("t", key, args))
 
 
 func _resolve_sfx_bucket(payload: Dictionary) -> String:

@@ -1,16 +1,8 @@
 extends RefCounted
 class_name IconRegistry
 
-const _WEAPON_ICON_PATHS: Dictionary = {
-	"needle_rifle": "res://assets/external/icons/tabler/target-arrow.svg",
-	"burst_smg": "res://assets/external/icons/tabler/crosshair.svg",
-	"silence_dart": "res://assets/external/icons/tabler/needle.svg",
-	"shock_pulse": "res://assets/external/icons/tabler/wave-sine.svg",
-	"abyss_mine": "res://assets/external/icons/tabler/bomb.svg",
-	"tether_beam": "res://assets/external/icons/tabler/line-dashed.svg",
-	"orbital_drone": "res://assets/external/icons/tabler/drone.svg",
-	"sonar_blade": "res://assets/external/icons/tabler/sword.svg"
-}
+const PixelStickerRegistry := preload("res://scripts/visual/pixel_sticker_registry.gd")
+const WeaponPartsRegistry := preload("res://scripts/visual/weapon_parts_registry.gd")
 
 const _SKILL_ICON_PATHS: Dictionary = {
 	"sonar": "res://assets/external/icons/tabler/radar-2.svg",
@@ -40,7 +32,12 @@ static var _texture_cache: Dictionary = {}
 
 static func get_weapon_icon_path(weapon_id: String) -> String:
 	var key := weapon_id.strip_edges().to_lower()
-	return String(_WEAPON_ICON_PATHS.get(key, _DEFAULT_ICON_PATH))
+	if key.is_empty():
+		return _DEFAULT_ICON_PATH
+	var dynamic_path := "res://assets/textures/pixel/weapons/%s.png" % key
+	if ResourceLoader.exists(dynamic_path, "Texture2D"):
+		return dynamic_path
+	return _DEFAULT_ICON_PATH
 
 
 static func get_skill_icon_path(skill_id: String) -> String:
@@ -49,7 +46,23 @@ static func get_skill_icon_path(skill_id: String) -> String:
 
 
 static func get_weapon_icon(weapon_id: String) -> Texture2D:
+	var frames := get_weapon_icon_frames(weapon_id)
+	if not frames.is_empty():
+		return frames[0]
 	return _load_texture(get_weapon_icon_path(weapon_id))
+
+
+static func get_weapon_icon_frames(weapon_id: String) -> Array[Texture2D]:
+	var key := weapon_id.strip_edges().to_lower()
+	var frames := PixelStickerRegistry.get_weapon_idle_frames(key)
+	if not frames.is_empty():
+		return frames
+	var fallback := _load_texture(get_weapon_icon_path(key))
+	return [fallback] if fallback != null else []
+
+
+static func get_weapon_part_textures(weapon_id: String) -> Dictionary:
+	return WeaponPartsRegistry.get_weapon_parts(weapon_id)
 
 
 static func get_skill_icon(skill_id: String) -> Texture2D:
@@ -66,20 +79,39 @@ static func get_tag_icon(tag_id: String) -> Texture2D:
 
 
 static func get_upgrade_icon(option: Dictionary) -> Texture2D:
+	var frames := get_upgrade_icon_frames(option)
+	if not frames.is_empty():
+		return frames[0]
+	return _load_texture(_DEFAULT_ICON_PATH)
+
+
+static func get_upgrade_icon_frames(option: Dictionary) -> Array[Texture2D]:
 	var icon_variant: Variant = option.get("icon_path", option.get("icon", ""))
 	var explicit_path := String(icon_variant).strip_edges()
 	if explicit_path.begins_with("res://"):
 		var explicit_texture := _load_texture(explicit_path)
 		if explicit_texture != null:
-			return explicit_texture
+			return [explicit_texture]
+	var requires_weapons_variant: Variant = option.get("requires_weapon_ids", [])
+	if requires_weapons_variant is Array:
+		for weapon_variant in (requires_weapons_variant as Array):
+			var weapon_id := String(weapon_variant).strip_edges().to_lower()
+			if weapon_id.is_empty():
+				continue
+			var weapon_frames := get_weapon_icon_frames(weapon_id)
+			if not weapon_frames.is_empty():
+				return weapon_frames
 	var tags_variant: Variant = option.get("tags", [])
 	if tags_variant is Array:
 		for tag_variant in (tags_variant as Array):
 			var tag := String(tag_variant).strip_edges().to_lower()
 			if tag.is_empty():
 				continue
-			return get_tag_icon(tag)
-	return _load_texture(_DEFAULT_ICON_PATH)
+			var tag_icon := get_tag_icon(tag)
+			if tag_icon != null:
+				return [tag_icon]
+	var default_icon := _load_texture(_DEFAULT_ICON_PATH)
+	return [default_icon] if default_icon != null else []
 
 
 static func _load_texture(path: String) -> Texture2D:

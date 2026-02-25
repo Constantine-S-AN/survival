@@ -1,5 +1,7 @@
 extends Node
 
+signal language_code_changed(language_code: String)
+
 const PROFILE_PATH := "user://profile.json"
 const PROFILE_TMP_PATH := "user://profile.json.tmp"
 const PROFILE_SCHEMA_VERSION := 2
@@ -102,6 +104,7 @@ func set_language_code(language_code: String) -> void:
 		return
 	profile["language_code"] = normalized
 	save_profile()
+	language_code_changed.emit(normalized)
 
 
 func is_character_unlocked(character_id: String) -> bool:
@@ -218,7 +221,7 @@ func get_requirement_progress(requirement: Dictionary) -> Dictionary:
 				"current": 1 if met else 0,
 				"target": 1,
 				"ratio": 1.0 if met else 0.0,
-				"text": "Reached" if met else "Not reached",
+				"text": _t("profile.progress.reached") if met else _t("profile.progress.not_reached"),
 				"met": met
 			}
 		_:
@@ -227,7 +230,7 @@ func get_requirement_progress(requirement: Dictionary) -> Dictionary:
 				"current": 0.0,
 				"target": 0.0,
 				"ratio": 0.0,
-				"text": "N/A",
+				"text": _t("profile.progress.na"),
 				"met": false
 			}
 
@@ -428,3 +431,9 @@ func _normalize_language_code(language_code: String) -> String:
 	if code == "zh" or code == "zh_CN" or code == "zh-Hans":
 		return "zh_CN"
 	return DEFAULT_LANGUAGE_CODE
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	if Localization == null or not Localization.has_method("t"):
+		return key
+	return String(Localization.call("t", key, args))

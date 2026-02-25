@@ -1,31 +1,6 @@
 extends RefCounted
 class_name RunSummaryState
 
-const TAG_DISPLAY_NAMES := {
-	"sonar": "Sonar",
-	"silence": "Silence",
-	"heat": "Heat",
-	"crit": "Crit",
-	"pierce": "Pierce",
-	"chain": "Chain",
-	"aoe": "AOE",
-	"pickup": "Pickup",
-	"shield": "Shield",
-	"speed": "Speed",
-	"trap": "Trap",
-	"control": "Control",
-	"summon": "Summon",
-	"economy": "Economy",
-	"damage": "Damage",
-	"weapon": "Weapon",
-	"tempo": "Tempo",
-	"noise": "Noise",
-	"mobility": "Mobility",
-	"defense": "Defense",
-	"hull": "Hull"
-}
-
-
 static func from_dict(source: Dictionary) -> Dictionary:
 	var multipliers_variant: Variant = source.get("multipliers", {})
 	var multipliers: Dictionary = multipliers_variant if multipliers_variant is Dictionary else {}
@@ -78,7 +53,7 @@ static func _normalize_top_tags(value: Variant) -> Array[Dictionary]:
 				continue
 			output.append({
 				"tag": tag,
-				"label": String(TAG_DISPLAY_NAMES.get(tag, tag.capitalize())),
+				"label": _tag_name(tag),
 				"weight": maxi(0, int(row.get("weight", 0)))
 			})
 		else:
@@ -87,7 +62,7 @@ static func _normalize_top_tags(value: Variant) -> Array[Dictionary]:
 				continue
 			output.append({
 				"tag": text,
-				"label": String(TAG_DISPLAY_NAMES.get(text, text.capitalize())),
+				"label": _tag_name(text),
 				"weight": 1
 			})
 	return output
@@ -103,7 +78,7 @@ static func _normalize_upgrades(value: Variant) -> Array[Dictionary]:
 		var row: Dictionary = row_variant
 		output.append({
 			"id": String(row.get("id", "")),
-			"name": String(row.get("name", "Unknown Upgrade")),
+			"name": String(row.get("name", _unknown_upgrade_name())),
 			"rarity": String(row.get("rarity", "common")),
 			"count": maxi(1, int(row.get("count", 1))),
 			"tags": _normalize_string_array(row.get("tags", []))
@@ -152,3 +127,15 @@ static func _normalize_meta_currency(value: Variant) -> Variant:
 			"total": maxi(0, int(payload.get("total", payload.get("base", 0))))
 		}
 	return maxi(0, int(value))
+
+
+static func _tag_name(tag: String) -> String:
+	if Localization == null or not Localization.has_method("tag_name"):
+		return tag.capitalize()
+	return String(Localization.call("tag_name", tag))
+
+
+static func _unknown_upgrade_name() -> String:
+	if Localization == null or not Localization.has_method("t"):
+		return "Unknown Upgrade"
+	return String(Localization.call("t", "upgrade.unknown"))
