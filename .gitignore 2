@@ -1,6 +1,0 @@
-.godot/
-.import/
-export/*.pck
-export/*.zip
-assets/audio/*.wav
-.DS_Store
