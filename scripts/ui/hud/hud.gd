@@ -39,6 +39,12 @@ const WEAPON_PART_PULSE_SEC := 0.12
 @onready var threshold_bar: ProgressBar = $TopNoise/NoisePanel/Margin/VBox/ThresholdBar
 @onready var threshold_label: Label = $TopNoise/NoisePanel/Margin/VBox/ThresholdLabel
 @onready var threat_flash_label: Label = $TopNoise/NoisePanel/Margin/VBox/ThreatFlash
+@onready var boss_top: MarginContainer = $BossTop
+@onready var boss_panel: PanelContainer = $BossTop/BossPanel
+@onready var boss_name_label: Label = $BossTop/BossPanel/Margin/VBox/Header/BossName
+@onready var boss_phase_label: Label = $BossTop/BossPanel/Margin/VBox/Header/BossPhase
+@onready var boss_hp_bar: ProgressBar = $BossTop/BossPanel/Margin/VBox/BossHPBar
+@onready var boss_hint_label: Label = $BossTop/BossPanel/Margin/VBox/BossHint
 
 @onready var survival_title_label: Label = $LeftSurvival/SurvivalPanel/Margin/VBox/Title
 @onready var hp_bar: ProgressBar = $LeftSurvival/SurvivalPanel/Margin/VBox/HPBar
@@ -47,6 +53,11 @@ const WEAPON_PART_PULSE_SEC := 0.12
 @onready var kills_badge: PanelContainer = $LeftSurvival/SurvivalPanel/Margin/VBox/Badges/KillsBadge
 @onready var time_badge: PanelContainer = $LeftSurvival/SurvivalPanel/Margin/VBox/Badges/TimeBadge
 @onready var enemy_info_label: Label = $LeftSurvival/SurvivalPanel/Margin/VBox/EnemyInfo
+@onready var streak_block: VBoxContainer = $LeftSurvival/SurvivalPanel/Margin/VBox/StreakBlock
+@onready var streak_title_label: Label = $LeftSurvival/SurvivalPanel/Margin/VBox/StreakBlock/StreakHeader/StreakLabel
+@onready var streak_tier_label: Label = $LeftSurvival/SurvivalPanel/Margin/VBox/StreakBlock/StreakHeader/StreakTierBadge
+@onready var streak_bar: ProgressBar = $LeftSurvival/SurvivalPanel/Margin/VBox/StreakBlock/StreakBar
+@onready var streak_hint_label: Label = $LeftSurvival/SurvivalPanel/Margin/VBox/StreakBlock/StreakHint
 
 @onready var build_title_label: Label = $RightBuild/BuildCard/BuildMargin/BuildVBox/BuildTitle
 @onready var weapon_name_label: Label = $RightBuild/BuildCard/BuildMargin/BuildVBox/WeaponRow/WeaponName
@@ -70,12 +81,16 @@ const WEAPON_PART_PULSE_SEC := 0.12
 var _last_tier_id: String = ""
 var _last_hp_ratio: float = 1.0
 var _last_sonar_ping_sequence: int = 0
+var _last_streak_tier: int = 0
 var _tier_tween: Tween
 var _threat_tween: Tween
 var _damage_tween: Tween
 var _sonar_tween: Tween
+var _streak_tween: Tween
 var _intro_played: bool = false
 var _last_raw_state: Dictionary = {}
+var _boss_tween: Tween
+var _boss_hp_ratio_last: float = 1.0
 var _weapon_icon_frames: Array[Texture2D] = []
 var _weapon_icon_timer: float = 0.0
 var _weapon_icon_frame_idx: int = 0
@@ -93,6 +108,15 @@ func _ready() -> void:
 	threshold_bar.min_value = 0.0
 	threshold_bar.max_value = 1.0
 	threshold_bar.value = 0.0
+	if boss_top != null:
+		boss_top.visible = false
+	if boss_hp_bar != null:
+		boss_hp_bar.min_value = 0.0
+		boss_hp_bar.max_value = 1.0
+		boss_hp_bar.value = 0.0
+	streak_bar.min_value = 0.0
+	streak_bar.max_value = 1.0
+	streak_bar.value = 0.0
 	sonar_bar.min_value = 0.0
 	dash_bar.min_value = 0.0
 	sonar_hint_label.text = _t("hud.ready")
@@ -109,6 +133,7 @@ func _ready() -> void:
 		if tier != null:
 			tier.visible = false
 	_apply_static_texts()
+	_update_kill_streak_block(0, 0.0, 4.2, 6)
 	visibility_changed.connect(_on_visibility_changed)
 	set_process(true)
 
@@ -152,9 +177,21 @@ func apply_state(state) -> void:
 	var sonar_feedback_timer := float(state.get("sonar_feedback_timer", 0.0))
 	var sonar_ping_count := int(state.get("sonar_ping_count", 0))
 	var sonar_ping_sequence := int(state.get("sonar_ping_sequence", 0))
+	var kill_streak := maxi(0, int(state.get("kill_streak", 0)))
+	var kill_streak_timer := maxf(0.0, float(state.get("kill_streak_timer", 0.0)))
+	var kill_streak_window := maxf(0.1, float(state.get("kill_streak_window", 4.2)))
+	var kill_streak_step := maxi(1, int(state.get("kill_streak_step", 6)))
 	var dash_cd_remaining := float(state.get("dash_cd_remaining", 0.0))
 	var dash_cd_total := float(state.get("dash_cd_total", 0.0))
 	var contract_dash_disabled := bool(state.get("contract_dash_disabled", false))
+	var boss_active := bool(state.get("boss_active", false))
+	var boss_name := String(state.get("boss_name", "Boss"))
+	var boss_hp := maxf(0.0, float(state.get("boss_hp", 0.0)))
+	var boss_hp_max := maxf(1.0, float(state.get("boss_hp_max", 1.0)))
+	var boss_phase := String(state.get("boss_phase_label", ""))
+	var boss_exam_objective := String(state.get("boss_exam_objective", ""))
+	var boss_summon_break_active := bool(state.get("boss_summon_break_active", false))
+	var boss_summon_break_alive := maxi(0, int(state.get("boss_summon_break_alive", 0)))
 
 	hp_bar.min_value = 0.0
 	hp_bar.max_value = hp_max
@@ -196,6 +233,7 @@ func apply_state(state) -> void:
 	var tags: Array[String] = build_tags if not build_tags.is_empty() else weapon_tags
 	_update_key_tags(tags)
 
+	_update_kill_streak_block(kill_streak, kill_streak_timer, kill_streak_window, kill_streak_step)
 	_update_sonar_block(sonar_cd_remaining, sonar_cd_total, sonar_feedback_timer, sonar_ping_count, sonar_ping_sequence)
 
 	if contract_dash_disabled:
@@ -210,6 +248,16 @@ func apply_state(state) -> void:
 		_update_cooldown_block(dash_block, dash_bar, dash_hint_label, dash_cd_remaining, dash_cd_total, "Space Dash")
 		contract_status_label.visible = false
 
+	_update_boss_block(
+		boss_active,
+		boss_name,
+		boss_hp,
+		boss_hp_max,
+		boss_phase,
+		boss_exam_objective,
+		boss_summon_break_active,
+		boss_summon_break_alive
+	)
 	_update_damage_feedback(hp_ratio)
 
 
@@ -226,6 +274,8 @@ func get_debug_snapshot() -> Dictionary:
 		"hp_ratio": clampf(hp_bar.value / maxf(1.0, hp_bar.max_value), 0.0, 1.0),
 		"sonar_hint": sonar_hint_label.text,
 		"sonar_ping_sequence": _last_sonar_ping_sequence,
+		"streak_tier": _last_streak_tier,
+		"streak_hint": streak_hint_label.text,
 		"dash_hint": dash_hint_label.text,
 		"contract_visible": contract_status_label.visible
 	}
@@ -294,7 +344,7 @@ func _update_sonar_block(
 	ping_count: int,
 	ping_sequence: int
 ) -> void:
-	_update_cooldown_block(sonar_block, sonar_bar, sonar_hint_label, remaining, total, "Q Sonar")
+	_update_cooldown_block(sonar_block, sonar_bar, sonar_hint_label, remaining, total, "Q Flash Grenade")
 	if ping_sequence > _last_sonar_ping_sequence:
 		_last_sonar_ping_sequence = ping_sequence
 		_play_sonar_feedback_pulse()
@@ -307,6 +357,89 @@ func _update_sonar_block(
 		sonar_hint_label.text = _t("hud.ready")
 	else:
 		sonar_hint_label.text = _t("hud.cooldown", {"sec": "%.1f" % remaining})
+
+
+func _update_kill_streak_block(streak_count: int, streak_timer: float, streak_window: float, streak_step: int) -> void:
+	if streak_block == null or streak_bar == null or streak_tier_label == null or streak_hint_label == null:
+		return
+	var active := streak_count > 0 and streak_timer > 0.01
+	var safe_window := maxf(0.1, streak_window)
+	var tier := int(streak_count / maxi(1, streak_step))
+	streak_bar.max_value = safe_window
+	streak_bar.value = clampf(streak_timer, 0.0, safe_window) if active else 0.0
+	streak_tier_label.text = _t("hud.streak_tier", {"tier": maxi(0, tier)})
+	if not active:
+		streak_tier_label.modulate = Color(0.74, 0.82, 0.92, 0.72)
+		streak_bar.modulate = Color(0.74, 0.82, 0.92, 0.62)
+		streak_hint_label.modulate = Color(0.78, 0.84, 0.94, 0.76)
+		streak_hint_label.text = _t("hud.streak_idle")
+		_last_streak_tier = 0
+		return
+	var tier_strength := clampf(float(tier) / 6.0, 0.0, 1.0)
+	var tier_color := Color(0.66, 0.88, 1.0, 1.0).lerp(Color(1.0, 0.78, 0.44, 1.0), tier_strength)
+	streak_tier_label.modulate = tier_color
+	streak_bar.modulate = Color(1.0, 1.0, 1.0, 1.0).lerp(tier_color, 0.34)
+	streak_hint_label.modulate = Color(0.90, 0.96, 1.0, 0.96)
+	streak_hint_label.text = _t("hud.streak_chain", {"count": streak_count, "sec": "%.1f" % streak_timer})
+	if tier > _last_streak_tier:
+		_play_kill_streak_feedback(tier_color)
+	_last_streak_tier = tier
+
+
+func _update_boss_block(
+	active: bool,
+	boss_name: String,
+	hp: float,
+	hp_max: float,
+	phase_text: String,
+	objective_text: String,
+	summon_break_active: bool,
+	summon_break_alive: int
+) -> void:
+	if boss_top == null or boss_hp_bar == null:
+		return
+	boss_top.visible = active
+	if not active:
+		_boss_hp_ratio_last = 1.0
+		return
+	var safe_name := boss_name.strip_edges()
+	if safe_name.is_empty():
+		safe_name = "Boss"
+	boss_name_label.text = "BOSS · %s" % safe_name
+	boss_phase_label.text = phase_text if not phase_text.strip_edges().is_empty() else "-"
+	var safe_max := maxf(1.0, hp_max)
+	var safe_hp := clampf(hp, 0.0, safe_max)
+	boss_hp_bar.max_value = safe_max
+	boss_hp_bar.value = safe_hp
+	var hp_ratio := clampf(safe_hp / safe_max, 0.0, 1.0)
+	boss_hp_bar.modulate = Color(0.84, 0.94, 1.0, 1.0).lerp(Color(1.0, 0.62, 0.58, 1.0), 1.0 - hp_ratio)
+	var hint := objective_text.strip_edges()
+	if summon_break_active and summon_break_alive > 0:
+		if hint.is_empty():
+			hint = "Break summons to remove shield"
+		hint = "%s | Summons alive: %d" % [hint, summon_break_alive]
+	boss_hint_label.text = hint
+	if hp_ratio + 0.01 < _boss_hp_ratio_last and UIMotionClass.is_motion_enabled():
+		if _boss_tween != null and is_instance_valid(_boss_tween):
+			_boss_tween.kill()
+		boss_panel.scale = Vector2.ONE
+		_boss_tween = create_tween()
+		_boss_tween.tween_property(boss_panel, "scale", Vector2(1.01, 1.01), 0.05)
+		_boss_tween.tween_property(boss_panel, "scale", Vector2.ONE, 0.08)
+	_boss_hp_ratio_last = hp_ratio
+
+
+func _play_kill_streak_feedback(tier_color: Color) -> void:
+	if _streak_tween != null and is_instance_valid(_streak_tween):
+		_streak_tween.kill()
+	if not UIMotionClass.is_motion_enabled():
+		return
+	streak_block.scale = Vector2.ONE
+	_streak_tween = create_tween()
+	_streak_tween.tween_property(streak_block, "scale", Vector2(1.025, 1.025), 0.08)
+	_streak_tween.parallel().tween_property(streak_bar, "modulate", Color(1.0, 1.0, 1.0, 1.0).lerp(tier_color, 0.46), 0.08)
+	_streak_tween.tween_property(streak_block, "scale", Vector2.ONE, 0.12)
+	_streak_tween.parallel().tween_property(streak_bar, "modulate", Color(1.0, 1.0, 1.0, 1.0).lerp(tier_color, 0.34), 0.14)
 
 
 func _play_sonar_feedback_pulse() -> void:
@@ -547,9 +680,13 @@ func _on_language_changed(_language_code: String) -> void:
 func _apply_static_texts() -> void:
 	noise_title_label.text = _t("hud.noise")
 	survival_title_label.text = _t("hud.survival")
+	streak_title_label.text = _t("hud.streak")
 	build_title_label.text = _t("hud.build_snapshot")
 	sonar_title_label.text = _t("hud.skill_sonar")
 	dash_title_label.text = _t("hud.skill_dash")
+	if _last_raw_state.is_empty():
+		streak_tier_label.text = _t("hud.streak_tier", {"tier": 0})
+		streak_hint_label.text = _t("hud.streak_idle")
 
 
 func _t(key: String, args: Dictionary = {}) -> String:

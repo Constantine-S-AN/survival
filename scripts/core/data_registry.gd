@@ -153,6 +153,7 @@ const UPGRADE_PREREQ_TYPES: Dictionary = {
 	"noise_tier_at_least": true,
 	"survive_time_seconds_at_least": true
 }
+const UPGRADE_ROUTE_CORE_GROUP := "build_route_core"
 
 const UPGRADE_ALLOWED_EFFECT_STATS: Dictionary = {
 	"damage_mult": true,
@@ -172,9 +173,25 @@ const UPGRADE_ALLOWED_EFFECT_STATS: Dictionary = {
 	"sonar_reveal_duration_mult": true,
 	"revealed_damage_mult": true,
 	"low_noise_damage_mult": true,
+	"low_noise_attack_speed_mult": true,
+	"high_noise_damage_mult": true,
+	"high_noise_attack_speed_mult": true,
 	"pickup_radius_mult": true,
 	"summon_cap_bonus": true,
 	"summon_resistance": true,
+	"summon_contact_radius_mult": true,
+	"summon_orbit_radius_mult": true,
+	"summon_hit_noise_refund": true,
+	"summon_guard_damage_reduction": true,
+	"kill_noise_refund": true,
+	"kill_attack_cd_refund": true,
+	"kill_skill_cd_refund": true,
+	"flare_noise_spike_mult": true,
+	"flare_visibility_grace_mult": true,
+	"flare_overdrive_duration": true,
+	"flare_overdrive_attack_speed_mult": true,
+	"flare_overdrive_damage_mult": true,
+	"darkness_noise_decay_boost": true,
 	"chain_bonus": true,
 	"weapon_level_up": true,
 	"weapon_level_up_active": true,
@@ -886,27 +903,38 @@ func get_upgrade_choices(
 		return []
 
 	var picked: Array = []
+	var picked_ids: Dictionary = {}
+	var forced_route_choices := _pick_route_core_choices(
+		rng,
+		candidates,
+		current_stacks,
+		count,
+		tag_weights,
+		runtime_context
+	)
+	for forced_variant in forced_route_choices:
+		if not (forced_variant is Dictionary):
+			continue
+		var forced_row: Dictionary = forced_variant
+		var forced_id := String(forced_row.get("id", "")).strip_edges()
+		if forced_id.is_empty() or picked_ids.has(forced_id):
+			continue
+		picked.append(_localize_dictionary_row(forced_row))
+		picked_ids[forced_id] = true
+		candidates = _remove_upgrade_candidate_by_id(candidates, forced_id)
+
 	while picked.size() < count and not candidates.is_empty():
 		var choice: Dictionary = _weighted_pick_upgrade(rng, candidates, tag_weights, runtime_context)
+		var chosen_id: String = String(choice.get("id", "")).strip_edges()
+		if chosen_id.is_empty() or picked_ids.has(chosen_id):
+			break
 		picked.append(_localize_dictionary_row(choice))
-		var chosen_id: String = String(choice.get("id", ""))
-		var remaining: Array = []
-		for item_variant in candidates:
-			if not (item_variant is Dictionary):
-				continue
-			var item: Dictionary = item_variant
-			if String(item.get("id", "")) != chosen_id:
-				remaining.append(item)
-		candidates = remaining
+		picked_ids[chosen_id] = true
+		candidates = _remove_upgrade_candidate_by_id(candidates, chosen_id)
 
 	# Keep UI consistent with a three-card level-up surface even when strict runtime
 	# rules temporarily leave too few valid candidates.
 	if picked.size() < count:
-		var picked_ids := {}
-		for picked_variant in picked:
-			if picked_variant is Dictionary:
-				var picked_row: Dictionary = picked_variant
-				picked_ids[String(picked_row.get("id", ""))] = true
 		var fallback_pool: Array = []
 		for upgrade_variant in upgrades:
 			if not (upgrade_variant is Dictionary):
@@ -918,17 +946,12 @@ func get_upgrade_choices(
 			fallback_pool.append(upgrade)
 		while picked.size() < count and not fallback_pool.is_empty():
 			var fallback_choice: Dictionary = _weighted_pick_upgrade(rng, fallback_pool, tag_weights, runtime_context)
-			picked.append(_localize_dictionary_row(fallback_choice))
-			picked_ids[String(fallback_choice.get("id", ""))] = true
-			var fallback_remaining: Array = []
 			var chosen_fallback_id := String(fallback_choice.get("id", ""))
-			for pool_variant in fallback_pool:
-				if not (pool_variant is Dictionary):
-					continue
-				var pool_item: Dictionary = pool_variant
-				if String(pool_item.get("id", "")) != chosen_fallback_id:
-					fallback_remaining.append(pool_item)
-			fallback_pool = fallback_remaining
+			if chosen_fallback_id.is_empty() or picked_ids.has(chosen_fallback_id):
+				break
+			picked.append(_localize_dictionary_row(fallback_choice))
+			picked_ids[chosen_fallback_id] = true
+			fallback_pool = _remove_upgrade_candidate_by_id(fallback_pool, chosen_fallback_id)
 
 	return picked
 
@@ -2176,6 +2199,72 @@ func _get_spawn_profile(elapsed_time: float) -> Dictionary:
 		else:
 			break
 	return chosen
+
+
+func _pick_route_core_choices(
+	rng: RandomNumberGenerator,
+	candidates: Array,
+	current_stacks: Dictionary,
+	count: int,
+	tag_weights: Dictionary,
+	context: Dictionary
+) -> Array:
+	if count <= 0:
+		return []
+	if not bool(context.get("force_route_core_offer", false)):
+		return []
+	if _has_selected_upgrade_in_exclusive_group(current_stacks, UPGRADE_ROUTE_CORE_GROUP):
+		return []
+	var route_pool: Array = []
+	for candidate_variant in candidates:
+		if not (candidate_variant is Dictionary):
+			continue
+		var candidate: Dictionary = candidate_variant
+		if String(candidate.get("exclusive_group", "")).strip_edges() != UPGRADE_ROUTE_CORE_GROUP:
+			continue
+		route_pool.append(candidate)
+	if route_pool.size() < 2:
+		return []
+	var output: Array = []
+	while output.size() < mini(count, 3) and not route_pool.is_empty():
+		var picked := _weighted_pick_upgrade(rng, route_pool, tag_weights, context)
+		var picked_id := String(picked.get("id", "")).strip_edges()
+		if picked_id.is_empty():
+			break
+		output.append(picked)
+		route_pool = _remove_upgrade_candidate_by_id(route_pool, picked_id)
+	return output
+
+
+func _has_selected_upgrade_in_exclusive_group(current_stacks: Dictionary, exclusive_group: String) -> bool:
+	if exclusive_group.is_empty():
+		return false
+	for upgrade_variant in upgrades:
+		if not (upgrade_variant is Dictionary):
+			continue
+		var upgrade: Dictionary = upgrade_variant
+		var upgrade_id := String(upgrade.get("id", "")).strip_edges()
+		if upgrade_id.is_empty():
+			continue
+		if int(current_stacks.get(upgrade_id, 0)) <= 0:
+			continue
+		if String(upgrade.get("exclusive_group", "")).strip_edges() == exclusive_group:
+			return true
+	return false
+
+
+func _remove_upgrade_candidate_by_id(pool: Array, chosen_id: String) -> Array:
+	if chosen_id.is_empty():
+		return pool
+	var remaining: Array = []
+	for item_variant in pool:
+		if not (item_variant is Dictionary):
+			continue
+		var item: Dictionary = item_variant
+		if String(item.get("id", "")).strip_edges() == chosen_id:
+			continue
+		remaining.append(item)
+	return remaining
 
 
 func _weighted_pick_upgrade(rng: RandomNumberGenerator, candidates: Array, tag_weights: Dictionary = {}, context: Dictionary = {}) -> Dictionary:

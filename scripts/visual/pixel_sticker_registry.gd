@@ -4,7 +4,9 @@ class_name PixelStickerRegistry
 const CHARACTER_DIR := "res://assets/textures/pixel/characters/"
 const ENEMY_DIR := "res://assets/textures/pixel/enemies/"
 const WEAPON_DIR := "res://assets/textures/pixel/weapons/"
-const IDLE_FRAME_COUNT := 2
+const CHARACTER_IDLE_FRAME_COUNT := 4
+const ENEMY_IDLE_FRAME_COUNT := 4
+const WEAPON_IDLE_FRAME_COUNT := 3
 
 static var _texture_cache: Dictionary = {}
 static var _idle_frame_cache: Dictionary = {}
@@ -85,15 +87,29 @@ static func _get_idle_frames(base_dir: String, entry_id: String, fallback_id: St
 	if frame0 != null:
 		frames.append(frame0)
 
-	if IDLE_FRAME_COUNT > 1:
-		var idle_variant := _build_idle_variant(base_image, profile, key)
-		var frame1 := ImageTexture.create_from_image(idle_variant)
-		if frame1 != null:
-			frames.append(frame1)
+	var frame_count := _frame_count_for_profile(profile)
+	if frame_count > 1:
+		for frame_idx in range(1, frame_count):
+			var idle_variant := _build_idle_variant(base_image, profile, key, frame_idx, frame_count)
+			var idle_frame := ImageTexture.create_from_image(idle_variant)
+			if idle_frame != null:
+				frames.append(idle_frame)
 	if frames.is_empty():
 		frames.append(base_texture)
 	_idle_frame_cache[cache_key] = frames
 	return frames
+
+
+static func _frame_count_for_profile(profile: String) -> int:
+	match profile:
+		"character":
+			return CHARACTER_IDLE_FRAME_COUNT
+		"enemy":
+			return ENEMY_IDLE_FRAME_COUNT
+		"weapon":
+			return WEAPON_IDLE_FRAME_COUNT
+		_:
+			return 2
 
 
 static func _texture_to_image(texture: Texture2D) -> Image:
@@ -107,7 +123,7 @@ static func _texture_to_image(texture: Texture2D) -> Image:
 	return image
 
 
-static func _build_idle_variant(base_image: Image, profile: String, seed_text: String) -> Image:
+static func _build_idle_variant(base_image: Image, profile: String, seed_text: String, frame_idx: int, frame_count: int) -> Image:
 	var width := base_image.get_width()
 	var height := base_image.get_height()
 	var out := Image.create(width, height, false, Image.FORMAT_RGBA8)
@@ -116,7 +132,12 @@ static func _build_idle_variant(base_image: Image, profile: String, seed_text: S
 	var seed: int = abs(int(seed_text.hash()))
 	var shimmer_color := Color.from_hsv(float(seed % 360) / 360.0, 0.26, 0.96, 1.0)
 	var upper_cutoff := maxi(2, height - 7)
-	var bob_offset := -1 if (seed % 2) == 0 else 1
+	var phase := float(frame_idx) / maxf(1.0, float(frame_count))
+	var bob_wave := sin((phase + float(seed % 7) * 0.03) * TAU)
+	var bob_offset := int(round(bob_wave))
+	var frame_jitter := ((seed + frame_idx * 11) % 5) - 2
+	var glow_strength := 0.06 + 0.05 * maxf(0.0, bob_wave)
+	var shadow_strength := 0.10 + 0.04 * maxf(0.0, -bob_wave)
 
 	for y in range(height):
 		for x in range(width):
@@ -129,30 +150,34 @@ static func _build_idle_variant(base_image: Image, profile: String, seed_text: S
 
 			if profile == "weapon":
 				if luminance > 0.55 and y < height - 4:
-					color = color.lightened(0.16)
+					color = color.lightened(0.08 + glow_strength)
 				elif luminance < 0.20:
-					color = color.darkened(0.12)
-				if x > int(float(width) * 0.52) and ((x + y + seed) % 4) == 0:
-					color = color.lerp(shimmer_color, 0.16)
+					color = color.darkened(0.08 + shadow_strength * 0.4)
+				if x > int(float(width) * 0.48) and ((x + y + seed + frame_idx) % 4) == 0:
+					color = color.lerp(shimmer_color, 0.10 + 0.06 * maxf(0.0, bob_wave))
+				if frame_idx == frame_count - 1 and ((x + y + frame_jitter) % 7) == 0:
+					color = color.lightened(0.08)
 			else:
 				if y < upper_cutoff and luminance > 0.08:
 					dst_y = clampi(y + bob_offset, 0, height - 1)
 				if y < int(float(height) * 0.40) and luminance > 0.45:
-					color = color.lightened(0.08)
+					color = color.lightened(glow_strength)
 				elif y >= upper_cutoff and luminance < 0.17:
-					color = color.darkened(0.14)
+					color = color.darkened(shadow_strength)
+				if ((x + y + frame_jitter) % 9) == 0 and luminance > 0.25:
+					color = color.lightened(0.04)
 
 			var previous := out.get_pixel(dst_x, dst_y)
 			if color.a >= previous.a:
 				out.set_pixel(dst_x, dst_y, color)
 
 	if profile == "weapon":
-		var streak_y := clampi(int(float(height) * 0.45), 0, height - 1)
+		var streak_y := clampi(int(float(height) * (0.42 + 0.04 * bob_wave)), 0, height - 1)
 		for x in range(int(float(width) * 0.24), int(float(width) * 0.86)):
 			var source := out.get_pixel(x, streak_y)
 			if source.a <= 0.01:
 				continue
-			out.set_pixel(x, streak_y, source.lightened(0.18))
+			out.set_pixel(x, streak_y, source.lightened(0.10 + glow_strength))
 	return out
 
 

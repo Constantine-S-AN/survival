@@ -64,9 +64,25 @@ const UPGRADE_STAT_DISPLAY_NAMES: Dictionary = {
 	"sonar_reveal_duration_mult": "Flare Reveal Duration",
 	"revealed_damage_mult": "Revealed Target Damage",
 	"low_noise_damage_mult": "Low-Noise Damage",
+	"low_noise_attack_speed_mult": "Low-Noise Attack Speed",
+	"high_noise_damage_mult": "High-Noise Damage",
+	"high_noise_attack_speed_mult": "High-Noise Attack Speed",
 	"pickup_radius_mult": "Pickup Radius",
 	"summon_cap_bonus": "Summon Cap",
 	"summon_resistance": "Summon Resistance",
+	"summon_contact_radius_mult": "Summon Contact Radius",
+	"summon_orbit_radius_mult": "Summon Orbit Radius",
+	"summon_hit_noise_refund": "Summon Hit Noise Refund",
+	"summon_guard_damage_reduction": "Summon Guard Damage Reduction",
+	"kill_noise_refund": "Kill Noise Refund",
+	"kill_attack_cd_refund": "Kill Attack Cooldown Refund",
+	"kill_skill_cd_refund": "Kill Skill Cooldown Refund",
+	"flare_noise_spike_mult": "Flare Noise Spike",
+	"flare_visibility_grace_mult": "Flare Grace Duration",
+	"flare_overdrive_duration": "Flare Overdrive Duration",
+	"flare_overdrive_attack_speed_mult": "Flare Overdrive Attack Speed",
+	"flare_overdrive_damage_mult": "Flare Overdrive Damage",
+	"darkness_noise_decay_boost": "Darkness Noise Decay Boost",
 	"weapon_level_up": "Weapon Level",
 	"weapon_level_up_active": "Active Weapon Level",
 	"weapon_damage_mult": "Weapon Damage",
@@ -95,8 +111,14 @@ const PERCENT_STAT_KEYS: Dictionary = {
 	"sonar_reveal_duration_mult": true,
 	"revealed_damage_mult": true,
 	"low_noise_damage_mult": true,
+	"low_noise_attack_speed_mult": true,
+	"high_noise_damage_mult": true,
+	"high_noise_attack_speed_mult": true,
 	"pickup_radius_mult": true,
 	"summon_resistance": true,
+	"summon_contact_radius_mult": true,
+	"summon_orbit_radius_mult": true,
+	"summon_guard_damage_reduction": true,
 	"weapon_damage_mult": true,
 	"weapon_attack_rate_mult": true,
 	"weapon_range_mult": true,
@@ -118,7 +140,10 @@ const INT_STAT_KEYS: Dictionary = {
 	"weapon_summon_cap_bonus": true
 }
 const SECONDS_STAT_KEYS: Dictionary = {
-	"weapon_reveal_bonus_add": true
+	"weapon_reveal_bonus_add": true,
+	"kill_attack_cd_refund": true,
+	"kill_skill_cd_refund": true,
+	"flare_overdrive_duration": true
 }
 
 @onready var root: Control = $Root

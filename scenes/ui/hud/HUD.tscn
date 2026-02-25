@@ -26,15 +26,70 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.98, 0.18, 0.18, 0)
 
+[node name="BossTop" type="MarginContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -324.0
+offset_top = 8.0
+offset_right = 324.0
+offset_bottom = 84.0
+mouse_filter = 2
+
+[node name="BossPanel" type="PanelContainer" parent="BossTop"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"HudPanel"
+
+[node name="Margin" type="MarginContainer" parent="BossTop/BossPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="BossTop/BossPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Header" type="HBoxContainer" parent="BossTop/BossPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="BossName" type="Label" parent="BossTop/BossPanel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "BOSS"
+theme_type_variation = &"SubheadingLabel"
+
+[node name="BossPhase" type="Label" parent="BossTop/BossPanel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 2
+text = "Phase"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="BossHPBar" type="ProgressBar" parent="BossTop/BossPanel/Margin/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 12)
+show_percentage = false
+
+[node name="BossHint" type="Label" parent="BossTop/BossPanel/Margin/VBox"]
+layout_mode = 2
+text = ""
+theme_type_variation = &"BodyMutedLabel"
+
 [node name="TopNoise" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 10
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -160.0
-offset_top = 10.0
+offset_top = 84.0
 offset_right = 160.0
-offset_bottom = 142.0
+offset_bottom = 216.0
 mouse_filter = 2
 
 [node name="NoisePanel" type="PanelContainer" parent="TopNoise"]
@@ -163,6 +218,37 @@ layout_mode = 2
 text = "Enemies 0 | Revealed 0"
 theme_type_variation = &"BodyMutedLabel"
 
+[node name="StreakBlock" type="VBoxContainer" parent="LeftSurvival/SurvivalPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="StreakHeader" type="HBoxContainer" parent="LeftSurvival/SurvivalPanel/Margin/VBox/StreakBlock"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StreakLabel" type="Label" parent="LeftSurvival/SurvivalPanel/Margin/VBox/StreakBlock/StreakHeader"]
+layout_mode = 2
+text = "Kill Streak"
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="StreakTierBadge" type="Label" parent="LeftSurvival/SurvivalPanel/Margin/VBox/StreakBlock/StreakHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 2
+text = "T0 Momentum"
+theme_type_variation = &"SubheadingLabel"
+theme_override_font_sizes/font_size = 16
+
+[node name="StreakBar" type="ProgressBar" parent="LeftSurvival/SurvivalPanel/Margin/VBox/StreakBlock"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 10)
+show_percentage = false
+
+[node name="StreakHint" type="Label" parent="LeftSurvival/SurvivalPanel/Margin/VBox/StreakBlock"]
+layout_mode = 2
+text = "Chain kills to build momentum"
+theme_type_variation = &"BodyMutedLabel"
+
 [node name="RightBuild" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 1
@@ -258,7 +344,7 @@ stretch_mode = 5
 
 [node name="SonarLabel" type="Label" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock/SonarHeader"]
 layout_mode = 2
-text = "Q Flare"
+text = "Q Flash Grenade"
 
 [node name="SonarBar" type="ProgressBar" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock"]
 layout_mode = 2

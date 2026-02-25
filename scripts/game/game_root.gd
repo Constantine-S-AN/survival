@@ -10,6 +10,9 @@ const STATE_MAP_SELECT := "map_select"
 const STATE_CONTRACT_SELECT := "contract_select"
 const InputConfig := preload("res://scripts/core/input_config.gd")
 const RunStatsClass := preload("res://scripts/core/run_stats.gd")
+const KILL_STREAK_WINDOW_SEC := 4.2
+const KILL_STREAK_STEP := 6
+const KILL_STREAK_MAX_REWARD_TIER := 8
 
 @onready var world = $World
 @onready var ui = $UI
@@ -43,10 +46,14 @@ var runtime_drop_pickups_spawned: int = 0
 var last_sonar_ping_sequence: int = 0
 var _level_up_option_ids: Dictionary = {}
 var _game_over_latched: bool = false
+var kill_streak_count: int = 0
+var kill_streak_timer: float = 0.0
+var kill_streak_reward_tier: int = 0
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_apply_default_window_mode()
 	if world != null:
 		world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	if ui != null:
@@ -63,6 +70,8 @@ func _ready() -> void:
 	)
 	if not ProfileStore.is_character_unlocked(default_character_id):
 		ProfileStore.unlock_character(default_character_id)
+	if OS.is_debug_build():
+		ProfileStore.unlock_all_characters(DataRegistry.get_characters())
 	selected_character_id = ProfileStore.get_selected_character_id(default_character_id)
 	if not ProfileStore.is_character_unlocked(selected_character_id):
 		selected_character_id = default_character_id
@@ -141,10 +150,24 @@ func _process(delta: float) -> void:
 	if run_state == STATE_LEVEL_UP and not get_tree().paused:
 		get_tree().paused = true
 
-	if fixed_noise_enabled:
-		world.player.set_noise_value(fixed_noise_value)
-	else:
-		fixed_noise_value = world.player.noise
+	var player_noise := fixed_noise_value
+	if world != null and world.player != null:
+		var player_node: Node = world.player
+		if fixed_noise_enabled:
+			if player_node.has_method("set_noise_value"):
+				player_node.call("set_noise_value", fixed_noise_value)
+		else:
+			if player_node.has_method("get_noise_value"):
+				player_noise = float(player_node.call("get_noise_value"))
+			else:
+				var legacy_noise: Variant = player_node.get("noise")
+				if typeof(legacy_noise) == TYPE_FLOAT or typeof(legacy_noise) == TYPE_INT:
+					player_noise = float(legacy_noise)
+			fixed_noise_value = player_noise
+	if run_state == STATE_PLAYING and kill_streak_timer > 0.0:
+		kill_streak_timer = maxf(0.0, kill_streak_timer - delta)
+		if kill_streak_timer <= 0.0:
+			_reset_kill_streak_state()
 
 	if run_state != STATE_PLAYING:
 		_push_debug_snapshot()
@@ -154,10 +177,10 @@ func _process(delta: float) -> void:
 	var map_snapshot: Dictionary = world.update_map_runtime(delta)
 	if not map_snapshot.is_empty():
 		_sync_runtime_fog_overlay()
-	run_stats.max_noise_reached = maxf(run_stats.max_noise_reached, world.player.noise)
-	var noise_tier: Dictionary = DataRegistry.get_noise_tier(world.player.noise)
+	run_stats.max_noise_reached = maxf(run_stats.max_noise_reached, player_noise)
+	var noise_tier: Dictionary = DataRegistry.get_noise_tier(player_noise)
 	run_stats.max_noise_tier_id = String(noise_tier.get("id", run_stats.max_noise_tier_id))
-	world.enemy_manager.update_difficulty(elapsed_time, world.player.noise)
+	world.enemy_manager.update_difficulty(elapsed_time, player_noise)
 	_refresh_hud()
 	_push_debug_snapshot()
 
@@ -185,20 +208,70 @@ func _on_enemy_killed(enemy_id: String, xp_reward: int, world_position: Vector2,
 			spawn_count = int(floor(drop_mult))
 			if reward_rng.randf() < (drop_mult - float(spawn_count)):
 				spawn_count += 1
-	if spawn_count <= 0:
-		return
-	runtime_drop_pickups_spawned += spawn_count
-	for i in range(spawn_count):
-		var spawn_position := world_position
-		if spawn_count > 1:
-			var angle := reward_rng.randf_range(0.0, TAU)
-			var radius := reward_rng.randf_range(8.0, 22.0)
-			spawn_position = world_position + Vector2.RIGHT.rotated(angle) * radius
-		world.call_deferred("spawn_xp_pickup", spawn_position, xp_reward)
+	if spawn_count > 0:
+		runtime_drop_pickups_spawned += spawn_count
+		for i in range(spawn_count):
+			var spawn_position := world_position
+			if spawn_count > 1:
+				var angle := reward_rng.randf_range(0.0, TAU)
+				var radius := reward_rng.randf_range(8.0, 22.0)
+				spawn_position = world_position + Vector2.RIGHT.rotated(angle) * radius
+			world.call_deferred("spawn_xp_pickup", spawn_position, xp_reward)
+	_register_kill_streak(world_position)
 
 
 func _on_pickup_collected(_world_position: Vector2, _amount: int) -> void:
 	run_stats.pickups_collected += 1
+
+
+func _register_kill_streak(world_position: Vector2) -> void:
+	if run_state != STATE_PLAYING or world == null:
+		return
+	if kill_streak_timer <= 0.0:
+		kill_streak_count = 0
+		kill_streak_reward_tier = 0
+	kill_streak_count += 1
+	kill_streak_timer = KILL_STREAK_WINDOW_SEC
+	var target_tier := clampi(kill_streak_count / KILL_STREAK_STEP, 0, KILL_STREAK_MAX_REWARD_TIER)
+	while kill_streak_reward_tier < target_tier:
+		kill_streak_reward_tier += 1
+		_grant_kill_streak_reward(kill_streak_reward_tier, world_position)
+
+
+func _grant_kill_streak_reward(tier: int, origin: Vector2) -> void:
+	if world == null or world.player == null:
+		return
+	var pickup_count := clampi(2 + tier, 3, 12)
+	var pickup_xp := clampi(3 + tier * 2, 4, 24)
+	runtime_drop_pickups_spawned += pickup_count
+	for i in range(pickup_count):
+		var angle := reward_rng.randf_range(0.0, TAU)
+		var radius := reward_rng.randf_range(26.0, 96.0)
+		var spawn_pos := origin + Vector2.RIGHT.rotated(angle) * radius
+		world.call_deferred("spawn_xp_pickup", spawn_pos, pickup_xp)
+
+	if world.player.has_method("add_noise_delta"):
+		world.player.call("add_noise_delta", -2.0 - float(tier) * 0.75)
+	world.player.skill_cd_remaining = maxf(
+		0.0,
+		float(world.player.skill_cd_remaining) - (0.30 + float(tier) * 0.20)
+	)
+	if tier % 2 == 0:
+		FeedbackBus.emit_sonar_pulse(origin, {
+			"source": "flare",
+			"strength": 0.82 + float(tier) * 0.06,
+			"screen_flash": 1.10,
+			"radius_scale": 1.12,
+			"speed": 920.0
+		})
+	if ui != null:
+		ui.show_system_message(_t("sys.kill_streak_reward", {"streak": kill_streak_count, "tier": tier}), false)
+
+
+func _reset_kill_streak_state() -> void:
+	kill_streak_count = 0
+	kill_streak_timer = 0.0
+	kill_streak_reward_tier = 0
 
 
 func _on_pursuer_spawned(_enemy_id: String, _world_position: Vector2, spawned_total: int, next_eta: float) -> void:
@@ -519,6 +592,7 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 	kills = 0
 	runtime_drop_pickups_spawned = 0
 	last_sonar_ping_sequence = 0
+	_reset_kill_streak_state()
 	_level_up_option_ids.clear()
 	_game_over_latched = false
 	run_started = true
@@ -536,7 +610,7 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 	if world != null and world.has_method("begin_run"):
 		world.begin_run()
 	_sync_runtime_fog_overlay(true)
-	fixed_noise_value = world.player.noise
+	fixed_noise_value = _get_player_noise(fixed_noise_value)
 	Engine.time_scale = 1.0
 	_set_state(STATE_PLAYING)
 	if not skip_play_transition and _can_use_scene_transition() and SceneTransition.has_method("play_pulse"):
@@ -550,7 +624,7 @@ func _evaluate_character_unlocks() -> Array[String]:
 	run_started = false
 	var summary: Dictionary = run_stats.to_dict()
 	summary["survive_time_seconds"] = elapsed_time
-	summary["max_noise_reached"] = maxf(float(summary.get("max_noise_reached", 0.0)), world.player.noise)
+	summary["max_noise_reached"] = maxf(float(summary.get("max_noise_reached", 0.0)), _get_player_noise(0.0))
 	var noise_tier: Dictionary = DataRegistry.get_noise_tier(float(summary.get("max_noise_reached", 0.0)))
 	summary["max_noise_tier_id"] = String(noise_tier.get("id", summary.get("max_noise_tier_id", "silent")))
 	return ProfileStore.evaluate_character_unlocks(DataRegistry.get_characters(), summary)
@@ -586,7 +660,7 @@ func _build_run_summary_state(newly_unlocked_ids: Array[String]) -> Dictionary:
 	var boss_progress := ""
 	var boss_debug: Dictionary = {}
 	if world != null and world.player != null:
-		var hud_data: Dictionary = world.player.get_hud_data()
+		var hud_data: Dictionary = _get_player_hud_data()
 		weapon_id = String(hud_data.get("active_weapon_id", ""))
 		weapon_name = String(hud_data.get("active_weapon_name", hud_data.get("active_weapon_id", "--")))
 		level_reached = int(hud_data.get("level", level_reached))
@@ -772,12 +846,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		fixed_noise_enabled = not fixed_noise_enabled
 	elif event.keycode == KEY_F7:
 		fixed_noise_value = clampf(fixed_noise_value - 10.0, 0.0, 100.0)
-		if fixed_noise_enabled:
-			world.player.set_noise_value(fixed_noise_value)
+		if fixed_noise_enabled and world != null and world.player != null and world.player.has_method("set_noise_value"):
+			world.player.call("set_noise_value", fixed_noise_value)
 	elif event.keycode == KEY_F8:
 		fixed_noise_value = clampf(fixed_noise_value + 10.0, 0.0, 100.0)
-		if fixed_noise_enabled:
-			world.player.set_noise_value(fixed_noise_value)
+		if fixed_noise_enabled and world != null and world.player != null and world.player.has_method("set_noise_value"):
+			world.player.call("set_noise_value", fixed_noise_value)
 
 
 func _set_state(next_state: String) -> void:
@@ -789,6 +863,8 @@ func _set_state(next_state: String) -> void:
 		get_tree().paused = false
 	else:
 		get_tree().paused = true
+		if run_state != STATE_LEVEL_UP:
+			_reset_kill_streak_state()
 	ui.on_game_state_changed(run_state)
 
 
@@ -808,14 +884,26 @@ func _can_use_scene_transition() -> bool:
 	return SceneTransition != null
 
 
+func _apply_default_window_mode() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if OS.has_feature("web"):
+		return
+	var mode := DisplayServer.window_get_mode()
+	if mode != DisplayServer.WINDOW_MODE_FULLSCREEN and mode != DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
+
+
 func _refresh_hud() -> void:
-	var hud: Dictionary = world.player.get_hud_data()
+	var hud: Dictionary = _get_player_hud_data()
+	var player_noise := _get_player_noise(fixed_noise_value)
 	hud["elapsed_time"] = elapsed_time
 	hud["kills"] = kills
 	hud["seed"] = run_seed
 	hud["enemy_count"] = world.enemy_manager.get_alive_enemy_count()
 	hud["revealed_count"] = world.get_revealed_enemy_count()
-	var noise_tier: Dictionary = DataRegistry.get_noise_tier(world.player.noise)
+	var noise_tier: Dictionary = DataRegistry.get_noise_tier(player_noise)
 	hud["noise_tier_name"] = String(noise_tier.get("name", "Silent"))
 	hud["noise_tier_color"] = String(noise_tier.get("hud_color", "#74e7ff"))
 	hud["noise_tier_id"] = String(noise_tier.get("id", "silent"))
@@ -829,8 +917,15 @@ func _refresh_hud() -> void:
 	hud["noise_spawn_rate_multiplier"] = float(noise_debug.get("noise_spawn_rate_multiplier", 1.0))
 	hud["map_spawn_rate_multiplier"] = float(noise_debug.get("map_spawn_rate_multiplier", 1.0))
 	hud["contract_spawn_rate_multiplier"] = float(noise_debug.get("contract_spawn_rate_multiplier", 1.0))
+	var boss_hud: Dictionary = world.enemy_manager.get_boss_hud_snapshot()
+	for key_variant in boss_hud.keys():
+		hud[String(key_variant)] = boss_hud.get(key_variant)
 	hud["state"] = run_state
 	hud["contracts_active"] = selected_contract_ids.duplicate()
+	hud["kill_streak"] = kill_streak_count
+	hud["kill_streak_timer"] = kill_streak_timer
+	hud["kill_streak_window"] = KILL_STREAK_WINDOW_SEC
+	hud["kill_streak_step"] = KILL_STREAK_STEP
 	hud["run_reward_multipliers"] = {
 		"xp": float(run_reward_multipliers.get("xp", run_reward_multipliers.get("xp_mult", 1.0))),
 		"rarity": float(run_reward_multipliers.get("rarity", run_reward_multipliers.get("rarity_mult", 1.0))),
@@ -847,8 +942,8 @@ func _refresh_hud() -> void:
 
 
 func _push_debug_snapshot() -> void:
-	var snapshot: Dictionary = world.player.get_hud_data()
-	var noise_tier_debug: Dictionary = DataRegistry.get_noise_tier(world.player.noise)
+	var snapshot: Dictionary = _get_player_hud_data()
+	var noise_tier_debug: Dictionary = DataRegistry.get_noise_tier(_get_player_noise(fixed_noise_value))
 	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
 	var entity_counts: Dictionary = world.get_runtime_entity_counts()
 	var pool_stats: Dictionary = world.get_pool_stats()
@@ -912,6 +1007,29 @@ func _push_debug_snapshot() -> void:
 	snapshot["hazards_path"] = DataRegistry.get_data_path("hazards")
 	snapshot["events_path"] = DataRegistry.get_data_path("events")
 	ui.update_debug_data(snapshot)
+
+
+func _get_player_hud_data() -> Dictionary:
+	if world == null or world.player == null:
+		return {}
+	var player_node: Node = world.player
+	if player_node.has_method("get_hud_data"):
+		var payload: Variant = player_node.call("get_hud_data")
+		if payload is Dictionary:
+			return (payload as Dictionary).duplicate(true)
+	return {}
+
+
+func _get_player_noise(default_value: float = 0.0) -> float:
+	if world == null or world.player == null:
+		return default_value
+	var player_node: Node = world.player
+	if player_node.has_method("get_noise_value"):
+		return float(player_node.call("get_noise_value"))
+	var noise_variant: Variant = player_node.get("noise")
+	if typeof(noise_variant) == TYPE_FLOAT or typeof(noise_variant) == TYPE_INT:
+		return float(noise_variant)
+	return default_value
 
 
 func _sync_runtime_fog_overlay(force: bool = false) -> void:

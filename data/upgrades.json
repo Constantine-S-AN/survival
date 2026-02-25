@@ -1,39 +1,56 @@
 [
   {
     "id": "u_sonar_scope_matrix",
-    "name": "Flare Scope Matrix",
-    "description": "[Tag: flare] Range +12%.",
+    "name": "Shadow Doctrine",
+    "description": "Route Core (Stealth): quieter attacks, stronger low-noise cadence, and kills vent Noise.",
     "rarity": "common",
-    "max_stacks": 4,
+    "max_stacks": 1,
     "tags": [
-      "sonar",
-      "speed"
+      "silence",
+      "noise",
+      "mobility"
     ],
     "effects": [
       {
-        "stat": "weapon_range_mult",
-        "add": 0.12,
-        "target": {
-          "type": "tag",
-          "value": "sonar"
-        }
+        "stat": "noise_generation_mult",
+        "add": -0.22
+      },
+      {
+        "stat": "low_noise_attack_speed_mult",
+        "add": 0.18
+      },
+      {
+        "stat": "low_noise_damage_mult",
+        "add": 0.10
+      },
+      {
+        "stat": "kill_noise_refund",
+        "add": 3.5
+      },
+      {
+        "stat": "flare_noise_spike_mult",
+        "add": -0.3
+      },
+      {
+        "stat": "flare_visibility_grace_mult",
+        "add": 0.15
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 3.8,
     "prereq": {
       "all": [],
       "any": []
     },
     "requires_tags": [],
     "requires_weapon_ids": [],
-    "exclusive_group": "",
-    "max_rank": 4,
+    "exclusive_group": "build_route_core",
+    "max_rank": 1,
     "blocks": []
   },
   {
     "id": "u_echo_stabilizer",
     "name": "Echo Stabilizer",
-    "description": "Flare reveal duration +14%.",
+    "description": "Stealth flare loop: longer reveal and grace window, with slightly warmer flare pressure.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -43,12 +60,25 @@
     "effects": [
       {
         "stat": "sonar_reveal_duration_mult",
+        "add": 0.12
+      },
+      {
+        "stat": "flare_visibility_grace_mult",
         "add": 0.14
+      },
+      {
+        "stat": "flare_noise_spike_mult",
+        "add": 0.08
       }
     ],
-    "base_weight": 1.2,
+    "base_weight": 1.45,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_sonar_scope_matrix"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -60,7 +90,7 @@
   {
     "id": "u_exposed_breaker",
     "name": "Exposed Breaker",
-    "description": "Damage to revealed enemies +18%.",
+    "description": "Stealth punish: revealed enemies take heavier burst while low-noise cadence remains online.",
     "rarity": "epic",
     "max_stacks": 2,
     "tags": [
@@ -73,7 +103,7 @@
         "add": 0.18
       }
     ],
-    "base_weight": 0.9,
+    "base_weight": 1.2,
     "prereq": {
       "all": [
         {
@@ -92,7 +122,7 @@
   {
     "id": "u_ping_accelerant",
     "name": "Flare Accelerant",
-    "description": "[Tag: flare] Attack rate +10%.",
+    "description": "Stealth split path: flare windows grant stronger sonar-tag weapon tempo.",
     "rarity": "common",
     "max_stacks": 3,
     "tags": [
@@ -102,16 +132,25 @@
     "effects": [
       {
         "stat": "weapon_attack_rate_mult",
-        "add": 0.10,
+        "add": 0.12,
         "target": {
           "type": "tag",
           "value": "sonar"
         }
+      },
+      {
+        "stat": "kill_skill_cd_refund",
+        "add": 0.06
       }
     ],
-    "base_weight": 1.1,
+    "base_weight": 1.35,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_sonar_scope_matrix"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -123,7 +162,7 @@
   {
     "id": "u_silent_baffles",
     "name": "Silent Baffles",
-    "description": "Noise generation -14%.",
+    "description": "Stealth loop: lower attack noise and vent Noise on every kill.",
     "rarity": "common",
     "max_stacks": 4,
     "tags": [
@@ -134,11 +173,20 @@
       {
         "stat": "noise_generation_mult",
         "add": -0.14
+      },
+      {
+        "stat": "kill_noise_refund",
+        "add": 2.2
       }
     ],
-    "base_weight": 1.05,
+    "base_weight": 1.5,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_sonar_scope_matrix"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -150,7 +198,7 @@
   {
     "id": "u_thermal_sink",
     "name": "Thermal Sink",
-    "description": "Noise decay +1.6/s.",
+    "description": "Stealth sustain: darkness accelerates Noise decay and passive venting.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -160,12 +208,21 @@
     "effects": [
       {
         "stat": "noise_decay_bonus",
-        "add": 1.6
+        "add": 1.4
+      },
+      {
+        "stat": "darkness_noise_decay_boost",
+        "add": 0.22
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.45,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_sonar_scope_matrix"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -177,7 +234,7 @@
   {
     "id": "u_quiet_stride",
     "name": "Quiet Stride",
-    "description": "Dash noise -25%.",
+    "description": "Stealth mobility: low-noise dash and kill refunds for faster flare cycle.",
     "rarity": "uncommon",
     "max_stacks": 2,
     "tags": [
@@ -188,11 +245,20 @@
       {
         "stat": "dash_noise_mult",
         "add": -0.25
+      },
+      {
+        "stat": "kill_skill_cd_refund",
+        "add": 0.12
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.4,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_sonar_scope_matrix"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -204,7 +270,7 @@
   {
     "id": "u_low_profile_processor",
     "name": "Low Profile Processor",
-    "description": "When Noise<=25, damage +17%.",
+    "description": "When Noise <= 25: damage and fire rate spike together.",
     "rarity": "rare",
     "max_stacks": 2,
     "tags": [
@@ -215,9 +281,13 @@
       {
         "stat": "low_noise_damage_mult",
         "add": 0.17
+      },
+      {
+        "stat": "low_noise_attack_speed_mult",
+        "add": 0.14
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.4,
     "prereq": {
       "all": [],
       "any": [
@@ -239,35 +309,60 @@
   },
   {
     "id": "u_hardlight_core",
-    "name": "Hardlight Core",
-    "description": "Global damage +10%.",
+    "name": "Overdrive Doctrine",
+    "description": "Route Core (Burst): high Noise converts to overdrive DPS and kill-based cooldown refunds, but Noise builds faster.",
     "rarity": "common",
-    "max_stacks": 5,
+    "max_stacks": 1,
     "tags": [
       "damage",
-      "crit"
+      "noise",
+      "tempo"
     ],
     "effects": [
       {
-        "stat": "damage_mult",
-        "add": 0.10
+        "stat": "high_noise_damage_mult",
+        "add": 0.34
+      },
+      {
+        "stat": "high_noise_attack_speed_mult",
+        "add": 0.22
+      },
+      {
+        "stat": "kill_attack_cd_refund",
+        "add": 0.08
+      },
+      {
+        "stat": "noise_generation_mult",
+        "add": 0.18
+      },
+      {
+        "stat": "flare_overdrive_duration",
+        "add": 1.60
+      },
+      {
+        "stat": "flare_overdrive_attack_speed_mult",
+        "add": 0.16
+      },
+      {
+        "stat": "flare_overdrive_damage_mult",
+        "add": 0.12
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 3.8,
     "prereq": {
       "all": [],
       "any": []
     },
     "requires_tags": [],
     "requires_weapon_ids": [],
-    "exclusive_group": "",
-    "max_rank": 5,
+    "exclusive_group": "build_route_core",
+    "max_rank": 1,
     "blocks": []
   },
   {
     "id": "u_critical_lens",
     "name": "Critical Lens",
-    "description": "[Tag: crit] Crit chance +5%.",
+    "description": "Burst crit chain: crit-focused route with flare cooldown refund on kill.",
     "rarity": "uncommon",
     "max_stacks": 4,
     "tags": [
@@ -282,11 +377,20 @@
           "type": "tag",
           "value": "crit"
         }
+      },
+      {
+        "stat": "kill_skill_cd_refund",
+        "add": 0.10
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.45,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -298,7 +402,7 @@
   {
     "id": "u_overdrive_prism",
     "name": "Overdrive Prism",
-    "description": "[Tag: crit] Crit multiplier +0.28.",
+    "description": "Burst conversion: high-noise state amplifies crit finisher damage.",
     "rarity": "rare",
     "max_stacks": 3,
     "tags": [
@@ -313,11 +417,20 @@
           "type": "tag",
           "value": "crit"
         }
+      },
+      {
+        "stat": "high_noise_damage_mult",
+        "add": 0.12
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.4,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -328,8 +441,8 @@
   },
   {
     "id": "u_heat_sink_ammo",
-    "name": "Heat Sink Ammo",
-    "description": "[Tag: heat] Damage +14%.",
+    "name": "Heat Vent Feed",
+    "description": "Heat loop: hotter rounds scale with high-noise state at the cost of louder fire.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -339,17 +452,38 @@
     "effects": [
       {
         "stat": "weapon_damage_mult",
-        "add": 0.14,
+        "add": 0.08,
+        "target": {
+          "type": "tag",
+          "value": "heat"
+        }
+      },
+      {
+        "stat": "high_noise_damage_mult",
+        "add": 0.08
+      },
+      {
+        "stat": "weapon_noise_mult",
+        "add": 0.10,
         "target": {
           "type": "tag",
           "value": "heat"
         }
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.75,
     "prereq": {
       "all": [],
-      "any": []
+      "any": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        },
+        {
+          "type": "has_tag",
+          "tag": "heat"
+        }
+      ]
     },
     "requires_tags": [],
     "requires_weapon_ids": [],
@@ -359,8 +493,8 @@
   },
   {
     "id": "u_drill_wake",
-    "name": "Drill Wake",
-    "description": "[Tag: pierce] Pierce +1.",
+    "name": "Drill Wake Reset",
+    "description": "Pierce loop: gain pierce and slight kill-reset tempo while firing gets noisier.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -375,12 +509,29 @@
           "type": "tag",
           "value": "pierce"
         }
+      },
+      {
+        "stat": "kill_attack_cd_refund",
+        "add": 0.04
+      },
+      {
+        "stat": "noise_generation_mult",
+        "add": 0.04
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.8,
     "prereq": {
       "all": [],
-      "any": []
+      "any": [
+        {
+          "type": "has_tag",
+          "tag": "pierce"
+        },
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        }
+      ]
     },
     "requires_tags": [],
     "requires_weapon_ids": [],
@@ -390,8 +541,8 @@
   },
   {
     "id": "u_chain_conductor",
-    "name": "Chain Conductor",
-    "description": "[Tag: chain] Damage +12%.",
+    "name": "Arc Conductor Loop",
+    "description": "Chain loop: denser chain procs feed crowd control and minor noise venting on kills.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -401,16 +552,29 @@
     "effects": [
       {
         "stat": "weapon_damage_mult",
-        "add": 0.12,
+        "add": 0.08,
         "target": {
           "type": "tag",
           "value": "chain"
         }
+      },
+      {
+        "stat": "chain_bonus",
+        "add": 0.08
+      },
+      {
+        "stat": "kill_noise_refund",
+        "add": 0.8
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.78,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "has_tag",
+          "tag": "chain"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -421,8 +585,8 @@
   },
   {
     "id": "u_chain_velocity",
-    "name": "Chain Velocity",
-    "description": "[Tag: chain] Attack rate +10%, chain chance +6%.",
+    "name": "Arc Relay Tempo",
+    "description": "Chain tempo: faster relay shots plus chain chance, with light kill-based cadence refund.",
     "rarity": "common",
     "max_stacks": 4,
     "tags": [
@@ -432,7 +596,7 @@
     "effects": [
       {
         "stat": "weapon_attack_rate_mult",
-        "add": 0.10,
+        "add": 0.08,
         "target": {
           "type": "tag",
           "value": "chain"
@@ -441,9 +605,13 @@
       {
         "stat": "chain_bonus",
         "add": 0.06
+      },
+      {
+        "stat": "kill_attack_cd_refund",
+        "add": 0.04
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.78,
     "prereq": {
       "all": [
         {
@@ -461,8 +629,8 @@
   },
   {
     "id": "u_aoe_expander",
-    "name": "AOE Expander",
-    "description": "[Tag: aoe] Radius +18%.",
+    "name": "Blast Envelope",
+    "description": "AOE loop: wider blast zone with louder detonations that still vent a bit on kill.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -472,16 +640,33 @@
     "effects": [
       {
         "stat": "weapon_aoe_radius_mult",
-        "add": 0.18,
+        "add": 0.16,
         "target": {
           "type": "tag",
           "value": "aoe"
         }
+      },
+      {
+        "stat": "weapon_noise_mult",
+        "add": 0.08,
+        "target": {
+          "type": "tag",
+          "value": "aoe"
+        }
+      },
+      {
+        "stat": "kill_noise_refund",
+        "add": 0.7
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.76,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "has_tag",
+          "tag": "aoe"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -492,8 +677,8 @@
   },
   {
     "id": "u_blast_density",
-    "name": "Blast Density",
-    "description": "[Tag: aoe] Damage +11%.",
+    "name": "Detonation Debt",
+    "description": "AOE burst mode: stronger payloads spike high-noise damage while blast signature gets louder.",
     "rarity": "rare",
     "max_stacks": 2,
     "tags": [
@@ -503,17 +688,38 @@
     "effects": [
       {
         "stat": "weapon_damage_mult",
-        "add": 0.11,
+        "add": 0.10,
+        "target": {
+          "type": "tag",
+          "value": "aoe"
+        }
+      },
+      {
+        "stat": "high_noise_damage_mult",
+        "add": 0.10
+      },
+      {
+        "stat": "weapon_noise_mult",
+        "add": 0.12,
         "target": {
           "type": "tag",
           "value": "aoe"
         }
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.74,
     "prereq": {
       "all": [],
-      "any": []
+      "any": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        },
+        {
+          "type": "has_tag",
+          "tag": "aoe"
+        }
+      ]
     },
     "requires_tags": [],
     "requires_weapon_ids": [],
@@ -523,21 +729,42 @@
   },
   {
     "id": "u_drone_bay",
-    "name": "Drone Bay",
-    "description": "Summon cap +1.",
-    "rarity": "rare",
-    "max_stacks": 2,
+    "name": "Command Doctrine",
+    "description": "Route Core (Summon Control): wider summon control zone, summon guard mitigation, and stable noise venting from summon hits.",
+    "rarity": "common",
+    "max_stacks": 1,
     "tags": [
       "summon",
-      "control"
+      "control",
+      "defense"
     ],
     "effects": [
       {
         "stat": "summon_cap_bonus",
         "add": 1
+      },
+      {
+        "stat": "summon_contact_radius_mult",
+        "add": 0.25
+      },
+      {
+        "stat": "summon_orbit_radius_mult",
+        "add": 0.12
+      },
+      {
+        "stat": "summon_guard_damage_reduction",
+        "add": 0.15
+      },
+      {
+        "stat": "summon_hit_noise_refund",
+        "add": 0.65
+      },
+      {
+        "stat": "kill_noise_refund",
+        "add": 1.1
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 3.8,
     "prereq": {
       "all": [],
       "any": []
@@ -546,14 +773,14 @@
     "requires_weapon_ids": [
       "orbital_drone"
     ],
-    "exclusive_group": "summon_route",
-    "max_rank": 2,
+    "exclusive_group": "build_route_core",
+    "max_rank": 1,
     "blocks": []
   },
   {
     "id": "u_summon_link",
     "name": "Summon Link",
-    "description": "[Tag: summon] Damage +14%.",
+    "description": "Summon control: summon hits vent Noise and stabilize position control.",
     "rarity": "uncommon",
     "max_stacks": 4,
     "tags": [
@@ -568,11 +795,20 @@
           "type": "tag",
           "value": "summon"
         }
+      },
+      {
+        "stat": "summon_hit_noise_refund",
+        "add": 0.45
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.45,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_drone_bay"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -584,7 +820,7 @@
   {
     "id": "u_summon_clock",
     "name": "Summon Clock",
-    "description": "[Tag: summon] Attack rate +13%.",
+    "description": "Summon tempo: larger summon engagement ring and faster surround pressure.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -599,11 +835,24 @@
           "type": "tag",
           "value": "summon"
         }
+      },
+      {
+        "stat": "summon_contact_radius_mult",
+        "add": 0.16
+      },
+      {
+        "stat": "summon_orbit_radius_mult",
+        "add": 0.12
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.4,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_drone_bay"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -615,7 +864,7 @@
   {
     "id": "u_summon_screen",
     "name": "Summon Screen",
-    "description": "Summon damage resistance +18%.",
+    "description": "Summon guard: active summons convert space control into incoming damage mitigation.",
     "rarity": "common",
     "max_stacks": 3,
     "tags": [
@@ -626,9 +875,13 @@
       {
         "stat": "summon_resistance",
         "add": 0.18
+      },
+      {
+        "stat": "summon_guard_damage_reduction",
+        "add": 0.12
       }
     ],
-    "base_weight": 1.1,
+    "base_weight": 1.4,
     "prereq": {
       "all": [],
       "any": []
@@ -643,8 +896,8 @@
   },
   {
     "id": "u_salvage_loop",
-    "name": "Salvage Loop",
-    "description": "XP gain +16%.",
+    "name": "Scavenger Protocol",
+    "description": "Utility loop: faster progression plus small kill-based noise venting.",
     "rarity": "common",
     "max_stacks": 4,
     "tags": [
@@ -654,10 +907,14 @@
     "effects": [
       {
         "stat": "xp_gain_mult",
-        "add": 0.16
+        "add": 0.10
+      },
+      {
+        "stat": "kill_noise_refund",
+        "add": 0.9
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.72,
     "prereq": {
       "all": [],
       "any": []
@@ -670,8 +927,8 @@
   },
   {
     "id": "u_magnet_fins",
-    "name": "Magnet Fins",
-    "description": "Pickup radius +16%.",
+    "name": "Vacuum Rhythm",
+    "description": "Utility tempo: wider pickup sweep plus small kill-reset cadence.",
     "rarity": "common",
     "max_stacks": 3,
     "tags": [
@@ -681,10 +938,14 @@
     "effects": [
       {
         "stat": "pickup_radius_mult",
-        "add": 0.16
+        "add": 0.12
+      },
+      {
+        "stat": "kill_attack_cd_refund",
+        "add": 0.05
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.72,
     "prereq": {
       "all": [],
       "any": []
@@ -698,7 +959,7 @@
   {
     "id": "u_precision_dart_matrix",
     "name": "Precision Dart Matrix",
-    "description": "[Weapon: silence_dart] Damage +22%, reveal bonus +0.25s.",
+    "description": "[Weapon: silence_dart] Stealth execution package: damage + reveal bonus with route lock-in.",
     "rarity": "rare",
     "max_stacks": 2,
     "tags": [
@@ -723,9 +984,14 @@
         }
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.95,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_sonar_scope_matrix"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -739,7 +1005,7 @@
   {
     "id": "u_lancer_rail_matrix",
     "name": "Lancer Rail Matrix",
-    "description": "[Weapon: needle_rifle] Attack rate +12%, pierce +1.",
+    "description": "[Weapon: needle_rifle] Precision lane control that rewards stealth or burst doctrines.",
     "rarity": "rare",
     "max_stacks": 2,
     "tags": [
@@ -764,10 +1030,19 @@
         }
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.95,
     "prereq": {
       "all": [],
-      "any": []
+      "any": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_sonar_scope_matrix"
+        },
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        }
+      ]
     },
     "requires_tags": [],
     "requires_weapon_ids": [
@@ -780,7 +1055,7 @@
   {
     "id": "u_burst_vent_tuning",
     "name": "Burst Vent Tuning",
-    "description": "[Weapon: burst_smg] Damage +10%, noise/shot -12%.",
+    "description": "Burst vent mode: hotter shots, faster high-noise cycle, and kill cooldown refunds.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -790,7 +1065,7 @@
     "effects": [
       {
         "stat": "weapon_damage_mult",
-        "add": 0.10,
+        "add": 0.08,
         "target": {
           "type": "weapon_id",
           "value": "burst_smg"
@@ -798,16 +1073,29 @@
       },
       {
         "stat": "weapon_noise_mult",
-        "add": -0.12,
+        "add": 0.10,
         "target": {
           "type": "weapon_id",
           "value": "burst_smg"
         }
+      },
+      {
+        "stat": "high_noise_attack_speed_mult",
+        "add": 0.10
+      },
+      {
+        "stat": "kill_attack_cd_refund",
+        "add": 0.06
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 1.4,
     "prereq": {
-      "all": [],
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        }
+      ],
       "any": []
     },
     "requires_tags": [],
@@ -816,14 +1104,12 @@
     ],
     "exclusive_group": "",
     "max_rank": 3,
-    "blocks": [
-      "u_silent_baffles"
-    ]
+    "blocks": []
   },
   {
     "id": "u_shock_harmonics",
-    "name": "Shock Harmonics",
-    "description": "[Weapon: shock_pulse] Radius +20%, attack rate +8%.",
+    "name": "Shock Harmonics Loop",
+    "description": "[Weapon: shock_pulse] Wider pulse rhythm with kill-reset tempo under burst/control routes.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -833,7 +1119,7 @@
     "effects": [
       {
         "stat": "weapon_aoe_radius_mult",
-        "add": 0.20,
+        "add": 0.16,
         "target": {
           "type": "weapon_id",
           "value": "shock_pulse"
@@ -841,17 +1127,30 @@
       },
       {
         "stat": "weapon_attack_rate_mult",
-        "add": 0.08,
+        "add": 0.06,
         "target": {
           "type": "weapon_id",
           "value": "shock_pulse"
         }
+      },
+      {
+        "stat": "kill_attack_cd_refund",
+        "add": 0.05
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.9,
     "prereq": {
       "all": [],
-      "any": []
+      "any": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        },
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_drone_bay"
+        }
+      ]
     },
     "requires_tags": [],
     "requires_weapon_ids": [
@@ -863,8 +1162,8 @@
   },
   {
     "id": "u_mine_chain_relay",
-    "name": "Mine Chain Relay",
-    "description": "[Weapon: abyss_mine] Damage +20%, radius +12%.",
+    "name": "Mine Chain Trigger",
+    "description": "[Weapon: abyss_mine] Trap route package with louder detonations that refund noise on kill.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -874,7 +1173,7 @@
     "effects": [
       {
         "stat": "weapon_damage_mult",
-        "add": 0.20,
+        "add": 0.14,
         "target": {
           "type": "weapon_id",
           "value": "abyss_mine"
@@ -882,17 +1181,38 @@
       },
       {
         "stat": "weapon_aoe_radius_mult",
+        "add": 0.10,
+        "target": {
+          "type": "weapon_id",
+          "value": "abyss_mine"
+        }
+      },
+      {
+        "stat": "weapon_noise_mult",
         "add": 0.12,
         "target": {
           "type": "weapon_id",
           "value": "abyss_mine"
         }
+      },
+      {
+        "stat": "kill_noise_refund",
+        "add": 1.0
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.9,
     "prereq": {
       "all": [],
-      "any": []
+      "any": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_drone_bay"
+        },
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_sonar_scope_matrix"
+        }
+      ]
     },
     "requires_tags": [],
     "requires_weapon_ids": [
@@ -904,8 +1224,8 @@
   },
   {
     "id": "u_tether_focus",
-    "name": "Tether Focus",
-    "description": "[Weapon: tether_beam] Damage +15%, range +12%.",
+    "name": "Tether Punish Link",
+    "description": "[Weapon: tether_beam] Control route link with stronger punish windows in high-noise fights.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -915,7 +1235,7 @@
     "effects": [
       {
         "stat": "weapon_damage_mult",
-        "add": 0.15,
+        "add": 0.10,
         "target": {
           "type": "weapon_id",
           "value": "tether_beam"
@@ -923,17 +1243,30 @@
       },
       {
         "stat": "weapon_range_mult",
-        "add": 0.12,
+        "add": 0.10,
         "target": {
           "type": "weapon_id",
           "value": "tether_beam"
         }
+      },
+      {
+        "stat": "high_noise_attack_speed_mult",
+        "add": 0.08
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.9,
     "prereq": {
       "all": [],
-      "any": []
+      "any": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        },
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_drone_bay"
+        }
+      ]
     },
     "requires_tags": [],
     "requires_weapon_ids": [
@@ -946,7 +1279,7 @@
   {
     "id": "u_drone_cluster_ai",
     "name": "Drone Cluster AI",
-    "description": "[Weapon: orbital_drone] Summon +1, attack rate +10%.",
+    "description": "[Weapon: orbital_drone] Swarm escalation package: extra unit, faster orbit, and cleaner noise economy.",
     "rarity": "legendary",
     "max_stacks": 2,
     "tags": [
@@ -969,6 +1302,10 @@
           "type": "weapon_id",
           "value": "orbital_drone"
         }
+      },
+      {
+        "stat": "summon_hit_noise_refund",
+        "add": 0.35
       }
     ],
     "base_weight": 0.6,
@@ -992,7 +1329,7 @@
   {
     "id": "u_blade_resonance",
     "name": "Blade Resonance",
-    "description": "Flare Blade damage +16%, attack rate +12%.",
+    "description": "[Weapon: sonar_blade] Duel package tuned for stealth openers or burst finishers.",
     "rarity": "rare",
     "max_stacks": 2,
     "tags": [
@@ -1017,15 +1354,289 @@
         }
       }
     ],
-    "base_weight": 1.0,
+    "base_weight": 0.95,
     "prereq": {
       "all": [],
-      "any": []
+      "any": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_sonar_scope_matrix"
+        },
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        }
+      ]
     },
     "requires_tags": [],
     "requires_weapon_ids": [
       "sonar_blade"
     ],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
+  },
+  {
+    "id": "u_shadow_lattice",
+    "name": "Shadow Lattice",
+    "description": "Stealth finisher: darkness venting scales harder and low-noise shots gain stronger cadence.",
+    "rarity": "rare",
+    "max_stacks": 2,
+    "tags": [
+      "silence",
+      "noise",
+      "damage"
+    ],
+    "effects": [
+      {
+        "stat": "darkness_noise_decay_boost",
+        "add": 0.28
+      },
+      {
+        "stat": "low_noise_attack_speed_mult",
+        "add": 0.12
+      },
+      {
+        "stat": "low_noise_damage_mult",
+        "add": 0.12
+      }
+    ],
+    "base_weight": 1.35,
+    "prereq": {
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_sonar_scope_matrix"
+        }
+      ],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
+  },
+  {
+    "id": "u_cold_spark_recycler",
+    "name": "Cold Spark Recycler",
+    "description": "Stealth utility: kill refunds flare cooldown while flare itself causes less exposure burst.",
+    "rarity": "epic",
+    "max_stacks": 2,
+    "tags": [
+      "silence",
+      "sonar",
+      "tempo"
+    ],
+    "effects": [
+      {
+        "stat": "kill_skill_cd_refund",
+        "add": 0.24
+      },
+      {
+        "stat": "flare_noise_spike_mult",
+        "add": -0.16
+      },
+      {
+        "stat": "flare_visibility_grace_mult",
+        "add": 0.16
+      }
+    ],
+    "base_weight": 1.2,
+    "prereq": {
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_sonar_scope_matrix"
+        }
+      ],
+      "any": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_thermal_sink"
+        }
+      ]
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
+  },
+  {
+    "id": "u_redline_combustor",
+    "name": "Redline Combustor",
+    "description": "Burst amplifier: flare triggers short overdrive and high-noise state escalates DPS.",
+    "rarity": "rare",
+    "max_stacks": 2,
+    "tags": [
+      "damage",
+      "noise",
+      "tempo"
+    ],
+    "effects": [
+      {
+        "stat": "high_noise_damage_mult",
+        "add": 0.14
+      },
+      {
+        "stat": "high_noise_attack_speed_mult",
+        "add": 0.12
+      },
+      {
+        "stat": "flare_overdrive_duration",
+        "add": 1.10
+      },
+      {
+        "stat": "flare_overdrive_damage_mult",
+        "add": 0.16
+      }
+    ],
+    "base_weight": 1.35,
+    "prereq": {
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        }
+      ],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
+  },
+  {
+    "id": "u_bloodrush_reservoir",
+    "name": "Bloodrush Reservoir",
+    "description": "Burst loop: chain kills rapidly refund attack and flare cooldowns at the cost of louder combat.",
+    "rarity": "epic",
+    "max_stacks": 2,
+    "tags": [
+      "damage",
+      "noise",
+      "tempo"
+    ],
+    "effects": [
+      {
+        "stat": "kill_attack_cd_refund",
+        "add": 0.12
+      },
+      {
+        "stat": "kill_skill_cd_refund",
+        "add": 0.22
+      },
+      {
+        "stat": "noise_generation_mult",
+        "add": 0.10
+      }
+    ],
+    "base_weight": 1.2,
+    "prereq": {
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hardlight_core"
+        }
+      ],
+      "any": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_redline_combustor"
+        }
+      ]
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
+  },
+  {
+    "id": "u_hivemind_router",
+    "name": "Hivemind Router",
+    "description": "Summon control layer: expands orbit ring and collision envelope for zone denial.",
+    "rarity": "rare",
+    "max_stacks": 2,
+    "tags": [
+      "summon",
+      "control",
+      "speed"
+    ],
+    "effects": [
+      {
+        "stat": "summon_contact_radius_mult",
+        "add": 0.20
+      },
+      {
+        "stat": "summon_orbit_radius_mult",
+        "add": 0.20
+      },
+      {
+        "stat": "summon_hit_noise_refund",
+        "add": 0.30
+      }
+    ],
+    "base_weight": 1.3,
+    "prereq": {
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_drone_bay"
+        }
+      ],
+      "any": []
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
+    "exclusive_group": "",
+    "max_rank": 2,
+    "blocks": []
+  },
+  {
+    "id": "u_sigil_guard_net",
+    "name": "Sigil Guard Net",
+    "description": "Summon fortress: active summons grant stronger mitigation and accelerate flare cycle through kills.",
+    "rarity": "epic",
+    "max_stacks": 2,
+    "tags": [
+      "summon",
+      "defense",
+      "tempo"
+    ],
+    "effects": [
+      {
+        "stat": "summon_guard_damage_reduction",
+        "add": 0.14
+      },
+      {
+        "stat": "summon_resistance",
+        "add": 0.12
+      },
+      {
+        "stat": "kill_skill_cd_refund",
+        "add": 0.16
+      }
+    ],
+    "base_weight": 1.2,
+    "prereq": {
+      "all": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_drone_bay"
+        }
+      ],
+      "any": [
+        {
+          "type": "upgrade_selected",
+          "upgrade_id": "u_hivemind_router"
+        }
+      ]
+    },
+    "requires_tags": [],
+    "requires_weapon_ids": [],
     "exclusive_group": "",
     "max_rank": 2,
     "blocks": []

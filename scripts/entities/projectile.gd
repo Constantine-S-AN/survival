@@ -8,6 +8,8 @@ var direction := Vector2.RIGHT
 var speed := 520.0
 var damage := 10.0
 var remaining_range := 600.0
+var start_range := 600.0
+var shot_origin := Vector2.ZERO
 var radius := 6.0
 var pierce := 0
 var hit_count := 0
@@ -20,6 +22,14 @@ var impact_pulse_strength := 0.0
 var impact_pulse_radius_scale := 0.9
 var impact_knockback := 180.0
 var fx_color := Color(1.0, 1.0, 1.0, 1.0)
+var weapon_id: String = ""
+var attack_model: String = "projectile"
+var signature_mode: String = ""
+var signature_power: float = 0.0
+var signature_aux: float = 0.0
+var signature_cycle: int = 0
+var signature_duration: float = 0.0
+var precision_bonus: float = 0.0
 var weapon_tags: Array = []
 var source_owner: Node = null
 var recycle_handler: Callable = Callable()
@@ -43,11 +53,13 @@ func set_recycle_handler(handler: Callable) -> void:
 
 func configure(origin: Vector2, fire_direction: Vector2, projectile_data: Dictionary, owner_ref: Node) -> void:
 	global_position = origin
+	shot_origin = origin
 	hit_count = 0
 	direction = fire_direction.normalized() if fire_direction.length() > 0.01 else Vector2.RIGHT
 	speed = float(projectile_data.get("speed", speed))
 	damage = float(projectile_data.get("damage", damage))
 	remaining_range = float(projectile_data.get("range", remaining_range))
+	start_range = remaining_range
 	pierce = int(projectile_data.get("pierce", pierce))
 	radius = float(projectile_data.get("radius", radius))
 	crit_chance = float(projectile_data.get("crit_chance", 0.0))
@@ -58,6 +70,14 @@ func configure(origin: Vector2, fire_direction: Vector2, projectile_data: Dictio
 	impact_pulse_strength = maxf(0.0, float(projectile_data.get("impact_pulse_strength", 0.0)))
 	impact_pulse_radius_scale = clampf(float(projectile_data.get("impact_pulse_radius_scale", 0.9)), 0.3, 2.5)
 	impact_knockback = maxf(0.0, float(projectile_data.get("impact_knockback", 180.0)))
+	weapon_id = String(projectile_data.get("weapon_id", "")).strip_edges().to_lower()
+	attack_model = String(projectile_data.get("attack_model", "projectile")).strip_edges().to_lower()
+	signature_mode = String(projectile_data.get("signature_mode", "")).strip_edges().to_lower()
+	signature_power = float(projectile_data.get("signature_power", 0.0))
+	signature_aux = float(projectile_data.get("signature_aux", 0.0))
+	signature_cycle = int(projectile_data.get("signature_cycle", 0))
+	signature_duration = float(projectile_data.get("signature_duration", 0.0))
+	precision_bonus = clampf(float(projectile_data.get("precision_bonus", 0.0)), 0.0, 0.1)
 	var fx_color_hex := String(projectile_data.get("fx_color", "")).strip_edges()
 	fx_color = Color(1.0, 1.0, 1.0, 1.0)
 	if not fx_color_hex.is_empty():
@@ -65,8 +85,6 @@ func configure(origin: Vector2, fire_direction: Vector2, projectile_data: Dictio
 	var tags_variant: Variant = projectile_data.get("tags", [])
 	weapon_tags = tags_variant if tags_variant is Array else []
 	source_owner = owner_ref
-	var weapon_id := String(projectile_data.get("weapon_id", "")).strip_edges()
-
 	var shape := collision_shape.shape
 	if shape is CircleShape2D:
 		shape.radius = radius
@@ -96,13 +114,28 @@ func _on_body_entered(body: Node) -> void:
 	if body.is_in_group("enemy") and body.has_method("take_hit"):
 		var final_damage := damage
 		var is_crit := false
+		var payload: Dictionary = {}
 		if source_owner != null and source_owner.has_method("compute_hit_payload"):
-			var payload_variant: Variant = source_owner.compute_hit_payload(body, damage, crit_chance, crit_multiplier)
+			var payload_variant: Variant = source_owner.compute_hit_payload(body, damage, crit_chance, crit_multiplier, {
+				"weapon_id": weapon_id,
+				"attack_model": attack_model,
+				"weapon_range": start_range,
+				"hit_origin": shot_origin,
+				"weapon_tags": weapon_tags,
+				"signature_mode": signature_mode,
+				"signature_power": signature_power,
+				"signature_aux": signature_aux,
+				"signature_cycle": signature_cycle,
+				"signature_duration": signature_duration,
+				"precision_bonus": precision_bonus
+			})
 			if payload_variant is Dictionary:
-				var payload: Dictionary = payload_variant
+				payload = payload_variant
 				final_damage = float(payload.get("damage", damage))
 				is_crit = bool(payload.get("crit", false))
 		var killed := bool(body.take_hit(final_damage, direction * impact_knockback))
+		if source_owner != null and source_owner.has_method("on_projectile_hit"):
+			source_owner.on_projectile_hit(body, final_damage, is_crit, killed, payload, global_position)
 		if reveal_bonus_duration > 0.0 and body.has_method("set_revealed"):
 			body.set_revealed(reveal_bonus_duration)
 		var intensity := clampf((final_damage / 34.0) + (0.07 if killed else 0.0) + (0.05 if is_crit else 0.0), 0.08, 0.36)
@@ -134,6 +167,17 @@ func on_pool_recycle() -> void:
 	impact_pulse_radius_scale = 0.9
 	impact_knockback = 180.0
 	fx_color = Color(1.0, 1.0, 1.0, 1.0)
+	start_range = 600.0
+	shot_origin = Vector2.ZERO
+	weapon_id = ""
+	attack_model = "projectile"
+	signature_mode = ""
+	signature_power = 0.0
+	signature_aux = 0.0
+	signature_cycle = 0
+	signature_duration = 0.0
+	precision_bonus = 0.0
+	weapon_tags.clear()
 	if sticker_visual != null:
 		sticker_visual.texture = null
 		sticker_visual.visible = false

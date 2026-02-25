@@ -8,15 +8,15 @@
       "pierce",
       "sonar"
     ],
-    "base_damage": 18.0,
+    "base_damage": 14.859,
     "attack_rate": 2.1,
     "range": 820.0,
     "projectile_speed": 760.0,
     "projectile_pierce": 1,
-    "crit_chance": 0.06,
+    "crit_chance": 0.09,
     "crit_multiplier": 1.7,
     "aoe_radius": 0.0,
-    "noise_per_attack": 2.8,
+    "noise_per_attack": 1.905,
     "level_growth": [
       {
         "level": 1,
@@ -55,9 +55,42 @@
       }
     ],
     "projectile_radius": 5.8,
-    "projectile_spread_deg": 3.0,
-    "impact_knockback": 210.0,
-    "fx_color": "#7ad8ff"
+    "projectile_spread_deg": 1.6,
+    "impact_knockback": 220.0,
+    "fx_color": "#7ad8ff",
+    "projectile_count": 1,
+    "signature_mode": "sniper",
+    "signature_power": 0.42,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.007,
+      "projected_ttk_s": 1.007,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 4.0,
+      "projected_noise_ps": 4.001,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
+    ]
   },
   "burst_smg": {
     "id": "burst_smg",
@@ -68,15 +101,15 @@
       "heat",
       "crit"
     ],
-    "base_damage": 7.5,
-    "attack_rate": 7.2,
+    "base_damage": 5.556,
+    "attack_rate": 5.0,
     "range": 620.0,
     "projectile_speed": 700.0,
     "projectile_pierce": 0,
     "crit_chance": 0.12,
     "crit_multiplier": 1.65,
     "aoe_radius": 0.0,
-    "noise_per_attack": 4.2,
+    "noise_per_attack": 1.95,
     "level_growth": [
       {
         "level": 1,
@@ -115,11 +148,50 @@
       }
     ],
     "projectile_radius": 4.6,
-    "projectile_spread_deg": 6.5,
+    "projectile_spread_deg": 7.8,
     "burst_count": 2,
-    "burst_interval": 0.045,
+    "burst_interval": 0.038,
     "impact_knockback": 145.0,
-    "fx_color": "#6dff84"
+    "fx_color": "#6dff84",
+    "projectile_count": 2,
+    "signature_mode": "finisher_cycle",
+    "signature_power": 0.42,
+    "signature_aux": 120.0,
+    "signature_cycle": 7,
+    "signature_duration": 0.0,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.772,
+      "projected_ttk_s": 0.772,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 9.75,
+      "projected_noise_ps": 9.75,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.17,
+        "skill_refund": 0.32,
+        "noise_refund": 2.6
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.18,
+        "attack_rate_mult": 0.16,
+        "crit_chance_add": 0.02,
+        "min_light_ratio": 0.5
+      }
+    ]
   },
   "silence_dart": {
     "id": "silence_dart",
@@ -130,15 +202,15 @@
       "silence",
       "sonar"
     ],
-    "base_damage": 10.5,
+    "base_damage": 8.851,
     "attack_rate": 3.0,
     "range": 780.0,
-    "projectile_speed": 840.0,
+    "projectile_speed": 900.0,
     "projectile_pierce": 0,
-    "crit_chance": 0.08,
+    "crit_chance": 0.1,
     "crit_multiplier": 1.55,
     "aoe_radius": 0.0,
-    "noise_per_attack": 1.4,
+    "noise_per_attack": 1.515,
     "reveal_bonus_duration": 0.55,
     "level_growth": [
       {
@@ -178,11 +250,43 @@
       }
     ],
     "projectile_radius": 4.2,
-    "projectile_spread_deg": 2.2,
+    "projectile_spread_deg": 1.4,
     "impact_pulse_strength": 0.35,
     "impact_pulse_radius_scale": 0.92,
     "impact_knockback": 130.0,
-    "fx_color": "#ffc8a0"
+    "fx_color": "#ffc8a0",
+    "projectile_count": 1,
+    "signature_mode": "reveal_hunter",
+    "signature_power": 0.75,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 2.2,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.2,
+      "projected_ttk_s": 1.2,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 4.0,
+      "projected_noise_ps": 4.0,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
+    ]
   },
   "shock_pulse": {
     "id": "shock_pulse",
@@ -193,15 +297,15 @@
       "aoe",
       "sonar"
     ],
-    "base_damage": 24.0,
+    "base_damage": 39.938,
     "attack_rate": 1.05,
     "range": 180.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.04,
     "crit_multiplier": 1.45,
-    "aoe_radius": 176.0,
-    "noise_per_attack": 3.4,
+    "aoe_radius": 190.0,
+    "noise_per_attack": 5.714,
     "level_growth": [
       {
         "level": 1,
@@ -234,11 +338,48 @@
         "aoe_mult": 1.3
       }
     ],
-    "pulse_repeats": 2,
-    "pulse_repeat_interval": 0.11,
+    "pulse_repeats": 3,
+    "pulse_repeat_interval": 0.09,
     "pulse_falloff": 0.8,
     "impact_knockback": 220.0,
-    "fx_color": "#ff71a4"
+    "fx_color": "#ff71a4",
+    "signature_mode": "swarm_breaker",
+    "signature_power": 0.22,
+    "signature_aux": 180.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.937,
+      "projected_ttk_s": 0.937,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 6.0,
+      "projected_noise_ps": 6.0,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.17,
+        "skill_refund": 0.32,
+        "noise_refund": 2.6
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.2,
+        "crit_multiplier_add": 0.26,
+        "max_light_ratio": 0.4
+      }
+    ]
   },
   "abyss_mine": {
     "id": "abyss_mine",
@@ -249,7 +390,7 @@
       "aoe",
       "trap"
     ],
-    "base_damage": 42.0,
+    "base_damage": 34.792,
     "attack_rate": 0.78,
     "range": 480.0,
     "projectile_speed": 260.0,
@@ -257,7 +398,7 @@
     "crit_chance": 0.05,
     "crit_multiplier": 1.6,
     "aoe_radius": 148.0,
-    "noise_per_attack": 3.8,
+    "noise_per_attack": 5.182,
     "activation_delay": 0.65,
     "level_growth": [
       {
@@ -291,14 +432,46 @@
         "aoe_mult": 1.3
       }
     ],
-    "mine_shard_count": 8,
-    "mine_shard_speed": 620.0,
-    "mine_shard_range": 330.0,
+    "mine_shard_count": 10,
+    "mine_shard_speed": 660.0,
+    "mine_shard_range": 360.0,
     "projectile_radius": 4.5,
-    "impact_aoe_radius": 42.0,
+    "impact_aoe_radius": 48.0,
     "impact_aoe_damage_mult": 0.35,
     "impact_pulse_strength": 0.46,
-    "fx_color": "#ffd17d"
+    "fx_color": "#ffd17d",
+    "signature_mode": "finisher_cycle",
+    "signature_power": 0.55,
+    "signature_aux": 170.0,
+    "signature_cycle": 4,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.164,
+      "projected_ttk_s": 1.164,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 4.285,
+      "projected_noise_ps": 4.284,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
+    ]
   },
   "tether_beam": {
     "id": "tether_beam",
@@ -309,15 +482,15 @@
       "chain",
       "control"
     ],
-    "base_damage": 13.0,
-    "attack_rate": 5.5,
+    "base_damage": 17.191,
+    "attack_rate": 2.2,
     "range": 540.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.03,
     "crit_multiplier": 1.35,
     "aoe_radius": 0.0,
-    "noise_per_attack": 2.6,
+    "noise_per_attack": 3.637,
     "beam_tick_interval": 0.16,
     "level_growth": [
       {
@@ -351,10 +524,48 @@
         "range_mult": 1.18
       }
     ],
-    "beam_chain_targets": 1,
+    "beam_chain_targets": 2,
     "beam_chain_falloff": 0.68,
     "impact_knockback": 180.0,
-    "fx_color": "#6fb9ff"
+    "fx_color": "#6fb9ff",
+    "signature_mode": "elite_bane",
+    "signature_power": 0.34,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.809,
+      "projected_ttk_s": 0.809,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 8.481,
+      "projected_noise_ps": 8.481,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.27,
+        "crit_chance_add": 0.04,
+        "dot_threshold": -0.16
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.18,
+        "attack_rate_mult": 0.16,
+        "crit_chance_add": 0.02,
+        "min_light_ratio": 0.5
+      }
+    ]
   },
   "orbital_drone": {
     "id": "orbital_drone",
@@ -364,17 +575,17 @@
     "tags": [
       "summon"
     ],
-    "base_damage": 11.0,
-    "attack_rate": 2.4,
+    "base_damage": 16.117,
+    "attack_rate": 2.0,
     "range": 220.0,
     "projectile_speed": 690.0,
     "projectile_pierce": 0,
     "crit_chance": 0.05,
     "crit_multiplier": 1.5,
     "aoe_radius": 0.0,
-    "noise_per_attack": 2.9,
+    "noise_per_attack": 2.858,
     "orbit_radius": 120.0,
-    "drone_count": 1,
+    "drone_count": 2,
     "level_growth": [
       {
         "level": 1,
@@ -407,11 +618,48 @@
         "drone_count_bonus": 2
       }
     ],
-    "drone_volley": 2,
-    "drone_spread_deg": 5.0,
-    "drone_projectile_radius": 3.8,
+    "drone_volley": 3,
+    "drone_spread_deg": 16.0,
+    "drone_projectile_radius": 4.3,
     "impact_knockback": 130.0,
-    "fx_color": "#93edff"
+    "fx_color": "#93edff",
+    "signature_mode": "mark_burst",
+    "signature_power": 0.08,
+    "signature_aux": 0.0,
+    "signature_cycle": 5,
+    "signature_duration": 2.6,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.95,
+      "projected_ttk_s": 0.95,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 6.173,
+      "projected_noise_ps": 6.173,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.17,
+        "skill_refund": 0.32,
+        "noise_refund": 2.6
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.2,
+        "crit_multiplier_add": 0.26,
+        "max_light_ratio": 0.4
+      }
+    ]
   },
   "sonar_blade": {
     "id": "sonar_blade",
@@ -422,15 +670,15 @@
       "sonar",
       "speed"
     ],
-    "base_damage": 28.0,
+    "base_damage": 20.385,
     "attack_rate": 1.9,
     "range": 164.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.1,
     "crit_multiplier": 1.7,
-    "aoe_radius": 132.0,
-    "noise_per_attack": 2.2,
+    "aoe_radius": 158.0,
+    "noise_per_attack": 2.338,
     "sonar_pulse_strength": 1.4,
     "level_growth": [
       {
@@ -464,11 +712,42 @@
         "aoe_mult": 1.22
       }
     ],
-    "melee_cone_dot": 0.22,
+    "melee_cone_dot": 0.28,
     "impact_knockback": 260.0,
     "impact_pulse_strength": 0.55,
     "impact_pulse_radius_scale": 1.1,
-    "fx_color": "#ffb07a"
+    "fx_color": "#ffb07a",
+    "signature_mode": "vanguard",
+    "signature_power": 0.55,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.965,
+      "projected_ttk_s": 0.965,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 4.442,
+      "projected_noise_ps": 4.442,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
+    ]
   },
   "flare_lance": {
     "id": "flare_lance",
@@ -479,7 +758,7 @@
       "damage",
       "kinetic"
     ],
-    "base_damage": 20.0,
+    "base_damage": 8.176,
     "attack_rate": 1.9,
     "range": 900.0,
     "projectile_speed": 860.0,
@@ -487,7 +766,7 @@
     "crit_chance": 0.07,
     "crit_multiplier": 1.75,
     "aoe_radius": 0.0,
-    "noise_per_attack": 3.0,
+    "noise_per_attack": 3.467,
     "level_growth": [
       {
         "level": 1,
@@ -526,11 +805,44 @@
       }
     ],
     "projectile_radius": 5.4,
-    "projectile_spread_deg": 2.5,
-    "impact_aoe_radius": 34.0,
-    "impact_aoe_damage_mult": 0.42,
+    "projectile_spread_deg": 5.2,
+    "impact_aoe_radius": 36.0,
+    "impact_aoe_damage_mult": 0.7,
     "impact_knockback": 240.0,
-    "fx_color": "#ff9f70"
+    "fx_color": "#ff9f70",
+    "projectile_count": 2,
+    "signature_mode": "execution",
+    "signature_power": 0.95,
+    "signature_aux": 0.32,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.03,
+      "projected_ttk_s": 1.03,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 6.588,
+      "projected_noise_ps": 6.587,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
+    ]
   },
   "night_carbine": {
     "id": "night_carbine",
@@ -541,15 +853,15 @@
       "starter",
       "pierce"
     ],
-    "base_damage": 14.0,
-    "attack_rate": 3.6,
+    "base_damage": 6.315,
+    "attack_rate": 2.8,
     "range": 760.0,
     "projectile_speed": 740.0,
     "projectile_pierce": 0,
     "crit_chance": 0.09,
     "crit_multiplier": 1.62,
     "aoe_radius": 0.0,
-    "noise_per_attack": 2.4,
+    "noise_per_attack": 2.055,
     "level_growth": [
       {
         "level": 1,
@@ -588,11 +900,43 @@
       }
     ],
     "projectile_radius": 4.9,
-    "projectile_spread_deg": 4.2,
+    "projectile_spread_deg": 4.8,
     "burst_count": 2,
     "burst_interval": 0.055,
     "impact_knockback": 170.0,
-    "fx_color": "#9cff8b"
+    "fx_color": "#9cff8b",
+    "projectile_count": 2,
+    "signature_mode": "skill_cool",
+    "signature_power": 0.22,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.076,
+      "projected_ttk_s": 1.076,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 5.754,
+      "projected_noise_ps": 5.754,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
+    ]
   },
   "pulse_emitter": {
     "id": "pulse_emitter",
@@ -603,15 +947,15 @@
       "aoe",
       "control"
     ],
-    "base_damage": 22.0,
+    "base_damage": 34.265,
     "attack_rate": 1.2,
     "range": 210.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.05,
     "crit_multiplier": 1.48,
-    "aoe_radius": 190.0,
-    "noise_per_attack": 3.2,
+    "aoe_radius": 168.0,
+    "noise_per_attack": 5.65,
     "level_growth": [
       {
         "level": 1,
@@ -644,11 +988,49 @@
         "aoe_mult": 1.3
       }
     ],
-    "pulse_repeats": 3,
+    "pulse_repeats": 4,
     "pulse_repeat_interval": 0.09,
-    "pulse_falloff": 0.74,
+    "pulse_falloff": 0.78,
     "impact_knockback": 180.0,
-    "fx_color": "#7be8ff"
+    "fx_color": "#7be8ff",
+    "signature_mode": "noise_drive",
+    "signature_power": 0.36,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.95,
+      "projected_ttk_s": 0.95,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 6.78,
+      "projected_noise_ps": 6.78,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.27,
+        "crit_chance_add": 0.04,
+        "dot_threshold": -0.16
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.18,
+        "attack_rate_mult": 0.16,
+        "crit_chance_add": 0.02,
+        "min_light_ratio": 0.5
+      }
+    ]
   },
   "ion_repeater": {
     "id": "ion_repeater",
@@ -659,7 +1041,7 @@
       "speed",
       "crit"
     ],
-    "base_damage": 8.8,
+    "base_damage": 5.145,
     "attack_rate": 6.4,
     "range": 640.0,
     "projectile_speed": 820.0,
@@ -667,7 +1049,7 @@
     "crit_chance": 0.15,
     "crit_multiplier": 1.68,
     "aoe_radius": 0.0,
-    "noise_per_attack": 3.7,
+    "noise_per_attack": 1.486,
     "level_growth": [
       {
         "level": 1,
@@ -706,11 +1088,49 @@
       }
     ],
     "projectile_radius": 4.1,
-    "projectile_spread_deg": 5.5,
+    "projectile_spread_deg": 6.8,
     "burst_count": 3,
-    "burst_interval": 0.035,
+    "burst_interval": 0.028,
     "impact_pulse_strength": 0.22,
-    "fx_color": "#86a7ff"
+    "fx_color": "#86a7ff",
+    "projectile_count": 2,
+    "signature_mode": "crit_echo",
+    "signature_power": 0.28,
+    "signature_aux": 0.34,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.765,
+      "projected_ttk_s": 0.765,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 9.512,
+      "projected_noise_ps": 9.51,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.27,
+        "crit_chance_add": 0.04,
+        "dot_threshold": -0.16
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.2,
+        "crit_multiplier_add": 0.26,
+        "max_light_ratio": 0.4
+      }
+    ]
   },
   "ember_pike": {
     "id": "ember_pike",
@@ -721,7 +1141,7 @@
       "tempo",
       "damage"
     ],
-    "base_damage": 30.0,
+    "base_damage": 23.65,
     "attack_rate": 1.7,
     "range": 170.0,
     "projectile_speed": 0.0,
@@ -729,7 +1149,7 @@
     "crit_chance": 0.11,
     "crit_multiplier": 1.74,
     "aoe_radius": 136.0,
-    "noise_per_attack": 2.6,
+    "noise_per_attack": 3.29,
     "level_growth": [
       {
         "level": 1,
@@ -762,11 +1182,49 @@
         "aoe_mult": 1.24
       }
     ],
-    "melee_cone_dot": 0.18,
+    "melee_cone_dot": 0.2,
     "impact_knockback": 280.0,
-    "impact_aoe_radius": 30.0,
-    "impact_aoe_damage_mult": 0.38,
-    "fx_color": "#ff785a"
+    "impact_aoe_radius": 34.0,
+    "impact_aoe_damage_mult": 0.78,
+    "fx_color": "#ff785a",
+    "signature_mode": "kill_reset",
+    "signature_power": 0.18,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.92,
+      "projected_ttk_s": 0.92,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 5.593,
+      "projected_noise_ps": 5.593,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.1,
+        "skill_refund": 0.2,
+        "noise_refund": 1.8
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
+    ]
   },
   "frost_shard": {
     "id": "frost_shard",
@@ -777,7 +1235,7 @@
       "silence",
       "control"
     ],
-    "base_damage": 12.0,
+    "base_damage": 3.931,
     "attack_rate": 2.8,
     "range": 840.0,
     "projectile_speed": 880.0,
@@ -785,7 +1243,7 @@
     "crit_chance": 0.06,
     "crit_multiplier": 1.56,
     "aoe_radius": 0.0,
-    "noise_per_attack": 1.9,
+    "noise_per_attack": 2.435,
     "level_growth": [
       {
         "level": 1,
@@ -824,11 +1282,50 @@
       }
     ],
     "projectile_radius": 4.7,
-    "projectile_spread_deg": 3.5,
-    "impact_pulse_strength": 0.4,
-    "impact_pulse_radius_scale": 1.05,
+    "projectile_spread_deg": 12.0,
+    "impact_pulse_strength": 0.42,
+    "impact_pulse_radius_scale": 1.08,
     "impact_knockback": 120.0,
-    "fx_color": "#89ddff"
+    "fx_color": "#89ddff",
+    "projectile_count": 4,
+    "signature_mode": "silence_focus",
+    "signature_power": 0.4,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.883,
+      "projected_ttk_s": 0.883,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 6.0,
+      "projected_noise_ps": 6.0,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.27,
+        "crit_chance_add": 0.04,
+        "dot_threshold": -0.16
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.18,
+        "attack_rate_mult": 0.16,
+        "crit_chance_add": 0.02,
+        "min_light_ratio": 0.5
+      }
+    ]
   },
   "grav_harpoon": {
     "id": "grav_harpoon",
@@ -839,7 +1336,7 @@
       "chain",
       "pierce"
     ],
-    "base_damage": 15.0,
+    "base_damage": 8.154,
     "attack_rate": 4.7,
     "range": 600.0,
     "projectile_speed": 0.0,
@@ -847,7 +1344,7 @@
     "crit_chance": 0.04,
     "crit_multiplier": 1.42,
     "aoe_radius": 0.0,
-    "noise_per_attack": 2.8,
+    "noise_per_attack": 1.771,
     "beam_tick_interval": 0.14,
     "level_growth": [
       {
@@ -881,10 +1378,47 @@
         "range_mult": 1.2
       }
     ],
-    "beam_chain_targets": 2,
-    "beam_chain_falloff": 0.62,
-    "impact_knockback": 210.0,
-    "fx_color": "#cf89ff"
+    "beam_chain_targets": 3,
+    "beam_chain_falloff": 0.64,
+    "impact_knockback": 250.0,
+    "fx_color": "#cf89ff",
+    "signature_mode": "shield_breaker",
+    "signature_power": 0.65,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.794,
+      "projected_ttk_s": 0.794,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 8.821,
+      "projected_noise_ps": 8.823,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.17,
+        "skill_refund": 0.32,
+        "noise_refund": 2.6
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.2,
+        "crit_multiplier_add": 0.26,
+        "max_light_ratio": 0.4
+      }
+    ]
   },
   "prism_caster": {
     "id": "prism_caster",
@@ -895,15 +1429,15 @@
       "aoe",
       "crit"
     ],
-    "base_damage": 18.5,
+    "base_damage": 20.276,
     "attack_rate": 1.5,
     "range": 220.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.12,
     "crit_multiplier": 1.8,
-    "aoe_radius": 158.0,
-    "noise_per_attack": 3.3,
+    "aoe_radius": 154.0,
+    "noise_per_attack": 3.472,
     "level_growth": [
       {
         "level": 1,
@@ -936,12 +1470,43 @@
         "aoe_mult": 1.3
       }
     ],
-    "pulse_repeats": 2,
-    "pulse_repeat_interval": 0.08,
-    "pulse_falloff": 0.78,
+    "pulse_repeats": 3,
+    "pulse_repeat_interval": 0.1,
+    "pulse_falloff": 0.74,
     "impact_pulse_strength": 0.5,
     "impact_pulse_radius_scale": 1.14,
-    "fx_color": "#ff8add"
+    "fx_color": "#ff8add",
+    "signature_mode": "reveal_hunter",
+    "signature_power": 0.55,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 2.4,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.2,
+      "projected_ttk_s": 1.2,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 5.208,
+      "projected_noise_ps": 5.208,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
+    ]
   },
   "venom_sprayer": {
     "id": "venom_sprayer",
@@ -952,15 +1517,15 @@
       "aoe",
       "trap"
     ],
-    "base_damage": 9.0,
-    "attack_rate": 5.2,
+    "base_damage": 2.544,
+    "attack_rate": 6.0,
     "range": 560.0,
     "projectile_speed": 620.0,
     "projectile_pierce": 0,
     "crit_chance": 0.08,
     "crit_multiplier": 1.55,
     "aoe_radius": 0.0,
-    "noise_per_attack": 3.5,
+    "noise_per_attack": 0.908,
     "level_growth": [
       {
         "level": 1,
@@ -999,12 +1564,45 @@
       }
     ],
     "projectile_radius": 4.4,
-    "projectile_spread_deg": 10.0,
-    "burst_count": 2,
+    "projectile_spread_deg": 13.5,
+    "burst_count": 3,
     "burst_interval": 0.05,
     "impact_aoe_radius": 20.0,
     "impact_aoe_damage_mult": 0.33,
-    "fx_color": "#7aff8f"
+    "fx_color": "#7aff8f",
+    "projectile_count": 3,
+    "signature_mode": "swarm_breaker",
+    "signature_power": 0.3,
+    "signature_aux": 150.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.2,
+      "projected_ttk_s": 1.2,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 5.447,
+      "projected_noise_ps": 5.448,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
+    ]
   },
   "echo_revolver": {
     "id": "echo_revolver",
@@ -1015,15 +1613,15 @@
       "silence",
       "crit"
     ],
-    "base_damage": 23.0,
-    "attack_rate": 2.0,
+    "base_damage": 12.212,
+    "attack_rate": 2.4,
     "range": 700.0,
     "projectile_speed": 760.0,
     "projectile_pierce": 0,
-    "crit_chance": 0.17,
+    "crit_chance": 0.14,
     "crit_multiplier": 1.86,
     "aoe_radius": 0.0,
-    "noise_per_attack": 2.7,
+    "noise_per_attack": 2.054,
     "level_growth": [
       {
         "level": 1,
@@ -1062,11 +1660,44 @@
       }
     ],
     "projectile_radius": 5.7,
-    "projectile_spread_deg": 2.8,
+    "projectile_spread_deg": 2.0,
     "impact_aoe_radius": 28.0,
     "impact_aoe_damage_mult": 0.32,
     "impact_knockback": 230.0,
-    "fx_color": "#ff9181"
+    "fx_color": "#ff9181",
+    "projectile_count": 1,
+    "burst_count": 2,
+    "signature_mode": "crit_echo",
+    "signature_power": 0.46,
+    "signature_aux": 0.42,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.019,
+      "projected_ttk_s": 1.019,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 4.338,
+      "projected_noise_ps": 4.338,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
+    ]
   },
   "catacomb_longbow": {
     "id": "catacomb_longbow",
@@ -1077,17 +1708,17 @@
       "pierce",
       "silence"
     ],
-    "base_damage": 21.0,
-    "attack_rate": 1.75,
+    "base_damage": 16.822,
+    "attack_rate": 1.55,
     "range": 960.0,
     "projectile_speed": 900.0,
     "projectile_pierce": 1,
-    "crit_chance": 0.08,
+    "crit_chance": 0.18,
     "crit_multiplier": 1.74,
     "aoe_radius": 0.0,
-    "noise_per_attack": 1.8,
+    "noise_per_attack": 2.977,
     "projectile_radius": 4.8,
-    "projectile_spread_deg": 1.8,
+    "projectile_spread_deg": 1.2,
     "impact_knockback": 250.0,
     "fx_color": "#a8d3ff",
     "level_growth": [
@@ -1126,6 +1757,39 @@
         "range_mult": 1.14,
         "pierce_bonus": 1
       }
+    ],
+    "projectile_count": 1,
+    "signature_mode": "sniper",
+    "signature_power": 0.58,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.127,
+      "projected_ttk_s": 1.127,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 4.061,
+      "projected_noise_ps": 4.061,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
     ]
   },
   "rune_blunderbuss": {
@@ -1137,17 +1801,17 @@
       "aoe",
       "damage"
     ],
-    "base_damage": 8.2,
-    "attack_rate": 1.9,
+    "base_damage": 5.104,
+    "attack_rate": 1.3,
     "range": 520.0,
     "projectile_speed": 640.0,
     "projectile_pierce": 0,
     "crit_chance": 0.06,
     "crit_multiplier": 1.6,
     "aoe_radius": 0.0,
-    "noise_per_attack": 4.4,
+    "noise_per_attack": 7.279,
     "projectile_radius": 4.3,
-    "projectile_spread_deg": 14.0,
+    "projectile_spread_deg": 19.0,
     "impact_aoe_radius": 18.0,
     "impact_aoe_damage_mult": 0.25,
     "impact_knockback": 155.0,
@@ -1193,6 +1857,45 @@
         "pierce_bonus": 0,
         "projectile_count_bonus": 5
       }
+    ],
+    "projectile_count": 6,
+    "signature_mode": "vanguard",
+    "signature_power": 0.64,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.893,
+      "projected_ttk_s": 0.893,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 9.462,
+      "projected_noise_ps": 9.463,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.27,
+        "crit_chance_add": 0.04,
+        "dot_threshold": -0.16
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.18,
+        "attack_rate_mult": 0.16,
+        "crit_chance_add": 0.02,
+        "min_light_ratio": 0.5
+      }
     ]
   },
   "candle_mortar": {
@@ -1204,7 +1907,7 @@
       "trap",
       "aoe"
     ],
-    "base_damage": 38.0,
+    "base_damage": 29.272,
     "attack_rate": 0.9,
     "range": 520.0,
     "projectile_speed": 260.0,
@@ -1212,13 +1915,13 @@
     "crit_chance": 0.05,
     "crit_multiplier": 1.58,
     "aoe_radius": 154.0,
-    "noise_per_attack": 3.6,
+    "noise_per_attack": 4.632,
     "activation_delay": 0.52,
-    "mine_shard_count": 12,
-    "mine_shard_speed": 700.0,
-    "mine_shard_range": 340.0,
+    "mine_shard_count": 14,
+    "mine_shard_speed": 680.0,
+    "mine_shard_range": 380.0,
     "projectile_radius": 4.6,
-    "impact_aoe_radius": 24.0,
+    "impact_aoe_radius": 30.0,
     "impact_aoe_damage_mult": 0.32,
     "impact_pulse_strength": 0.48,
     "impact_pulse_radius_scale": 1.08,
@@ -1254,6 +1957,37 @@
         "attack_rate_mult": 1.16,
         "aoe_mult": 1.3
       }
+    ],
+    "signature_mode": "swarm_breaker",
+    "signature_power": 0.4,
+    "signature_aux": 210.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.2,
+      "projected_ttk_s": 1.2,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 4.419,
+      "projected_noise_ps": 4.419,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
     ]
   },
   "crypt_disc": {
@@ -1265,7 +1999,7 @@
       "control",
       "crit"
     ],
-    "base_damage": 11.5,
+    "base_damage": 5.149,
     "attack_rate": 3.0,
     "range": 700.0,
     "projectile_speed": 760.0,
@@ -1273,12 +2007,12 @@
     "crit_chance": 0.12,
     "crit_multiplier": 1.68,
     "aoe_radius": 0.0,
-    "noise_per_attack": 2.9,
+    "noise_per_attack": 2.594,
     "projectile_radius": 5.1,
-    "projectile_spread_deg": 6.0,
+    "projectile_spread_deg": 9.0,
     "burst_count": 2,
     "burst_interval": 0.06,
-    "impact_aoe_radius": 26.0,
+    "impact_aoe_radius": 28.0,
     "impact_aoe_damage_mult": 0.34,
     "impact_knockback": 170.0,
     "fx_color": "#8be2ff",
@@ -1322,6 +2056,44 @@
         "pierce_bonus": 1,
         "projectile_count_bonus": 2
       }
+    ],
+    "projectile_count": 3,
+    "signature_mode": "mark_burst",
+    "signature_power": 0.1,
+    "signature_aux": 0.0,
+    "signature_cycle": 4,
+    "signature_duration": 2.0,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.897,
+      "projected_ttk_s": 0.897,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 7.782,
+      "projected_noise_ps": 7.782,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.27,
+        "crit_chance_add": 0.04,
+        "dot_threshold": -0.16
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.2,
+        "crit_multiplier_add": 0.26,
+        "max_light_ratio": 0.4
+      }
     ]
   },
   "grave_bell": {
@@ -1333,18 +2105,18 @@
       "control",
       "aoe"
     ],
-    "base_damage": 17.0,
+    "base_damage": 26.016,
     "attack_rate": 1.25,
     "range": 230.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.05,
     "crit_multiplier": 1.5,
-    "aoe_radius": 210.0,
-    "noise_per_attack": 3.1,
-    "pulse_repeats": 3,
-    "pulse_repeat_interval": 0.1,
-    "pulse_falloff": 0.72,
+    "aoe_radius": 200.0,
+    "noise_per_attack": 3.674,
+    "pulse_repeats": 4,
+    "pulse_repeat_interval": 0.11,
+    "pulse_falloff": 0.76,
     "impact_pulse_strength": 0.58,
     "impact_pulse_radius_scale": 1.2,
     "impact_knockback": 205.0,
@@ -1380,6 +2152,44 @@
         "attack_rate_mult": 1.17,
         "aoe_mult": 1.32
       }
+    ],
+    "signature_mode": "xp_echo",
+    "signature_power": 2.0,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.2,
+      "projected_ttk_s": 1.2,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 4.593,
+      "projected_noise_ps": 4.593,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.1,
+        "skill_refund": 0.2,
+        "noise_refund": 1.8
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
     ]
   },
   "ash_scythe": {
@@ -1391,17 +2201,17 @@
       "tempo",
       "aoe"
     ],
-    "base_damage": 27.0,
+    "base_damage": 20.306,
     "attack_rate": 2.0,
-    "range": 186.0,
+    "range": 190.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.09,
     "crit_multiplier": 1.66,
-    "aoe_radius": 146.0,
-    "noise_per_attack": 2.5,
-    "melee_cone_dot": 0.05,
-    "impact_knockback": 245.0,
+    "aoe_radius": 182.0,
+    "noise_per_attack": 2.607,
+    "melee_cone_dot": 0.24,
+    "impact_knockback": 320.0,
     "impact_pulse_strength": 0.42,
     "fx_color": "#ff9f78",
     "level_growth": [
@@ -1435,6 +2245,37 @@
         "attack_rate_mult": 1.24,
         "aoe_mult": 1.24
       }
+    ],
+    "signature_mode": "execution",
+    "signature_power": 1.1,
+    "signature_aux": 0.4,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.93,
+      "projected_ttk_s": 0.93,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 5.214,
+      "projected_noise_ps": 5.214,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
     ]
   },
   "wick_thrower": {
@@ -1446,20 +2287,20 @@
       "heat",
       "aoe"
     ],
-    "base_damage": 9.4,
-    "attack_rate": 4.2,
+    "base_damage": 2.0,
+    "attack_rate": 5.8,
     "range": 640.0,
     "projectile_speed": 650.0,
     "projectile_pierce": 0,
     "crit_chance": 0.08,
     "crit_multiplier": 1.56,
     "aoe_radius": 0.0,
-    "noise_per_attack": 3.8,
+    "noise_per_attack": 1.036,
     "projectile_radius": 4.6,
-    "projectile_spread_deg": 8.5,
+    "projectile_spread_deg": 17.0,
     "burst_count": 3,
     "burst_interval": 0.04,
-    "impact_aoe_radius": 22.0,
+    "impact_aoe_radius": 24.0,
     "impact_aoe_damage_mult": 0.28,
     "impact_pulse_strength": 0.31,
     "impact_pulse_radius_scale": 0.95,
@@ -1504,6 +2345,39 @@
         "pierce_bonus": 1,
         "projectile_count_bonus": 1
       }
+    ],
+    "projectile_count": 4,
+    "signature_mode": "noise_drive",
+    "signature_power": 0.5,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.196,
+      "projected_ttk_s": 1.184,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 6.01,
+      "projected_noise_ps": 6.009,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
     ]
   },
   "reliquary_beam": {
@@ -1515,18 +2389,18 @@
       "chain",
       "control"
     ],
-    "base_damage": 12.8,
-    "attack_rate": 5.7,
+    "base_damage": 13.878,
+    "attack_rate": 2.1,
     "range": 560.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.04,
     "crit_multiplier": 1.4,
     "aoe_radius": 0.0,
-    "noise_per_attack": 2.7,
+    "noise_per_attack": 2.48,
     "beam_tick_interval": 0.15,
-    "beam_chain_targets": 3,
-    "beam_chain_falloff": 0.55,
+    "beam_chain_targets": 4,
+    "beam_chain_falloff": 0.62,
     "impact_knockback": 195.0,
     "fx_color": "#b8d7ff",
     "level_growth": [
@@ -1560,6 +2434,43 @@
         "attack_rate_mult": 1.21,
         "range_mult": 1.18
       }
+    ],
+    "signature_mode": "skill_cool",
+    "signature_power": 0.35,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.045,
+      "projected_ttk_s": 1.045,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 5.522,
+      "projected_noise_ps": 5.52,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.1,
+        "skill_refund": 0.2,
+        "noise_refund": 1.8
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
     ]
   },
   "gargoyle_drone": {
@@ -1571,7 +2482,7 @@
       "summon",
       "control"
     ],
-    "base_damage": 10.8,
+    "base_damage": 9.756,
     "attack_rate": 2.6,
     "range": 250.0,
     "projectile_speed": 710.0,
@@ -1579,11 +2490,11 @@
     "crit_chance": 0.06,
     "crit_multiplier": 1.52,
     "aoe_radius": 0.0,
-    "noise_per_attack": 2.8,
+    "noise_per_attack": 1.425,
     "orbit_radius": 132.0,
-    "drone_count": 2,
-    "drone_volley": 2,
-    "drone_spread_deg": 7.5,
+    "drone_count": 3,
+    "drone_volley": 3,
+    "drone_spread_deg": 18.0,
     "drone_projectile_radius": 4.0,
     "impact_knockback": 150.0,
     "fx_color": "#c7eeff",
@@ -1618,6 +2529,38 @@
         "attack_rate_mult": 1.24,
         "drone_count_bonus": 2
       }
+    ],
+    "signature_mode": "mark_burst",
+    "signature_power": 0.09,
+    "signature_aux": 0.0,
+    "signature_cycle": 6,
+    "signature_duration": 2.8,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.2,
+      "projected_ttk_s": 1.2,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 4.0,
+      "projected_noise_ps": 4.001,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
     ]
   },
   "chain_spike": {
@@ -1629,7 +2572,7 @@
       "chain",
       "pierce"
     ],
-    "base_damage": 15.2,
+    "base_damage": 7.417,
     "attack_rate": 2.6,
     "range": 780.0,
     "projectile_speed": 800.0,
@@ -1637,12 +2580,12 @@
     "crit_chance": 0.08,
     "crit_multiplier": 1.62,
     "aoe_radius": 0.0,
-    "noise_per_attack": 3.0,
+    "noise_per_attack": 2.067,
     "projectile_radius": 4.9,
-    "projectile_spread_deg": 3.6,
+    "projectile_spread_deg": 5.2,
     "impact_pulse_strength": 0.26,
     "impact_pulse_radius_scale": 0.88,
-    "impact_knockback": 220.0,
+    "impact_knockback": 230.0,
     "fx_color": "#b59dff",
     "level_growth": [
       {
@@ -1680,6 +2623,39 @@
         "range_mult": 1.14,
         "pierce_bonus": 3
       }
+    ],
+    "projectile_count": 2,
+    "burst_count": 2,
+    "signature_mode": "shield_breaker",
+    "signature_power": 0.5,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.975,
+      "projected_ttk_s": 0.975,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 5.374,
+      "projected_noise_ps": 5.374,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
     ]
   },
   "dusk_censer": {
@@ -1691,18 +2667,18 @@
       "silence",
       "control"
     ],
-    "base_damage": 15.0,
+    "base_damage": 22.582,
     "attack_rate": 1.45,
     "range": 220.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.04,
     "crit_multiplier": 1.45,
-    "aoe_radius": 205.0,
-    "noise_per_attack": 1.7,
-    "pulse_repeats": 2,
-    "pulse_repeat_interval": 0.12,
-    "pulse_falloff": 0.76,
+    "aoe_radius": 176.0,
+    "noise_per_attack": 3.135,
+    "pulse_repeats": 3,
+    "pulse_repeat_interval": 0.11,
+    "pulse_falloff": 0.8,
     "impact_pulse_strength": 0.62,
     "impact_pulse_radius_scale": 1.24,
     "impact_knockback": 160.0,
@@ -1738,6 +2714,38 @@
         "attack_rate_mult": 1.19,
         "aoe_mult": 1.31
       }
+    ],
+    "signature_mode": "silence_focus",
+    "signature_power": 0.5,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.2,
+      "projected_ttk_s": 1.2,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 4.0,
+      "projected_noise_ps": 4.0,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
     ]
   },
   "tombbreaker_maul": {
@@ -1749,17 +2757,17 @@
       "damage",
       "aoe"
     ],
-    "base_damage": 34.0,
+    "base_damage": 29.876,
     "attack_rate": 1.35,
-    "range": 176.0,
+    "range": 178.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.1,
     "crit_multiplier": 1.78,
-    "aoe_radius": 152.0,
-    "noise_per_attack": 3.0,
-    "melee_cone_dot": 0.28,
-    "impact_knockback": 320.0,
+    "aoe_radius": 170.0,
+    "noise_per_attack": 4.082,
+    "melee_cone_dot": 0.18,
+    "impact_knockback": 350.0,
     "impact_pulse_strength": 0.46,
     "impact_pulse_radius_scale": 1.06,
     "fx_color": "#ffb995",
@@ -1794,6 +2802,38 @@
         "attack_rate_mult": 1.2,
         "aoe_mult": 1.24
       }
+    ],
+    "impact_aoe_radius": 40.0,
+    "signature_mode": "finisher_cycle",
+    "signature_power": 0.7,
+    "signature_aux": 140.0,
+    "signature_cycle": 3,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.92,
+      "projected_ttk_s": 0.92,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 5.511,
+      "projected_noise_ps": 5.511,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
     ]
   },
   "spectral_lantern": {
@@ -1805,7 +2845,7 @@
       "trap",
       "sonar"
     ],
-    "base_damage": 31.0,
+    "base_damage": 26.016,
     "attack_rate": 1.0,
     "range": 500.0,
     "projectile_speed": 240.0,
@@ -1813,14 +2853,14 @@
     "crit_chance": 0.07,
     "crit_multiplier": 1.6,
     "aoe_radius": 142.0,
-    "noise_per_attack": 2.6,
+    "noise_per_attack": 3.774,
     "activation_delay": 0.45,
     "reveal_bonus_duration": 0.45,
-    "mine_shard_count": 10,
-    "mine_shard_speed": 640.0,
-    "mine_shard_range": 320.0,
+    "mine_shard_count": 12,
+    "mine_shard_speed": 620.0,
+    "mine_shard_range": 340.0,
     "projectile_radius": 4.4,
-    "impact_aoe_radius": 24.0,
+    "impact_aoe_radius": 28.0,
     "impact_aoe_damage_mult": 0.3,
     "impact_pulse_strength": 0.7,
     "impact_pulse_radius_scale": 1.28,
@@ -1856,6 +2896,38 @@
         "attack_rate_mult": 1.18,
         "aoe_mult": 1.31
       }
+    ],
+    "signature_mode": "reveal_hunter",
+    "signature_power": 0.8,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 3.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 1.2,
+      "projected_ttk_s": 1.2,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 4.0,
+      "projected_noise_ps": 4.0,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
     ]
   },
   "hex_nailer": {
@@ -1867,17 +2939,17 @@
       "tempo",
       "crit"
     ],
-    "base_damage": 6.8,
-    "attack_rate": 5.8,
+    "base_damage": 3.665,
+    "attack_rate": 4.8,
     "range": 620.0,
     "projectile_speed": 860.0,
     "projectile_pierce": 0,
     "crit_chance": 0.14,
     "crit_multiplier": 1.72,
     "aoe_radius": 0.0,
-    "noise_per_attack": 3.6,
+    "noise_per_attack": 1.301,
     "projectile_radius": 3.8,
-    "projectile_spread_deg": 7.2,
+    "projectile_spread_deg": 10.0,
     "burst_count": 4,
     "burst_interval": 0.028,
     "impact_knockback": 110.0,
@@ -1920,6 +2992,44 @@
         "pierce_bonus": 1,
         "projectile_count_bonus": 1
       }
+    ],
+    "projectile_count": 3,
+    "signature_mode": "finisher_cycle",
+    "signature_power": 0.35,
+    "signature_aux": 100.0,
+    "signature_cycle": 9,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.985,
+      "projected_ttk_s": 0.985,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 6.245,
+      "projected_noise_ps": 6.245,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.1,
+        "skill_refund": 0.2,
+        "noise_refund": 1.8
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
     ]
   },
   "idol_railgun": {
@@ -1931,17 +3041,17 @@
       "damage",
       "pierce"
     ],
-    "base_damage": 23.0,
-    "attack_rate": 2.9,
+    "base_damage": 24.336,
+    "attack_rate": 1.7,
     "range": 700.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.06,
     "crit_multiplier": 1.64,
     "aoe_radius": 0.0,
-    "noise_per_attack": 3.4,
+    "noise_per_attack": 5.299,
     "beam_tick_interval": 0.24,
-    "beam_chain_targets": 0,
+    "beam_chain_targets": 2,
     "impact_knockback": 265.0,
     "fx_color": "#ffde9e",
     "level_growth": [
@@ -1975,6 +3085,45 @@
         "attack_rate_mult": 1.16,
         "range_mult": 1.17
       }
+    ],
+    "beam_chain_falloff": 0.72,
+    "signature_mode": "execution",
+    "signature_power": 0.85,
+    "signature_aux": 0.28,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.72,
+      "projected_ttk_s": 0.72,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 9.549,
+      "projected_noise_ps": 9.549,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.27,
+        "crit_chance_add": 0.04,
+        "dot_threshold": -0.16
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.18,
+        "attack_rate_mult": 0.16,
+        "crit_chance_add": 0.02,
+        "min_light_ratio": 0.5
+      }
     ]
   },
   "briar_whip": {
@@ -1986,17 +3135,17 @@
       "chain",
       "tempo"
     ],
-    "base_damage": 22.0,
+    "base_damage": 16.828,
     "attack_rate": 2.45,
-    "range": 190.0,
+    "range": 176.0,
     "projectile_speed": 0.0,
     "projectile_pierce": 99,
     "crit_chance": 0.08,
     "crit_multiplier": 1.62,
-    "aoe_radius": 142.0,
-    "noise_per_attack": 2.3,
-    "melee_cone_dot": 0.02,
-    "impact_knockback": 210.0,
+    "aoe_radius": 168.0,
+    "noise_per_attack": 2.139,
+    "melee_cone_dot": 0.08,
+    "impact_knockback": 280.0,
     "impact_pulse_strength": 0.36,
     "impact_pulse_radius_scale": 0.9,
     "fx_color": "#9cff8e",
@@ -2031,6 +3180,38 @@
         "attack_rate_mult": 1.28,
         "aoe_mult": 1.2
       }
+    ],
+    "signature_mode": "kill_reset",
+    "signature_power": 0.22,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.924,
+      "projected_ttk_s": 0.924,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 5.24,
+      "projected_noise_ps": 5.241,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.12,
+        "attack_rate_mult": 0.1,
+        "crit_chance_add": 0.01,
+        "min_light_ratio": 0.55
+      }
     ]
   },
   "oath_pistol": {
@@ -2042,17 +3223,17 @@
       "crit",
       "starter"
     ],
-    "base_damage": 16.8,
+    "base_damage": 7.55,
     "attack_rate": 2.4,
     "range": 690.0,
     "projectile_speed": 780.0,
     "projectile_pierce": 0,
-    "crit_chance": 0.16,
+    "crit_chance": 0.12,
     "crit_multiplier": 1.82,
     "aoe_radius": 0.0,
-    "noise_per_attack": 2.5,
+    "noise_per_attack": 2.373,
     "projectile_radius": 5.2,
-    "projectile_spread_deg": 2.4,
+    "projectile_spread_deg": 4.2,
     "burst_count": 2,
     "burst_interval": 0.05,
     "impact_knockback": 190.0,
@@ -2093,6 +3274,38 @@
         "range_mult": 1.13,
         "pierce_bonus": 1
       }
+    ],
+    "projectile_count": 2,
+    "signature_mode": "skill_cool",
+    "signature_power": 0.18,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "common",
+    "balance_tier": "common",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.962,
+      "projected_ttk_s": 0.962,
+      "ttk_band_s": [
+        0.92,
+        1.2
+      ],
+      "target_noise_ps": 5.694,
+      "projected_noise_ps": 5.695,
+      "noise_band_ps": [
+        4.0,
+        7.2
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.13,
+        "crit_multiplier_add": 0.16,
+        "max_light_ratio": 0.34
+      }
     ]
   },
   "mirror_shard": {
@@ -2104,7 +3317,7 @@
       "aoe",
       "sonar"
     ],
-    "base_damage": 10.2,
+    "base_damage": 2.927,
     "attack_rate": 3.4,
     "range": 720.0,
     "projectile_speed": 760.0,
@@ -2112,13 +3325,13 @@
     "crit_chance": 0.09,
     "crit_multiplier": 1.6,
     "aoe_radius": 0.0,
-    "noise_per_attack": 2.8,
+    "noise_per_attack": 2.092,
     "projectile_radius": 4.8,
-    "projectile_spread_deg": 12.0,
+    "projectile_spread_deg": 17.0,
     "impact_aoe_radius": 30.0,
     "impact_aoe_damage_mult": 0.42,
-    "impact_pulse_strength": 0.44,
-    "impact_pulse_radius_scale": 1.12,
+    "impact_pulse_strength": 0.5,
+    "impact_pulse_radius_scale": 1.1,
     "impact_knockback": 165.0,
     "fx_color": "#9ad9ff",
     "level_growth": [
@@ -2161,6 +3374,1337 @@
         "range_mult": 1.14,
         "pierce_bonus": 1,
         "projectile_count_bonus": 3
+      }
+    ],
+    "projectile_count": 5,
+    "signature_mode": "crit_echo",
+    "signature_power": 0.36,
+    "signature_aux": 0.38,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "rare",
+    "balance_tier": "rare",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.851,
+      "projected_ttk_s": 0.852,
+      "ttk_band_s": [
+        0.72,
+        0.95
+      ],
+      "target_noise_ps": 7.112,
+      "projected_noise_ps": 7.113,
+      "noise_band_ps": [
+        6.0,
+        10.0
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.17,
+        "skill_refund": 0.32,
+        "noise_refund": 2.6
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.2,
+        "crit_multiplier_add": 0.26,
+        "max_light_ratio": 0.4
+      }
+    ]
+  },
+  "sunforged_colossus": {
+    "id": "sunforged_colossus",
+    "name": "Sunforged Colossus",
+    "description": "Epic heavy cannon that fires molten rounds with dual-burst collapse shock.",
+    "attack_model": "projectile",
+    "tags": [
+      "damage",
+      "aoe",
+      "kinetic"
+    ],
+    "base_damage": 15.525,
+    "attack_rate": 1.15,
+    "range": 840.0,
+    "projectile_speed": 700.0,
+    "projectile_pierce": 1,
+    "crit_chance": 0.11,
+    "crit_multiplier": 1.86,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 10.951,
+    "projectile_radius": 7.4,
+    "projectile_spread_deg": 6.0,
+    "burst_count": 2,
+    "burst_interval": 0.09,
+    "impact_aoe_radius": 72.0,
+    "impact_aoe_damage_mult": 0.95,
+    "impact_pulse_strength": 0.62,
+    "impact_pulse_radius_scale": 1.18,
+    "impact_knockback": 330.0,
+    "fx_color": "#ffb86c",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.15,
+        "attack_rate_mult": 1.04,
+        "range_mult": 1.03,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.33,
+        "attack_rate_mult": 1.08,
+        "range_mult": 1.07,
+        "pierce_bonus": 2
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.54,
+        "attack_rate_mult": 1.12,
+        "range_mult": 1.11,
+        "pierce_bonus": 2
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.76,
+        "attack_rate_mult": 1.17,
+        "range_mult": 1.16,
+        "pierce_bonus": 3
+      }
+    ],
+    "projectile_count": 3,
+    "signature_mode": "finisher_cycle",
+    "signature_power": 0.9,
+    "signature_aux": 210.0,
+    "signature_cycle": 3,
+    "signature_duration": 0.0,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.61,
+      "projected_ttk_s": 0.61,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 12.594,
+      "projected_noise_ps": 12.594,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.24,
+        "attack_rate_mult": 0.24,
+        "crit_chance_add": 0.03,
+        "min_light_ratio": 0.45
+      }
+    ]
+  },
+  "eclipse_requiem": {
+    "id": "eclipse_requiem",
+    "name": "Eclipse Requiem",
+    "description": "Epic resonance bell that emits layered void hymns in four diminishing waves.",
+    "attack_model": "pulse",
+    "tags": [
+      "control",
+      "aoe",
+      "silence"
+    ],
+    "base_damage": 52.609,
+    "attack_rate": 1.0,
+    "range": 250.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.08,
+    "crit_multiplier": 1.7,
+    "aoe_radius": 220.0,
+    "noise_per_attack": 9.091,
+    "pulse_repeats": 4,
+    "pulse_repeat_interval": 0.09,
+    "pulse_falloff": 0.74,
+    "impact_pulse_strength": 0.72,
+    "impact_pulse_radius_scale": 1.34,
+    "impact_knockback": 230.0,
+    "fx_color": "#d39bff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.04,
+        "aoe_mult": 1.1
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.29,
+        "attack_rate_mult": 1.08,
+        "aoe_mult": 1.18
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.48,
+        "attack_rate_mult": 1.13,
+        "aoe_mult": 1.28
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.69,
+        "attack_rate_mult": 1.18,
+        "aoe_mult": 1.38
+      }
+    ],
+    "signature_mode": "mark_burst",
+    "signature_power": 0.14,
+    "signature_aux": 0.0,
+    "signature_cycle": 7,
+    "signature_duration": 3.2,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.72,
+      "projected_ttk_s": 0.72,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 8.0,
+      "projected_noise_ps": 8.0,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.28,
+        "crit_multiplier_add": 0.35,
+        "max_light_ratio": 0.44
+      }
+    ]
+  },
+  "chrono_lance": {
+    "id": "chrono_lance",
+    "name": "Chrono Lance",
+    "description": "Epic chronal rail that stutters time into triple afterimage pierce shots.",
+    "attack_model": "projectile",
+    "tags": [
+      "pierce",
+      "tempo",
+      "crit"
+    ],
+    "base_damage": 9.0,
+    "attack_rate": 2.9,
+    "range": 920.0,
+    "projectile_speed": 980.0,
+    "projectile_pierce": 1,
+    "crit_chance": 0.15,
+    "crit_multiplier": 1.84,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 3.908,
+    "projectile_radius": 5.0,
+    "projectile_spread_deg": 3.2,
+    "burst_count": 3,
+    "burst_interval": 0.032,
+    "impact_pulse_strength": 0.38,
+    "impact_pulse_radius_scale": 0.96,
+    "impact_knockback": 240.0,
+    "fx_color": "#9fd1ff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.06,
+        "range_mult": 1.03,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.28,
+        "attack_rate_mult": 1.12,
+        "range_mult": 1.06,
+        "pierce_bonus": 2
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.46,
+        "attack_rate_mult": 1.18,
+        "range_mult": 1.1,
+        "pierce_bonus": 2
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.65,
+        "attack_rate_mult": 1.24,
+        "range_mult": 1.14,
+        "pierce_bonus": 2
+      }
+    ],
+    "projectile_count": 3,
+    "signature_mode": "skill_cool",
+    "signature_power": 0.4,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.566,
+      "projected_ttk_s": 0.566,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 11.333,
+      "projected_noise_ps": 11.333,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.24,
+        "attack_rate_mult": 0.24,
+        "crit_chance_add": 0.03,
+        "min_light_ratio": 0.45
+      }
+    ]
+  },
+  "leviathan_bombard": {
+    "id": "leviathan_bombard",
+    "name": "Leviathan Bombard",
+    "description": "Epic abyss mortar that detonates into massive shard storms and echo blasts.",
+    "attack_model": "mine",
+    "tags": [
+      "trap",
+      "aoe",
+      "damage"
+    ],
+    "base_damage": 64.729,
+    "attack_rate": 0.68,
+    "range": 560.0,
+    "projectile_speed": 250.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.09,
+    "crit_multiplier": 1.92,
+    "aoe_radius": 170.0,
+    "noise_per_attack": 11.626,
+    "activation_delay": 0.42,
+    "mine_shard_count": 20,
+    "mine_shard_speed": 760.0,
+    "mine_shard_range": 430.0,
+    "projectile_radius": 5.5,
+    "impact_aoe_radius": 38.0,
+    "impact_aoe_damage_mult": 0.44,
+    "impact_pulse_strength": 0.72,
+    "impact_pulse_radius_scale": 1.22,
+    "impact_knockback": 290.0,
+    "fx_color": "#ffc879",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.16,
+        "attack_rate_mult": 1.04,
+        "aoe_mult": 1.09
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.33,
+        "attack_rate_mult": 1.08,
+        "aoe_mult": 1.16
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.52,
+        "attack_rate_mult": 1.13,
+        "aoe_mult": 1.24
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.73,
+        "attack_rate_mult": 1.19,
+        "aoe_mult": 1.34
+      }
+    ],
+    "signature_mode": "swarm_breaker",
+    "signature_power": 0.62,
+    "signature_aux": 240.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.683,
+      "projected_ttk_s": 0.683,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 8.38,
+      "projected_noise_ps": 8.38,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.28,
+        "crit_multiplier_add": 0.35,
+        "max_light_ratio": 0.44
+      }
+    ]
+  },
+  "seraphim_swarm": {
+    "id": "seraphim_swarm",
+    "name": "Seraphim Swarm",
+    "description": "Epic sanctified drone choir that sustains crossfire from a rotating halo.",
+    "attack_model": "drone",
+    "tags": [
+      "summon",
+      "chain",
+      "control"
+    ],
+    "base_damage": 13.74,
+    "attack_rate": 3.0,
+    "range": 280.0,
+    "projectile_speed": 780.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.09,
+    "crit_multiplier": 1.64,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 2.469,
+    "orbit_radius": 146.0,
+    "drone_count": 4,
+    "drone_volley": 4,
+    "drone_spread_deg": 20.0,
+    "drone_projectile_radius": 4.2,
+    "impact_aoe_radius": 24.0,
+    "impact_aoe_damage_mult": 0.27,
+    "impact_knockback": 170.0,
+    "fx_color": "#c6f5ff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "drone_count_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.12,
+        "attack_rate_mult": 1.06,
+        "drone_count_bonus": 1
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.26,
+        "attack_rate_mult": 1.12,
+        "drone_count_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.42,
+        "attack_rate_mult": 1.18,
+        "drone_count_bonus": 2
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.6,
+        "attack_rate_mult": 1.24,
+        "drone_count_bonus": 3
+      }
+    ],
+    "signature_mode": "xp_echo",
+    "signature_power": 3.0,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.72,
+      "projected_ttk_s": 0.72,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 8.0,
+      "projected_noise_ps": 8.0,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.24,
+        "attack_rate_mult": 0.24,
+        "crit_chance_add": 0.03,
+        "min_light_ratio": 0.45
+      }
+    ]
+  },
+  "eclipse_glaive": {
+    "id": "eclipse_glaive",
+    "name": "Eclipse Glaive",
+    "description": "Epic crescent glaive with sweeping execution arcs and reveal shock recoil.",
+    "attack_model": "melee",
+    "tags": [
+      "tempo",
+      "damage",
+      "chain"
+    ],
+    "base_damage": 41.116,
+    "attack_rate": 1.6,
+    "range": 210.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.14,
+    "crit_multiplier": 1.9,
+    "aoe_radius": 198.0,
+    "noise_per_attack": 6.519,
+    "melee_cone_dot": 0.16,
+    "impact_knockback": 380.0,
+    "impact_pulse_strength": 0.64,
+    "impact_pulse_radius_scale": 1.16,
+    "fx_color": "#ff9ec8",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.16,
+        "attack_rate_mult": 1.06,
+        "aoe_mult": 1.07
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.34,
+        "attack_rate_mult": 1.12,
+        "aoe_mult": 1.13
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.53,
+        "attack_rate_mult": 1.18,
+        "aoe_mult": 1.2
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.74,
+        "attack_rate_mult": 1.25,
+        "aoe_mult": 1.28
+      }
+    ],
+    "impact_aoe_radius": 56.0,
+    "signature_mode": "execution",
+    "signature_power": 1.25,
+    "signature_aux": 0.42,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.54,
+      "projected_ttk_s": 0.54,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 10.43,
+      "projected_noise_ps": 10.43,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.28,
+        "crit_multiplier_add": 0.35,
+        "max_light_ratio": 0.44
+      }
+    ]
+  },
+  "mythic_hailstorm": {
+    "id": "mythic_hailstorm",
+    "name": "Mythic Hailstorm",
+    "description": "Epic skyforge repeater that unleashes dense fan volleys of razor hail.",
+    "attack_model": "projectile",
+    "tags": [
+      "aoe",
+      "tempo",
+      "kinetic"
+    ],
+    "base_damage": 3.886,
+    "attack_rate": 3.8,
+    "range": 760.0,
+    "projectile_speed": 790.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.1,
+    "crit_multiplier": 1.66,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 2.964,
+    "projectile_radius": 4.3,
+    "projectile_spread_deg": 22.0,
+    "burst_count": 2,
+    "burst_interval": 0.048,
+    "impact_aoe_radius": 24.0,
+    "impact_aoe_damage_mult": 0.34,
+    "impact_knockback": 155.0,
+    "fx_color": "#9de8ff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 3
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.12,
+        "attack_rate_mult": 1.07,
+        "range_mult": 1.03,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 3
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.25,
+        "attack_rate_mult": 1.14,
+        "range_mult": 1.06,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 4
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.4,
+        "attack_rate_mult": 1.2,
+        "range_mult": 1.1,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 4
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.57,
+        "attack_rate_mult": 1.27,
+        "range_mult": 1.14,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 5
+      }
+    ],
+    "projectile_count": 6,
+    "signature_mode": "crit_echo",
+    "signature_power": 0.42,
+    "signature_aux": 0.48,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.611,
+      "projected_ttk_s": 0.611,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 11.265,
+      "projected_noise_ps": 11.263,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.24,
+        "attack_rate_mult": 0.24,
+        "crit_chance_add": 0.03,
+        "min_light_ratio": 0.45
+      }
+    ]
+  },
+  "thunder_sigil": {
+    "id": "thunder_sigil",
+    "name": "Thunder Sigil",
+    "description": "Epic arc sigil detonator that repeatedly shocks and repels nearby hordes.",
+    "attack_model": "pulse",
+    "tags": [
+      "chain",
+      "aoe",
+      "control"
+    ],
+    "base_damage": 44.827,
+    "attack_rate": 1.16,
+    "range": 235.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.09,
+    "crit_multiplier": 1.76,
+    "aoe_radius": 214.0,
+    "noise_per_attack": 8.009,
+    "pulse_repeats": 4,
+    "pulse_repeat_interval": 0.08,
+    "pulse_falloff": 0.74,
+    "impact_pulse_strength": 0.8,
+    "impact_pulse_radius_scale": 1.3,
+    "impact_knockback": 280.0,
+    "fx_color": "#b39bff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.14,
+        "attack_rate_mult": 1.05,
+        "aoe_mult": 1.09
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.31,
+        "attack_rate_mult": 1.1,
+        "aoe_mult": 1.17
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.5,
+        "attack_rate_mult": 1.15,
+        "aoe_mult": 1.26
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.71,
+        "attack_rate_mult": 1.21,
+        "aoe_mult": 1.35
+      }
+    ],
+    "signature_mode": "noise_drive",
+    "signature_power": 0.62,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.72,
+      "projected_ttk_s": 0.72,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 9.29,
+      "projected_noise_ps": 9.29,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.28,
+        "crit_multiplier_add": 0.35,
+        "max_light_ratio": 0.44
+      }
+    ]
+  },
+  "oracle_splitter": {
+    "id": "oracle_splitter",
+    "name": "Oracle Splitter",
+    "description": "Epic foresight cannon splitting each shot into delayed omen fragments.",
+    "attack_model": "projectile",
+    "tags": [
+      "crit",
+      "aoe",
+      "control"
+    ],
+    "base_damage": 5.406,
+    "attack_rate": 2.5,
+    "range": 820.0,
+    "projectile_speed": 860.0,
+    "projectile_pierce": 1,
+    "crit_chance": 0.16,
+    "crit_multiplier": 1.9,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 4.391,
+    "projectile_radius": 5.1,
+    "projectile_spread_deg": 8.0,
+    "burst_count": 3,
+    "burst_interval": 0.055,
+    "impact_aoe_radius": 40.0,
+    "impact_aoe_damage_mult": 0.42,
+    "impact_pulse_strength": 0.48,
+    "impact_pulse_radius_scale": 1.06,
+    "impact_knockback": 205.0,
+    "fx_color": "#ffd6a3",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.03,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.29,
+        "attack_rate_mult": 1.11,
+        "range_mult": 1.07,
+        "pierce_bonus": 2,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.47,
+        "attack_rate_mult": 1.17,
+        "range_mult": 1.11,
+        "pierce_bonus": 2,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.66,
+        "attack_rate_mult": 1.23,
+        "range_mult": 1.16,
+        "pierce_bonus": 2,
+        "projectile_count_bonus": 2
+      }
+    ],
+    "projectile_count": 5,
+    "signature_mode": "reveal_hunter",
+    "signature_power": 0.9,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 3.0,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.72,
+      "projected_ttk_s": 0.72,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 10.977,
+      "projected_noise_ps": 10.978,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.24,
+        "attack_rate_mult": 0.24,
+        "crit_chance_add": 0.03,
+        "min_light_ratio": 0.45
+      }
+    ]
+  },
+  "abyssal_monolith": {
+    "id": "abyssal_monolith",
+    "name": "Abyssal Monolith",
+    "description": "Epic monolith beam that drills through one target then chains into many.",
+    "attack_model": "beam",
+    "tags": [
+      "chain",
+      "damage",
+      "pierce"
+    ],
+    "base_damage": 10.48,
+    "attack_rate": 5.2,
+    "range": 660.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.07,
+    "crit_multiplier": 1.72,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 2.442,
+    "beam_tick_interval": 0.13,
+    "beam_chain_targets": 5,
+    "beam_chain_falloff": 0.58,
+    "impact_knockback": 310.0,
+    "fx_color": "#8ec5ff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.04
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.29,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.09
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.48,
+        "attack_rate_mult": 1.16,
+        "range_mult": 1.14
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.68,
+        "attack_rate_mult": 1.22,
+        "range_mult": 1.2
+      }
+    ],
+    "signature_mode": "elite_bane",
+    "signature_power": 0.7,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.54,
+      "projected_ttk_s": 0.54,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 13.462,
+      "projected_noise_ps": 13.46,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.28,
+        "crit_multiplier_add": 0.35,
+        "max_light_ratio": 0.44
+      }
+    ]
+  },
+  "starfall_engine": {
+    "id": "starfall_engine",
+    "name": "Starfall Engine",
+    "description": "Epic stellar mine core that erupts into radiant meteor shards.",
+    "attack_model": "mine",
+    "tags": [
+      "trap",
+      "sonar",
+      "aoe"
+    ],
+    "base_damage": 53.24,
+    "attack_rate": 0.78,
+    "range": 540.0,
+    "projectile_speed": 260.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.1,
+    "crit_multiplier": 1.88,
+    "aoe_radius": 166.0,
+    "noise_per_attack": 9.676,
+    "activation_delay": 0.38,
+    "reveal_bonus_duration": 0.7,
+    "mine_shard_count": 24,
+    "mine_shard_speed": 780.0,
+    "mine_shard_range": 460.0,
+    "projectile_radius": 5.2,
+    "impact_aoe_radius": 30.0,
+    "impact_aoe_damage_mult": 0.36,
+    "impact_pulse_strength": 0.92,
+    "impact_pulse_radius_scale": 1.42,
+    "impact_knockback": 270.0,
+    "fx_color": "#ffe5a6",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.16,
+        "attack_rate_mult": 1.04,
+        "aoe_mult": 1.1
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.34,
+        "attack_rate_mult": 1.09,
+        "aoe_mult": 1.18
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.54,
+        "attack_rate_mult": 1.14,
+        "aoe_mult": 1.27
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.76,
+        "attack_rate_mult": 1.2,
+        "aoe_mult": 1.37
+      }
+    ],
+    "signature_mode": "finisher_cycle",
+    "signature_power": 1.05,
+    "signature_aux": 260.0,
+    "signature_cycle": 2,
+    "signature_duration": 0.0,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.72,
+      "projected_ttk_s": 0.72,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 8.0,
+      "projected_noise_ps": 8.0,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "light_zone_bonus",
+        "damage_mult": 0.24,
+        "attack_rate_mult": 0.24,
+        "crit_chance_add": 0.03,
+        "min_light_ratio": 0.45
+      }
+    ]
+  },
+  "ragnarok_twinfang": {
+    "id": "ragnarok_twinfang",
+    "name": "Ragnarok Twinfang",
+    "description": "Epic twin-barrel relic that stacks brutal crit bursts with recoil shock.",
+    "attack_model": "projectile",
+    "tags": [
+      "crit",
+      "tempo",
+      "damage"
+    ],
+    "base_damage": 6.856,
+    "attack_rate": 3.2,
+    "range": 760.0,
+    "projectile_speed": 840.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.18,
+    "crit_multiplier": 1.96,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 4.118,
+    "projectile_radius": 5.0,
+    "projectile_spread_deg": 10.0,
+    "burst_count": 3,
+    "burst_interval": 0.035,
+    "impact_aoe_radius": 28.0,
+    "impact_aoe_damage_mult": 0.33,
+    "impact_pulse_strength": 0.34,
+    "impact_pulse_radius_scale": 0.92,
+    "impact_knockback": 220.0,
+    "fx_color": "#ff9fba",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.14,
+        "attack_rate_mult": 1.07,
+        "range_mult": 1.03,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.3,
+        "attack_rate_mult": 1.13,
+        "range_mult": 1.06,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.49,
+        "attack_rate_mult": 1.2,
+        "range_mult": 1.1,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 2
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.69,
+        "attack_rate_mult": 1.27,
+        "range_mult": 1.14,
+        "pierce_bonus": 2,
+        "projectile_count_bonus": 2
+      }
+    ],
+    "projectile_count": 4,
+    "signature_mode": "kill_reset",
+    "signature_power": 0.35,
+    "signature_aux": 0.0,
+    "signature_cycle": 0,
+    "signature_duration": 0.0,
+    "rarity": "epic",
+    "balance_tier": "epic",
+    "balance_budget": {
+      "version": "v1_48tier_ttk_noise_2026_02_25",
+      "reference_hp": 40.0,
+      "target_ttk_s": 0.545,
+      "projected_ttk_s": 0.545,
+      "ttk_band_s": [
+        0.54,
+        0.72
+      ],
+      "target_noise_ps": 13.177,
+      "projected_noise_ps": 13.178,
+      "noise_band_ps": [
+        8.0,
+        13.8
+      ]
+    },
+    "conditional_triggers": [
+      {
+        "id": "kill_refresh",
+        "cooldown_refund": 0.24,
+        "skill_refund": 0.48,
+        "noise_refund": 4.0
+      },
+      {
+        "id": "backstab_bonus",
+        "damage_mult": 0.36,
+        "crit_chance_add": 0.06,
+        "dot_threshold": -0.1
+      },
+      {
+        "id": "dark_zone_bonus",
+        "damage_mult": 0.28,
+        "crit_multiplier_add": 0.35,
+        "max_light_ratio": 0.44
       }
     ]
   }

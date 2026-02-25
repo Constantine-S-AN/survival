@@ -12,6 +12,99 @@ signal boss_true_form_revealed(boss_id: String, world_position: Vector2)
 
 var enemy_scene := preload("res://scenes/enemy/Enemy.tscn")
 
+const ENEMY_COMBO_PATTERNS: Array[Dictionary] = [
+	{
+		"id": "guard_rush_crossfire",
+		"min_time": 20.0,
+		"min_noise": 0.0,
+		"weight": 1.25,
+		"members": [
+			{"id": "shielded", "count": 1, "radius": 58.0},
+			{"id": "sprinter", "count": 2, "radius": 92.0},
+			{"id": "shooter", "count": 1, "radius": 122.0}
+		]
+	},
+	{
+		"id": "scout_pincer",
+		"min_time": 60.0,
+		"min_noise": 8.0,
+		"weight": 1.12,
+		"members": [
+			{"id": "drone_scout", "count": 2, "radius": 86.0},
+			{"id": "sprinter", "count": 1, "radius": 108.0},
+			{"id": "shooter", "count": 1, "radius": 128.0}
+		]
+	},
+	{
+		"id": "lurk_pin",
+		"min_time": 95.0,
+		"min_noise": 16.0,
+		"weight": 1.06,
+		"members": [
+			{"id": "lurker", "count": 2, "radius": 82.0},
+			{"id": "shooter", "count": 1, "radius": 112.0},
+			{"id": "drifter", "count": 1, "radius": 124.0}
+		]
+	},
+	{
+		"id": "splitter_screen",
+		"min_time": 130.0,
+		"min_noise": 24.0,
+		"weight": 1.0,
+		"members": [
+			{"id": "shielded", "count": 1, "radius": 60.0},
+			{"id": "splitter", "count": 2, "radius": 96.0},
+			{"id": "shooter", "count": 1, "radius": 128.0}
+		]
+	},
+	{
+		"id": "bomber_drive",
+		"min_time": 170.0,
+		"min_noise": 30.0,
+		"weight": 0.96,
+		"members": [
+			{"id": "bloater", "count": 1, "radius": 70.0},
+			{"id": "sprinter", "count": 1, "radius": 98.0},
+			{"id": "leech", "count": 1, "radius": 116.0},
+			{"id": "rusher_eel", "count": 1, "radius": 126.0}
+		]
+	},
+	{
+		"id": "summoner_anchor",
+		"min_time": 210.0,
+		"min_noise": 35.0,
+		"weight": 0.92,
+		"members": [
+			{"id": "summoner", "count": 1, "radius": 64.0},
+			{"id": "shielded", "count": 1, "radius": 92.0},
+			{"id": "drifter", "count": 2, "radius": 120.0}
+		]
+	},
+	{
+		"id": "magnetic_snare",
+		"min_time": 255.0,
+		"min_noise": 42.0,
+		"weight": 0.86,
+		"members": [
+			{"id": "magnetoid", "count": 1, "radius": 68.0},
+			{"id": "lurker", "count": 1, "radius": 96.0},
+			{"id": "shooter", "count": 1, "radius": 116.0},
+			{"id": "sprinter", "count": 1, "radius": 134.0}
+		]
+	},
+	{
+		"id": "abyss_swarm",
+		"min_time": 330.0,
+		"min_noise": 55.0,
+		"weight": 0.82,
+		"members": [
+			{"id": "ink_mite", "count": 3, "radius": 90.0},
+			{"id": "lurker", "count": 1, "radius": 120.0},
+			{"id": "shooter", "count": 1, "radius": 138.0}
+		]
+	}
+]
+
 var player: Node2D
 var rng: RandomNumberGenerator
 var elapsed_time := 0.0
@@ -50,10 +143,19 @@ var boss_id: String = ""
 var boss_node: Node = null
 var boss_phase_index: int = -1
 var boss_summon_timer: float = 0.0
+var boss_phase_id_runtime: String = ""
+var boss_phase_label_runtime: String = ""
+var boss_phase_exam_type: String = ""
+var boss_phase_exam_objective: String = ""
+var boss_summon_break_required: int = 0
+var boss_summon_break_kills: int = 0
+var boss_summon_break_alive: int = 0
 var pool_manager: Node = null
 var enemy_pool_key: String = "enemy"
 var enemy_pool_enabled: bool = false
 var run_active: bool = false
+var combo_spawned_total: int = 0
+var last_combo_id: String = ""
 
 
 func setup_pool(pool_manager_ref: Node, key: String = "enemy", prewarm_size: int = 72) -> void:
@@ -108,8 +210,11 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 	boss_node = null
 	boss_phase_index = -1
 	boss_summon_timer = 0.0
+	_reset_boss_exam_state()
 	run_active = true
 	active_enemies.clear()
+	combo_spawned_total = 0
+	last_combo_id = ""
 	var bosses: Array = DataRegistry.get_bosses()
 	if not bosses.is_empty() and bosses[0] is Dictionary:
 		boss_definition = (bosses[0] as Dictionary).duplicate(true)
@@ -160,9 +265,13 @@ func _process(delta: float) -> void:
 
 	while spawn_timer <= 0.0:
 		spawn_timer += spawn_interval
-		if _get_alive_enemy_count() >= enemy_cap:
+		var alive_before := _get_alive_enemy_count()
+		if alive_before >= enemy_cap:
 			break
-		_spawn_enemy()
+		var slots := maxi(1, enemy_cap - alive_before)
+		var spawned_now := _spawn_enemy_wave(slots)
+		if spawned_now <= 0:
+			break
 
 	_try_spawn_pursuer(delta)
 	_try_spawn_boss(delta)
@@ -210,12 +319,21 @@ func get_noise_debug_snapshot() -> Dictionary:
 		"pursuer_count": active_pursuer_count,
 		"pursuer_spawned_total": pursuer_spawned_total,
 		"next_pursuer_eta": next_pursuer_eta,
-		"boss_state": boss_state,
-		"boss_id": boss_id,
-		"boss_decoy_count": get_boss_decoy_count(),
-		"boss_true_form_revealed": is_boss_true_form_revealed(),
-		"boss_spawn_rate_multiplier": boss_spawn_rate_multiplier,
-		"elite_jam_multiplier": elite_jam_multiplier_runtime,
+			"boss_state": boss_state,
+			"boss_id": boss_id,
+			"boss_phase_id": boss_phase_id_runtime,
+			"boss_phase_label": boss_phase_label_runtime,
+			"boss_exam_type": boss_phase_exam_type,
+			"boss_exam_objective": boss_phase_exam_objective,
+			"boss_decoy_count": get_boss_decoy_count(),
+			"boss_true_form_revealed": is_boss_true_form_revealed(),
+			"boss_spawn_rate_multiplier": boss_spawn_rate_multiplier,
+			"boss_summon_break_required": boss_summon_break_required,
+			"boss_summon_break_kills": boss_summon_break_kills,
+			"boss_summon_break_alive": boss_summon_break_alive,
+			"elite_jam_multiplier": elite_jam_multiplier_runtime,
+		"combo_spawned_total": combo_spawned_total,
+		"last_combo_id": last_combo_id,
 		"enemy_pool_hit_rate": float(enemy_pool_stats.get("hit_rate", -1.0)),
 		"enemy_pool_hits": int(enemy_pool_stats.get("hits", 0)),
 		"enemy_pool_misses": int(enemy_pool_stats.get("misses", 0))
@@ -231,6 +349,56 @@ func get_enemy_pool_stats() -> Dictionary:
 		"misses": 0,
 		"total": 0,
 		"hit_rate": -1.0
+	}
+
+
+func get_boss_hud_snapshot() -> Dictionary:
+	var active := boss_node != null and is_instance_valid(boss_node)
+	if not active:
+		return {
+			"boss_active": false,
+			"boss_name": "",
+			"boss_hp": 0.0,
+			"boss_hp_max": 0.0,
+			"boss_hp_ratio": 0.0,
+			"boss_phase_id": "",
+			"boss_phase_label": "",
+			"boss_exam_type": "",
+			"boss_exam_objective": "",
+			"boss_summon_break_required": 0,
+			"boss_summon_break_kills": 0,
+			"boss_summon_break_alive": 0,
+			"boss_summon_break_active": false
+		}
+	var hp_current := 0.0
+	var hp_max := 1.0
+	var hp_variant: Variant = boss_node.get("hp")
+	if hp_variant != null:
+		hp_current = float(hp_variant)
+	var hp_max_variant: Variant = boss_node.get("max_hp")
+	if hp_max_variant != null:
+		hp_max = maxf(1.0, float(hp_max_variant))
+	var hp_ratio := clampf(hp_current / maxf(1.0, hp_max), 0.0, 1.0)
+	var objective := boss_phase_exam_objective
+	if objective.is_empty():
+		objective = boss_phase_label_runtime
+	if boss_phase_exam_type == "summon_break" and boss_summon_break_required > 0:
+		var solved := clampi(boss_summon_break_kills, 0, boss_summon_break_required)
+		objective = "%s (%d/%d)" % [objective, solved, boss_summon_break_required]
+	return {
+		"boss_active": true,
+		"boss_name": String(boss_definition.get("name", boss_id)),
+		"boss_hp": hp_current,
+		"boss_hp_max": hp_max,
+		"boss_hp_ratio": hp_ratio,
+		"boss_phase_id": boss_phase_id_runtime,
+		"boss_phase_label": boss_phase_label_runtime,
+		"boss_exam_type": boss_phase_exam_type,
+		"boss_exam_objective": objective,
+		"boss_summon_break_required": boss_summon_break_required,
+		"boss_summon_break_kills": boss_summon_break_kills,
+		"boss_summon_break_alive": boss_summon_break_alive,
+		"boss_summon_break_active": boss_phase_exam_type == "summon_break" and maxi(0, boss_summon_break_required - boss_summon_break_kills) > 0
 	}
 
 
@@ -266,15 +434,133 @@ func set_contract_spawn_modifiers(modifiers: Dictionary) -> void:
 	contract_enemy_speed_multiplier = maxf(0.05, float(modifiers.get("enemy_speed_mult", 1.0)))
 
 
-func _spawn_enemy() -> void:
+func _spawn_enemy() -> bool:
 	var enemy_id := DataRegistry.pick_enemy_id(rng, elapsed_time, noise_factor)
 	if enemy_id.is_empty():
-		return
+		return false
 	var definition: Dictionary = DataRegistry.get_enemy(enemy_id)
 	if definition.is_empty():
-		return
+		return false
 
-	_spawn_enemy_node(enemy_id, definition, _pick_spawn_position(), true)
+	var spawned := _spawn_enemy_node(enemy_id, definition, _pick_spawn_position(), true)
+	return spawned != null
+
+
+func _spawn_enemy_wave(available_slots: int) -> int:
+	if available_slots <= 0:
+		return 0
+	var combo := _pick_enemy_combo(available_slots)
+	if combo.is_empty():
+		return 1 if _spawn_enemy() else 0
+	var spawned := _spawn_enemy_combo(combo, available_slots)
+	if spawned <= 0:
+		return 1 if _spawn_enemy() else 0
+	return spawned
+
+
+func _pick_enemy_combo(available_slots: int) -> Dictionary:
+	if available_slots < 2:
+		return {}
+	var elapsed_ratio := clampf(elapsed_time / 420.0, 0.0, 1.0)
+	var noise_ratio := clampf(noise_factor / 100.0, 0.0, 1.0)
+	var combo_chance := clampf(0.16 + elapsed_ratio * 0.28 + noise_ratio * 0.22, 0.12, 0.62)
+	if rng.randf() > combo_chance:
+		return {}
+
+	var candidates: Array[Dictionary] = []
+	var total_weight := 0.0
+	for pattern in ENEMY_COMBO_PATTERNS:
+		var min_time := float(pattern.get("min_time", 0.0))
+		var min_noise := float(pattern.get("min_noise", 0.0))
+		if elapsed_time < min_time or noise_factor < min_noise:
+			continue
+		var member_total := _combo_member_total(pattern)
+		if member_total <= 1 or member_total > available_slots:
+			continue
+		var weight := maxf(0.0, float(pattern.get("weight", 1.0)))
+		if weight <= 0.0:
+			continue
+		var size_bonus := 1.0 + clampf(float(member_total - 2) * 0.08, 0.0, 0.35)
+		weight *= size_bonus
+		candidates.append({
+			"pattern": pattern,
+			"weight": weight
+		})
+		total_weight += weight
+
+	if candidates.is_empty() or total_weight <= 0.0:
+		return {}
+
+	var roll := rng.randf_range(0.0, total_weight)
+	var acc := 0.0
+	for row in candidates:
+		acc += float(row.get("weight", 0.0))
+		if roll <= acc:
+			var picked_variant: Variant = row.get("pattern", {})
+			return picked_variant if picked_variant is Dictionary else {}
+	var last_variant: Variant = candidates.back().get("pattern", {})
+	return last_variant if last_variant is Dictionary else {}
+
+
+func _spawn_enemy_combo(pattern: Dictionary, available_slots: int) -> int:
+	var members_variant: Variant = pattern.get("members", [])
+	if not (members_variant is Array):
+		return 0
+	var members: Array = members_variant
+	if members.is_empty():
+		return 0
+
+	var total_planned := _combo_member_total(pattern)
+	if total_planned <= 0:
+		return 0
+
+	var anchor := _pick_spawn_position()
+	var spawned := 0
+	var seat := 0
+	for member_variant in members:
+		if spawned >= available_slots:
+			break
+		if not (member_variant is Dictionary):
+			continue
+		var member: Dictionary = member_variant
+		var member_id := String(member.get("id", "")).strip_edges()
+		if member_id.is_empty():
+			continue
+		var definition: Dictionary = DataRegistry.get_enemy(member_id)
+		if definition.is_empty():
+			continue
+		var count := clampi(int(member.get("count", 1)), 1, 8)
+		var radius_hint := maxf(18.0, float(member.get("radius", 96.0)))
+		for _idx in range(count):
+			if spawned >= available_slots:
+				break
+			var angle_step := TAU / maxf(1.0, float(total_planned))
+			var angle := angle_step * float(seat) + rng.randf_range(-0.24, 0.24)
+			var radius := rng.randf_range(radius_hint * 0.78, radius_hint * 1.16)
+			var world_pos := anchor + Vector2.RIGHT.rotated(angle) * radius
+			var enemy := _spawn_enemy_node(member_id, definition, world_pos, true)
+			seat += 1
+			if enemy != null:
+				spawned += 1
+
+	if spawned > 0:
+		combo_spawned_total += 1
+		last_combo_id = String(pattern.get("id", ""))
+	return spawned
+
+
+func _combo_member_total(pattern: Dictionary) -> int:
+	var members_variant: Variant = pattern.get("members", [])
+	if not (members_variant is Array):
+		return 0
+	var total := 0
+	var members: Array = members_variant
+	for member_variant in members:
+		if not (member_variant is Dictionary):
+			continue
+		var member: Dictionary = member_variant
+		total += maxi(0, int(member.get("count", 1)))
+	return total
 
 
 func _spawn_specific_enemy(enemy_id: String) -> void:
@@ -297,11 +583,11 @@ func _spawn_specific_enemy(enemy_id: String) -> void:
 		pursuer_spawned.emit(enemy_id, spawned.global_position, pursuer_spawned_total, next_pursuer_eta)
 
 
-func _spawn_enemy_near(enemy_id: String, world_position: Vector2) -> void:
+func _spawn_enemy_near(enemy_id: String, world_position: Vector2) -> Node:
 	var definition: Dictionary = DataRegistry.get_enemy(enemy_id)
 	if definition.is_empty():
-		return
-	_spawn_enemy_node(enemy_id, definition, world_position, false)
+		return null
+	return _spawn_enemy_node(enemy_id, definition, world_position, false)
 
 
 func _try_spawn_pursuer(delta: float) -> void:
@@ -337,6 +623,7 @@ func _on_enemy_died(enemy_id: String, xp_reward: int, enemy: Node) -> void:
 		"is_elite": false,
 		"is_pursuer": false,
 		"is_boss": false,
+		"is_boss_exam_summon": false,
 		"spawn_group": "normal",
 		"affix_id": ""
 	}
@@ -350,6 +637,15 @@ func _on_enemy_died(enemy_id: String, xp_reward: int, enemy: Node) -> void:
 		meta["is_boss"] = bool(enemy.is_in_group("boss")) or String(behavior_variant) == "boss"
 		var affix_variant: Variant = enemy.get("elite_affix_id")
 		meta["affix_id"] = String(affix_variant) if affix_variant != null else ""
+		var boss_exam_summon := false
+		if enemy.has_meta("boss_exam_summon"):
+			boss_exam_summon = bool(enemy.get_meta("boss_exam_summon", false))
+		meta["is_boss_exam_summon"] = boss_exam_summon
+		if boss_exam_summon and boss_phase_exam_type == "summon_break":
+			boss_summon_break_alive = maxi(0, boss_summon_break_alive - 1)
+			if boss_summon_break_required > 0 and boss_summon_break_kills < boss_summon_break_required:
+				boss_summon_break_kills += 1
+			_sync_boss_summon_break_state()
 		if bool(meta["is_elite"]):
 			xp_reward = int(round(float(xp_reward) * 1.12))
 		if bool(meta["is_boss"]):
@@ -358,6 +654,7 @@ func _on_enemy_died(enemy_id: String, xp_reward: int, enemy: Node) -> void:
 			boss_node = null
 			boss_phase_index = -1
 			boss_spawn_rate_multiplier = 1.0
+			_reset_boss_exam_state()
 	active_enemies.erase(enemy)
 	enemy_killed.emit(enemy_id, xp_reward, position, meta)
 
@@ -449,6 +746,8 @@ func _spawn_enemy_node(enemy_id: String, definition: Dictionary, world_position:
 		"speed_mult": current_enemy_speed_multiplier
 	}
 	enemy.setup(enemy_id, definition, player, runtime_modifiers)
+	if enemy.has_method("set_meta"):
+		enemy.set_meta("boss_exam_summon", false)
 	if allow_elite and _can_become_elite(definition):
 		_try_apply_elite(enemy)
 	active_enemies.append(enemy)
@@ -538,9 +837,11 @@ func _try_spawn_boss(_delta: float) -> void:
 		return
 	boss_node = spawned
 	boss_phase_index = 0
-	boss_state = "phase_1"
-	boss_spawn_rate_multiplier = maxf(0.05, float(enemy_def.get("spawn_rate_mult", 1.0)))
 	var phase := _get_boss_phase(0)
+	_set_boss_phase_context(phase)
+	boss_state = boss_phase_label_runtime if not boss_phase_label_runtime.is_empty() else "phase_1"
+	boss_spawn_rate_multiplier = maxf(0.05, float(enemy_def.get("spawn_rate_mult", 1.0)))
+	_sync_boss_summon_break_state()
 	var telegraph := String(phase.get("telegraph_text", "Boss incoming")).strip_edges()
 	boss_spawned.emit(boss_id, String(phase.get("id", "phase_1")), telegraph)
 
@@ -582,10 +883,12 @@ func _apply_boss_phase(next_index: int, phase: Dictionary) -> void:
 	if String(runtime_phase.get("id", "")).strip_edges() == "phase_2":
 		var base_echoes := maxi(2, int(boss_definition.get("fake_echoes", 2)))
 		runtime_phase["echo_count"] = clampi(base_echoes + rng.randi_range(0, 1), 2, 3)
+	_set_boss_phase_context(runtime_phase)
 	boss_phase_index = next_index
-	boss_state = String(runtime_phase.get("label", "phase_%d" % (next_index + 1))).strip_edges()
+	boss_state = boss_phase_label_runtime if not boss_phase_label_runtime.is_empty() else String(runtime_phase.get("label", "phase_%d" % (next_index + 1))).strip_edges()
 	if boss_node.has_method("apply_boss_phase"):
 		boss_node.apply_boss_phase(runtime_phase, boss_definition)
+	_sync_boss_summon_break_state()
 	boss_spawn_rate_multiplier = maxf(0.05, float(runtime_phase.get("spawn_rate_mult", 1.0)))
 	boss_summon_timer = maxf(0.1, float(runtime_phase.get("summon_interval", 6.0)))
 	var telegraph := String(runtime_phase.get("telegraph_text", "Boss phase shift")).strip_edges()
@@ -600,7 +903,7 @@ func _apply_boss_phase(next_index: int, phase: Dictionary) -> void:
 func _spawn_boss_adds(phase: Dictionary) -> void:
 	if boss_node == null or not is_instance_valid(boss_node):
 		return
-	var summon_pool_variant: Variant = boss_definition.get("summon_pool", [])
+	var summon_pool_variant: Variant = phase.get("summon_pool_override", boss_definition.get("summon_pool", []))
 	if not (summon_pool_variant is Array):
 		return
 	var summon_pool: Array = summon_pool_variant
@@ -615,7 +918,13 @@ func _spawn_boss_adds(phase: Dictionary) -> void:
 		var angle := rng.randf_range(0.0, TAU)
 		var radius := rng.randf_range(120.0, 210.0)
 		var position: Vector2 = boss_node.global_position + Vector2.RIGHT.rotated(angle) * radius
-		_spawn_enemy_near(enemy_id, position)
+		var spawned_enemy := _spawn_enemy_near(enemy_id, position)
+		if spawned_enemy == null or not is_instance_valid(spawned_enemy):
+			continue
+		if boss_phase_exam_type == "summon_break" and boss_summon_break_required > 0:
+			spawned_enemy.set_meta("boss_exam_summon", true)
+			boss_summon_break_alive += 1
+			_sync_boss_summon_break_state()
 
 
 func _build_boss_enemy_definition() -> Dictionary:
@@ -643,13 +952,13 @@ func _build_boss_enemy_definition() -> Dictionary:
 		"ranged_cooldown": float(phase.get("attack_interval", 2.2)),
 		"ranged_damage": float(boss_definition.get("damage", 22.0)),
 		"summon_interval": float(phase.get("summon_interval", 8.0)),
-		"summon_count": int(phase.get("summon_count", 2)),
-		"initial_phase": phase.duplicate(true),
-		"fake_echoes": int(boss_definition.get("fake_echoes", 2)),
-		"telegraph_color": String(boss_definition.get("telegraph_color", "#8be8ff")),
-		"hidden_damage_multiplier": 0.35,
-		"spawn_rate_mult": float(phase.get("spawn_rate_mult", 1.0))
-	}
+			"summon_count": int(phase.get("summon_count", 2)),
+			"initial_phase": phase.duplicate(true),
+			"fake_echoes": int(boss_definition.get("fake_echoes", 2)),
+			"telegraph_color": String(boss_definition.get("telegraph_color", "#8be8ff")),
+			"hidden_damage_multiplier": float(phase.get("hidden_damage_multiplier", 0.35)),
+			"spawn_rate_mult": float(phase.get("spawn_rate_mult", 1.0))
+		}
 
 
 func _get_boss_phase(index: int) -> Dictionary:
@@ -663,6 +972,41 @@ func _get_boss_phase(index: int) -> Dictionary:
 	if phase_variant is Dictionary:
 		return (phase_variant as Dictionary).duplicate(true)
 	return {}
+
+
+func _set_boss_phase_context(phase: Dictionary) -> void:
+	boss_phase_id_runtime = String(phase.get("id", "")).strip_edges()
+	boss_phase_label_runtime = String(phase.get("label", "")).strip_edges()
+	boss_phase_exam_type = String(phase.get("exam_type", "")).strip_edges().to_lower()
+	boss_phase_exam_objective = String(phase.get("exam_objective", "")).strip_edges()
+	if boss_phase_exam_type == "summon_break":
+		boss_summon_break_required = maxi(1, int(phase.get("summon_break_kills_required", boss_summon_break_required)))
+		boss_summon_break_kills = 0
+		boss_summon_break_alive = 0
+	else:
+		boss_summon_break_required = 0
+		boss_summon_break_kills = 0
+		boss_summon_break_alive = 0
+
+
+func _reset_boss_exam_state() -> void:
+	boss_phase_id_runtime = ""
+	boss_phase_label_runtime = ""
+	boss_phase_exam_type = ""
+	boss_phase_exam_objective = ""
+	boss_summon_break_required = 0
+	boss_summon_break_kills = 0
+	boss_summon_break_alive = 0
+
+
+func _sync_boss_summon_break_state() -> void:
+	if boss_node == null or not is_instance_valid(boss_node):
+		return
+	if not boss_node.has_method("set_boss_summon_break_state"):
+		return
+	var remaining := maxi(0, boss_summon_break_required - boss_summon_break_kills)
+	var active := boss_phase_exam_type == "summon_break" and remaining > 0
+	boss_node.set_boss_summon_break_state(active, remaining, boss_summon_break_required)
 
 
 func _clear_all_active_enemies() -> void:
@@ -685,6 +1029,7 @@ func _clear_all_active_enemies() -> void:
 	active_pursuer_count = 0
 	elite_pursuer_bonus_runtime = 0.0
 	elite_jam_multiplier_runtime = 1.0
+	_reset_boss_exam_state()
 
 
 func _recycle_enemy(enemy: Node) -> void:
@@ -696,6 +1041,7 @@ func _recycle_enemy(enemy: Node) -> void:
 		boss_phase_index = -1
 		boss_state = "idle"
 		boss_spawn_rate_multiplier = 1.0
+		_reset_boss_exam_state()
 	if enemy_pool_enabled and pool_manager != null and pool_manager.has_method("recycle"):
 		pool_manager.recycle(enemy_pool_key, enemy)
 	else:

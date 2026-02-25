@@ -150,9 +150,21 @@ func _run_data_registry_tests() -> void:
 		"idol_railgun",
 		"briar_whip",
 		"oath_pistol",
-		"mirror_shard"
+		"mirror_shard",
+		"sunforged_colossus",
+		"eclipse_requiem",
+		"chrono_lance",
+		"leviathan_bombard",
+		"seraphim_swarm",
+		"eclipse_glaive",
+		"mythic_hailstorm",
+		"thunder_sigil",
+		"oracle_splitter",
+		"abyssal_monolith",
+		"starfall_engine",
+		"ragnarok_twinfang"
 	]
-	_assert_true(registry.weapons.size() >= 36, "weapons has at least 36 entries")
+	_assert_true(registry.weapons.size() >= 48, "weapons has at least 48 entries")
 	for weapon_id in required_weapon_ids:
 		_assert_true(registry.weapons.has(weapon_id), "weapons includes %s" % weapon_id)
 	_assert_true(registry.enemies.size() >= 4, "enemies has at least 4 entries")
@@ -171,6 +183,16 @@ func _run_data_registry_tests() -> void:
 	_assert_equal(String(silence_dart.get("attack_model", "")), "projectile", "silence_dart attack model")
 	var silence_growth_variant: Variant = silence_dart.get("level_growth", [])
 	_assert_true(silence_growth_variant is Array and (silence_growth_variant as Array).size() >= 5, "silence_dart defines 5-level growth")
+	var blunderbuss: Dictionary = registry.get_weapon("rune_blunderbuss")
+	_assert_true(int(blunderbuss.get("projectile_count", 1)) >= 4, "rune_blunderbuss has multi-pellet profile")
+	var monolith: Dictionary = registry.get_weapon("abyssal_monolith")
+	_assert_true(int(monolith.get("beam_chain_targets", 0)) >= 4, "abyssal_monolith has high chain target count")
+	var weapon_runtime_script: Script = load("res://scripts/weapons/weapon_runtime.gd")
+	var blunder_runtime_variant: Variant = weapon_runtime_script.call("from_definition", blunderbuss, 1, {}, [])
+	_assert_true(blunder_runtime_variant is RefCounted, "weapon runtime can be built from weapon definition")
+	if blunder_runtime_variant is RefCounted:
+		var projectile_count_variant: Variant = (blunder_runtime_variant as RefCounted).get("projectile_count")
+		_assert_true(int(projectile_count_variant) >= 4, "weapon runtime respects base projectile_count")
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
@@ -1960,6 +1982,30 @@ func _run_enemy_pool_perf_tests() -> void:
 	var enemy_pool_stats: Dictionary = manager.get_enemy_pool_stats()
 	_assert_true(int(enemy_pool_stats.get("hits", 0)) > 0, "s1 enemy pool hit counter increments")
 	_assert_true(float(enemy_pool_stats.get("hit_rate", 0.0)) >= 0.0, "s1 enemy pool exposes hit_rate metric")
+
+	if manager != null and manager.has_method("_clear_all_active_enemies"):
+		manager._clear_all_active_enemies()
+	await get_tree().process_frame
+	if manager != null and manager.has_method("update_difficulty"):
+		manager.update_difficulty(340.0, 78.0)
+	var combo_triggered := false
+	var combo_spawned_count := 0
+	var combo_id := ""
+	for _attempt in range(12):
+		var spawned_wave := int(manager._spawn_enemy_wave(8))
+		await get_tree().process_frame
+		var combo_debug: Dictionary = manager.get_noise_debug_snapshot()
+		combo_spawned_count = int(combo_debug.get("combo_spawned_total", 0))
+		combo_id = String(combo_debug.get("last_combo_id", ""))
+		if combo_spawned_count > 0 and spawned_wave >= 2 and not combo_id.is_empty():
+			combo_triggered = true
+			break
+		if manager != null and manager.has_method("_clear_all_active_enemies"):
+			manager._clear_all_active_enemies()
+		await get_tree().process_frame
+	_assert_true(combo_triggered, "s1 enemy combo wave spawns coordinated multi-unit patterns")
+	_assert_true(combo_spawned_count > 0, "s1 combo debug tracks spawn count")
+	_assert_true(not combo_id.is_empty(), "s1 combo debug exposes last_combo_id")
 
 	world.queue_free()
 	await get_tree().process_frame

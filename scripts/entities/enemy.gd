@@ -10,7 +10,9 @@ signal boss_true_form_revealed(world_position: Vector2)
 
 const BossEchoDecoyScene := preload("res://scenes/enemy/BossEchoDecoy.tscn")
 const PixelStickerRegistry := preload("res://scripts/visual/pixel_sticker_registry.gd")
-const ENEMY_IDLE_FRAME_SEC := 0.30
+const ENEMY_IDLE_FRAME_SEC := 0.12
+const ENEMY_BOB_AMPLITUDE := 0.72
+const VISUAL_OFFSET_SNAP := 0.25
 
 var enemy_id := "drifter"
 var enemy_name := "Drifter"
@@ -86,6 +88,13 @@ var magnet_force: float = 0.0
 var stagger_timer: float = 0.0
 var rage_timer: float = 0.0
 var runtime_speed_multiplier: float = 1.0
+var burn_dps: float = 0.0
+var burn_remaining: float = 0.0
+var burn_tick_timer: float = 0.0
+var chill_slow_ratio: float = 0.0
+var chill_remaining: float = 0.0
+var shock_remaining: float = 0.0
+var shock_tick_timer: float = 0.0
 
 var boss_phase_id: String = ""
 var boss_phase_label: String = ""
@@ -100,6 +109,21 @@ var boss_attack_windup_duration: float = 0.42
 var boss_echo_count_runtime: int = 0
 var boss_true_form_exposed_announced: bool = false
 var boss_decoys: Array[Node] = []
+var boss_exam_type: String = ""
+var boss_exam_objective: String = ""
+var boss_noise_fail_threshold: float = 50.0
+var boss_noise_fail_damage_taken_mult: float = 0.65
+var boss_noise_fail_attack_damage_mult: float = 1.22
+var boss_noise_fail_attack_cooldown_mult: float = 0.82
+var boss_mobility_dodge_distance: float = 84.0
+var boss_mobility_fail_damage_mult: float = 1.55
+var boss_mobility_success_damage_mult: float = 0.72
+var boss_attack_target_anchor: Vector2 = Vector2.ZERO
+var boss_attack_target_anchor_valid: bool = false
+var boss_summon_break_active: bool = false
+var boss_summon_break_remaining: int = 0
+var boss_summon_break_total_required: int = 0
+var boss_summon_break_shield_mult: float = 0.18
 var recycle_handler: Callable = Callable()
 var pooled_active: bool = false
 var default_collision_layer: int = 2
@@ -108,6 +132,7 @@ var _sticker_frames: Array[Texture2D] = []
 var _sticker_idle_timer: float = 0.0
 var _sticker_frame_idx: int = 0
 var _sticker_base_position: Vector2 = Vector2.ZERO
+var _sticker_idle_offset_y: float = 0.0
 
 @onready var outline_visual: Polygon2D = $Outline
 @onready var body_visual: Polygon2D = $Body
@@ -206,6 +231,13 @@ func setup(new_enemy_id: String, definition: Dictionary, player_target: Node2D, 
 	elite_jam_radius = 0.0
 	elite_xp_siphon_rate = 0.0
 	elite_siphon_radius = 0.0
+	burn_dps = 0.0
+	burn_remaining = 0.0
+	burn_tick_timer = 0.0
+	chill_slow_ratio = 0.0
+	chill_remaining = 0.0
+	shock_remaining = 0.0
+	shock_tick_timer = 0.0
 
 	# Boss runtime defaults.
 	boss_phase_id = ""
@@ -220,6 +252,21 @@ func setup(new_enemy_id: String, definition: Dictionary, player_target: Node2D, 
 	boss_attack_windup_duration = 0.42
 	boss_echo_count_runtime = 0
 	boss_true_form_exposed_announced = false
+	boss_exam_type = ""
+	boss_exam_objective = ""
+	boss_noise_fail_threshold = 50.0
+	boss_noise_fail_damage_taken_mult = 0.65
+	boss_noise_fail_attack_damage_mult = 1.22
+	boss_noise_fail_attack_cooldown_mult = 0.82
+	boss_mobility_dodge_distance = 84.0
+	boss_mobility_fail_damage_mult = 1.55
+	boss_mobility_success_damage_mult = 0.72
+	boss_attack_target_anchor = Vector2.ZERO
+	boss_attack_target_anchor_valid = false
+	boss_summon_break_active = false
+	boss_summon_break_remaining = 0
+	boss_summon_break_total_required = 0
+	boss_summon_break_shield_mult = 0.18
 	_clear_boss_decoys()
 	if behavior == "boss":
 		var initial_phase := {}
@@ -264,6 +311,7 @@ func _physics_process(delta: float) -> void:
 	ranged_cooldown_remaining = maxf(0.0, ranged_cooldown_remaining - delta)
 	boss_attack_windup_remaining = maxf(0.0, boss_attack_windup_remaining - delta)
 	summon_timer = maxf(0.0, summon_timer - delta)
+	_update_status_effects(delta)
 
 	if behavior == "summoner" and summon_timer <= 0.0:
 		_try_summon()
@@ -314,6 +362,8 @@ func _match_behavior_movement(delta: float, distance: float, dir: Vector2) -> vo
 	var move_speed := speed * aggression * runtime_speed_multiplier
 	if rage_timer > 0.0:
 		move_speed *= 1.18
+	if chill_remaining > 0.0 and chill_slow_ratio > 0.0:
+		move_speed *= maxf(0.2, 1.0 - chill_slow_ratio)
 
 	match behavior:
 		"sprinter":
@@ -382,20 +432,29 @@ func _update_shooter_attack(distance: float) -> void:
 		if distance > ranged_range:
 			boss_pending_attack = false
 			boss_attack_windup_remaining = 0.0
+			boss_attack_target_anchor_valid = false
 			return
 		if ranged_cooldown_remaining > 0.0:
 			return
 		if not boss_pending_attack:
 			boss_pending_attack = true
 			boss_attack_windup_remaining = boss_attack_windup_duration
+			if target != null and is_instance_valid(target):
+				boss_attack_target_anchor = target.global_position
+				boss_attack_target_anchor_valid = true
+			else:
+				boss_attack_target_anchor_valid = false
 			_emit_boss_attack_telegraph(distance)
 			return
 		if boss_attack_windup_remaining > 0.0:
 			return
 		boss_pending_attack = false
+		var attack_damage := ranged_damage * _get_boss_exam_attack_damage_multiplier()
+		if boss_exam_type == "mobility":
+			attack_damage *= _resolve_boss_mobility_exam_damage_multiplier()
 		if target != null and is_instance_valid(target) and target.has_method("take_damage"):
-			target.take_damage(ranged_damage)
-		ranged_cooldown_remaining = ranged_cooldown
+			target.take_damage(attack_damage)
+		ranged_cooldown_remaining = ranged_cooldown * _get_boss_exam_attack_cooldown_multiplier()
 		return
 
 	if ranged_cooldown_remaining > 0.0:
@@ -496,6 +555,8 @@ func take_hit(damage: float, impulse: Vector2 = Vector2.ZERO) -> bool:
 		return false
 	if behavior == "boss" and boss_requires_reveal_lock and not is_revealed():
 		resolved_damage *= clampf(boss_hidden_damage_multiplier, 0.05, 1.0)
+	if behavior == "boss":
+		resolved_damage *= _get_boss_exam_damage_taken_multiplier()
 	if shield_hp > 0.0:
 		shield_hp = maxf(0.0, shield_hp - resolved_damage)
 		if shield_hp > 0.0:
@@ -535,6 +596,72 @@ func _flash_hit(shield_only: bool) -> void:
 		tween.tween_property(sticker_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.08)
 	else:
 		tween.tween_property(body_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.08)
+
+
+func apply_status_effect(effect_id: String, duration: float, power: float = 0.0) -> void:
+	if not pooled_active:
+		return
+	var effect := effect_id.strip_edges().to_lower()
+	match effect:
+		"burn":
+			burn_remaining = maxf(burn_remaining, clampf(duration, 0.2, 8.0))
+			burn_dps = maxf(burn_dps, maxf(0.5, power))
+			if burn_tick_timer <= 0.0:
+				burn_tick_timer = 0.18
+		"chill":
+			chill_remaining = maxf(chill_remaining, clampf(duration, 0.15, 6.0))
+			chill_slow_ratio = maxf(chill_slow_ratio, clampf(power, 0.05, 0.75))
+		"shock":
+			shock_remaining = maxf(shock_remaining, clampf(duration, 0.1, 4.0))
+			if shock_tick_timer <= 0.0:
+				shock_tick_timer = 0.12
+		_:
+			return
+
+
+func _update_status_effects(delta: float) -> void:
+	if burn_remaining > 0.0:
+		burn_remaining = maxf(0.0, burn_remaining - delta)
+		burn_tick_timer = maxf(0.0, burn_tick_timer - delta)
+		if burn_tick_timer <= 0.0 and burn_dps > 0.0:
+			burn_tick_timer = 0.24
+			_apply_status_tick_damage(burn_dps * 0.24)
+			_set_enemy_visual_modulate(Color(1.45, 0.95, 0.72, 1.0))
+	elif burn_dps > 0.0:
+		burn_dps = 0.0
+		burn_tick_timer = 0.0
+
+	if chill_remaining > 0.0:
+		chill_remaining = maxf(0.0, chill_remaining - delta)
+	elif chill_slow_ratio > 0.0:
+		chill_slow_ratio = 0.0
+
+	if shock_remaining > 0.0:
+		shock_remaining = maxf(0.0, shock_remaining - delta)
+		shock_tick_timer = maxf(0.0, shock_tick_timer - delta)
+		if shock_tick_timer <= 0.0:
+			shock_tick_timer = 0.20
+			stagger_timer = maxf(stagger_timer, 0.05)
+			_set_enemy_visual_modulate(Color(0.86, 1.22, 1.58, 1.0))
+	elif shock_tick_timer > 0.0:
+		shock_tick_timer = 0.0
+
+
+func _apply_status_tick_damage(amount: float) -> void:
+	if amount <= 0.0 or hp <= 0.0:
+		return
+	var resolved_damage := amount
+	if shield_hp > 0.0:
+		shield_hp = maxf(0.0, shield_hp - resolved_damage * 0.6)
+		if shield_hp > 0.0:
+			_flash_hit(true)
+			return
+	if damage_reduction > 0.0:
+		resolved_damage *= maxf(0.05, 1.0 - (damage_reduction * 0.7))
+	hp -= resolved_damage
+	_flash_hit(false)
+	if hp <= 0.0:
+		_on_death(false)
 
 
 func set_revealed(duration_sec: float) -> void:
@@ -633,8 +760,29 @@ func apply_boss_phase(phase: Dictionary, boss_config: Dictionary = {}) -> void:
 	boss_attack_windup_duration = clampf(float(phase.get("attack_windup", boss_attack_windup_duration)), 0.12, 1.4)
 	boss_pending_attack = false
 	boss_attack_windup_remaining = 0.0
+	boss_attack_target_anchor_valid = false
 	boss_true_form_exposed_announced = false
-	if boss_config.has("hidden_damage_multiplier"):
+	boss_exam_type = String(phase.get("exam_type", "")).strip_edges().to_lower()
+	boss_exam_objective = String(phase.get("exam_objective", "")).strip_edges()
+	boss_noise_fail_threshold = clampf(float(phase.get("noise_fail_threshold", boss_noise_fail_threshold)), 5.0, 100.0)
+	boss_noise_fail_damage_taken_mult = clampf(float(phase.get("noise_fail_damage_taken_mult", boss_noise_fail_damage_taken_mult)), 0.05, 1.0)
+	boss_noise_fail_attack_damage_mult = maxf(0.1, float(phase.get("noise_fail_attack_damage_mult", boss_noise_fail_attack_damage_mult)))
+	boss_noise_fail_attack_cooldown_mult = clampf(float(phase.get("noise_fail_attack_cooldown_mult", boss_noise_fail_attack_cooldown_mult)), 0.3, 2.0)
+	boss_mobility_dodge_distance = clampf(float(phase.get("movement_dodge_distance", boss_mobility_dodge_distance)), 18.0, 360.0)
+	boss_mobility_fail_damage_mult = maxf(0.2, float(phase.get("movement_fail_damage_mult", boss_mobility_fail_damage_mult)))
+	boss_mobility_success_damage_mult = clampf(float(phase.get("movement_success_damage_mult", boss_mobility_success_damage_mult)), 0.15, 1.2)
+	boss_summon_break_shield_mult = clampf(float(phase.get("summon_break_shield_mult", boss_summon_break_shield_mult)), 0.02, 1.0)
+	boss_summon_break_total_required = maxi(0, int(phase.get("summon_break_kills_required", boss_summon_break_total_required)))
+	if boss_exam_type == "summon_break":
+		boss_summon_break_remaining = boss_summon_break_total_required
+		boss_summon_break_active = boss_summon_break_remaining > 0
+	else:
+		boss_summon_break_remaining = 0
+		boss_summon_break_total_required = 0
+		boss_summon_break_active = false
+	if phase.has("hidden_damage_multiplier"):
+		boss_hidden_damage_multiplier = clampf(float(phase.get("hidden_damage_multiplier", boss_hidden_damage_multiplier)), 0.05, 1.0)
+	elif boss_config.has("hidden_damage_multiplier"):
 		boss_hidden_damage_multiplier = clampf(float(boss_config.get("hidden_damage_multiplier", boss_hidden_damage_multiplier)), 0.05, 1.0)
 	boss_telegraph_requested.emit("ring", {
 		"origin": global_position,
@@ -695,6 +843,31 @@ func get_boss_phase_fog_multiplier() -> float:
 	return boss_phase_fog_radius_mult
 
 
+func get_boss_exam_type() -> String:
+	return boss_exam_type
+
+
+func get_boss_exam_objective() -> String:
+	return boss_exam_objective
+
+
+func set_boss_summon_break_state(active: bool, remaining: int, total_required: int = 0) -> void:
+	boss_summon_break_active = active
+	boss_summon_break_remaining = maxi(0, remaining)
+	if total_required > 0:
+		boss_summon_break_total_required = total_required
+	elif not boss_summon_break_active:
+		boss_summon_break_total_required = 0
+
+
+func get_boss_summon_break_remaining() -> int:
+	return boss_summon_break_remaining
+
+
+func get_boss_summon_break_total_required() -> int:
+	return boss_summon_break_total_required
+
+
 func _apply_elite_auras(delta: float) -> void:
 	if target == null or not is_instance_valid(target):
 		return
@@ -710,20 +883,82 @@ func _apply_boss_aura(delta: float) -> void:
 		return
 	if boss_requires_reveal_lock:
 		target.add_noise_delta(0.8 * delta)
+	if boss_exam_type == "noise_control" and _is_boss_noise_exam_failed():
+		target.add_noise_delta(0.32 * delta)
 
 
 func _emit_boss_attack_telegraph(distance_to_target: float) -> void:
 	if target == null or not is_instance_valid(target):
 		return
 	var distance := minf(maxf(36.0, distance_to_target), ranged_range)
+	var line_color := "#6ee7ff"
+	if boss_exam_type == "noise_control" and _is_boss_noise_exam_failed():
+		line_color = "#ff9c6e"
+	elif boss_exam_type == "mobility":
+		line_color = "#ffd27a"
 	boss_telegraph_requested.emit("line", {
 		"origin": global_position,
 		"target": target.global_position,
 		"length": distance,
 		"duration": boss_attack_windup_duration + 0.08,
 		"line_width": 14.0,
-		"color": "#6ee7ff"
+		"color": line_color
 	})
+
+
+func _get_boss_exam_damage_taken_multiplier() -> float:
+	if behavior != "boss":
+		return 1.0
+	if boss_exam_type == "noise_control" and _is_boss_noise_exam_failed():
+		return boss_noise_fail_damage_taken_mult
+	if boss_exam_type == "summon_break" and boss_summon_break_active and boss_summon_break_remaining > 0:
+		return boss_summon_break_shield_mult
+	return 1.0
+
+
+func _get_boss_exam_attack_damage_multiplier() -> float:
+	if behavior != "boss":
+		return 1.0
+	if boss_exam_type == "noise_control" and _is_boss_noise_exam_failed():
+		return boss_noise_fail_attack_damage_mult
+	return 1.0
+
+
+func _get_boss_exam_attack_cooldown_multiplier() -> float:
+	if behavior != "boss":
+		return 1.0
+	if boss_exam_type == "noise_control" and _is_boss_noise_exam_failed():
+		return boss_noise_fail_attack_cooldown_mult
+	return 1.0
+
+
+func _is_boss_noise_exam_failed() -> bool:
+	if target == null or not is_instance_valid(target):
+		return false
+	if not ("noise" in target):
+		return false
+	return float(target.get("noise")) > boss_noise_fail_threshold
+
+
+func _resolve_boss_mobility_exam_damage_multiplier() -> float:
+	if boss_exam_type != "mobility":
+		boss_attack_target_anchor_valid = false
+		return 1.0
+	if target == null or not is_instance_valid(target) or not boss_attack_target_anchor_valid:
+		boss_attack_target_anchor_valid = false
+		return 1.0
+	var moved_distance := target.global_position.distance_to(boss_attack_target_anchor)
+	boss_attack_target_anchor_valid = false
+	if moved_distance + 0.01 >= boss_mobility_dodge_distance:
+		return boss_mobility_success_damage_mult
+	boss_telegraph_requested.emit("ring", {
+		"origin": target.global_position,
+		"radius": maxf(54.0, body_radius * 1.7),
+		"duration": 0.28,
+		"line_width": 5.2,
+		"color": "#ff9a7f"
+	})
+	return boss_mobility_fail_damage_mult
 
 
 func _spawn_boss_echo_decoys(count: int) -> void:
@@ -815,6 +1050,13 @@ func on_pool_recycle() -> void:
 	elite_jam_radius = 0.0
 	elite_xp_siphon_rate = 0.0
 	elite_siphon_radius = 0.0
+	burn_dps = 0.0
+	burn_remaining = 0.0
+	burn_tick_timer = 0.0
+	chill_slow_ratio = 0.0
+	chill_remaining = 0.0
+	shock_remaining = 0.0
+	shock_tick_timer = 0.0
 	shield_hp = 0.0
 	shield_max_hp = 0.0
 	boss_phase_id = ""
@@ -826,6 +1068,21 @@ func on_pool_recycle() -> void:
 	boss_attack_windup_duration = 0.42
 	boss_echo_count_runtime = 0
 	boss_true_form_exposed_announced = false
+	boss_exam_type = ""
+	boss_exam_objective = ""
+	boss_noise_fail_threshold = 50.0
+	boss_noise_fail_damage_taken_mult = 0.65
+	boss_noise_fail_attack_damage_mult = 1.22
+	boss_noise_fail_attack_cooldown_mult = 0.82
+	boss_mobility_dodge_distance = 84.0
+	boss_mobility_fail_damage_mult = 1.55
+	boss_mobility_success_damage_mult = 0.72
+	boss_attack_target_anchor = Vector2.ZERO
+	boss_attack_target_anchor_valid = false
+	boss_summon_break_active = false
+	boss_summon_break_remaining = 0
+	boss_summon_break_total_required = 0
+	boss_summon_break_shield_mult = 0.18
 	_clear_boss_decoys()
 	remove_from_group("enemy")
 	remove_from_group("pursuer")
@@ -844,6 +1101,7 @@ func on_pool_recycle() -> void:
 	_sticker_frames.clear()
 	_sticker_idle_timer = 0.0
 	_sticker_frame_idx = 0
+	_sticker_idle_offset_y = 0.0
 	_update_reveal_visual()
 
 
@@ -859,6 +1117,7 @@ func _apply_enemy_sticker() -> void:
 		return
 	_sticker_idle_timer = 0.0
 	_sticker_frame_idx = 0
+	_sticker_idle_offset_y = 0.0
 	sticker_visual.position = _sticker_base_position
 	sticker_visual.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sticker_visual.texture = texture
@@ -873,12 +1132,26 @@ func _tick_idle_sticker(delta: float) -> void:
 	if sticker_visual == null or not sticker_visual.visible or _sticker_frames.size() <= 1:
 		return
 	_sticker_idle_timer += delta
-	if _sticker_idle_timer < ENEMY_IDLE_FRAME_SEC:
-		return
-	_sticker_idle_timer = 0.0
-	_sticker_frame_idx = (_sticker_frame_idx + 1) % _sticker_frames.size()
-	sticker_visual.texture = _sticker_frames[_sticker_frame_idx]
-	sticker_visual.position = _sticker_base_position + Vector2(0.0, -0.6 if _sticker_frame_idx == 1 else 0.0)
+	while _sticker_idle_timer >= ENEMY_IDLE_FRAME_SEC:
+		_sticker_idle_timer -= ENEMY_IDLE_FRAME_SEC
+		_sticker_frame_idx = (_sticker_frame_idx + 1) % _sticker_frames.size()
+		sticker_visual.texture = _sticker_frames[_sticker_frame_idx]
+	_sticker_idle_offset_y = _idle_bob_offset(_sticker_frame_idx, _sticker_frames.size(), ENEMY_BOB_AMPLITUDE)
+	sticker_visual.position = _sticker_base_position + Vector2(0.0, _sticker_idle_offset_y)
+
+
+func _idle_bob_offset(frame_idx: int, frame_count: int, amplitude: float) -> float:
+	if frame_count <= 1 or amplitude <= 0.0:
+		return 0.0
+	var progress := float(frame_idx) / float(maxi(1, frame_count))
+	var triangle := maxf(0.0, 1.0 - absf(progress * 2.0 - 1.0))
+	return _snap_visual_offset(-amplitude * triangle)
+
+
+func _snap_visual_offset(value: float) -> float:
+	if VISUAL_OFFSET_SNAP <= 0.0:
+		return value
+	return round(value / VISUAL_OFFSET_SNAP) * VISUAL_OFFSET_SNAP
 
 
 func _set_enemy_visual_modulate(modulate_color: Color) -> void:

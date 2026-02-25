@@ -63,6 +63,12 @@ var drone_spread_deg: float = 8.0
 var drone_projectile_radius: float = 4.5
 var melee_cone_dot: float = 0.35
 var fx_color: String = ""
+var signature_mode: String = ""
+var signature_power: float = 0.0
+var signature_aux: float = 0.0
+var signature_cycle: int = 0
+var signature_duration: float = 0.0
+var conditional_triggers: Array[Dictionary] = []
 
 
 static func from_definition(
@@ -98,6 +104,7 @@ static func from_definition(
 	var base_attack_rate := float(weapon_def.get("attack_rate", 1.0 / maxf(0.0001, float(weapon_def.get("cooldown", 0.5)))))
 	var base_range := float(weapon_def.get("range", 640.0))
 	var base_projectile_speed := float(weapon_def.get("projectile_speed", 0.0))
+	var base_projectile_count := int(weapon_def.get("projectile_count", 1))
 	var base_pierce := int(weapon_def.get("projectile_pierce", weapon_def.get("pierce", 0)))
 	var base_crit_chance := float(weapon_def.get("crit_chance", 0.0))
 	var base_crit_multiplier := float(weapon_def.get("crit_multiplier", 1.5))
@@ -127,6 +134,12 @@ static func from_definition(
 	var base_drone_projectile_radius := float(weapon_def.get("drone_projectile_radius", 4.5))
 	var base_melee_cone_dot := float(weapon_def.get("melee_cone_dot", 0.35))
 	var base_fx_color := String(weapon_def.get("fx_color", ""))
+	var base_signature_mode := String(weapon_def.get("signature_mode", "")).strip_edges().to_lower()
+	var base_signature_power := float(weapon_def.get("signature_power", 0.0))
+	var base_signature_aux := float(weapon_def.get("signature_aux", 0.0))
+	var base_signature_cycle := int(weapon_def.get("signature_cycle", 0))
+	var base_signature_duration := float(weapon_def.get("signature_duration", 0.0))
+	var base_conditional_triggers := normalize_conditional_triggers(weapon_def.get("conditional_triggers", []))
 
 	var growth_damage_mult := float(growth.get("damage_mult", 1.0))
 	var growth_attack_rate_mult := float(growth.get("attack_rate_mult", 1.0))
@@ -151,7 +164,7 @@ static func from_definition(
 	runtime.crit_multiplier = base_crit_multiplier + growth_crit_multiplier_add
 	runtime.aoe_radius = base_aoe_radius * growth_aoe_mult
 	runtime.noise_per_attack = base_noise * growth_noise_mult + growth_noise_add
-	runtime.projectile_count = maxi(1, 1 + growth_projectile_count_bonus)
+	runtime.projectile_count = maxi(1, base_projectile_count + growth_projectile_count_bonus)
 	runtime.reveal_bonus_duration = base_reveal_bonus + growth_reveal_bonus
 	runtime.summon_count = maxi(1, base_summon_count + growth_drone_count_bonus)
 	runtime.beam_tick_interval = maxf(0.05, float(weapon_def.get("beam_tick_interval", 1.0 / maxf(0.1, runtime.attack_rate))))
@@ -179,6 +192,12 @@ static func from_definition(
 	runtime.drone_projectile_radius = base_drone_projectile_radius
 	runtime.melee_cone_dot = base_melee_cone_dot
 	runtime.fx_color = base_fx_color
+	runtime.signature_mode = base_signature_mode
+	runtime.signature_power = base_signature_power
+	runtime.signature_aux = base_signature_aux
+	runtime.signature_cycle = base_signature_cycle
+	runtime.signature_duration = base_signature_duration
+	runtime.conditional_triggers = base_conditional_triggers.duplicate(true)
 
 	for modifier_variant in modifier_sources:
 		if not (modifier_variant is Dictionary):
@@ -214,6 +233,7 @@ static func from_definition(
 	runtime.crit_chance += global_crit_bonus
 	runtime.projectile_count = maxi(1, runtime.projectile_count + global_projectile_count_bonus)
 	runtime.summon_count = maxi(1, runtime.summon_count + global_summon_bonus)
+	_apply_balance_tuning(runtime)
 
 	runtime.attack_rate = maxf(0.05, runtime.attack_rate)
 	runtime.attack_interval = 1.0 / runtime.attack_rate
@@ -223,6 +243,7 @@ static func from_definition(
 	runtime.projectile_speed = maxf(0.0, runtime.projectile_speed)
 	runtime.aoe_radius = maxf(0.0, runtime.aoe_radius)
 	runtime.noise_per_attack = maxf(0.0, runtime.noise_per_attack)
+	runtime.projectile_count = clampi(runtime.projectile_count, 1, 12)
 	runtime.reveal_bonus_duration = maxf(0.0, runtime.reveal_bonus_duration)
 	runtime.projectile_radius = clampf(runtime.projectile_radius, 2.0, 24.0)
 	runtime.projectile_spread_deg = clampf(runtime.projectile_spread_deg, 0.0, 40.0)
@@ -245,6 +266,11 @@ static func from_definition(
 	runtime.drone_spread_deg = clampf(runtime.drone_spread_deg, 0.0, 35.0)
 	runtime.drone_projectile_radius = clampf(runtime.drone_projectile_radius, 2.0, 16.0)
 	runtime.melee_cone_dot = clampf(runtime.melee_cone_dot, -1.0, 0.95)
+	runtime.signature_power = clampf(runtime.signature_power, -2.0, 5.0)
+	runtime.signature_aux = clampf(runtime.signature_aux, 0.0, 3000.0)
+	runtime.signature_cycle = clampi(runtime.signature_cycle, 0, 64)
+	runtime.signature_duration = clampf(runtime.signature_duration, 0.0, 30.0)
+	runtime.conditional_triggers = normalize_conditional_triggers(runtime.conditional_triggers)
 
 	return runtime
 
@@ -299,6 +325,12 @@ func to_debug_dict() -> Dictionary:
 		"drone_projectile_radius": drone_projectile_radius,
 		"melee_cone_dot": melee_cone_dot,
 		"fx_color": fx_color,
+		"signature_mode": signature_mode,
+		"signature_power": signature_power,
+		"signature_aux": signature_aux,
+		"signature_cycle": signature_cycle,
+		"signature_duration": signature_duration,
+		"conditional_triggers": conditional_triggers.duplicate(true),
 		"dps_estimate": estimate_dps()
 	}
 
@@ -329,4 +361,82 @@ static func _normalized_modifier_bucket(source: Dictionary) -> Dictionary:
 		if not normalized.has(key):
 			continue
 		normalized[key] = source.get(key_variant, normalized[key])
+	return normalized
+
+
+static func _apply_balance_tuning(runtime) -> void:
+	if runtime == null:
+		return
+	var packet_pressure := maxf(
+		0.1,
+		float(runtime.attack_rate) * float(maxi(1, runtime.projectile_count)) * float(maxi(1, runtime.burst_count))
+	)
+	match String(runtime.attack_model).strip_edges().to_lower():
+		"projectile":
+			# SK-inspired: very high packet weapons trade consistency for spray pressure.
+			var pressure_factor := clampf(pow(11.0 / packet_pressure, 0.24), 0.72, 1.18)
+			runtime.damage *= pressure_factor
+			var extra_spread := clampf((packet_pressure - 11.0) / 48.0, 0.0, 0.52)
+			runtime.projectile_spread_deg *= 1.0 + extra_spread
+			if packet_pressure > 13.0:
+				runtime.crit_chance -= minf(0.06, (packet_pressure - 13.0) * 0.0025)
+			elif packet_pressure < 5.0:
+				runtime.crit_chance += minf(0.04, (5.0 - packet_pressure) * 0.008)
+		"mine":
+			runtime.damage *= 1.16
+			runtime.attack_rate *= 1.06
+			if runtime.aoe_radius > 0.0:
+				runtime.aoe_radius *= 1.10
+		"drone":
+			runtime.damage *= 1.18
+			runtime.attack_rate *= 1.08
+		"beam":
+			runtime.damage *= 1.22
+			runtime.attack_rate *= 1.06
+		_:
+			pass
+	if runtime.tags is Array:
+		var tags: Array = runtime.tags
+		if tags.has("silence"):
+			runtime.noise_per_attack *= 0.88
+		if tags.has("crit") and runtime.attack_model == "projectile":
+			runtime.crit_chance += 0.015
+
+
+static func normalize_conditional_triggers(raw_variant: Variant) -> Array[Dictionary]:
+	var normalized: Array[Dictionary] = []
+	if not (raw_variant is Array):
+		return normalized
+	var triggers: Array = raw_variant
+	for trigger_variant in triggers:
+		if not (trigger_variant is Dictionary):
+			continue
+		var trigger: Dictionary = trigger_variant
+		var trigger_id := String(trigger.get("id", "")).strip_edges().to_lower()
+		if trigger_id.is_empty():
+			continue
+		var row := {"id": trigger_id}
+		match trigger_id:
+			"kill_refresh":
+				row["cooldown_refund"] = clampf(float(trigger.get("cooldown_refund", 0.0)), 0.0, 1.6)
+				row["skill_refund"] = clampf(float(trigger.get("skill_refund", 0.0)), 0.0, 2.8)
+				row["noise_refund"] = clampf(float(trigger.get("noise_refund", 0.0)), 0.0, 20.0)
+			"backstab_bonus":
+				row["damage_mult"] = clampf(float(trigger.get("damage_mult", 0.0)), 0.0, 2.0)
+				row["crit_chance_add"] = clampf(float(trigger.get("crit_chance_add", 0.0)), 0.0, 0.6)
+				row["dot_threshold"] = clampf(float(trigger.get("dot_threshold", -0.22)), -0.95, 0.35)
+			"light_zone_bonus":
+				row["damage_mult"] = clampf(float(trigger.get("damage_mult", 0.0)), 0.0, 2.0)
+				row["attack_rate_mult"] = clampf(float(trigger.get("attack_rate_mult", 0.0)), 0.0, 1.2)
+				row["crit_chance_add"] = clampf(float(trigger.get("crit_chance_add", 0.0)), 0.0, 0.6)
+				row["min_light_ratio"] = clampf(float(trigger.get("min_light_ratio", 0.55)), 0.0, 1.0)
+			"dark_zone_bonus":
+				row["damage_mult"] = clampf(float(trigger.get("damage_mult", 0.0)), 0.0, 2.0)
+				row["crit_multiplier_add"] = clampf(float(trigger.get("crit_multiplier_add", 0.0)), 0.0, 3.0)
+				row["max_light_ratio"] = clampf(float(trigger.get("max_light_ratio", 0.35)), 0.0, 1.0)
+			_:
+				continue
+		normalized.append(row)
+		if normalized.size() >= 4:
+			break
 	return normalized

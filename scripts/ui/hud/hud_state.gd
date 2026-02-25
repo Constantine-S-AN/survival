@@ -27,10 +27,27 @@ static func from_dict(data: Dictionary) -> Dictionary:
 		"sonar_feedback_timer": maxf(0.0, float(data.get("sonar_feedback_timer", 0.0))),
 		"sonar_ping_count": int(data.get("sonar_ping_count", 0)),
 		"sonar_ping_sequence": int(data.get("sonar_ping_sequence", 0)),
-		"dash_cd_remaining": maxf(0.0, float(data.get("dash_cd", data.get("dash_cd_remaining", 0.0)))),
-		"dash_cd_total": maxf(0.0, float(data.get("dash_cd_total", 0.0))),
-		"contract_dash_disabled": bool(data.get("contract_dash_disabled", false))
-	}
+		"kill_streak": maxi(0, int(data.get("kill_streak", 0))),
+		"kill_streak_timer": maxf(0.0, float(data.get("kill_streak_timer", 0.0))),
+			"kill_streak_window": maxf(0.1, float(data.get("kill_streak_window", 4.2))),
+			"kill_streak_step": maxi(1, int(data.get("kill_streak_step", 6))),
+			"dash_cd_remaining": maxf(0.0, float(data.get("dash_cd", data.get("dash_cd_remaining", 0.0)))),
+			"dash_cd_total": maxf(0.0, float(data.get("dash_cd_total", 0.0))),
+			"contract_dash_disabled": bool(data.get("contract_dash_disabled", false)),
+			"boss_active": bool(data.get("boss_active", false)),
+			"boss_name": String(data.get("boss_name", "")),
+			"boss_hp": maxf(0.0, float(data.get("boss_hp", 0.0))),
+			"boss_hp_max": maxf(1.0, float(data.get("boss_hp_max", 1.0))),
+			"boss_hp_ratio": clampf(float(data.get("boss_hp_ratio", 0.0)), 0.0, 1.0),
+			"boss_phase_id": String(data.get("boss_phase_id", "")),
+			"boss_phase_label": String(data.get("boss_phase_label", "")),
+			"boss_exam_type": String(data.get("boss_exam_type", "")),
+			"boss_exam_objective": String(data.get("boss_exam_objective", "")),
+			"boss_summon_break_required": maxi(0, int(data.get("boss_summon_break_required", 0))),
+			"boss_summon_break_kills": maxi(0, int(data.get("boss_summon_break_kills", 0))),
+			"boss_summon_break_alive": maxi(0, int(data.get("boss_summon_break_alive", 0))),
+			"boss_summon_break_active": bool(data.get("boss_summon_break_active", false))
+		}
 
 
 static func _string_array(value: Variant) -> Array[String]:
