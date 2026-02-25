@@ -24,7 +24,9 @@ var selected_character_id: String = ""
 
 
 func _ready() -> void:
-	title_label.text = "Character Select"
+	if Localization != null and Localization.has_signal("language_changed"):
+		Localization.language_changed.connect(_on_language_changed)
+	_apply_static_texts()
 	character_list.item_selected.connect(_on_item_selected)
 	start_button.pressed.connect(_on_start_pressed)
 	random_button.pressed.connect(_on_random_pressed)
@@ -43,7 +45,7 @@ func _ready() -> void:
 
 
 func set_character_data(character_rows: Array, unlocked_character_ids: Array[String], initial_selected_id: String) -> void:
-	characters = character_rows.duplicate(true)
+	characters = _resolve_character_rows(character_rows)
 	unlocked_ids = unlocked_character_ids.duplicate()
 	character_ids_by_index.clear()
 	character_list.clear()
@@ -57,7 +59,7 @@ func set_character_data(character_rows: Array, unlocked_character_ids: Array[Str
 			continue
 		var display_name := String(character.get("display_name", character_id))
 		var unlocked := unlocked_ids.has(character_id)
-		var item_text := display_name if unlocked else "[LOCKED] %s" % display_name
+		var item_text := display_name if unlocked else _l("[LOCKED] %s", "[未解锁] %s") % display_name
 		character_list.add_item(item_text)
 		character_ids_by_index.append(character_id)
 
@@ -123,7 +125,7 @@ func _on_random_pressed() -> void:
 func _refresh_detail() -> void:
 	var character := DataRegistry.get_character(selected_character_id)
 	if character.is_empty():
-		detail_name.text = "No character selected"
+		detail_name.text = _l("No character selected", "未选择角色")
 		detail_desc.text = ""
 		detail_stats.text = ""
 		detail_unlock.text = ""
@@ -142,13 +144,13 @@ func _refresh_detail() -> void:
 	var weapon_id := String(character.get("starting_weapon_id", "needle_rifle"))
 	var weapon_name := String(DataRegistry.get_weapon(weapon_id).get("name", weapon_id))
 	detail_stats.text = "\n".join([
-		"Start Weapon: %s" % weapon_name,
-		"HP Mult: %.2f" % float(mods.get("max_hp_multiplier", 1.0)),
-		"Move Mult: %.2f" % float(mods.get("move_speed_multiplier", 1.0)),
-		"Dash CD Mult: %.2f" % float(mods.get("dash_cooldown_multiplier", 1.0)),
-		"Noise Mult: %.2f" % float(mods.get("noise_gain_multiplier", 1.0)),
-		"Sonar Reveal Mult: %.2f" % float(mods.get("sonar_reveal_duration_multiplier", 1.0)),
-		"Pickup Radius Mult: %.2f" % float(mods.get("pickup_radius_multiplier", 1.0))
+		_l("Start Weapon: %s", "起始武器：%s") % weapon_name,
+		_l("HP Mult: %.2f", "生命倍率：%.2f") % float(mods.get("max_hp_multiplier", 1.0)),
+		_l("Move Mult: %.2f", "移速倍率：%.2f") % float(mods.get("move_speed_multiplier", 1.0)),
+		_l("Dash CD Mult: %.2f", "冲刺冷却倍率：%.2f") % float(mods.get("dash_cooldown_multiplier", 1.0)),
+		_l("Noise Mult: %.2f", "噪声倍率：%.2f") % float(mods.get("noise_gain_multiplier", 1.0)),
+		_l("Sonar Reveal Mult: %.2f", "声呐显形倍率：%.2f") % float(mods.get("sonar_reveal_duration_multiplier", 1.0)),
+		_l("Pickup Radius Mult: %.2f", "拾取半径倍率：%.2f") % float(mods.get("pickup_radius_multiplier", 1.0))
 	])
 
 	var unlock_variant: Variant = character.get("unlock", {})
@@ -156,9 +158,9 @@ func _refresh_detail() -> void:
 	var display := String(unlock.get("display", ""))
 	var progress := ProfileStore.get_requirement_progress(unlock)
 	if unlocked:
-		detail_unlock.text = "Status: UNLOCKED"
+		detail_unlock.text = _l("Status: UNLOCKED", "状态：已解锁")
 	else:
-		detail_unlock.text = "Unlock: %s\nProgress: %s" % [display, String(progress.get("text", "0 / 0"))]
+		detail_unlock.text = _l("Unlock: %s\nProgress: %s", "解锁条件：%s\n进度：%s") % [display, String(progress.get("text", "0 / 0"))]
 
 	start_button.disabled = not unlocked
 
@@ -168,3 +170,40 @@ func _pick_default_unlocked_character() -> String:
 		if unlocked_ids.has(character_id):
 			return character_id
 	return ""
+
+
+func _on_language_changed(_language_code: String) -> void:
+	_apply_static_texts()
+	set_character_data(characters, unlocked_ids, selected_character_id)
+
+
+func _apply_static_texts() -> void:
+	title_label.text = _l("Character Select", "角色选择")
+	start_button.text = _l("Start", "开始")
+	random_button.text = _l("Random", "随机")
+	back_button.text = _l("Back", "返回")
+	unlock_all_button.text = _l("Unlock All", "全部解锁")
+
+
+func _is_zh() -> bool:
+	if Localization == null or not Localization.has_method("is_chinese"):
+		return false
+	return bool(Localization.call("is_chinese"))
+
+
+func _l(en: String, zh: String) -> String:
+	return zh if _is_zh() else en
+
+
+func _resolve_character_rows(source_rows: Array) -> Array:
+	var rows: Array = []
+	for row_variant in source_rows:
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		var character_id := String(row.get("id", "")).strip_edges()
+		if character_id.is_empty():
+			continue
+		var localized := DataRegistry.get_character(character_id)
+		rows.append(localized if not localized.is_empty() else row)
+	return rows

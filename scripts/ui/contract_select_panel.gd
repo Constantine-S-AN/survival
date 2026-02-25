@@ -15,6 +15,17 @@ const CONTRACT_GROUP_DISPLAY_NAMES: Dictionary = {
 	"enemy": "Enemy"
 }
 
+const CONTRACT_GROUP_DISPLAY_NAMES_ZH: Dictionary = {
+	"fog": "迷雾",
+	"sonar": "声呐",
+	"noise": "噪声",
+	"spawner": "刷怪",
+	"events": "事件",
+	"rewards": "奖励",
+	"player": "玩家",
+	"enemy": "敌人"
+}
+
 const CONTRACT_STAT_DISPLAY_NAMES: Dictionary = {
 	"vision_radius_mult": "Vision Radius",
 	"reveal_duration_mult": "Reveal Duration",
@@ -39,6 +50,30 @@ const CONTRACT_STAT_DISPLAY_NAMES: Dictionary = {
 	"speed_mult": "Enemy Speed"
 }
 
+const CONTRACT_STAT_DISPLAY_NAMES_ZH: Dictionary = {
+	"vision_radius_mult": "视野半径",
+	"reveal_duration_mult": "显形时长",
+	"max_radius_mult": "声呐半径",
+	"wave_speed_mult": "声呐波速",
+	"gain_mult": "噪声获取",
+	"decay_mult": "噪声衰减",
+	"spawn_rate_mult": "刷新速率",
+	"spawn_cap_mult": "刷怪上限",
+	"pursuer_chance_add": "追猎者概率",
+	"elite_chance_add": "精英概率",
+	"rate_mult": "事件频率",
+	"hazard_cycle_mult": "灾害频率",
+	"xp_mult": "经验奖励",
+	"rarity_mult": "稀有奖励",
+	"drop_mult": "掉落奖励",
+	"meta_currency_mult": "元货币奖励",
+	"max_hp_mult": "最大生命",
+	"dash_disabled": "冲刺",
+	"low_noise_damage_mult": "低噪伤害",
+	"high_noise_damage_mult": "高噪伤害",
+	"speed_mult": "敌人移速"
+}
+
 @onready var title_label: Label = $Margin/VBox/Header/Title
 @onready var selected_label: Label = $Margin/VBox/Header/Selected
 @onready var contract_list: ItemList = $Margin/VBox/Body/Left/ContractList
@@ -60,7 +95,9 @@ var status_label: Label
 
 
 func _ready() -> void:
-	title_label.text = "Contracts"
+	if Localization != null and Localization.has_signal("language_changed"):
+		Localization.language_changed.connect(_on_language_changed)
+	_apply_static_texts()
 	_create_status_hint_label()
 	contract_list.item_selected.connect(_on_item_selected)
 	contract_list.item_activated.connect(_on_item_activated)
@@ -76,7 +113,7 @@ func _ready() -> void:
 
 
 func set_contract_data(contract_rows: Array, initial_selected_ids: Array[String], max_select_count: int) -> void:
-	contracts = contract_rows.duplicate(true)
+	contracts = _resolve_contract_rows(contract_rows)
 	max_select = clampi(max_select_count, 0, 3)
 	contract_ids_by_index.clear()
 	lock_reason_by_id.clear()
@@ -130,12 +167,12 @@ func _refresh_list() -> void:
 		else:
 			contract_list.set_item_custom_fg_color(list_index, Color(0.84, 0.90, 0.98, 1.0))
 	var preview := DataRegistry.get_contract_reward_preview(selected_contract_ids)
-	selected_label.text = "Selected %d / %d   Reward +%.0f%%" % [
+	selected_label.text = _l("Selected %d / %d   Reward +%.0f%%", "已选 %d / %d   奖励 +%.0f%%") % [
 		selected_contract_ids.size(),
 		max_select,
 		float(preview.get("reward_pct_sum", 0.0))
 	]
-	start_button.text = "Start Run (%d)" % selected_contract_ids.size()
+	start_button.text = _l("Start Run (%d)", "开始本局（%d）") % selected_contract_ids.size()
 	start_button.disabled = false
 	selected_index = _get_contract_index(previous_contract_id)
 	if selected_index < 0 and not contract_ids_by_index.is_empty():
@@ -155,7 +192,7 @@ func _on_item_activated(index: int) -> void:
 	var contract_id := contract_ids_by_index[index]
 	if selected_contract_ids.has(contract_id):
 		selected_contract_ids.erase(contract_id)
-		_show_status_hint("Removed %s" % String(DataRegistry.get_contract(contract_id).get("name", contract_id)), false)
+		_show_status_hint(_l("Removed %s", "已移除 %s") % String(DataRegistry.get_contract(contract_id).get("name", contract_id)), false)
 		_refresh_list()
 		_refresh_detail(index)
 		return
@@ -164,7 +201,7 @@ func _on_item_activated(index: int) -> void:
 		_show_status_hint(lock_reason, true)
 		return
 	if max_select > 0 and selected_contract_ids.size() >= max_select:
-		_show_status_hint("Selection limit reached (%d/%d)." % [selected_contract_ids.size(), max_select], true)
+		_show_status_hint(_l("Selection limit reached (%d/%d).", "已达选择上限（%d/%d）。") % [selected_contract_ids.size(), max_select], true)
 		return
 	var contract := DataRegistry.get_contract(contract_id)
 	if contract.is_empty():
@@ -173,9 +210,9 @@ func _on_item_activated(index: int) -> void:
 	selected_contract_ids = DataRegistry.normalize_contract_selection(selected_contract_ids)
 	var conflict_names := _get_contract_conflict_names(contract_id)
 	if not conflict_names.is_empty():
-		_show_status_hint("与 %s 互斥" % " / ".join(conflict_names), true)
+		_show_status_hint(_l("Mutually exclusive (互斥) with %s", "与 %s 互斥") % " / ".join(conflict_names), true)
 	else:
-		_show_status_hint("Selected %s" % String(contract.get("name", contract_id)), false)
+		_show_status_hint(_l("Selected %s", "已选择 %s") % String(contract.get("name", contract_id)), false)
 	_refresh_list()
 	_refresh_detail(index)
 
@@ -186,7 +223,7 @@ func _on_start_pressed() -> void:
 
 func _refresh_detail(index: int) -> void:
 	if index < 0 or index >= contract_ids_by_index.size():
-		detail_name.text = "No contract selected"
+		detail_name.text = _l("No contract selected", "未选择契约")
 		detail_desc.text = ""
 		detail_effects.text = ""
 		preview_label.text = ""
@@ -194,24 +231,25 @@ func _refresh_detail(index: int) -> void:
 	var contract_id := contract_ids_by_index[index]
 	var contract := DataRegistry.get_contract(contract_id)
 	if contract.is_empty():
-		detail_name.text = "No contract selected"
+		detail_name.text = _l("No contract selected", "未选择契约")
 		detail_desc.text = ""
 		detail_effects.text = ""
 		preview_label.text = ""
 		return
 	detail_name.text = String(contract.get("name", contract_id))
 	var lock_reason := String(lock_reason_by_id.get(contract_id, ""))
-	var status_line := "Status: Selected" if selected_contract_ids.has(contract_id) else "Status: Available"
+	var status_line := _l("Status: Selected", "状态：已选择") if selected_contract_ids.has(contract_id) else _l("Status: Available", "状态：可用")
 	if not lock_reason.is_empty():
-		status_line = "Status: 🔒 %s" % lock_reason
-	detail_desc.text = "%s\nCategory: %s\n%s" % [
+		status_line = _l("Status: 🔒 %s", "状态：🔒 %s") % lock_reason
+	detail_desc.text = "%s\n%s: %s\n%s" % [
 		String(contract.get("description", "")),
-		String(contract.get("category", "misc")),
+		_l("Category", "分类"),
+		_display_group_name(String(contract.get("category", "misc"))),
 		status_line
 	]
 	detail_effects.text = _format_contract_effects(contract)
 	var preview := DataRegistry.get_contract_reward_preview(selected_contract_ids)
-	preview_label.text = "Reward Preview (Selected)\nXP x%.2f\nRarity x%.2f\nDrop x%.2f\nMeta x%.2f\nTotal +%.0f%% (x%.2f)" % [
+	preview_label.text = _l("Reward Preview (Selected)\nXP x%.2f\nRarity x%.2f\nDrop x%.2f\nMeta x%.2f\nTotal +%.0f%% (x%.2f)", "奖励预览（已选）\n经验 x%.2f\n稀有 x%.2f\n掉落 x%.2f\n元货币 x%.2f\n总计 +%.0f%%（x%.2f）") % [
 		float(preview.get("xp_mult", 1.0)),
 		float(preview.get("rarity_mult", 1.0)),
 		float(preview.get("drop_mult", 1.0)),
@@ -224,7 +262,7 @@ func _refresh_detail(index: int) -> void:
 func _format_contract_effects(contract: Dictionary) -> String:
 	var effects_variant: Variant = contract.get("effects", {})
 	if not (effects_variant is Dictionary):
-		return "Effects: -"
+		return _l("Effects: -", "效果：-")
 	var effects: Dictionary = effects_variant
 	var lines: Array[String] = []
 	for group_key_variant in effects.keys():
@@ -237,13 +275,13 @@ func _format_contract_effects(contract: Dictionary) -> String:
 		for key_variant in group.keys():
 			var key := String(key_variant)
 			var value := float(group.get(key_variant, 0.0))
-			var label := String(CONTRACT_STAT_DISPLAY_NAMES.get(key, key))
+			var label := _display_stat_name(key)
 			group_lines.append("- %s: %s" % [label, _format_contract_effect_value(key, value)])
-		var group_name := String(CONTRACT_GROUP_DISPLAY_NAMES.get(group_key, group_key.capitalize()))
+		var group_name := _display_group_name(group_key)
 		lines.append("%s\n%s" % [group_name, "\n".join(group_lines)])
 	if lines.is_empty():
-		return "Effects: -"
-	return "Effects:\n%s" % "\n\n".join(lines)
+		return _l("Effects: -", "效果：-")
+	return _l("Effects:\n%s", "效果：\n%s") % "\n\n".join(lines)
 
 
 func _build_selected_group_map() -> Dictionary:
@@ -264,7 +302,7 @@ func _compute_contract_lock_reason(contract_id: String, selected_by_group: Dicti
 	if contract.is_empty():
 		return ""
 	if max_select > 0 and selected_contract_ids.size() >= max_select and not selected_contract_ids.has(contract_id):
-		return "Selection limit reached (%d/%d)." % [selected_contract_ids.size(), max_select]
+		return _l("Selection limit reached (%d/%d).", "已达选择上限（%d/%d）。") % [selected_contract_ids.size(), max_select]
 	var group := String(contract.get("exclusive_group", "")).strip_edges()
 	if group.is_empty():
 		return ""
@@ -272,7 +310,7 @@ func _compute_contract_lock_reason(contract_id: String, selected_by_group: Dicti
 	if owner_id.is_empty() or owner_id == contract_id:
 		return ""
 	var owner_name := String(DataRegistry.get_contract(owner_id).get("name", owner_id))
-	return "与 %s 互斥" % owner_name
+	return _l("Mutually exclusive (互斥) with %s", "与 %s 互斥") % owner_name
 
 
 func _get_contract_conflict_names(contract_id: String) -> Array[String]:
@@ -292,13 +330,14 @@ func _get_contract_conflict_names(contract_id: String) -> Array[String]:
 			continue
 		if String(row.get("exclusive_group", "")).strip_edges() != group:
 			continue
-		names.append(String(row.get("name", row_id)))
+		var localized := DataRegistry.get_contract(row_id)
+		names.append(String(localized.get("name", row.get("name", row_id))))
 	return names
 
 
 func _format_contract_effect_value(key: String, value: float) -> String:
 	if key == "dash_disabled":
-		return "Disabled" if value >= 0.5 else "Enabled"
+		return _l("Disabled", "禁用") if value >= 0.5 else _l("Enabled", "启用")
 	if key.ends_with("_mult"):
 		var delta_pct := (value - 1.0) * 100.0
 		var sign := "+" if delta_pct >= 0.0 else ""
@@ -322,6 +361,31 @@ func _create_status_hint_label() -> void:
 	status_label.modulate = Color(0.80, 0.94, 1.0, 0.95)
 	root_vbox.add_child(status_label)
 	root_vbox.move_child(status_label, 1)
+
+
+func _display_group_name(group_key: String) -> String:
+	if _is_zh():
+		return String(CONTRACT_GROUP_DISPLAY_NAMES_ZH.get(group_key, group_key.capitalize()))
+	return String(CONTRACT_GROUP_DISPLAY_NAMES.get(group_key, group_key.capitalize()))
+
+
+func _display_stat_name(stat_key: String) -> String:
+	if _is_zh():
+		return String(CONTRACT_STAT_DISPLAY_NAMES_ZH.get(stat_key, stat_key))
+	return String(CONTRACT_STAT_DISPLAY_NAMES.get(stat_key, stat_key))
+
+
+func _on_language_changed(_language_code: String) -> void:
+	_apply_static_texts()
+	contracts = _resolve_contract_rows(contracts)
+	_refresh_list()
+	_refresh_detail(selected_index)
+
+
+func _apply_static_texts() -> void:
+	title_label.text = _l("Contracts", "契约")
+	start_button.text = _l("Start Run (0)", "开始本局（0）")
+	back_button.text = _l("Back", "返回")
 
 
 func _show_status_hint(message: String, is_error: bool) -> void:
@@ -363,3 +427,27 @@ func get_preview_text() -> String:
 	if preview_label == null:
 		return ""
 	return preview_label.text
+
+
+func _is_zh() -> bool:
+	if Localization == null or not Localization.has_method("is_chinese"):
+		return false
+	return bool(Localization.call("is_chinese"))
+
+
+func _l(en: String, zh: String) -> String:
+	return zh if _is_zh() else en
+
+
+func _resolve_contract_rows(source_rows: Array) -> Array:
+	var rows: Array = []
+	for row_variant in source_rows:
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		var contract_id := String(row.get("id", "")).strip_edges()
+		if contract_id.is_empty():
+			continue
+		var localized := DataRegistry.get_contract(contract_id)
+		rows.append(localized if not localized.is_empty() else row)
+	return rows
