@@ -6,7 +6,76 @@ signal hazard_state_changed(active: bool, warning_text: String)
 
 const MapRuntimeClass := preload("res://scripts/core/map_runtime.gd")
 const BossTelegraphEffectClass := preload("res://scripts/effects/boss_telegraph_effect.gd")
-const BACKDROP_TEXTURE_PATH := "res://assets/textures/commercial/neon_grid_bg.png"
+const ForegroundOccluderClass := preload("res://scripts/game/foreground_occluder.gd")
+const BACKDROP_TEXTURE_PATH := ""
+const MAP_FLOOR_TEXTURES := {
+	"map_trench_lab": "res://assets/textures/pixel/maps/dungeon/dungeon_tileset_atlas.png",
+	"map_black_tide": "res://assets/textures/pixel/maps/dungeon/dungeon_tileset_atlas.png"
+}
+const MAP_FLOOR_MODULATE := {
+	"map_trench_lab": Color(0.56, 0.58, 0.62, 1.0),
+	"map_black_tide": Color(0.50, 0.54, 0.60, 1.0)
+}
+const MAP_OBSTACLE_MODULATE := {
+	"map_trench_lab": Color(0.70, 0.72, 0.74, 1.0),
+	"map_black_tide": Color(0.66, 0.68, 0.72, 1.0)
+}
+const OBSTACLE_TEXTURES := {
+	"house": "res://assets/textures/pixel/maps/props/dungeon/house_dungeon.png",
+	"tower": "res://assets/textures/pixel/maps/props/dungeon/tower_dungeon.png",
+	"barracks": "res://assets/textures/pixel/maps/props/dungeon/barracks_dungeon.png",
+	"crate": "res://assets/textures/pixel/maps/props/dungeon/crate_dungeon.png",
+	"barrier": "res://assets/textures/pixel/maps/props/dungeon/chest_dungeon.png",
+	"hedge_chunk": "res://assets/textures/pixel/maps/props/dungeon/house_dungeon.png",
+	"hedge_corner": "res://assets/textures/pixel/maps/props/dungeon/tower_dungeon.png",
+	"hedge_strip": "res://assets/textures/pixel/maps/props/dungeon/barracks_dungeon.png",
+	"cliff_chunk": "res://assets/textures/pixel/maps/props/dungeon/tower_dungeon.png",
+	"cliff_strip": "res://assets/textures/pixel/maps/props/dungeon/barracks_dungeon.png"
+}
+const TERRAIN_COLLISION_LAYER := 1 << 3
+const PLAYFIELD_HALF_EXTENT := 1620.0
+const BORDER_THICKNESS := 140.0
+const FOREGROUND_TOP_RATIOS := {
+	"house": 0.54,
+	"tower": 0.62,
+	"barracks": 0.50,
+	"hedge_chunk": 0.44,
+	"hedge_corner": 0.44,
+	"hedge_strip": 0.34,
+	"cliff_chunk": 0.46,
+	"cliff_strip": 0.36
+}
+const FOREGROUND_OCCLUDER_TUNING := {
+	"house": {"fade_alpha": 0.24, "trigger_width_mult": 0.64, "trigger_height_mult": 0.62, "trigger_bias_mult": 0.40},
+	"tower": {"fade_alpha": 0.30, "trigger_width_mult": 0.70, "trigger_height_mult": 0.72, "trigger_bias_mult": 0.36},
+	"barracks": {"fade_alpha": 0.24, "trigger_width_mult": 0.68, "trigger_height_mult": 0.62, "trigger_bias_mult": 0.40},
+	"hedge_chunk": {"fade_alpha": 0.34, "trigger_width_mult": 0.74, "trigger_height_mult": 0.74, "trigger_bias_mult": 0.34},
+	"hedge_corner": {"fade_alpha": 0.34, "trigger_width_mult": 0.74, "trigger_height_mult": 0.72, "trigger_bias_mult": 0.34},
+	"hedge_strip": {"fade_alpha": 0.34, "trigger_width_mult": 0.84, "trigger_height_mult": 0.64, "trigger_bias_mult": 0.28},
+	"cliff_chunk": {"fade_alpha": 0.34, "trigger_width_mult": 0.74, "trigger_height_mult": 0.74, "trigger_bias_mult": 0.34},
+	"cliff_strip": {"fade_alpha": 0.34, "trigger_width_mult": 0.84, "trigger_height_mult": 0.64, "trigger_bias_mult": 0.28}
+}
+const FOREGROUND_FADE_ALPHA := 0.30
+const FOREGROUND_FADE_DURATION := 0.10
+const FOREGROUND_TRIGGER_WIDTH_MULT := 0.74
+const FOREGROUND_TRIGGER_HEIGHT_MULT := 0.70
+const FOREGROUND_TRIGGER_BIAS_MULT := 0.34
+const CANDLE_TEXTURE_PATHS: Array[String] = [
+	"res://assets/textures/pixel/maps/props/dungeon/candle_1.png",
+	"res://assets/textures/pixel/maps/props/dungeon/candle_2.png",
+	"res://assets/textures/pixel/maps/props/dungeon/candle_3.png",
+	"res://assets/textures/pixel/maps/props/dungeon/candle_4.png"
+]
+const CANDLE_WORLD_SIZE_PX := 22.0
+const CANDLE_LIGHT_SCALE := 0.44
+const CANDLE_LIGHT_COLOR := Color(1.0, 0.72, 0.42, 1.0)
+const CANDLE_BASE_LIGHT_ENERGY := 0.90
+const CANDLE_FRAME_SEC := 0.12
+const FLARE_BOOST_DURATION := 2.15
+const FLARE_ENERGY_MULT := 1.58
+const FLARE_RADIUS_MULT := 1.30
+const FLARE_LIGHT_BASE_COLOR := Color(0.96, 0.84, 0.72, 1.0)
+const FLARE_LIGHT_HOT_COLOR := Color(1.0, 0.92, 0.78, 1.0)
 
 @onready var projectile_manager = $ProjectileManager
 @onready var pool_manager = $PoolManager
@@ -19,6 +88,11 @@ const BACKDROP_TEXTURE_PATH := "res://assets/textures/commercial/neon_grid_bg.pn
 @onready var fog_light: PointLight2D = $Player/FogLight
 @onready var backdrop_main: Sprite2D = $Backdrop/BackdropMain
 @onready var backdrop_accent: Sprite2D = $Backdrop/BackdropAccent
+@onready var terrain_floor: Sprite2D = $Terrain/Floor
+@onready var obstacle_visuals: Node2D = $Terrain/ObstacleVisuals
+@onready var obstacle_foreground_visuals: Node2D = $Terrain/ForegroundVisuals
+@onready var candle_layer: Node2D = $Terrain/Candles
+@onready var obstacle_bodies: Node2D = $Terrain/ObstacleBodies
 @onready var hit_sfx = $HitSfx
 @onready var shot_sfx = $ShotSfx
 
@@ -46,6 +120,10 @@ var last_hazard_active: bool = false
 var last_hazard_warning_active: bool = false
 var boss_fx_layer: Node2D
 var _fog_light_texture_cache: Texture2D = null
+var _terrain_texture_cache: Dictionary = {}
+var _candle_nodes: Array[Dictionary] = []
+var _candle_frames_cache: Array[Texture2D] = []
+var _flare_boost_remaining: float = 0.0
 const PROJECTILE_POOL_KEY := "projectile"
 const PICKUP_POOL_KEY := "pickup"
 const ENEMY_POOL_KEY := "enemy"
@@ -67,6 +145,7 @@ func _ready() -> void:
 	set_fog_enabled(bool(fog_config.get("enabled", true)))
 	apply_sonar_config(DataRegistry.get_sonar_config())
 	current_map_id = DataRegistry.get_default_map_id()
+	_apply_map_visual_layout(current_map_id)
 	FeedbackBus.hit_landed.connect(_on_hit_landed)
 	FeedbackBus.shot_fired.connect(_on_shot_fired)
 	if not FeedbackBus.sonar_pulse_requested.is_connected(_on_sonar_pulse_requested):
@@ -75,11 +154,23 @@ func _ready() -> void:
 		enemy_manager.boss_telegraph_requested.connect(_on_boss_telegraph_requested)
 		enemy_manager.boss_echoes_spawned.connect(_on_boss_echoes_spawned)
 		enemy_manager.boss_true_form_revealed.connect(_on_boss_true_form_revealed)
+	set_process(true)
 	queue_redraw()
+
+
+func _process(delta: float) -> void:
+	_tick_candle_fx(delta)
+	if _flare_boost_remaining > 0.0:
+		_flare_boost_remaining = maxf(0.0, _flare_boost_remaining - delta)
+	_update_player_fog_light()
 
 
 func _apply_optional_backdrop_texture() -> void:
 	if backdrop_main == null or backdrop_accent == null:
+		return
+	if BACKDROP_TEXTURE_PATH.is_empty():
+		backdrop_main.visible = false
+		backdrop_accent.visible = false
 		return
 	if not ResourceLoader.exists(BACKDROP_TEXTURE_PATH, "Texture2D"):
 		backdrop_main.visible = false
@@ -114,6 +205,7 @@ func setup_run(
 	set_runtime_reward_multipliers({})
 	set_contract_modifiers(contract_bundle, contract_ids)
 	apply_sonar_config(base_sonar_config if not base_sonar_config.is_empty() else DataRegistry.get_sonar_config())
+	_flare_boost_remaining = 0.0
 	set_current_map(map_id, run_seed)
 
 
@@ -138,10 +230,7 @@ func apply_fog_config(config: Dictionary) -> void:
 	fog_darkness.color = dark
 
 	_ensure_fog_light_texture()
-	var radius := float(effective_fog_config.get("vision_radius", 440.0))
-	fog_light.texture_scale = maxf(0.2, radius / 256.0)
-	fog_light.energy = float(effective_fog_config.get("vision_energy", 1.25))
-	fog_light.color = Color(0.70, 0.88, 1.0, 1.0)
+	_update_player_fog_light()
 
 
 func set_fog_enabled(enabled: bool) -> void:
@@ -290,6 +379,7 @@ func set_current_map(map_id: String, run_seed: int = 0) -> void:
 		current_map_modifiers = {}
 		last_hazard_active = false
 		last_hazard_warning_active = false
+		_clear_map_visual_layout()
 		_apply_fog_modifier_bundle({})
 		if sonar_manager != null and sonar_manager.has_method("set_runtime_modifiers"):
 			sonar_manager.set_runtime_modifiers({})
@@ -299,6 +389,7 @@ func set_current_map(map_id: String, run_seed: int = 0) -> void:
 			enemy_manager.set_map_spawn_modifiers({})
 		return
 	current_map_id = resolved_map_id
+	_apply_map_visual_layout(current_map_id)
 	var map_def := DataRegistry.get_map(current_map_id)
 	var hazard_def := DataRegistry.get_hazard(String(map_def.get("hazard_id", "")))
 	var event_table := DataRegistry.get_event_table(String(map_def.get("event_table_id", "")))
@@ -436,8 +527,7 @@ func _apply_fog_modifier_bundle(fog_modifiers: Dictionary) -> void:
 	var dark := Color.from_string(String(updated.get("darkness_color", "#0a1422")), Color(0.039, 0.078, 0.133))
 	fog_darkness.color = dark
 	_ensure_fog_light_texture()
-	fog_light.texture_scale = maxf(0.2, float(updated.get("vision_radius", 440.0)) / 256.0)
-	fog_light.energy = float(updated.get("vision_energy", 1.25))
+	_update_player_fog_light()
 
 
 func _ensure_fog_light_texture() -> void:
@@ -448,6 +538,19 @@ func _ensure_fog_light_texture() -> void:
 	if _fog_light_texture_cache == null:
 		_fog_light_texture_cache = _build_fog_light_texture()
 	fog_light.texture = _fog_light_texture_cache
+
+
+func _update_player_fog_light() -> void:
+	if fog_light == null:
+		return
+	var base_radius := float(effective_fog_config.get("vision_radius", float(base_fog_config.get("vision_radius", 420.0))))
+	var base_scale := maxf(0.2, base_radius / 256.0)
+	var base_energy := float(effective_fog_config.get("vision_energy", float(base_fog_config.get("vision_energy", 1.05))))
+	var boost_ratio := clampf(_flare_boost_remaining / FLARE_BOOST_DURATION, 0.0, 1.0)
+	var eased := boost_ratio * boost_ratio
+	fog_light.texture_scale = base_scale * lerpf(1.0, FLARE_RADIUS_MULT, eased)
+	fog_light.energy = base_energy * lerpf(1.0, FLARE_ENERGY_MULT, eased)
+	fog_light.color = FLARE_LIGHT_BASE_COLOR.lerp(FLARE_LIGHT_HOT_COLOR, eased)
 
 
 func _handle_map_notifications(snapshot: Dictionary) -> void:
@@ -543,18 +646,19 @@ func _on_shot_fired(_world_position: Vector2, intensity: float) -> void:
 
 func _on_sonar_pulse_requested(world_position: Vector2, payload: Dictionary) -> void:
 	var source := String(payload.get("source", "")).strip_edges().to_lower()
-	if source != "skill":
+	if source != "skill" and source != "flare":
 		return
 	var strength := clampf(float(payload.get("strength", 1.0)), 0.2, 2.0)
 	var ping_count := int(payload.get("ping_count", -1))
-	_play_sonar_skill_sfx(strength, ping_count)
+	_play_flare_skill_sfx(strength, ping_count)
+	_flare_boost_remaining = maxf(_flare_boost_remaining, FLARE_BOOST_DURATION * lerpf(0.84, 1.26, clampf(strength * 0.5, 0.0, 1.0)))
 	apply_screen_shake(0.09 + strength * 0.05)
 	spawn_boss_telegraph("ring", {
 		"origin": world_position,
-		"radius": 130.0 + strength * 95.0,
-		"duration": 0.30,
-		"line_width": 5.8,
-		"color": "#8befff"
+		"radius": 140.0 + strength * 120.0,
+		"duration": 0.28,
+		"line_width": 6.8,
+		"color": "#ffcd87"
 	})
 	var tree := get_tree()
 	if tree == null:
@@ -564,10 +668,10 @@ func _on_sonar_pulse_requested(world_position: Vector2, payload: Dictionary) -> 
 			return
 		spawn_boss_telegraph("ring", {
 			"origin": world_position,
-			"radius": 170.0 + strength * 130.0,
+			"radius": 220.0 + strength * 140.0,
 			"duration": 0.26,
-			"line_width": 3.9,
-			"color": "#6ee8ff"
+			"line_width": 4.2,
+			"color": "#ffdcb0"
 		})
 	)
 
@@ -597,7 +701,7 @@ func _on_boss_true_form_revealed(_boss_id: String, world_position: Vector2) -> v
 		"color": "#a8f7ff"
 	})
 	FeedbackBus.emit_sonar_pulse(world_position, {
-		"source": "skill",
+		"source": "flare",
 		"strength": 0.95,
 		"radius_scale": 1.2
 	})
@@ -646,21 +750,21 @@ func _play_shot_sfx(intensity: float) -> void:
 			generator.push_frame(Vector2(sample, sample))
 
 
-func _play_sonar_skill_sfx(intensity: float, ping_count: int = -1) -> void:
+func _play_flare_skill_sfx(intensity: float, ping_count: int = -1) -> void:
 	shot_sfx.play()
 	var playback = shot_sfx.get_stream_playback()
 	if not (playback is AudioStreamGeneratorPlayback):
 		return
 	var generator: AudioStreamGeneratorPlayback = playback
 	var sample_rate := 44100.0
-	var length := 0.20
+	var length := 0.24
 	var count_boost := 1.0 + clampf(float(maxi(0, ping_count)) * 0.03, 0.0, 0.24)
 	for i in range(int(sample_rate * length)):
 		var t := float(i) / sample_rate
-		var env := exp(-t * 10.8)
-		var chirp := sin(TAU * (440.0 + 920.0 * t) * t)
-		var tail := sin(TAU * (220.0 + 45.0 * sin(t * 24.0)) * t)
-		var sample := (chirp * 0.72 + tail * 0.28) * env * (0.14 + intensity * 0.08) * count_boost
+		var env := exp(-t * 8.6)
+		var chirp := sin(TAU * (330.0 + 760.0 * t) * t)
+		var tail := sin(TAU * (180.0 + 30.0 * sin(t * 19.0)) * t)
+		var sample := (chirp * 0.58 + tail * 0.42) * env * (0.14 + intensity * 0.08) * count_boost
 		generator.push_frame(Vector2(sample, sample))
 
 
@@ -796,11 +900,392 @@ func play_boss_true_reveal_sfx() -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2(-4200.0, -4200.0), Vector2(8400.0, 8400.0)), Color(0.015, 0.03, 0.055, 1.0), true)
+	if terrain_floor != null and terrain_floor.visible:
+		return
 	for i in range(-30, 31):
 		var x := float(i) * 240.0
 		draw_line(Vector2(x, -4200.0), Vector2(x, 4200.0), Color(0.12, 0.55, 0.78, 0.12), 1.0)
 		var y := float(i) * 240.0
 		draw_line(Vector2(-4200.0, y), Vector2(4200.0, y), Color(0.12, 0.55, 0.78, 0.12), 1.0)
+
+
+func _apply_map_visual_layout(map_id: String) -> void:
+	_apply_map_floor_texture(map_id)
+	_rebuild_map_obstacles(map_id)
+	queue_redraw()
+
+
+func _clear_map_visual_layout() -> void:
+	if terrain_floor != null:
+		terrain_floor.visible = false
+		terrain_floor.texture = null
+	_clear_obstacle_nodes()
+	_flare_boost_remaining = 0.0
+
+
+func _apply_map_floor_texture(map_id: String) -> void:
+	if terrain_floor == null:
+		return
+	var path := String(MAP_FLOOR_TEXTURES.get(map_id, ""))
+	if path.is_empty() or not ResourceLoader.exists(path, "Texture2D"):
+		terrain_floor.visible = false
+		terrain_floor.texture = null
+		return
+	var texture := _load_cached_texture(path)
+	if texture == null:
+		terrain_floor.visible = false
+		terrain_floor.texture = null
+		return
+	terrain_floor.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	terrain_floor.texture = texture
+	terrain_floor.centered = true
+	terrain_floor.position = Vector2.ZERO
+	terrain_floor.scale = Vector2(6.4, 6.4)
+	terrain_floor.modulate = _get_map_floor_modulate(map_id)
+	terrain_floor.visible = true
+
+
+func _rebuild_map_obstacles(map_id: String) -> void:
+	_clear_obstacle_nodes()
+	var layout := _get_map_obstacle_layout(map_id)
+	for row_variant in layout:
+		if not (row_variant is Dictionary):
+			continue
+		_spawn_obstacle_row(row_variant)
+	_spawn_world_borders()
+	_spawn_map_candles(map_id)
+
+
+func _clear_obstacle_nodes() -> void:
+	if obstacle_visuals != null:
+		for child in obstacle_visuals.get_children():
+			child.queue_free()
+	if obstacle_foreground_visuals != null:
+		for child in obstacle_foreground_visuals.get_children():
+			child.queue_free()
+	if obstacle_bodies != null:
+		for child in obstacle_bodies.get_children():
+			child.queue_free()
+	if candle_layer != null:
+		for child in candle_layer.get_children():
+			child.queue_free()
+	_candle_nodes.clear()
+
+
+func _get_candle_frames() -> Array[Texture2D]:
+	if not _candle_frames_cache.is_empty():
+		return _candle_frames_cache
+	var frames: Array[Texture2D] = []
+	for path in CANDLE_TEXTURE_PATHS:
+		var texture := _load_cached_texture(path)
+		if texture == null:
+			continue
+		frames.append(texture)
+	_candle_frames_cache = frames
+	return _candle_frames_cache
+
+
+func _spawn_map_candles(_map_id: String) -> void:
+	if candle_layer == null:
+		return
+	_ensure_fog_light_texture()
+	var candle_frames := _get_candle_frames()
+	if candle_frames.is_empty():
+		return
+	for pos in _get_map_candle_positions():
+		var anchor := Node2D.new()
+		anchor.position = pos
+		anchor.z_index = 4
+		candle_layer.add_child(anchor)
+
+		var sprite := Sprite2D.new()
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sprite.centered = true
+		sprite.texture = candle_frames[0]
+		var max_dim := maxf(float(candle_frames[0].get_width()), float(candle_frames[0].get_height()))
+		sprite.scale = Vector2.ONE * (CANDLE_WORLD_SIZE_PX / maxf(1.0, max_dim))
+		sprite.position = Vector2(0.0, -6.0)
+		anchor.add_child(sprite)
+
+		var light := PointLight2D.new()
+		if _fog_light_texture_cache != null:
+			light.texture = _fog_light_texture_cache
+		light.texture_scale = CANDLE_LIGHT_SCALE
+		light.energy = CANDLE_BASE_LIGHT_ENERGY * sfx_rng.randf_range(0.86, 1.10)
+		light.color = CANDLE_LIGHT_COLOR
+		light.position = Vector2(0.0, -10.0)
+		anchor.add_child(light)
+
+		_candle_nodes.append({
+			"sprite": sprite,
+			"light": light,
+			"frame": sfx_rng.randi_range(0, candle_frames.size() - 1),
+			"timer": sfx_rng.randf_range(0.0, CANDLE_FRAME_SEC),
+			"phase": sfx_rng.randf_range(0.0, TAU),
+			"base_energy": light.energy
+		})
+
+
+func _tick_candle_fx(delta: float) -> void:
+	var candle_frames := _get_candle_frames()
+	if candle_frames.is_empty() or _candle_nodes.is_empty():
+		return
+	for i in range(_candle_nodes.size()):
+		var row_variant: Variant = _candle_nodes[i]
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		var sprite_variant: Variant = row.get("sprite", null)
+		var light_variant: Variant = row.get("light", null)
+		if not (sprite_variant is Sprite2D) or not (light_variant is PointLight2D):
+			continue
+		var sprite: Sprite2D = sprite_variant
+		var light: PointLight2D = light_variant
+		var timer := float(row.get("timer", 0.0)) + delta
+		var frame := int(row.get("frame", 0))
+		if timer >= CANDLE_FRAME_SEC:
+			timer = 0.0
+			frame = (frame + 1) % candle_frames.size()
+		sprite.texture = candle_frames[frame]
+		var phase := float(row.get("phase", 0.0)) + delta * 4.3
+		var base_energy := float(row.get("base_energy", CANDLE_BASE_LIGHT_ENERGY))
+		var flicker := 0.90 + 0.14 * sin(phase) + 0.06 * sin(phase * 2.8)
+		light.energy = base_energy * clampf(flicker, 0.70, 1.24)
+		row["timer"] = timer
+		row["frame"] = frame
+		row["phase"] = phase
+		_candle_nodes[i] = row
+
+
+func _get_map_candle_positions() -> Array[Vector2]:
+	var positions: Array[Vector2] = []
+	for x in [-1120.0, -760.0, -400.0, -40.0, 320.0, 680.0, 1040.0]:
+		positions.append(Vector2(x, -1060.0))
+		positions.append(Vector2(x, 1060.0))
+	for y in [-760.0, -420.0, -80.0, 260.0, 600.0]:
+		positions.append(Vector2(-1160.0, y))
+		positions.append(Vector2(1160.0, y))
+	for core in [
+		Vector2(-560.0, -520.0),
+		Vector2(560.0, -500.0),
+		Vector2(-540.0, 520.0),
+		Vector2(560.0, 500.0),
+		Vector2(-220.0, 120.0),
+		Vector2(220.0, -120.0)
+	]:
+		positions.append(core)
+	return positions
+
+
+func _spawn_obstacle_row(definition: Dictionary) -> void:
+	if obstacle_bodies == null:
+		return
+	var pos_variant: Variant = definition.get("pos", Vector2.ZERO)
+	var pos := pos_variant as Vector2 if pos_variant is Vector2 else Vector2.ZERO
+	var size_variant: Variant = definition.get("size", Vector2(80.0, 44.0))
+	var size := size_variant as Vector2 if size_variant is Vector2 else Vector2(80.0, 44.0)
+	var texture_key := String(definition.get("texture", ""))
+	var texture_path := String(OBSTACLE_TEXTURES.get(texture_key, ""))
+	var texture := _load_cached_texture(texture_path)
+	var visual_scale := Vector2.ONE
+	var visual_scale_variant: Variant = definition.get("scale", Vector2.ONE)
+	if visual_scale_variant is Vector2:
+		visual_scale = visual_scale_variant
+
+	var body := StaticBody2D.new()
+	body.collision_layer = TERRAIN_COLLISION_LAYER
+	body.collision_mask = 0
+	body.position = pos
+	var shape := RectangleShape2D.new()
+	shape.size = size
+	var collider := CollisionShape2D.new()
+	collider.shape = shape
+	body.add_child(collider)
+	obstacle_bodies.add_child(body)
+
+	if obstacle_visuals != null and texture != null:
+		var sprite := Sprite2D.new()
+		sprite.texture = texture
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sprite.centered = true
+		sprite.position = pos
+		sprite.scale = visual_scale
+		var y_offset := float(definition.get("y_offset", 0.0))
+		sprite.position.y += y_offset
+		var tint_variant: Variant = definition.get("modulate", null)
+		if tint_variant is Color:
+			sprite.modulate = tint_variant
+		else:
+			sprite.modulate = _get_map_obstacle_modulate(current_map_id)
+		obstacle_visuals.add_child(sprite)
+		if _should_use_foreground_occluder(definition, texture_key):
+			_spawn_foreground_occluder(definition, texture_key, texture, sprite.position, visual_scale, size, tint_variant)
+
+
+func _should_use_foreground_occluder(definition: Dictionary, texture_key: String) -> bool:
+	if definition.has("foreground_enabled"):
+		return bool(definition.get("foreground_enabled", false))
+	return FOREGROUND_TOP_RATIOS.has(texture_key)
+
+
+func _spawn_foreground_occluder(
+	definition: Dictionary,
+	texture_key: String,
+	texture: Texture2D,
+	visual_position: Vector2,
+	visual_scale: Vector2,
+	collider_size: Vector2,
+	tint_variant: Variant
+) -> void:
+	if obstacle_foreground_visuals == null or texture == null:
+		return
+	var tuning := _get_foreground_tuning(texture_key)
+	var default_top_ratio := float(FOREGROUND_TOP_RATIOS.get(texture_key, -1.0))
+	var top_ratio := clampf(float(definition.get("foreground_top_ratio", float(tuning.get("top_ratio", default_top_ratio)))), 0.0, 0.95)
+	if top_ratio <= 0.0:
+		return
+	var tex_w := float(texture.get_width())
+	var tex_h := float(texture.get_height())
+	if tex_w < 1.0 or tex_h < 1.0:
+		return
+	var region_h := maxi(1, int(round(tex_h * top_ratio)))
+
+	var slice := Sprite2D.new()
+	slice.texture = texture
+	slice.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	slice.centered = true
+	slice.region_enabled = true
+	slice.region_rect = Rect2(0.0, 0.0, tex_w, float(region_h))
+	slice.scale = visual_scale
+	var region_shift := (tex_h - float(region_h)) * 0.5 * visual_scale.y
+	slice.position = visual_position - Vector2(0.0, region_shift)
+	if tint_variant is Color:
+		slice.modulate = tint_variant
+	else:
+		slice.modulate = _get_map_obstacle_modulate(current_map_id)
+	obstacle_foreground_visuals.add_child(slice)
+
+	var visual_w := tex_w * absf(visual_scale.x)
+	var visual_h := tex_h * absf(visual_scale.y)
+	var top_h := float(region_h) * absf(visual_scale.y)
+	var trigger_width_mult := float(definition.get("foreground_trigger_width_mult", float(tuning.get("trigger_width_mult", FOREGROUND_TRIGGER_WIDTH_MULT))))
+	var trigger_height_mult := float(definition.get("foreground_trigger_height_mult", float(tuning.get("trigger_height_mult", FOREGROUND_TRIGGER_HEIGHT_MULT))))
+	var trigger_w := maxf(
+		collider_size.x * trigger_width_mult,
+		visual_w * 0.55
+	)
+	trigger_w = clampf(trigger_w, 12.0, visual_w * 0.96)
+	var trigger_h := maxf(
+		top_h * trigger_height_mult,
+		collider_size.y * 0.58
+	)
+	trigger_h = clampf(trigger_h, 12.0, visual_h * 0.92)
+	var trigger_bias_mult := float(definition.get("foreground_trigger_bias_mult", float(tuning.get("trigger_bias_mult", FOREGROUND_TRIGGER_BIAS_MULT))))
+	var trigger_bias := float(definition.get("foreground_trigger_y_bias", top_h * trigger_bias_mult))
+	var trigger_offset := Vector2(0.0, -visual_h * 0.5 + trigger_h * 0.5 + trigger_bias)
+
+	var occluder := ForegroundOccluderClass.new()
+	occluder.fade_alpha = clampf(float(definition.get("foreground_fade_alpha", float(tuning.get("fade_alpha", FOREGROUND_FADE_ALPHA)))), 0.12, 0.95)
+	occluder.fade_duration = maxf(0.01, float(definition.get("foreground_fade_duration", FOREGROUND_FADE_DURATION)))
+	obstacle_foreground_visuals.add_child(occluder)
+	occluder.configure(slice, Vector2(trigger_w, trigger_h), slice.position + trigger_offset)
+
+
+func _get_foreground_tuning(texture_key: String) -> Dictionary:
+	var row_variant: Variant = FOREGROUND_OCCLUDER_TUNING.get(texture_key, {})
+	if row_variant is Dictionary:
+		return (row_variant as Dictionary).duplicate(true)
+	return {}
+
+
+func _spawn_world_borders() -> void:
+	if obstacle_bodies == null:
+		return
+	_spawn_border_rect(Vector2(0.0, -PLAYFIELD_HALF_EXTENT - BORDER_THICKNESS * 0.5), Vector2(PLAYFIELD_HALF_EXTENT * 2.0 + BORDER_THICKNESS * 2.0, BORDER_THICKNESS))
+	_spawn_border_rect(Vector2(0.0, PLAYFIELD_HALF_EXTENT + BORDER_THICKNESS * 0.5), Vector2(PLAYFIELD_HALF_EXTENT * 2.0 + BORDER_THICKNESS * 2.0, BORDER_THICKNESS))
+	_spawn_border_rect(Vector2(-PLAYFIELD_HALF_EXTENT - BORDER_THICKNESS * 0.5, 0.0), Vector2(BORDER_THICKNESS, PLAYFIELD_HALF_EXTENT * 2.0))
+	_spawn_border_rect(Vector2(PLAYFIELD_HALF_EXTENT + BORDER_THICKNESS * 0.5, 0.0), Vector2(BORDER_THICKNESS, PLAYFIELD_HALF_EXTENT * 2.0))
+
+
+func _spawn_border_rect(pos: Vector2, size: Vector2) -> void:
+	var body := StaticBody2D.new()
+	body.collision_layer = TERRAIN_COLLISION_LAYER
+	body.collision_mask = 0
+	body.position = pos
+	var shape := RectangleShape2D.new()
+	shape.size = size
+	var collider := CollisionShape2D.new()
+	collider.shape = shape
+	body.add_child(collider)
+	obstacle_bodies.add_child(body)
+
+
+func _load_cached_texture(path: String) -> Texture2D:
+	if path.is_empty():
+		return null
+	if _terrain_texture_cache.has(path):
+		var cached: Variant = _terrain_texture_cache[path]
+		if cached is Texture2D:
+			return cached
+	if not ResourceLoader.exists(path, "Texture2D"):
+		return null
+	var loaded := load(path)
+	if loaded is Texture2D:
+		_terrain_texture_cache[path] = loaded
+		return loaded
+	return null
+
+
+func _get_map_floor_modulate(map_id: String) -> Color:
+	var tone_variant: Variant = MAP_FLOOR_MODULATE.get(map_id, Color(0.56, 0.58, 0.62, 1.0))
+	return tone_variant if tone_variant is Color else Color(0.56, 0.58, 0.62, 1.0)
+
+
+func _get_map_obstacle_modulate(map_id: String) -> Color:
+	var tone_variant: Variant = MAP_OBSTACLE_MODULATE.get(map_id, Color(0.66, 0.68, 0.72, 1.0))
+	return tone_variant if tone_variant is Color else Color(0.66, 0.68, 0.72, 1.0)
+
+
+func _get_map_obstacle_layout(map_id: String) -> Array:
+	match map_id:
+		"map_black_tide":
+			return [
+				{"texture": "cliff_chunk", "pos": Vector2(-1120, -930), "size": Vector2(320, 204), "scale": Vector2(0.56, 0.56), "y_offset": -20.0},
+				{"texture": "hedge_corner", "pos": Vector2(1120, -920), "size": Vector2(304, 188), "scale": Vector2(0.56, 0.56), "y_offset": -18.0},
+				{"texture": "hedge_chunk", "pos": Vector2(-1110, 920), "size": Vector2(320, 204), "scale": Vector2(0.56, 0.56), "y_offset": -20.0},
+				{"texture": "cliff_chunk", "pos": Vector2(1120, 940), "size": Vector2(320, 204), "scale": Vector2(0.56, 0.56), "y_offset": -20.0},
+				{"texture": "house", "pos": Vector2(-900, -870), "size": Vector2(102, 62), "scale": Vector2(0.66, 0.66), "y_offset": -52.0},
+				{"texture": "tower", "pos": Vector2(900, -860), "size": Vector2(114, 68), "scale": Vector2(0.68, 0.68), "y_offset": -60.0},
+				{"texture": "barracks", "pos": Vector2(-910, 860), "size": Vector2(138, 62), "scale": Vector2(0.62, 0.62), "y_offset": -44.0},
+				{"texture": "tower", "pos": Vector2(900, 870), "size": Vector2(114, 68), "scale": Vector2(0.68, 0.68), "y_offset": -60.0},
+				{"texture": "cliff_strip", "pos": Vector2(-540, -460), "size": Vector2(256, 70), "scale": Vector2(0.70, 0.70), "y_offset": -14.0},
+				{"texture": "hedge_strip", "pos": Vector2(560, -420), "size": Vector2(252, 70), "scale": Vector2(0.70, 0.70), "y_offset": -14.0},
+				{"texture": "cliff_strip", "pos": Vector2(520, 460), "size": Vector2(256, 70), "scale": Vector2(0.70, 0.70), "y_offset": -14.0},
+				{"texture": "hedge_strip", "pos": Vector2(-560, 440), "size": Vector2(252, 70), "scale": Vector2(0.70, 0.70), "y_offset": -14.0},
+				{"texture": "barrier", "pos": Vector2(-220, -120), "size": Vector2(132, 42), "scale": Vector2(2.6, 2.6), "y_offset": -12.0},
+				{"texture": "barrier", "pos": Vector2(240, 90), "size": Vector2(132, 42), "scale": Vector2(2.6, 2.6), "y_offset": -12.0},
+				{"texture": "crate", "pos": Vector2(-120, 350), "size": Vector2(62, 42), "scale": Vector2(2.4, 2.4), "y_offset": -12.0},
+				{"texture": "crate", "pos": Vector2(130, -340), "size": Vector2(62, 42), "scale": Vector2(2.4, 2.4), "y_offset": -12.0}
+			]
+		_:
+			return [
+				{"texture": "hedge_chunk", "pos": Vector2(-1140, -930), "size": Vector2(324, 208), "scale": Vector2(0.58, 0.58), "y_offset": -24.0},
+				{"texture": "cliff_chunk", "pos": Vector2(1130, -940), "size": Vector2(324, 208), "scale": Vector2(0.58, 0.58), "y_offset": -24.0},
+				{"texture": "hedge_corner", "pos": Vector2(-1140, 940), "size": Vector2(304, 188), "scale": Vector2(0.58, 0.58), "y_offset": -18.0},
+				{"texture": "cliff_chunk", "pos": Vector2(1130, 950), "size": Vector2(324, 208), "scale": Vector2(0.58, 0.58), "y_offset": -24.0},
+				{"texture": "house", "pos": Vector2(-940, -860), "size": Vector2(100, 58), "scale": Vector2(0.66, 0.66), "y_offset": -52.0},
+				{"texture": "tower", "pos": Vector2(940, -870), "size": Vector2(114, 68), "scale": Vector2(0.70, 0.70), "y_offset": -60.0},
+				{"texture": "barracks", "pos": Vector2(-940, 860), "size": Vector2(138, 62), "scale": Vector2(0.62, 0.62), "y_offset": -44.0},
+				{"texture": "house", "pos": Vector2(940, 860), "size": Vector2(100, 58), "scale": Vector2(0.66, 0.66), "y_offset": -52.0},
+				{"texture": "hedge_strip", "pos": Vector2(-690, 120), "size": Vector2(252, 68), "scale": Vector2(0.72, 0.72), "y_offset": -14.0},
+				{"texture": "cliff_strip", "pos": Vector2(690, -120), "size": Vector2(256, 68), "scale": Vector2(0.72, 0.72), "y_offset": -14.0},
+				{"texture": "hedge_strip", "pos": Vector2(-200, -680), "size": Vector2(252, 68), "scale": Vector2(0.72, 0.72), "y_offset": -14.0},
+				{"texture": "cliff_strip", "pos": Vector2(220, 690), "size": Vector2(256, 68), "scale": Vector2(0.72, 0.72), "y_offset": -14.0},
+				{"texture": "barrier", "pos": Vector2(-120, -210), "size": Vector2(132, 42), "scale": Vector2(2.6, 2.6), "y_offset": -12.0},
+				{"texture": "barrier", "pos": Vector2(140, 220), "size": Vector2(132, 42), "scale": Vector2(2.6, 2.6), "y_offset": -12.0},
+				{"texture": "crate", "pos": Vector2(-360, -370), "size": Vector2(62, 42), "scale": Vector2(2.4, 2.4), "y_offset": -12.0},
+				{"texture": "crate", "pos": Vector2(380, 370), "size": Vector2(62, 42), "scale": Vector2(2.4, 2.4), "y_offset": -12.0}
+			]
 
 
 func _setup_pools() -> void:

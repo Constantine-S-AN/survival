@@ -13,6 +13,27 @@ script = ExtResource("1")
 [node name="Backdrop" type="Node2D" parent="."]
 z_index = -100
 
+[node name="Terrain" type="Node2D" parent="."]
+z_index = -96
+
+[node name="Floor" type="Sprite2D" parent="Terrain"]
+visible = false
+texture_filter = 1
+scale = Vector2(4, 4)
+
+[node name="ObstacleVisuals" type="Node2D" parent="Terrain"]
+z_index = 0
+y_sort_enabled = true
+
+[node name="ForegroundVisuals" type="Node2D" parent="Terrain"]
+z_index = 6
+
+[node name="Candles" type="Node2D" parent="Terrain"]
+z_index = 3
+y_sort_enabled = true
+
+[node name="ObstacleBodies" type="Node2D" parent="Terrain"]
+
 [node name="BackdropMain" type="Sprite2D" parent="Backdrop"]
 visible = false
 modulate = Color(0.78, 0.92, 1, 0.78)

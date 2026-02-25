@@ -23,9 +23,15 @@ const MINE_QUERY_INTERVAL = 0.2
 const DRONE_QUERY_INTERVAL = 0.2
 const TARGET_QUERY_MAX_RESULTS = 32
 const WeaponRuntimeClass = preload("res://scripts/weapons/weapon_runtime.gd")
+const PixelStickerRegistry := preload("res://scripts/visual/pixel_sticker_registry.gd")
+const PLAYER_WORLD_HEIGHT_PX := 30.0
+const WEAPON_WORLD_SIZE_PX := 24.0
+const CHARACTER_IDLE_FRAME_SEC := 0.34
+const WEAPON_IDLE_FRAME_SEC := 0.18
 
 @onready var body_polygon: Polygon2D = $Body
 @onready var sprite_node: Sprite2D = $Sprite
+@onready var weapon_sticker_node: Sprite2D = $WeaponSticker
 
 var enemy_manager: Node
 var projectile_manager: Node
@@ -136,11 +142,24 @@ var target_query_total: int = 0
 var target_query_window_count: int = 0
 var target_query_window_seconds: float = 0.0
 var target_query_count_per_sec: float = 0.0
+var displayed_weapon_sticker_id: String = ""
+var _character_sticker_frames: Array[Texture2D] = []
+var _weapon_sticker_frames: Array[Texture2D] = []
+var _character_idle_timer: float = 0.0
+var _weapon_idle_timer: float = 0.0
+var _character_frame_idx: int = 0
+var _weapon_frame_idx: int = 0
+var _sprite_base_position: Vector2 = Vector2.ZERO
+var _weapon_base_offset_y: float = -8.0
+var _weapon_idle_offset_y: float = 0.0
 
 
 func _ready() -> void:
 	add_to_group("player")
+	if sprite_node != null:
+		_sprite_base_position = sprite_node.position
 	_apply_optional_player_texture()
+	_apply_weapon_sticker()
 	enemy_query_params.shape = enemy_query_shape
 	enemy_query_params.collide_with_bodies = true
 	enemy_query_params.collide_with_areas = true
@@ -157,7 +176,22 @@ func _ready() -> void:
 func _apply_optional_player_texture() -> void:
 	if sprite_node == null or body_polygon == null:
 		return
+	sprite_node.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_character_sticker_frames = PixelStickerRegistry.get_character_idle_frames(character_id)
+	var sticker := _character_sticker_frames[0] if not _character_sticker_frames.is_empty() else null
+	if sticker != null:
+		_character_idle_timer = 0.0
+		_character_frame_idx = 0
+		sprite_node.texture = sticker
+		sprite_node.visible = true
+		var max_dim := maxf(sticker.get_size().x, sticker.get_size().y)
+		var sprite_scale := PLAYER_WORLD_HEIGHT_PX / maxf(1.0, max_dim)
+		sprite_node.scale = Vector2.ONE * sprite_scale
+		sprite_node.position = _sprite_base_position
+		body_polygon.visible = false
+		return
 	if ResourceLoader.exists(PLAYER_TEXTURE_PATH, "Texture2D"):
+		_character_sticker_frames.clear()
 		var texture_variant := load(PLAYER_TEXTURE_PATH)
 		if texture_variant is Texture2D:
 			sprite_node.texture = texture_variant
@@ -165,7 +199,49 @@ func _apply_optional_player_texture() -> void:
 			body_polygon.visible = false
 			return
 	sprite_node.visible = false
+	_character_sticker_frames.clear()
 	body_polygon.visible = true
+
+
+func _apply_weapon_sticker() -> void:
+	if weapon_sticker_node == null:
+		return
+	if active_weapon_id.is_empty():
+		weapon_sticker_node.visible = false
+		displayed_weapon_sticker_id = ""
+		_weapon_sticker_frames.clear()
+		return
+	if displayed_weapon_sticker_id == active_weapon_id and weapon_sticker_node.texture != null:
+		return
+	_weapon_sticker_frames = PixelStickerRegistry.get_weapon_idle_frames(active_weapon_id)
+	var texture := _weapon_sticker_frames[0] if not _weapon_sticker_frames.is_empty() else null
+	if texture == null:
+		weapon_sticker_node.visible = false
+		displayed_weapon_sticker_id = ""
+		_weapon_sticker_frames.clear()
+		return
+	displayed_weapon_sticker_id = active_weapon_id
+	_weapon_idle_timer = 0.0
+	_weapon_frame_idx = 0
+	_weapon_idle_offset_y = 0.0
+	weapon_sticker_node.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	weapon_sticker_node.texture = texture
+	weapon_sticker_node.visible = true
+	var max_dim := maxf(texture.get_size().x, texture.get_size().y)
+	var weapon_scale := WEAPON_WORLD_SIZE_PX / maxf(1.0, max_dim)
+	weapon_sticker_node.scale = Vector2.ONE * weapon_scale
+	_update_weapon_sticker_transform()
+
+
+func _update_weapon_sticker_transform() -> void:
+	if weapon_sticker_node == null or not weapon_sticker_node.visible:
+		return
+	var facing: Vector2 = last_move_direction
+	if facing.length() < 0.01:
+		facing = Vector2.RIGHT
+	var sign_x := 1.0 if facing.x >= 0.0 else -1.0
+	weapon_sticker_node.position = Vector2(10.0 * sign_x, _weapon_base_offset_y + _weapon_idle_offset_y)
+	weapon_sticker_node.flip_h = sign_x < 0.0
 
 
 func setup(enemy_manager_ref: Node, projectile_manager_ref: Node, run_rng: RandomNumberGenerator, character_def: Dictionary = {}) -> void:
@@ -312,6 +388,8 @@ func apply_character(character_def: Dictionary) -> void:
 		active_weapon_id = starting_weapon_id
 	else:
 		active_weapon_id = BASE_ACTIVE_WEAPON_ID
+	_apply_optional_player_texture()
+	_apply_weapon_sticker()
 
 
 func get_pickup_radius_multiplier() -> float:
@@ -332,6 +410,7 @@ func get_character_tag_weights() -> Dictionary:
 
 
 func _physics_process(delta: float) -> void:
+	_tick_idle_stickers(delta)
 	target_query_window_seconds += delta
 	if target_query_window_seconds >= 1.0:
 		target_query_count_per_sec = float(target_query_window_count) / maxf(0.001, target_query_window_seconds)
@@ -356,6 +435,7 @@ func _physics_process(delta: float) -> void:
 	var input_direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if input_direction.length() > 0.01:
 		last_move_direction = input_direction.normalized()
+	_update_weapon_sticker_transform()
 
 	if not contract_dash_disabled and Input.is_action_just_pressed("dash") and dash_cd_remaining <= 0.0:
 		dash_direction = last_move_direction if last_move_direction.length() > 0.01 else Vector2.RIGHT
@@ -364,7 +444,7 @@ func _physics_process(delta: float) -> void:
 		_add_noise_source("dash")
 
 	if Input.is_action_just_pressed("sonar_skill") and skill_cd_remaining <= 0.0:
-		_trigger_sonar_skill()
+		_trigger_flare_skill()
 
 	if dash_time_remaining > 0.0:
 		velocity = dash_direction * BASE_DASH_SPEED
@@ -384,21 +464,41 @@ func _physics_process(delta: float) -> void:
 		queue_redraw()
 
 
-func _trigger_sonar_skill() -> void:
+func _tick_idle_stickers(delta: float) -> void:
+	if sprite_node != null and _character_sticker_frames.size() > 1:
+		_character_idle_timer += delta
+		if _character_idle_timer >= CHARACTER_IDLE_FRAME_SEC:
+			_character_idle_timer = 0.0
+			_character_frame_idx = (_character_frame_idx + 1) % _character_sticker_frames.size()
+			sprite_node.texture = _character_sticker_frames[_character_frame_idx]
+			sprite_node.position = _sprite_base_position + Vector2(0.0, -0.8 if _character_frame_idx == 1 else 0.0)
+	elif sprite_node != null:
+		sprite_node.position = _sprite_base_position
+
+	if weapon_sticker_node != null and weapon_sticker_node.visible and _weapon_sticker_frames.size() > 1:
+		_weapon_idle_timer += delta
+		if _weapon_idle_timer >= WEAPON_IDLE_FRAME_SEC:
+			_weapon_idle_timer = 0.0
+			_weapon_frame_idx = (_weapon_frame_idx + 1) % _weapon_sticker_frames.size()
+			weapon_sticker_node.texture = _weapon_sticker_frames[_weapon_frame_idx]
+			_weapon_idle_offset_y = -0.5 if _weapon_frame_idx == 1 else 0.0
+
+
+func _trigger_flare_skill() -> void:
 	skill_cd_remaining = skill_cooldown
 	_add_noise_source("skill")
 	var sonar_cfg := DataRegistry.get_sonar_config()
 	var base_radius := maxf(120.0, float(sonar_cfg.get("max_radius", 720.0)))
-	var ping_radius := base_radius * 1.12
+	var ping_radius := base_radius * 1.26
 	sonar_ping_count = _estimate_enemy_count_in_radius(global_position, ping_radius)
 	sonar_ping_sequence += 1
 	sonar_feedback_timer = sonar_feedback_duration
 	FeedbackBus.emit_sonar_pulse(global_position, {
-		"source": "skill",
-		"strength": 1.18,
-		"radius_scale": 1.12,
-		"speed": 1220.0,
-		"line_width": 7.2,
+		"source": "flare",
+		"strength": 1.26,
+		"radius_scale": 1.28,
+		"speed": 980.0,
+		"line_width": 8.4,
 		"ping_count": sonar_ping_count,
 		"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
 	})
@@ -457,6 +557,7 @@ func _fire_projectile(runtime, fire_direction: Vector2) -> void:
 		var offset = (float(i) - center) * spread_step
 		var dir = fire_direction.rotated(offset)
 		var projectile_data = {
+			"weapon_id": runtime.weapon_id,
 			"damage": runtime.damage,
 			"speed": runtime.projectile_speed,
 			"range": runtime.range,
@@ -535,6 +636,7 @@ func _fire_drone(runtime) -> void:
 		if direction.length() < 0.01:
 			continue
 		var projectile_data = {
+			"weapon_id": runtime.weapon_id,
 			"damage": runtime.damage * 0.9,
 			"speed": maxf(240.0, runtime.projectile_speed),
 			"range": maxf(220.0, runtime.range),
@@ -1266,6 +1368,7 @@ func apply_contract_modifiers(player_modifiers: Dictionary = {}) -> void:
 
 
 func _ensure_weapon_state() -> void:
+	var previous_weapon_id: String = active_weapon_id
 	if DataRegistry.get_weapon(active_weapon_id).is_empty():
 		if not DataRegistry.get_default_character_id().is_empty():
 			var default_character = DataRegistry.get_character(DataRegistry.get_default_character_id())
@@ -1282,6 +1385,8 @@ func _ensure_weapon_state() -> void:
 		return
 	if not weapon_levels.has(active_weapon_id):
 		weapon_levels[active_weapon_id] = 1
+	if previous_weapon_id != active_weapon_id or displayed_weapon_sticker_id != active_weapon_id:
+		_apply_weapon_sticker()
 
 
 func _level_weapon(weapon_id: String, amount: int) -> void:
