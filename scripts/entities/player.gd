@@ -384,7 +384,7 @@ func apply_character(character_def: Dictionary) -> void:
 	character_summon_cap_bonus = int(modifiers.get("summon_cap_bonus", 0))
 
 	var starting_weapon_id = String(effective_def.get("starting_weapon_id", BASE_ACTIVE_WEAPON_ID))
-	if not DataRegistry.get_weapon(starting_weapon_id).is_empty():
+	if not DataRegistry.get_weapon_runtime(starting_weapon_id).is_empty():
 		active_weapon_id = starting_weapon_id
 	else:
 		active_weapon_id = BASE_ACTIVE_WEAPON_ID
@@ -587,7 +587,7 @@ func _deploy_mine(runtime, fire_direction: Vector2, target: Node2D) -> void:
 	if target != null and is_instance_valid(target):
 		place_distance = minf(runtime.range, global_position.distance_to(target.global_position))
 	var placement = global_position + fire_direction.normalized() * place_distance
-	var activation_delay = float(DataRegistry.get_weapon(runtime.weapon_id).get("activation_delay", 0.65))
+	var activation_delay = float(DataRegistry.get_weapon_runtime(runtime.weapon_id).get("activation_delay", 0.65))
 	deployed_mines.append({
 		"position": placement,
 		"timer": maxf(0.0, activation_delay),
@@ -1369,15 +1369,15 @@ func apply_contract_modifiers(player_modifiers: Dictionary = {}) -> void:
 
 func _ensure_weapon_state() -> void:
 	var previous_weapon_id: String = active_weapon_id
-	if DataRegistry.get_weapon(active_weapon_id).is_empty():
+	if DataRegistry.get_weapon_runtime(active_weapon_id).is_empty():
 		if not DataRegistry.get_default_character_id().is_empty():
 			var default_character = DataRegistry.get_character(DataRegistry.get_default_character_id())
 			var fallback_weapon = String(default_character.get("starting_weapon_id", BASE_ACTIVE_WEAPON_ID))
-			if not DataRegistry.get_weapon(fallback_weapon).is_empty():
+			if not DataRegistry.get_weapon_runtime(fallback_weapon).is_empty():
 				active_weapon_id = fallback_weapon
-	if DataRegistry.get_weapon(active_weapon_id).is_empty():
+	if DataRegistry.get_weapon_runtime(active_weapon_id).is_empty():
 		active_weapon_id = BASE_ACTIVE_WEAPON_ID
-	if DataRegistry.get_weapon(active_weapon_id).is_empty():
+	if DataRegistry.get_weapon_runtime(active_weapon_id).is_empty():
 		for weapon_key in DataRegistry.weapons.keys():
 			active_weapon_id = String(weapon_key)
 			break
@@ -1392,7 +1392,7 @@ func _ensure_weapon_state() -> void:
 func _level_weapon(weapon_id: String, amount: int) -> void:
 	if weapon_id.is_empty():
 		return
-	var weapon = DataRegistry.get_weapon(weapon_id)
+	var weapon = DataRegistry.get_weapon_runtime(weapon_id)
 	if weapon.is_empty():
 		return
 	var growth_variant: Variant = weapon.get("level_growth", [])
@@ -1406,7 +1406,7 @@ func _build_active_weapon_runtime() -> Variant:
 	_ensure_weapon_state()
 	if active_weapon_id.is_empty():
 		return null
-	var weapon = DataRegistry.get_weapon(active_weapon_id)
+	var weapon = DataRegistry.get_weapon_runtime(active_weapon_id)
 	if weapon.is_empty():
 		return null
 

@@ -524,10 +524,37 @@ func get_default_map_id() -> String:
 	return String(maps_config.get("default_map_id", ""))
 
 
+func _localize_dictionary_row(row: Dictionary) -> Dictionary:
+	var output := row.duplicate(true)
+	if Localization == null:
+		return output
+	if not Localization.has_method("localize_data_entry"):
+		return output
+	return Localization.call("localize_data_entry", output)
+
+
+func _localize_dictionary_array(rows: Array) -> Array:
+	var output: Array = []
+	for row_variant in rows:
+		if row_variant is Dictionary:
+			output.append(_localize_dictionary_row(row_variant))
+		else:
+			output.append(row_variant)
+	return output
+
+
+func _noise_tier_name_from_id(tier_id: String, fallback_name: String) -> String:
+	if Localization == null:
+		return fallback_name
+	if not Localization.has_method("data_field"):
+		return fallback_name
+	return String(Localization.call("data_field", tier_id, "name", fallback_name, {"id": tier_id, "name": fallback_name}))
+
+
 func get_map(map_id: String) -> Dictionary:
 	var payload: Variant = maps.get(map_id, {})
 	if payload is Dictionary:
-		return (payload as Dictionary).duplicate(true)
+		return _localize_dictionary_row(payload as Dictionary)
 	return {}
 
 
@@ -540,22 +567,47 @@ func get_maps() -> Array:
 	for map_id in map_order:
 		var map_variant: Variant = maps.get(map_id, {})
 		if map_variant is Dictionary:
-			output.append((map_variant as Dictionary).duplicate(true))
+			output.append(_localize_dictionary_row(map_variant as Dictionary))
 	return output
 
 
 func get_hazard(hazard_id: String) -> Dictionary:
 	var payload: Variant = hazards.get(hazard_id, {})
 	if payload is Dictionary:
-		return (payload as Dictionary).duplicate(true)
+		return _localize_dictionary_row(payload as Dictionary)
 	return {}
 
 
 func get_event_table(event_table_id: String) -> Dictionary:
 	var payload: Variant = event_tables.get(event_table_id, {})
 	if payload is Dictionary:
-		return (payload as Dictionary).duplicate(true)
+		return _localize_event_table(payload as Dictionary)
 	return {}
+
+
+func _localize_event_table(event_table: Dictionary) -> Dictionary:
+	var localized := _localize_dictionary_row(event_table)
+	var events_variant: Variant = localized.get("events", [])
+	if not (events_variant is Array):
+		return localized
+	var events: Array = events_variant
+	var localized_events: Array = []
+	for event_variant in events:
+		if not (event_variant is Dictionary):
+			localized_events.append(event_variant)
+			continue
+		var event: Dictionary = _localize_dictionary_row(event_variant as Dictionary)
+		var event_id := String(event.get("id", "")).strip_edges()
+		var immediate_variant: Variant = event.get("immediate", {})
+		if immediate_variant is Dictionary:
+			var immediate: Dictionary = (immediate_variant as Dictionary).duplicate(true)
+			var message_fallback := String(immediate.get("message", ""))
+			if not event_id.is_empty() and Localization != null and Localization.has_method("data_field"):
+				immediate["message"] = String(Localization.call("data_field", event_id, "immediate_message", message_fallback, immediate))
+			event["immediate"] = immediate
+		localized_events.append(event)
+	localized["events"] = localized_events
+	return localized
 
 
 func get_elite_affix(affix_id: String) -> Dictionary:
@@ -601,7 +653,7 @@ func get_bosses() -> Array:
 func get_contract(contract_id: String) -> Dictionary:
 	var payload: Variant = contracts.get(contract_id, {})
 	if payload is Dictionary:
-		return (payload as Dictionary).duplicate(true)
+		return _localize_dictionary_row(payload as Dictionary)
 	return {}
 
 
@@ -610,7 +662,7 @@ func get_contracts() -> Array:
 	for contract_id in contract_order:
 		var contract_variant: Variant = contracts.get(contract_id, {})
 		if contract_variant is Dictionary:
-			output.append((contract_variant as Dictionary).duplicate(true))
+			output.append(_localize_dictionary_row(contract_variant as Dictionary))
 	return output
 
 
@@ -709,7 +761,7 @@ func get_contract_reward_preview(contract_ids: Array) -> Dictionary:
 func get_character(character_id: String) -> Dictionary:
 	var payload: Variant = characters.get(character_id, {})
 	if payload is Dictionary:
-		return (payload as Dictionary).duplicate(true)
+		return _localize_dictionary_row(payload as Dictionary)
 	return {}
 
 
@@ -722,7 +774,7 @@ func get_characters() -> Array:
 	for character_id in character_order:
 		var character_variant: Variant = characters.get(character_id, {})
 		if character_variant is Dictionary:
-			output.append((character_variant as Dictionary).duplicate(true))
+			output.append(_localize_dictionary_row(character_variant as Dictionary))
 	return output
 
 
@@ -738,11 +790,15 @@ func get_noise_tier(noise_value: float) -> Dictionary:
 		var min_value := float(tier.get("min", 0.0))
 		var max_value := float(tier.get("max", 100.0))
 		if noise_value >= min_value and noise_value < max_value:
-			return tier
+			var localized := tier.duplicate(true)
+			localized["name"] = _noise_tier_name_from_id(String(localized.get("id", "")), String(localized.get("name", "Unknown")))
+			return localized
 	if not tiers.is_empty():
 		var last: Variant = tiers.back()
 		if last is Dictionary:
-			return last
+			var localized_last := (last as Dictionary).duplicate(true)
+			localized_last["name"] = _noise_tier_name_from_id(String(localized_last.get("id", "")), String(localized_last.get("name", "Unknown")))
+			return localized_last
 	return {}
 
 
@@ -787,6 +843,13 @@ func get_timeline_progress(elapsed_time: float) -> float:
 func get_weapon(weapon_id: String) -> Dictionary:
 	var weapon_variant: Variant = weapons.get(weapon_id, {})
 	if weapon_variant is Dictionary:
+		return _localize_dictionary_row(weapon_variant as Dictionary)
+	return {}
+
+
+func get_weapon_runtime(weapon_id: String) -> Dictionary:
+	var weapon_variant: Variant = weapons.get(weapon_id, {})
+	if weapon_variant is Dictionary:
 		return weapon_variant
 	return {}
 
@@ -804,7 +867,7 @@ func get_upgrade(upgrade_id: String) -> Dictionary:
 			continue
 		var upgrade: Dictionary = upgrade_variant
 		if String(upgrade.get("id", "")) == upgrade_id:
-			return upgrade
+			return _localize_dictionary_row(upgrade)
 	return {}
 
 
@@ -825,7 +888,7 @@ func get_upgrade_choices(
 	var picked: Array = []
 	while picked.size() < count and not candidates.is_empty():
 		var choice: Dictionary = _weighted_pick_upgrade(rng, candidates, tag_weights, runtime_context)
-		picked.append(choice)
+		picked.append(_localize_dictionary_row(choice))
 		var chosen_id: String = String(choice.get("id", ""))
 		var remaining: Array = []
 		for item_variant in candidates:
@@ -855,7 +918,7 @@ func get_upgrade_choices(
 			fallback_pool.append(upgrade)
 		while picked.size() < count and not fallback_pool.is_empty():
 			var fallback_choice: Dictionary = _weighted_pick_upgrade(rng, fallback_pool, tag_weights, runtime_context)
-			picked.append(fallback_choice)
+			picked.append(_localize_dictionary_row(fallback_choice))
 			picked_ids[String(fallback_choice.get("id", ""))] = true
 			var fallback_remaining: Array = []
 			var chosen_fallback_id := String(fallback_choice.get("id", ""))
