@@ -53,7 +53,11 @@
         "range_mult": 1.12,
         "pierce_bonus": 2
       }
-    ]
+    ],
+    "projectile_radius": 5.8,
+    "projectile_spread_deg": 3.0,
+    "impact_knockback": 210.0,
+    "fx_color": "#7ad8ff"
   },
   "burst_smg": {
     "id": "burst_smg",
@@ -109,7 +113,13 @@
         "range_mult": 1.08,
         "pierce_bonus": 1
       }
-    ]
+    ],
+    "projectile_radius": 4.6,
+    "projectile_spread_deg": 6.5,
+    "burst_count": 2,
+    "burst_interval": 0.045,
+    "impact_knockback": 145.0,
+    "fx_color": "#6dff84"
   },
   "silence_dart": {
     "id": "silence_dart",
@@ -166,7 +176,13 @@
         "range_mult": 1.15,
         "reveal_bonus": 1.25
       }
-    ]
+    ],
+    "projectile_radius": 4.2,
+    "projectile_spread_deg": 2.2,
+    "impact_pulse_strength": 0.35,
+    "impact_pulse_radius_scale": 0.92,
+    "impact_knockback": 130.0,
+    "fx_color": "#ffc8a0"
   },
   "shock_pulse": {
     "id": "shock_pulse",
@@ -217,7 +233,12 @@
         "attack_rate_mult": 1.14,
         "aoe_mult": 1.3
       }
-    ]
+    ],
+    "pulse_repeats": 2,
+    "pulse_repeat_interval": 0.11,
+    "pulse_falloff": 0.8,
+    "impact_knockback": 220.0,
+    "fx_color": "#ff71a4"
   },
   "abyss_mine": {
     "id": "abyss_mine",
@@ -269,7 +290,15 @@
         "attack_rate_mult": 1.13,
         "aoe_mult": 1.3
       }
-    ]
+    ],
+    "mine_shard_count": 8,
+    "mine_shard_speed": 620.0,
+    "mine_shard_range": 330.0,
+    "projectile_radius": 4.5,
+    "impact_aoe_radius": 42.0,
+    "impact_aoe_damage_mult": 0.35,
+    "impact_pulse_strength": 0.46,
+    "fx_color": "#ffd17d"
   },
   "tether_beam": {
     "id": "tether_beam",
@@ -321,7 +350,11 @@
         "attack_rate_mult": 1.21,
         "range_mult": 1.18
       }
-    ]
+    ],
+    "beam_chain_targets": 1,
+    "beam_chain_falloff": 0.68,
+    "impact_knockback": 180.0,
+    "fx_color": "#6fb9ff"
   },
   "orbital_drone": {
     "id": "orbital_drone",
@@ -373,7 +406,12 @@
         "attack_rate_mult": 1.24,
         "drone_count_bonus": 2
       }
-    ]
+    ],
+    "drone_volley": 2,
+    "drone_spread_deg": 5.0,
+    "drone_projectile_radius": 3.8,
+    "impact_knockback": 130.0,
+    "fx_color": "#93edff"
   },
   "sonar_blade": {
     "id": "sonar_blade",
@@ -425,7 +463,12 @@
         "attack_rate_mult": 1.24,
         "aoe_mult": 1.22
       }
-    ]
+    ],
+    "melee_cone_dot": 0.22,
+    "impact_knockback": 260.0,
+    "impact_pulse_strength": 0.55,
+    "impact_pulse_radius_scale": 1.1,
+    "fx_color": "#ffb07a"
   },
   "flare_lance": {
     "id": "flare_lance",
@@ -481,7 +524,13 @@
         "range_mult": 1.14,
         "pierce_bonus": 2
       }
-    ]
+    ],
+    "projectile_radius": 5.4,
+    "projectile_spread_deg": 2.5,
+    "impact_aoe_radius": 34.0,
+    "impact_aoe_damage_mult": 0.42,
+    "impact_knockback": 240.0,
+    "fx_color": "#ff9f70"
   },
   "night_carbine": {
     "id": "night_carbine",
@@ -537,7 +586,13 @@
         "range_mult": 1.14,
         "pierce_bonus": 1
       }
-    ]
+    ],
+    "projectile_radius": 4.9,
+    "projectile_spread_deg": 4.2,
+    "burst_count": 2,
+    "burst_interval": 0.055,
+    "impact_knockback": 170.0,
+    "fx_color": "#9cff8b"
   },
   "pulse_emitter": {
     "id": "pulse_emitter",
@@ -588,7 +643,12 @@
         "attack_rate_mult": 1.2,
         "aoe_mult": 1.3
       }
-    ]
+    ],
+    "pulse_repeats": 3,
+    "pulse_repeat_interval": 0.09,
+    "pulse_falloff": 0.74,
+    "impact_knockback": 180.0,
+    "fx_color": "#7be8ff"
   },
   "ion_repeater": {
     "id": "ion_repeater",
@@ -644,7 +704,13 @@
         "range_mult": 1.14,
         "pierce_bonus": 1
       }
-    ]
+    ],
+    "projectile_radius": 4.1,
+    "projectile_spread_deg": 5.5,
+    "burst_count": 3,
+    "burst_interval": 0.035,
+    "impact_pulse_strength": 0.22,
+    "fx_color": "#86a7ff"
   },
   "ember_pike": {
     "id": "ember_pike",
@@ -695,7 +761,12 @@
         "attack_rate_mult": 1.25,
         "aoe_mult": 1.24
       }
-    ]
+    ],
+    "melee_cone_dot": 0.18,
+    "impact_knockback": 280.0,
+    "impact_aoe_radius": 30.0,
+    "impact_aoe_damage_mult": 0.38,
+    "fx_color": "#ff785a"
   },
   "frost_shard": {
     "id": "frost_shard",
@@ -751,7 +822,13 @@
         "range_mult": 1.14,
         "pierce_bonus": 2
       }
-    ]
+    ],
+    "projectile_radius": 4.7,
+    "projectile_spread_deg": 3.5,
+    "impact_pulse_strength": 0.4,
+    "impact_pulse_radius_scale": 1.05,
+    "impact_knockback": 120.0,
+    "fx_color": "#89ddff"
   },
   "grav_harpoon": {
     "id": "grav_harpoon",
@@ -803,7 +880,11 @@
         "attack_rate_mult": 1.25,
         "range_mult": 1.2
       }
-    ]
+    ],
+    "beam_chain_targets": 2,
+    "beam_chain_falloff": 0.62,
+    "impact_knockback": 210.0,
+    "fx_color": "#cf89ff"
   },
   "prism_caster": {
     "id": "prism_caster",
@@ -854,7 +935,13 @@
         "attack_rate_mult": 1.2,
         "aoe_mult": 1.3
       }
-    ]
+    ],
+    "pulse_repeats": 2,
+    "pulse_repeat_interval": 0.08,
+    "pulse_falloff": 0.78,
+    "impact_pulse_strength": 0.5,
+    "impact_pulse_radius_scale": 1.14,
+    "fx_color": "#ff8add"
   },
   "venom_sprayer": {
     "id": "venom_sprayer",
@@ -910,7 +997,14 @@
         "range_mult": 1.14,
         "pierce_bonus": 1
       }
-    ]
+    ],
+    "projectile_radius": 4.4,
+    "projectile_spread_deg": 10.0,
+    "burst_count": 2,
+    "burst_interval": 0.05,
+    "impact_aoe_radius": 20.0,
+    "impact_aoe_damage_mult": 0.33,
+    "fx_color": "#7aff8f"
   },
   "echo_revolver": {
     "id": "echo_revolver",
@@ -965,6 +1059,1108 @@
         "attack_rate_mult": 1.22,
         "range_mult": 1.14,
         "pierce_bonus": 1
+      }
+    ],
+    "projectile_radius": 5.7,
+    "projectile_spread_deg": 2.8,
+    "impact_aoe_radius": 28.0,
+    "impact_aoe_damage_mult": 0.32,
+    "impact_knockback": 230.0,
+    "fx_color": "#ff9181"
+  },
+  "catacomb_longbow": {
+    "id": "catacomb_longbow",
+    "name": "Catacomb Longbow",
+    "description": "A skeletal longbow that fires heavy piercing bolts through dungeon lanes.",
+    "attack_model": "projectile",
+    "tags": [
+      "pierce",
+      "silence"
+    ],
+    "base_damage": 21.0,
+    "attack_rate": 1.75,
+    "range": 960.0,
+    "projectile_speed": 900.0,
+    "projectile_pierce": 1,
+    "crit_chance": 0.08,
+    "crit_multiplier": 1.74,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 1.8,
+    "projectile_radius": 4.8,
+    "projectile_spread_deg": 1.8,
+    "impact_knockback": 250.0,
+    "fx_color": "#a8d3ff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.03,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.27,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.06,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.43,
+        "attack_rate_mult": 1.16,
+        "range_mult": 1.1,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.61,
+        "attack_rate_mult": 1.22,
+        "range_mult": 1.14,
+        "pierce_bonus": 1
+      }
+    ]
+  },
+  "rune_blunderbuss": {
+    "id": "rune_blunderbuss",
+    "name": "Rune Blunderbuss",
+    "description": "A rune-loaded scatter gun that blankets short corridors with shard storms.",
+    "attack_model": "projectile",
+    "tags": [
+      "aoe",
+      "damage"
+    ],
+    "base_damage": 8.2,
+    "attack_rate": 1.9,
+    "range": 520.0,
+    "projectile_speed": 640.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.06,
+    "crit_multiplier": 1.6,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 4.4,
+    "projectile_radius": 4.3,
+    "projectile_spread_deg": 14.0,
+    "impact_aoe_radius": 18.0,
+    "impact_aoe_damage_mult": 0.25,
+    "impact_knockback": 155.0,
+    "fx_color": "#ffb575",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 3
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.14,
+        "attack_rate_mult": 1.04,
+        "range_mult": 1.02,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 3
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.3,
+        "attack_rate_mult": 1.08,
+        "range_mult": 1.05,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 4
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.48,
+        "attack_rate_mult": 1.13,
+        "range_mult": 1.08,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 4
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.67,
+        "attack_rate_mult": 1.18,
+        "range_mult": 1.1,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 5
+      }
+    ]
+  },
+  "candle_mortar": {
+    "id": "candle_mortar",
+    "name": "Candle Mortar",
+    "description": "Lobs wick-bombs that burst into burning shrapnel around ignited candles.",
+    "attack_model": "mine",
+    "tags": [
+      "trap",
+      "aoe"
+    ],
+    "base_damage": 38.0,
+    "attack_rate": 0.9,
+    "range": 520.0,
+    "projectile_speed": 260.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.05,
+    "crit_multiplier": 1.58,
+    "aoe_radius": 154.0,
+    "noise_per_attack": 3.6,
+    "activation_delay": 0.52,
+    "mine_shard_count": 12,
+    "mine_shard_speed": 700.0,
+    "mine_shard_range": 340.0,
+    "projectile_radius": 4.6,
+    "impact_aoe_radius": 24.0,
+    "impact_aoe_damage_mult": 0.32,
+    "impact_pulse_strength": 0.48,
+    "impact_pulse_radius_scale": 1.08,
+    "fx_color": "#ffcc89",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.14,
+        "attack_rate_mult": 1.03,
+        "aoe_mult": 1.08
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.31,
+        "attack_rate_mult": 1.07,
+        "aoe_mult": 1.14
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.5,
+        "attack_rate_mult": 1.11,
+        "aoe_mult": 1.22
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.71,
+        "attack_rate_mult": 1.16,
+        "aoe_mult": 1.3
+      }
+    ]
+  },
+  "crypt_disc": {
+    "id": "crypt_disc",
+    "name": "Crypt Disc",
+    "description": "A spinning relic disc that ricochets pressure with split burst timing.",
+    "attack_model": "projectile",
+    "tags": [
+      "control",
+      "crit"
+    ],
+    "base_damage": 11.5,
+    "attack_rate": 3.0,
+    "range": 700.0,
+    "projectile_speed": 760.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.12,
+    "crit_multiplier": 1.68,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 2.9,
+    "projectile_radius": 5.1,
+    "projectile_spread_deg": 6.0,
+    "burst_count": 2,
+    "burst_interval": 0.06,
+    "impact_aoe_radius": 26.0,
+    "impact_aoe_damage_mult": 0.34,
+    "impact_knockback": 170.0,
+    "fx_color": "#8be2ff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.12,
+        "attack_rate_mult": 1.06,
+        "range_mult": 1.03,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.26,
+        "attack_rate_mult": 1.11,
+        "range_mult": 1.06,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.42,
+        "attack_rate_mult": 1.17,
+        "range_mult": 1.09,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.6,
+        "attack_rate_mult": 1.23,
+        "range_mult": 1.13,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 2
+      }
+    ]
+  },
+  "grave_bell": {
+    "id": "grave_bell",
+    "name": "Grave Bell",
+    "description": "Rings layered shockwaves that repeatedly mark and punish clustered threats.",
+    "attack_model": "pulse",
+    "tags": [
+      "control",
+      "aoe"
+    ],
+    "base_damage": 17.0,
+    "attack_rate": 1.25,
+    "range": 230.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.05,
+    "crit_multiplier": 1.5,
+    "aoe_radius": 210.0,
+    "noise_per_attack": 3.1,
+    "pulse_repeats": 3,
+    "pulse_repeat_interval": 0.1,
+    "pulse_falloff": 0.72,
+    "impact_pulse_strength": 0.58,
+    "impact_pulse_radius_scale": 1.2,
+    "impact_knockback": 205.0,
+    "fx_color": "#ffd28a",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.1,
+        "attack_rate_mult": 1.04,
+        "aoe_mult": 1.09
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.24,
+        "attack_rate_mult": 1.08,
+        "aoe_mult": 1.17
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.39,
+        "attack_rate_mult": 1.12,
+        "aoe_mult": 1.24
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.56,
+        "attack_rate_mult": 1.17,
+        "aoe_mult": 1.32
+      }
+    ]
+  },
+  "ash_scythe": {
+    "id": "ash_scythe",
+    "name": "Ash Scythe",
+    "description": "Sweeping ash blade with broad arcs that clips whole packs in front of you.",
+    "attack_model": "melee",
+    "tags": [
+      "tempo",
+      "aoe"
+    ],
+    "base_damage": 27.0,
+    "attack_rate": 2.0,
+    "range": 186.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.09,
+    "crit_multiplier": 1.66,
+    "aoe_radius": 146.0,
+    "noise_per_attack": 2.5,
+    "melee_cone_dot": 0.05,
+    "impact_knockback": 245.0,
+    "impact_pulse_strength": 0.42,
+    "fx_color": "#ff9f78",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.15,
+        "attack_rate_mult": 1.06,
+        "aoe_mult": 1.06
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.31,
+        "attack_rate_mult": 1.12,
+        "aoe_mult": 1.12
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.49,
+        "attack_rate_mult": 1.18,
+        "aoe_mult": 1.18
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.69,
+        "attack_rate_mult": 1.24,
+        "aoe_mult": 1.24
+      }
+    ]
+  },
+  "wick_thrower": {
+    "id": "wick_thrower",
+    "name": "Wick Thrower",
+    "description": "Rapid incendiary globes that ignite reveal pulses on every impact.",
+    "attack_model": "projectile",
+    "tags": [
+      "heat",
+      "aoe"
+    ],
+    "base_damage": 9.4,
+    "attack_rate": 4.2,
+    "range": 640.0,
+    "projectile_speed": 650.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.08,
+    "crit_multiplier": 1.56,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 3.8,
+    "projectile_radius": 4.6,
+    "projectile_spread_deg": 8.5,
+    "burst_count": 3,
+    "burst_interval": 0.04,
+    "impact_aoe_radius": 22.0,
+    "impact_aoe_damage_mult": 0.28,
+    "impact_pulse_strength": 0.31,
+    "impact_pulse_radius_scale": 0.95,
+    "impact_knockback": 140.0,
+    "fx_color": "#ff8c66",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.1,
+        "attack_rate_mult": 1.06,
+        "range_mult": 1.02,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.24,
+        "attack_rate_mult": 1.12,
+        "range_mult": 1.05,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.39,
+        "attack_rate_mult": 1.18,
+        "range_mult": 1.08,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.56,
+        "attack_rate_mult": 1.24,
+        "range_mult": 1.1,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 1
+      }
+    ]
+  },
+  "reliquary_beam": {
+    "id": "reliquary_beam",
+    "name": "Reliquary Beam",
+    "description": "Holy relay beam that forks between targets and forces exposure chains.",
+    "attack_model": "beam",
+    "tags": [
+      "chain",
+      "control"
+    ],
+    "base_damage": 12.8,
+    "attack_rate": 5.7,
+    "range": 560.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.04,
+    "crit_multiplier": 1.4,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 2.7,
+    "beam_tick_interval": 0.15,
+    "beam_chain_targets": 3,
+    "beam_chain_falloff": 0.55,
+    "impact_knockback": 195.0,
+    "fx_color": "#b8d7ff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.12,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.04
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.26,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.08
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.42,
+        "attack_rate_mult": 1.15,
+        "range_mult": 1.13
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.6,
+        "attack_rate_mult": 1.21,
+        "range_mult": 1.18
+      }
+    ]
+  },
+  "gargoyle_drone": {
+    "id": "gargoyle_drone",
+    "name": "Gargoyle Drone",
+    "description": "Stone familiars orbit close and unleash split volleys at nearby enemies.",
+    "attack_model": "drone",
+    "tags": [
+      "summon",
+      "control"
+    ],
+    "base_damage": 10.8,
+    "attack_rate": 2.6,
+    "range": 250.0,
+    "projectile_speed": 710.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.06,
+    "crit_multiplier": 1.52,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 2.8,
+    "orbit_radius": 132.0,
+    "drone_count": 2,
+    "drone_volley": 2,
+    "drone_spread_deg": 7.5,
+    "drone_projectile_radius": 4.0,
+    "impact_knockback": 150.0,
+    "fx_color": "#c7eeff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "drone_count_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.12,
+        "attack_rate_mult": 1.06,
+        "drone_count_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.26,
+        "attack_rate_mult": 1.12,
+        "drone_count_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.42,
+        "attack_rate_mult": 1.18,
+        "drone_count_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.6,
+        "attack_rate_mult": 1.24,
+        "drone_count_bonus": 2
+      }
+    ]
+  },
+  "chain_spike": {
+    "id": "chain_spike",
+    "name": "Chain Spike",
+    "description": "Anchored spike bolts that favor chain propagation across tight formations.",
+    "attack_model": "projectile",
+    "tags": [
+      "chain",
+      "pierce"
+    ],
+    "base_damage": 15.2,
+    "attack_rate": 2.6,
+    "range": 780.0,
+    "projectile_speed": 800.0,
+    "projectile_pierce": 1,
+    "crit_chance": 0.08,
+    "crit_multiplier": 1.62,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 3.0,
+    "projectile_radius": 4.9,
+    "projectile_spread_deg": 3.6,
+    "impact_pulse_strength": 0.26,
+    "impact_pulse_radius_scale": 0.88,
+    "impact_knockback": 220.0,
+    "fx_color": "#b59dff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.13,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.03,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.28,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.06,
+        "pierce_bonus": 2
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.45,
+        "attack_rate_mult": 1.16,
+        "range_mult": 1.1,
+        "pierce_bonus": 2
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.63,
+        "attack_rate_mult": 1.22,
+        "range_mult": 1.14,
+        "pierce_bonus": 3
+      }
+    ]
+  },
+  "dusk_censer": {
+    "id": "dusk_censer",
+    "name": "Dusk Censer",
+    "description": "Low-noise incense pulses that trade burst damage for reveal control.",
+    "attack_model": "pulse",
+    "tags": [
+      "silence",
+      "control"
+    ],
+    "base_damage": 15.0,
+    "attack_rate": 1.45,
+    "range": 220.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.04,
+    "crit_multiplier": 1.45,
+    "aoe_radius": 205.0,
+    "noise_per_attack": 1.7,
+    "pulse_repeats": 2,
+    "pulse_repeat_interval": 0.12,
+    "pulse_falloff": 0.76,
+    "impact_pulse_strength": 0.62,
+    "impact_pulse_radius_scale": 1.24,
+    "impact_knockback": 160.0,
+    "fx_color": "#7ef6cf",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.11,
+        "attack_rate_mult": 1.05,
+        "aoe_mult": 1.08
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.24,
+        "attack_rate_mult": 1.09,
+        "aoe_mult": 1.15
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.38,
+        "attack_rate_mult": 1.14,
+        "aoe_mult": 1.23
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.54,
+        "attack_rate_mult": 1.19,
+        "aoe_mult": 1.31
+      }
+    ]
+  },
+  "tombbreaker_maul": {
+    "id": "tombbreaker_maul",
+    "name": "Tombbreaker Maul",
+    "description": "Heavy crypt maul that slams enemies backward with crushing arcs.",
+    "attack_model": "melee",
+    "tags": [
+      "damage",
+      "aoe"
+    ],
+    "base_damage": 34.0,
+    "attack_rate": 1.35,
+    "range": 176.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.1,
+    "crit_multiplier": 1.78,
+    "aoe_radius": 152.0,
+    "noise_per_attack": 3.0,
+    "melee_cone_dot": 0.28,
+    "impact_knockback": 320.0,
+    "impact_pulse_strength": 0.46,
+    "impact_pulse_radius_scale": 1.06,
+    "fx_color": "#ffb995",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.16,
+        "attack_rate_mult": 1.05,
+        "aoe_mult": 1.06
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.34,
+        "attack_rate_mult": 1.1,
+        "aoe_mult": 1.12
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.53,
+        "attack_rate_mult": 1.15,
+        "aoe_mult": 1.18
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.74,
+        "attack_rate_mult": 1.2,
+        "aoe_mult": 1.24
+      }
+    ]
+  },
+  "spectral_lantern": {
+    "id": "spectral_lantern",
+    "name": "Spectral Lantern",
+    "description": "Plants a ghost lantern mine that detonates into revealing spirit fragments.",
+    "attack_model": "mine",
+    "tags": [
+      "trap",
+      "sonar"
+    ],
+    "base_damage": 31.0,
+    "attack_rate": 1.0,
+    "range": 500.0,
+    "projectile_speed": 240.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.07,
+    "crit_multiplier": 1.6,
+    "aoe_radius": 142.0,
+    "noise_per_attack": 2.6,
+    "activation_delay": 0.45,
+    "reveal_bonus_duration": 0.45,
+    "mine_shard_count": 10,
+    "mine_shard_speed": 640.0,
+    "mine_shard_range": 320.0,
+    "projectile_radius": 4.4,
+    "impact_aoe_radius": 24.0,
+    "impact_aoe_damage_mult": 0.3,
+    "impact_pulse_strength": 0.7,
+    "impact_pulse_radius_scale": 1.28,
+    "fx_color": "#a5ffe7",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.14,
+        "attack_rate_mult": 1.04,
+        "aoe_mult": 1.09
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.29,
+        "attack_rate_mult": 1.08,
+        "aoe_mult": 1.16
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.46,
+        "attack_rate_mult": 1.13,
+        "aoe_mult": 1.23
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.65,
+        "attack_rate_mult": 1.18,
+        "aoe_mult": 1.31
+      }
+    ]
+  },
+  "hex_nailer": {
+    "id": "hex_nailer",
+    "name": "Hex Nailer",
+    "description": "Curses targets with rapid needle bursts that escalate in dense fights.",
+    "attack_model": "projectile",
+    "tags": [
+      "tempo",
+      "crit"
+    ],
+    "base_damage": 6.8,
+    "attack_rate": 5.8,
+    "range": 620.0,
+    "projectile_speed": 860.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.14,
+    "crit_multiplier": 1.72,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 3.6,
+    "projectile_radius": 3.8,
+    "projectile_spread_deg": 7.2,
+    "burst_count": 4,
+    "burst_interval": 0.028,
+    "impact_knockback": 110.0,
+    "fx_color": "#d09bff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.12,
+        "attack_rate_mult": 1.07,
+        "range_mult": 1.02,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.25,
+        "attack_rate_mult": 1.14,
+        "range_mult": 1.04,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.39,
+        "attack_rate_mult": 1.2,
+        "range_mult": 1.06,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.54,
+        "attack_rate_mult": 1.27,
+        "range_mult": 1.08,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 1
+      }
+    ]
+  },
+  "idol_railgun": {
+    "id": "idol_railgun",
+    "name": "Idol Railgun",
+    "description": "Relic rail beam that trades cadence for brutal single-target punish.",
+    "attack_model": "beam",
+    "tags": [
+      "damage",
+      "pierce"
+    ],
+    "base_damage": 23.0,
+    "attack_rate": 2.9,
+    "range": 700.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.06,
+    "crit_multiplier": 1.64,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 3.4,
+    "beam_tick_interval": 0.24,
+    "beam_chain_targets": 0,
+    "impact_knockback": 265.0,
+    "fx_color": "#ffde9e",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.15,
+        "attack_rate_mult": 1.04,
+        "range_mult": 1.04
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.32,
+        "attack_rate_mult": 1.08,
+        "range_mult": 1.08
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.51,
+        "attack_rate_mult": 1.12,
+        "range_mult": 1.12
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.72,
+        "attack_rate_mult": 1.16,
+        "range_mult": 1.17
+      }
+    ]
+  },
+  "briar_whip": {
+    "id": "briar_whip",
+    "name": "Briar Whip",
+    "description": "A thorn whip that slashes fast and propagates chain pressure nearby.",
+    "attack_model": "melee",
+    "tags": [
+      "chain",
+      "tempo"
+    ],
+    "base_damage": 22.0,
+    "attack_rate": 2.45,
+    "range": 190.0,
+    "projectile_speed": 0.0,
+    "projectile_pierce": 99,
+    "crit_chance": 0.08,
+    "crit_multiplier": 1.62,
+    "aoe_radius": 142.0,
+    "noise_per_attack": 2.3,
+    "melee_cone_dot": 0.02,
+    "impact_knockback": 210.0,
+    "impact_pulse_strength": 0.36,
+    "impact_pulse_radius_scale": 0.9,
+    "fx_color": "#9cff8e",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "aoe_mult": 1.0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.14,
+        "attack_rate_mult": 1.08,
+        "aoe_mult": 1.05
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.28,
+        "attack_rate_mult": 1.15,
+        "aoe_mult": 1.1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.44,
+        "attack_rate_mult": 1.22,
+        "aoe_mult": 1.15
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.61,
+        "attack_rate_mult": 1.28,
+        "aoe_mult": 1.2
+      }
+    ]
+  },
+  "oath_pistol": {
+    "id": "oath_pistol",
+    "name": "Oath Pistol",
+    "description": "A disciplined sidearm with compact double-tap bursts and high crit payoff.",
+    "attack_model": "projectile",
+    "tags": [
+      "crit",
+      "starter"
+    ],
+    "base_damage": 16.8,
+    "attack_rate": 2.4,
+    "range": 690.0,
+    "projectile_speed": 780.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.16,
+    "crit_multiplier": 1.82,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 2.5,
+    "projectile_radius": 5.2,
+    "projectile_spread_deg": 2.4,
+    "burst_count": 2,
+    "burst_interval": 0.05,
+    "impact_knockback": 190.0,
+    "fx_color": "#ffd0b8",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.14,
+        "attack_rate_mult": 1.05,
+        "range_mult": 1.03,
+        "pierce_bonus": 0
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.29,
+        "attack_rate_mult": 1.1,
+        "range_mult": 1.06,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.45,
+        "attack_rate_mult": 1.15,
+        "range_mult": 1.09,
+        "pierce_bonus": 1
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.63,
+        "attack_rate_mult": 1.21,
+        "range_mult": 1.13,
+        "pierce_bonus": 1
+      }
+    ]
+  },
+  "mirror_shard": {
+    "id": "mirror_shard",
+    "name": "Mirror Shard",
+    "description": "Crystalline fan shots refract into splash fragments and reveal ripples.",
+    "attack_model": "projectile",
+    "tags": [
+      "aoe",
+      "sonar"
+    ],
+    "base_damage": 10.2,
+    "attack_rate": 3.4,
+    "range": 720.0,
+    "projectile_speed": 760.0,
+    "projectile_pierce": 0,
+    "crit_chance": 0.09,
+    "crit_multiplier": 1.6,
+    "aoe_radius": 0.0,
+    "noise_per_attack": 2.8,
+    "projectile_radius": 4.8,
+    "projectile_spread_deg": 12.0,
+    "impact_aoe_radius": 30.0,
+    "impact_aoe_damage_mult": 0.42,
+    "impact_pulse_strength": 0.44,
+    "impact_pulse_radius_scale": 1.12,
+    "impact_knockback": 165.0,
+    "fx_color": "#9ad9ff",
+    "level_growth": [
+      {
+        "level": 1,
+        "damage_mult": 1.0,
+        "attack_rate_mult": 1.0,
+        "range_mult": 1.0,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 2
+      },
+      {
+        "level": 2,
+        "damage_mult": 1.12,
+        "attack_rate_mult": 1.06,
+        "range_mult": 1.03,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 2
+      },
+      {
+        "level": 3,
+        "damage_mult": 1.26,
+        "attack_rate_mult": 1.11,
+        "range_mult": 1.06,
+        "pierce_bonus": 0,
+        "projectile_count_bonus": 2
+      },
+      {
+        "level": 4,
+        "damage_mult": 1.41,
+        "attack_rate_mult": 1.17,
+        "range_mult": 1.1,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 3
+      },
+      {
+        "level": 5,
+        "damage_mult": 1.58,
+        "attack_rate_mult": 1.23,
+        "range_mult": 1.14,
+        "pierce_bonus": 1,
+        "projectile_count_bonus": 3
       }
     ]
   }

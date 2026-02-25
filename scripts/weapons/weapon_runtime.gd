@@ -41,6 +41,28 @@ var summon_count: int = 1
 var beam_tick_interval: float = 0.16
 var orbit_radius: float = 120.0
 var sonar_pulse_strength: float = 1.0
+var projectile_radius: float = 6.0
+var projectile_spread_deg: float = 8.0
+var burst_count: int = 1
+var burst_interval: float = 0.0
+var impact_aoe_radius: float = 0.0
+var impact_aoe_damage_mult: float = 0.5
+var impact_pulse_strength: float = 0.0
+var impact_pulse_radius_scale: float = 0.9
+var impact_knockback: float = 180.0
+var pulse_repeats: int = 1
+var pulse_repeat_interval: float = 0.09
+var pulse_falloff: float = 0.82
+var beam_chain_targets: int = 0
+var beam_chain_falloff: float = 0.6
+var mine_shard_count: int = 0
+var mine_shard_speed: float = 560.0
+var mine_shard_range: float = 300.0
+var drone_volley: int = 1
+var drone_spread_deg: float = 8.0
+var drone_projectile_radius: float = 4.5
+var melee_cone_dot: float = 0.35
+var fx_color: String = ""
 
 
 static func from_definition(
@@ -83,6 +105,28 @@ static func from_definition(
 	var base_noise := float(weapon_def.get("noise_per_attack", weapon_def.get("noise", 2.0)))
 	var base_reveal_bonus := float(weapon_def.get("reveal_bonus_duration", 0.0))
 	var base_summon_count := int(weapon_def.get("drone_count", 1))
+	var base_projectile_radius := float(weapon_def.get("projectile_radius", 6.0))
+	var base_projectile_spread_deg := float(weapon_def.get("projectile_spread_deg", 8.0))
+	var base_burst_count := int(weapon_def.get("burst_count", 1))
+	var base_burst_interval := float(weapon_def.get("burst_interval", 0.0))
+	var base_impact_aoe_radius := float(weapon_def.get("impact_aoe_radius", 0.0))
+	var base_impact_aoe_damage_mult := float(weapon_def.get("impact_aoe_damage_mult", 0.5))
+	var base_impact_pulse_strength := float(weapon_def.get("impact_pulse_strength", 0.0))
+	var base_impact_pulse_radius_scale := float(weapon_def.get("impact_pulse_radius_scale", 0.9))
+	var base_impact_knockback := float(weapon_def.get("impact_knockback", 180.0))
+	var base_pulse_repeats := int(weapon_def.get("pulse_repeats", 1))
+	var base_pulse_repeat_interval := float(weapon_def.get("pulse_repeat_interval", 0.09))
+	var base_pulse_falloff := float(weapon_def.get("pulse_falloff", 0.82))
+	var base_beam_chain_targets := int(weapon_def.get("beam_chain_targets", 0))
+	var base_beam_chain_falloff := float(weapon_def.get("beam_chain_falloff", 0.6))
+	var base_mine_shard_count := int(weapon_def.get("mine_shard_count", 0))
+	var base_mine_shard_speed := float(weapon_def.get("mine_shard_speed", 560.0))
+	var base_mine_shard_range := float(weapon_def.get("mine_shard_range", 300.0))
+	var base_drone_volley := int(weapon_def.get("drone_volley", 1))
+	var base_drone_spread_deg := float(weapon_def.get("drone_spread_deg", 8.0))
+	var base_drone_projectile_radius := float(weapon_def.get("drone_projectile_radius", 4.5))
+	var base_melee_cone_dot := float(weapon_def.get("melee_cone_dot", 0.35))
+	var base_fx_color := String(weapon_def.get("fx_color", ""))
 
 	var growth_damage_mult := float(growth.get("damage_mult", 1.0))
 	var growth_attack_rate_mult := float(growth.get("attack_rate_mult", 1.0))
@@ -113,6 +157,28 @@ static func from_definition(
 	runtime.beam_tick_interval = maxf(0.05, float(weapon_def.get("beam_tick_interval", 1.0 / maxf(0.1, runtime.attack_rate))))
 	runtime.orbit_radius = maxf(24.0, float(weapon_def.get("orbit_radius", 120.0)))
 	runtime.sonar_pulse_strength = maxf(0.1, float(weapon_def.get("sonar_pulse_strength", 1.0)))
+	runtime.projectile_radius = base_projectile_radius
+	runtime.projectile_spread_deg = base_projectile_spread_deg
+	runtime.burst_count = base_burst_count
+	runtime.burst_interval = base_burst_interval
+	runtime.impact_aoe_radius = base_impact_aoe_radius
+	runtime.impact_aoe_damage_mult = base_impact_aoe_damage_mult
+	runtime.impact_pulse_strength = base_impact_pulse_strength
+	runtime.impact_pulse_radius_scale = base_impact_pulse_radius_scale
+	runtime.impact_knockback = base_impact_knockback
+	runtime.pulse_repeats = base_pulse_repeats
+	runtime.pulse_repeat_interval = base_pulse_repeat_interval
+	runtime.pulse_falloff = base_pulse_falloff
+	runtime.beam_chain_targets = base_beam_chain_targets
+	runtime.beam_chain_falloff = base_beam_chain_falloff
+	runtime.mine_shard_count = base_mine_shard_count
+	runtime.mine_shard_speed = base_mine_shard_speed
+	runtime.mine_shard_range = base_mine_shard_range
+	runtime.drone_volley = base_drone_volley
+	runtime.drone_spread_deg = base_drone_spread_deg
+	runtime.drone_projectile_radius = base_drone_projectile_radius
+	runtime.melee_cone_dot = base_melee_cone_dot
+	runtime.fx_color = base_fx_color
 
 	for modifier_variant in modifier_sources:
 		if not (modifier_variant is Dictionary):
@@ -158,6 +224,27 @@ static func from_definition(
 	runtime.aoe_radius = maxf(0.0, runtime.aoe_radius)
 	runtime.noise_per_attack = maxf(0.0, runtime.noise_per_attack)
 	runtime.reveal_bonus_duration = maxf(0.0, runtime.reveal_bonus_duration)
+	runtime.projectile_radius = clampf(runtime.projectile_radius, 2.0, 24.0)
+	runtime.projectile_spread_deg = clampf(runtime.projectile_spread_deg, 0.0, 40.0)
+	runtime.burst_count = clampi(runtime.burst_count, 1, 6)
+	runtime.burst_interval = clampf(runtime.burst_interval, 0.0, 0.45)
+	runtime.impact_aoe_radius = maxf(0.0, runtime.impact_aoe_radius)
+	runtime.impact_aoe_damage_mult = clampf(runtime.impact_aoe_damage_mult, 0.0, 1.6)
+	runtime.impact_pulse_strength = maxf(0.0, runtime.impact_pulse_strength)
+	runtime.impact_pulse_radius_scale = clampf(runtime.impact_pulse_radius_scale, 0.3, 2.5)
+	runtime.impact_knockback = maxf(0.0, runtime.impact_knockback)
+	runtime.pulse_repeats = clampi(runtime.pulse_repeats, 1, 4)
+	runtime.pulse_repeat_interval = clampf(runtime.pulse_repeat_interval, 0.02, 0.45)
+	runtime.pulse_falloff = clampf(runtime.pulse_falloff, 0.2, 1.0)
+	runtime.beam_chain_targets = clampi(runtime.beam_chain_targets, 0, 6)
+	runtime.beam_chain_falloff = clampf(runtime.beam_chain_falloff, 0.1, 1.0)
+	runtime.mine_shard_count = clampi(runtime.mine_shard_count, 0, 24)
+	runtime.mine_shard_speed = clampf(runtime.mine_shard_speed, 80.0, 1600.0)
+	runtime.mine_shard_range = clampf(runtime.mine_shard_range, 30.0, 1400.0)
+	runtime.drone_volley = clampi(runtime.drone_volley, 1, 6)
+	runtime.drone_spread_deg = clampf(runtime.drone_spread_deg, 0.0, 35.0)
+	runtime.drone_projectile_radius = clampf(runtime.drone_projectile_radius, 2.0, 16.0)
+	runtime.melee_cone_dot = clampf(runtime.melee_cone_dot, -1.0, 0.95)
 
 	return runtime
 
@@ -190,6 +277,28 @@ func to_debug_dict() -> Dictionary:
 		"summon_count": summon_count,
 		"beam_tick_interval": beam_tick_interval,
 		"orbit_radius": orbit_radius,
+		"projectile_radius": projectile_radius,
+		"projectile_spread_deg": projectile_spread_deg,
+		"burst_count": burst_count,
+		"burst_interval": burst_interval,
+		"impact_aoe_radius": impact_aoe_radius,
+		"impact_aoe_damage_mult": impact_aoe_damage_mult,
+		"impact_pulse_strength": impact_pulse_strength,
+		"impact_pulse_radius_scale": impact_pulse_radius_scale,
+		"impact_knockback": impact_knockback,
+		"pulse_repeats": pulse_repeats,
+		"pulse_repeat_interval": pulse_repeat_interval,
+		"pulse_falloff": pulse_falloff,
+		"beam_chain_targets": beam_chain_targets,
+		"beam_chain_falloff": beam_chain_falloff,
+		"mine_shard_count": mine_shard_count,
+		"mine_shard_speed": mine_shard_speed,
+		"mine_shard_range": mine_shard_range,
+		"drone_volley": drone_volley,
+		"drone_spread_deg": drone_spread_deg,
+		"drone_projectile_radius": drone_projectile_radius,
+		"melee_cone_dot": melee_cone_dot,
+		"fx_color": fx_color,
 		"dps_estimate": estimate_dps()
 	}
 

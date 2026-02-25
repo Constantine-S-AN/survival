@@ -552,36 +552,45 @@ func _attempt_fire() -> void:
 
 
 func _fire_projectile(runtime, fire_direction: Vector2) -> void:
-	var count: int = maxi(1, runtime.projectile_count)
-	var spread_step = deg_to_rad(8.0)
-	var center = (float(count) - 1.0) * 0.5
-	for i in range(count):
-		var offset = (float(i) - center) * spread_step
-		var dir = fire_direction.rotated(offset)
-		var projectile_data = {
-			"weapon_id": runtime.weapon_id,
-			"damage": runtime.damage,
-			"speed": runtime.projectile_speed,
-			"range": runtime.range,
-			"pierce": runtime.pierce,
-			"radius": 6.0,
-			"tags": runtime.tags,
-			"crit_chance": runtime.crit_chance,
-			"crit_multiplier": runtime.crit_multiplier,
-			"reveal_bonus_duration": runtime.reveal_bonus_duration * get_sonar_reveal_duration_multiplier()
-		}
-		projectile_manager.spawn_projectile(global_position, dir, projectile_data, self)
+	var shoot_origin := global_position
+	_spawn_projectile_volley(runtime, fire_direction, shoot_origin, 1.0)
+	var bursts := clampi(int(runtime.burst_count), 1, 6)
+	if bursts <= 1:
+		return
+	var interval := clampf(float(runtime.burst_interval), 0.0, 0.45)
+	var tree := get_tree()
+	if tree == null:
+		return
+	for burst_idx in range(1, bursts):
+		var damage_scale := pow(0.9, float(burst_idx))
+		if interval <= 0.01:
+			_spawn_projectile_volley(runtime, fire_direction, shoot_origin, damage_scale)
+			continue
+		var fire_dir := fire_direction
+		var origin := shoot_origin
+		tree.create_timer(interval * float(burst_idx)).timeout.connect(func() -> void:
+			if not is_inside_tree():
+				return
+			_spawn_projectile_volley(runtime, fire_dir, origin, damage_scale)
+		)
 
 
 func _fire_pulse(runtime) -> void:
-	var radius = runtime.aoe_radius if runtime.aoe_radius > 0.0 else runtime.range
-	var hit_count = _damage_enemies_in_radius(global_position, radius, runtime, Vector2.ZERO)
-	FeedbackBus.emit_sonar_pulse(global_position, {
-		"source": "hit",
-		"strength": clampf(runtime.sonar_pulse_strength + (0.05 * float(hit_count)), 0.2, 2.0),
-		"radius_scale": 1.08,
-		"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
-	})
+	_emit_pulse_tick(runtime, 1.0)
+	var repeats := clampi(int(runtime.pulse_repeats), 1, 4)
+	if repeats <= 1:
+		return
+	var interval := clampf(float(runtime.pulse_repeat_interval), 0.02, 0.45)
+	var tree := get_tree()
+	if tree == null:
+		return
+	for pulse_idx in range(1, repeats):
+		var damage_scale := pow(clampf(float(runtime.pulse_falloff), 0.2, 1.0), float(pulse_idx))
+		tree.create_timer(interval * float(pulse_idx)).timeout.connect(func() -> void:
+			if not is_inside_tree():
+				return
+			_emit_pulse_tick(runtime, damage_scale)
+		)
 
 
 func _deploy_mine(runtime, fire_direction: Vector2, target: Node2D) -> void:
@@ -601,7 +610,18 @@ func _deploy_mine(runtime, fire_direction: Vector2, target: Node2D) -> void:
 		"crit_multiplier": runtime.crit_multiplier,
 		"reveal_bonus_duration": runtime.reveal_bonus_duration * get_sonar_reveal_duration_multiplier(),
 		"tags": runtime.tags.duplicate(),
-		"pulse_strength": runtime.sonar_pulse_strength
+		"pulse_strength": runtime.sonar_pulse_strength,
+		"shard_count": int(runtime.mine_shard_count),
+		"shard_speed": float(runtime.mine_shard_speed),
+		"shard_range": float(runtime.mine_shard_range),
+		"projectile_radius": float(runtime.projectile_radius),
+		"impact_aoe_radius": float(runtime.impact_aoe_radius),
+		"impact_aoe_damage_mult": float(runtime.impact_aoe_damage_mult),
+		"impact_pulse_strength": float(runtime.impact_pulse_strength),
+		"impact_pulse_radius_scale": float(runtime.impact_pulse_radius_scale),
+		"impact_knockback": float(runtime.impact_knockback),
+		"weapon_id": runtime.weapon_id,
+		"fx_color": String(runtime.fx_color)
 	})
 	queue_redraw()
 
@@ -616,7 +636,31 @@ func _fire_beam(runtime, target: Node2D) -> void:
 		beam_target_local = _pick_target_in_range(runtime.range)
 	if beam_target_local == null:
 		return
-	_apply_damage_to_enemy(beam_target_local, runtime.damage, runtime, Vector2.ZERO)
+	var chain_targets := maxi(0, int(runtime.beam_chain_targets))
+	var chain_falloff := clampf(float(runtime.beam_chain_falloff), 0.1, 1.0)
+	var current_damage: float = float(runtime.damage)
+	var visited: Dictionary = {}
+	var current_target: Node2D = beam_target_local
+	for hop in range(chain_targets + 1):
+		if current_target == null or not is_instance_valid(current_target):
+			break
+		var impulse := (current_target.global_position - global_position).normalized() * float(runtime.impact_knockback)
+		_apply_damage_to_enemy(current_target, current_damage, runtime, impulse)
+		visited[int(current_target.get_instance_id())] = true
+		if hop >= chain_targets:
+			break
+		var chain_radius := clampf(runtime.range * 0.5, 120.0, 420.0)
+		var next_target := _pick_beam_chain_target(current_target.global_position, chain_radius, visited)
+		if next_target == null:
+			break
+		FeedbackBus.emit_sonar_pulse(current_target.global_position, {
+			"source": "hit",
+			"strength": clampf(0.34 + float(hop) * 0.08, 0.2, 1.0),
+			"radius_scale": 0.9,
+			"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
+		})
+		current_target = next_target
+		current_damage *= chain_falloff
 	beam_target = beam_target_local
 	beam_visual_timer = maxf(beam_visual_timer, runtime.beam_tick_interval)
 
@@ -637,19 +681,31 @@ func _fire_drone(runtime) -> void:
 		var direction = (target.global_position - origin).normalized()
 		if direction.length() < 0.01:
 			continue
-		var projectile_data = {
-			"weapon_id": runtime.weapon_id,
-			"damage": runtime.damage * 0.9,
-			"speed": maxf(240.0, runtime.projectile_speed),
-			"range": maxf(220.0, runtime.range),
-			"pierce": runtime.pierce,
-			"radius": 4.5,
-			"tags": runtime.tags,
-			"crit_chance": runtime.crit_chance,
-			"crit_multiplier": runtime.crit_multiplier,
-			"reveal_bonus_duration": runtime.reveal_bonus_duration * get_sonar_reveal_duration_multiplier()
-		}
-		projectile_manager.spawn_projectile(origin, direction, projectile_data, self)
+		var volley := maxi(1, int(runtime.drone_volley))
+		var spread_step := deg_to_rad(float(runtime.drone_spread_deg))
+		var center := (float(volley) - 1.0) * 0.5
+		for shot_idx in range(volley):
+			var offset := (float(shot_idx) - center) * spread_step
+			var dir: Vector2 = direction.rotated(offset)
+			var projectile_data = {
+				"weapon_id": runtime.weapon_id,
+				"damage": runtime.damage * 0.9,
+				"speed": maxf(240.0, runtime.projectile_speed),
+				"range": maxf(220.0, runtime.range),
+				"pierce": runtime.pierce,
+				"radius": runtime.drone_projectile_radius,
+				"tags": runtime.tags,
+				"crit_chance": runtime.crit_chance,
+				"crit_multiplier": runtime.crit_multiplier,
+				"reveal_bonus_duration": runtime.reveal_bonus_duration * get_sonar_reveal_duration_multiplier(),
+				"impact_aoe_radius": runtime.impact_aoe_radius,
+				"impact_aoe_damage_mult": runtime.impact_aoe_damage_mult,
+				"impact_pulse_strength": runtime.impact_pulse_strength,
+				"impact_pulse_radius_scale": runtime.impact_pulse_radius_scale,
+				"impact_knockback": runtime.impact_knockback,
+				"fx_color": runtime.fx_color
+			}
+			projectile_manager.spawn_projectile(origin, dir, projectile_data, self)
 
 
 func _fire_melee(runtime, fire_direction: Vector2) -> void:
@@ -657,6 +713,8 @@ func _fire_melee(runtime, fire_direction: Vector2) -> void:
 	if forward.length() < 0.01:
 		forward = last_move_direction if last_move_direction.length() > 0.01 else Vector2.RIGHT
 	var radius = runtime.aoe_radius if runtime.aoe_radius > 0.0 else runtime.range
+	var cone_dot := clampf(float(runtime.melee_cone_dot), -1.0, 0.95)
+	var knockback := maxf(0.0, float(runtime.impact_knockback))
 	var hit_count = 0
 	for enemy in _query_enemy_nodes(global_position, radius, 28, false):
 		if enemy == null or not is_instance_valid(enemy):
@@ -667,9 +725,9 @@ func _fire_melee(runtime, fire_direction: Vector2) -> void:
 		if to_enemy.length() > radius:
 			continue
 		var enemy_dir = to_enemy.normalized()
-		if forward.dot(enemy_dir) < 0.35:
+		if forward.dot(enemy_dir) < cone_dot:
 			continue
-		if _apply_damage_to_enemy(enemy, runtime.damage, runtime, enemy_dir * 160.0):
+		if _apply_damage_to_enemy(enemy, runtime.damage, runtime, enemy_dir * knockback):
 			hit_count += 1
 	FeedbackBus.emit_sonar_pulse(global_position, {
 		"source": "hit",
@@ -677,6 +735,77 @@ func _fire_melee(runtime, fire_direction: Vector2) -> void:
 		"radius_scale": 1.25,
 		"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
 	})
+
+
+func _build_projectile_payload(runtime, damage_scale: float = 1.0, radius_override: float = -1.0) -> Dictionary:
+	var reveal_bonus: float = float(runtime.reveal_bonus_duration) * get_sonar_reveal_duration_multiplier()
+	var projectile_radius := radius_override if radius_override > 0.0 else float(runtime.projectile_radius)
+	return {
+		"weapon_id": runtime.weapon_id,
+		"damage": runtime.damage * damage_scale,
+		"speed": runtime.projectile_speed,
+		"range": runtime.range,
+		"pierce": runtime.pierce,
+		"radius": projectile_radius,
+		"tags": runtime.tags,
+		"crit_chance": runtime.crit_chance,
+		"crit_multiplier": runtime.crit_multiplier,
+		"reveal_bonus_duration": reveal_bonus,
+		"impact_aoe_radius": runtime.impact_aoe_radius,
+		"impact_aoe_damage_mult": runtime.impact_aoe_damage_mult,
+		"impact_pulse_strength": runtime.impact_pulse_strength,
+		"impact_pulse_radius_scale": runtime.impact_pulse_radius_scale,
+		"impact_knockback": runtime.impact_knockback,
+		"fx_color": runtime.fx_color
+	}
+
+
+func _spawn_projectile_volley(runtime, fire_direction: Vector2, origin: Vector2, damage_scale: float = 1.0) -> void:
+	if projectile_manager == null:
+		return
+	var count: int = maxi(1, runtime.projectile_count)
+	var spread_step := deg_to_rad(float(runtime.projectile_spread_deg))
+	var center := (float(count) - 1.0) * 0.5
+	for i in range(count):
+		var offset := (float(i) - center) * spread_step
+		var dir := fire_direction.rotated(offset)
+		var projectile_data := _build_projectile_payload(runtime, damage_scale)
+		projectile_manager.spawn_projectile(origin, dir, projectile_data, self)
+
+
+func _emit_pulse_tick(runtime, damage_scale: float = 1.0) -> void:
+	var synthetic_runtime = WeaponRuntimeClass.new()
+	synthetic_runtime.damage = runtime.damage * damage_scale
+	synthetic_runtime.crit_chance = runtime.crit_chance
+	synthetic_runtime.crit_multiplier = runtime.crit_multiplier
+	synthetic_runtime.reveal_bonus_duration = runtime.reveal_bonus_duration
+	synthetic_runtime.sonar_pulse_strength = runtime.sonar_pulse_strength
+	synthetic_runtime.attack_model = "pulse"
+	synthetic_runtime.tags = runtime.tags.duplicate()
+	var radius: float = float(runtime.aoe_radius) if float(runtime.aoe_radius) > 0.0 else float(runtime.range)
+	var hit_count := _damage_enemies_in_radius(global_position, radius, synthetic_runtime, Vector2.ZERO)
+	FeedbackBus.emit_sonar_pulse(global_position, {
+		"source": "hit",
+		"strength": clampf(runtime.sonar_pulse_strength + (0.05 * float(hit_count) * damage_scale), 0.2, 2.0),
+		"radius_scale": 1.08,
+		"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
+	})
+
+
+func _pick_beam_chain_target(origin: Vector2, radius: float, visited_ids: Dictionary) -> Node2D:
+	var best_target: Node2D = null
+	var best_distance := INF
+	for enemy_node in _query_enemy_nodes(origin, radius, 20, false):
+		if enemy_node == null or not is_instance_valid(enemy_node):
+			continue
+		var instance_id := int(enemy_node.get_instance_id())
+		if visited_ids.has(instance_id):
+			continue
+		var distance := enemy_node.global_position.distance_to(origin)
+		if distance < best_distance:
+			best_distance = distance
+			best_target = enemy_node
+	return best_target
 
 
 func _resolve_target() -> Node2D:
@@ -925,9 +1054,52 @@ func _update_deployed_mines(delta: float) -> void:
 				"radius_scale": 1.22,
 				"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
 			})
+			_spawn_mine_shards(mine)
 		else:
 			active.append(mine)
 	deployed_mines = active
+
+
+func _spawn_mine_shards(mine: Dictionary) -> void:
+	var shard_count := maxi(0, int(mine.get("shard_count", 0)))
+	if shard_count <= 0 or projectile_manager == null:
+		return
+	var origin := Vector2(mine.get("position", global_position))
+	var weapon_id := String(mine.get("weapon_id", active_weapon_id))
+	var shard_speed := clampf(float(mine.get("shard_speed", 560.0)), 80.0, 1600.0)
+	var shard_range := clampf(float(mine.get("shard_range", 300.0)), 30.0, 1400.0)
+	var projectile_radius := clampf(float(mine.get("projectile_radius", 4.0)), 2.0, 18.0)
+	var aoe_radius := maxf(0.0, float(mine.get("impact_aoe_radius", 0.0)))
+	var aoe_damage_mult := clampf(float(mine.get("impact_aoe_damage_mult", 0.45)), 0.0, 1.5)
+	var pulse_strength := maxf(0.0, float(mine.get("impact_pulse_strength", 0.0)))
+	var pulse_radius_scale := clampf(float(mine.get("impact_pulse_radius_scale", 0.9)), 0.3, 2.5)
+	var knockback := maxf(0.0, float(mine.get("impact_knockback", 180.0)))
+	var base_damage := maxf(0.1, float(mine.get("damage", 20.0)) * 0.48)
+	var reveal_bonus := float(mine.get("reveal_bonus_duration", 0.0))
+	var tags_variant: Variant = mine.get("tags", [])
+	var shard_tags: Array = tags_variant if tags_variant is Array else []
+	for i in range(shard_count):
+		var angle := (TAU / float(shard_count)) * float(i)
+		var dir := Vector2.RIGHT.rotated(angle)
+		var projectile_data := {
+			"weapon_id": weapon_id,
+			"damage": base_damage,
+			"speed": shard_speed,
+			"range": shard_range,
+			"pierce": 0,
+			"radius": projectile_radius * 0.8,
+			"tags": shard_tags,
+			"crit_chance": float(mine.get("crit_chance", 0.0)),
+			"crit_multiplier": float(mine.get("crit_multiplier", 1.5)),
+			"reveal_bonus_duration": reveal_bonus,
+			"impact_aoe_radius": aoe_radius,
+			"impact_aoe_damage_mult": aoe_damage_mult,
+			"impact_pulse_strength": pulse_strength,
+			"impact_pulse_radius_scale": pulse_radius_scale,
+			"impact_knockback": knockback,
+			"fx_color": String(mine.get("fx_color", ""))
+		}
+		projectile_manager.spawn_projectile(origin, dir, projectile_data, self)
 
 
 func _ensure_drone_nodes(count: int) -> void:

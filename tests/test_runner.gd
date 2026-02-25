@@ -132,9 +132,27 @@ func _run_data_registry_tests() -> void:
 		"grav_harpoon",
 		"prism_caster",
 		"venom_sprayer",
-		"echo_revolver"
+		"echo_revolver",
+		"catacomb_longbow",
+		"rune_blunderbuss",
+		"candle_mortar",
+		"crypt_disc",
+		"grave_bell",
+		"ash_scythe",
+		"wick_thrower",
+		"reliquary_beam",
+		"gargoyle_drone",
+		"chain_spike",
+		"dusk_censer",
+		"tombbreaker_maul",
+		"spectral_lantern",
+		"hex_nailer",
+		"idol_railgun",
+		"briar_whip",
+		"oath_pistol",
+		"mirror_shard"
 	]
-	_assert_true(registry.weapons.size() >= 18, "weapons has at least 18 entries")
+	_assert_true(registry.weapons.size() >= 36, "weapons has at least 36 entries")
 	for weapon_id in required_weapon_ids:
 		_assert_true(registry.weapons.has(weapon_id), "weapons includes %s" % weapon_id)
 	_assert_true(registry.enemies.size() >= 4, "enemies has at least 4 entries")
