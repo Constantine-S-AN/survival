@@ -36,13 +36,13 @@ y_sort_enabled = true
 
 [node name="BackdropMain" type="Sprite2D" parent="Backdrop"]
 visible = false
-modulate = Color(0.78, 0.92, 1, 0.78)
+modulate = Color(0.78, 0.66, 0.52, 0.76)
 position = Vector2(0, 0)
 scale = Vector2(16, 16)
 
 [node name="BackdropAccent" type="Sprite2D" parent="Backdrop"]
 visible = false
-modulate = Color(0.35, 0.74, 1, 0.28)
+modulate = Color(0.52, 0.36, 0.24, 0.24)
 position = Vector2(220, -160)
 rotation = 0.2
 scale = Vector2(9, 9)

@@ -50,7 +50,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 visible = false
-modulate = Color(0.82, 0.95, 1, 0.14)
+modulate = Color(0.92, 0.80, 0.62, 0.12)
 stretch_mode = 5
 
 [node name="GlowOverlay" type="ColorRect" parent="BackgroundLayer"]
@@ -67,7 +67,7 @@ offset_bottom = 120.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.192157, 0.537255, 0.713726, 0.08)
+color = Color(0.556863, 0.388235, 0.239216, 0.08)
 
 [node name="ContentLayer" type="CenterContainer" parent="."]
 layout_mode = 1
@@ -91,7 +91,7 @@ theme_override_font_sizes/font_size = 86
 
 [node name="Subtitle" type="Label" parent="ContentLayer/Stack"]
 layout_mode = 2
-text = "FOG / SONAR / NOISE"
+text = "FOG / FLARE / NOISE"
 horizontal_alignment = 1
 theme_type_variation = &"SubheadingLabel"
 theme_override_font_sizes/font_size = 20

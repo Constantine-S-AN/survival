@@ -6,7 +6,7 @@ signal back_pressed
 
 const CONTRACT_GROUP_DISPLAY_NAMES: Dictionary = {
 	"fog": "Fog",
-	"sonar": "Sonar",
+	"sonar": "Flare",
 	"noise": "Noise",
 	"spawner": "Spawner",
 	"events": "Events",
@@ -17,7 +17,7 @@ const CONTRACT_GROUP_DISPLAY_NAMES: Dictionary = {
 
 const CONTRACT_GROUP_DISPLAY_NAMES_ZH: Dictionary = {
 	"fog": "迷雾",
-	"sonar": "声呐",
+	"sonar": "照明弹",
 	"noise": "噪声",
 	"spawner": "刷怪",
 	"events": "事件",
@@ -29,8 +29,8 @@ const CONTRACT_GROUP_DISPLAY_NAMES_ZH: Dictionary = {
 const CONTRACT_STAT_DISPLAY_NAMES: Dictionary = {
 	"vision_radius_mult": "Vision Radius",
 	"reveal_duration_mult": "Reveal Duration",
-	"max_radius_mult": "Sonar Radius",
-	"wave_speed_mult": "Sonar Wave Speed",
+	"max_radius_mult": "Flare Radius",
+	"wave_speed_mult": "Flare Wave Speed",
 	"gain_mult": "Noise Gain",
 	"decay_mult": "Noise Decay",
 	"spawn_rate_mult": "Spawn Rate",
@@ -53,8 +53,8 @@ const CONTRACT_STAT_DISPLAY_NAMES: Dictionary = {
 const CONTRACT_STAT_DISPLAY_NAMES_ZH: Dictionary = {
 	"vision_radius_mult": "视野半径",
 	"reveal_duration_mult": "显形时长",
-	"max_radius_mult": "声呐半径",
-	"wave_speed_mult": "声呐波速",
+	"max_radius_mult": "照明弹半径",
+	"wave_speed_mult": "照明弹波速",
 	"gain_mult": "噪声获取",
 	"decay_mult": "噪声衰减",
 	"spawn_rate_mult": "刷新速率",

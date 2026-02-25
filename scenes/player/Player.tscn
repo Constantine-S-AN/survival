@@ -37,4 +37,4 @@ position_smoothing_speed = 8.0
 enabled = true
 texture_scale = 3.2
 energy = 1.3
-color = Color(0.63, 0.86, 1, 1)
+color = Color(0.95, 0.83, 0.72, 1)

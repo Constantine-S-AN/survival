@@ -5,12 +5,12 @@ const PixelStickerRegistry := preload("res://scripts/visual/pixel_sticker_regist
 const WeaponPartsRegistry := preload("res://scripts/visual/weapon_parts_registry.gd")
 
 const _SKILL_ICON_PATHS: Dictionary = {
-	"sonar": "res://assets/external/icons/tabler/radar-2.svg",
+	"sonar": "res://assets/external/icons/tabler/bomb.svg",
 	"dash": "res://assets/external/icons/tabler/wind.svg"
 }
 
 const _TAG_ICON_PATHS: Dictionary = {
-	"sonar": "res://assets/external/icons/tabler/radar-2.svg",
+	"sonar": "res://assets/external/icons/tabler/bomb.svg",
 	"silence": "res://assets/external/icons/tabler/needle.svg",
 	"speed": "res://assets/external/icons/tabler/wind.svg",
 	"chain": "res://assets/external/icons/tabler/line-dashed.svg",

@@ -5,7 +5,7 @@
 		{
 			"id": "diver",
 			"display_name": "Silent Diver",
-			"short_desc": "Low-noise sonar specialist.",
+			"short_desc": "Low-noise flare specialist.",
 			"passive_summary": "Reduced noise gain, longer reveal windows.",
 			"starting_weapon_id": "silence_dart",
 			"effect_id": "",
@@ -156,7 +156,7 @@
 		},
 		{
 			"id": "scavenger",
-			"display_name": "Neon Scavenger",
+			"display_name": "Crypt Scavenger",
 			"short_desc": "Resource diver who turns scraps into growth.",
 			"passive_summary": "Larger pickup radius and better XP conversion.",
 			"starting_weapon_id": "shock_pulse",

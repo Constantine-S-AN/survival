@@ -258,7 +258,7 @@ stretch_mode = 5
 
 [node name="SonarLabel" type="Label" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock/SonarHeader"]
 layout_mode = 2
-text = "Q Sonar"
+text = "Q Flare"
 
 [node name="SonarBar" type="ProgressBar" parent="BottomActions/ActionPanel/Margin/Row/SonarBlock"]
 layout_mode = 2

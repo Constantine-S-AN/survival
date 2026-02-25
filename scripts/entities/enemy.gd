@@ -452,12 +452,21 @@ func _apply_contact_specials() -> void:
 	if behavior == "leech":
 		if leech_noise_delta > 0.0 and target.has_method("add_noise_delta"):
 			target.add_noise_delta(leech_noise_delta)
-		var xp_variant: Variant = target.get("xp")
-		if leech_xp_drain > 0 and xp_variant != null:
-			var current_xp := float(xp_variant)
-			target.set("xp", maxf(0.0, current_xp - float(leech_xp_drain)))
-	if elite_xp_siphon_rate > 0.0 and target.has_method("gain_xp"):
-		target.gain_xp(int(-elite_xp_siphon_rate))
+		if leech_xp_drain > 0:
+			_drain_target_xp(float(leech_xp_drain))
+	if elite_xp_siphon_rate > 0.0:
+		_drain_target_xp(elite_xp_siphon_rate)
+
+
+func _drain_target_xp(amount: float) -> void:
+	if amount <= 0.0:
+		return
+	if target == null or not is_instance_valid(target):
+		return
+	var xp_variant: Variant = target.get("xp")
+	if xp_variant == null:
+		return
+	target.set("xp", maxf(0.0, float(xp_variant) - amount))
 
 
 func _get_noise_aggression_multiplier() -> float:
@@ -693,10 +702,7 @@ func _apply_elite_auras(delta: float) -> void:
 		target.add_noise_delta(elite_noise_aura_add * delta)
 	if elite_xp_siphon_rate > 0.0 and elite_siphon_radius > 0.0:
 		if global_position.distance_to(target.global_position) <= elite_siphon_radius:
-			var xp_variant: Variant = target.get("xp")
-			if xp_variant != null:
-				var next_xp := maxf(0.0, float(xp_variant) - elite_xp_siphon_rate * delta)
-				target.set("xp", next_xp)
+			_drain_target_xp(elite_xp_siphon_rate * delta)
 
 
 func _apply_boss_aura(delta: float) -> void:

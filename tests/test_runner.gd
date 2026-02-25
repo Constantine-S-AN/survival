@@ -76,6 +76,8 @@ func _ready() -> void:
 	await _run_upgrade_rules_tests()
 	await _run_m2_system_tests()
 	await _run_map_biome_tests()
+	await _run_flare_ping_radius_sync_tests()
+	await _run_world_pulse_reveal_multiplier_tests()
 	await _run_p0f_system_tests()
 	await _run_start_run_hotfix_tests()
 	await _run_level_up_pause_tests()
@@ -304,8 +306,11 @@ func _run_character_profile_tests() -> void:
 	_assert_true(FileAccess.get_file_as_string(characters_path) == original_characters, "characters schema tests do not mutate res characters data")
 
 	var profile_path := _current_profile_path()
-	var had_backup := FileAccess.file_exists(profile_path)
-	var backup_content := FileAccess.get_file_as_string(profile_path) if had_backup else ""
+	var profile_backup_path := "%s.bak" % profile_path
+	var had_profile_backup := FileAccess.file_exists(profile_path)
+	var profile_backup_content := FileAccess.get_file_as_string(profile_path) if had_profile_backup else ""
+	var had_backup_file := FileAccess.file_exists(profile_backup_path)
+	var backup_file_content := FileAccess.get_file_as_string(profile_backup_path) if had_backup_file else ""
 
 	var legacy_profile := {
 		"unlocked_characters": ["diver"],
@@ -339,6 +344,70 @@ func _run_character_profile_tests() -> void:
 	await get_tree().process_frame
 	profile_store_reloaded.load_profile("diver")
 	_assert_equal(profile_store_reloaded.get_selected_character_id("diver"), "scavenger", "selected character persists after reload")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(profile_path))
+	var backup_only_profile := {
+		"unlocked_characters": ["diver", "scavenger"],
+		"last_selected_character_id": "scavenger",
+		"progress": {"total_kills": 21}
+	}
+	var backup_only_write := FileAccess.open(profile_backup_path, FileAccess.WRITE)
+	backup_only_write.store_string(JSON.stringify(backup_only_profile, "\t"))
+	backup_only_write.flush()
+	backup_only_write = null
+	var profile_store_backup_only: Node = profile_script.new()
+	get_tree().root.add_child.call_deferred(profile_store_backup_only)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	profile_store_backup_only.load_profile("diver")
+	_assert_equal(profile_store_backup_only.get_selected_character_id("diver"), "scavenger", "profile loader restores from backup when primary file is missing")
+	_assert_true(FileAccess.file_exists(profile_path), "backup recovery restores primary profile file")
+	profile_store_backup_only.queue_free()
+	await get_tree().process_frame
+
+	var malformed_profile_write := FileAccess.open(profile_path, FileAccess.WRITE)
+	malformed_profile_write.store_string("{broken-json")
+	malformed_profile_write.flush()
+	malformed_profile_write = null
+	var backup_parse_recovery := {
+		"unlocked_characters": ["diver", "lancer"],
+		"last_selected_character_id": "lancer",
+		"progress": {"total_kills": 88}
+	}
+	var backup_parse_write := FileAccess.open(profile_backup_path, FileAccess.WRITE)
+	backup_parse_write.store_string(JSON.stringify(backup_parse_recovery, "\t"))
+	backup_parse_write.flush()
+	backup_parse_write = null
+	var profile_store_parse_recovery: Node = profile_script.new()
+	get_tree().root.add_child.call_deferred(profile_store_parse_recovery)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	profile_store_parse_recovery.load_profile("diver")
+	_assert_equal(profile_store_parse_recovery.get_selected_character_id("diver"), "lancer", "profile loader restores from backup when primary profile is malformed")
+	profile_store_parse_recovery.queue_free()
+	await get_tree().process_frame
+
+	var empty_profile_write := FileAccess.open(profile_path, FileAccess.WRITE)
+	empty_profile_write.store_string("{}")
+	empty_profile_write.flush()
+	empty_profile_write = null
+	var stale_backup_profile := {
+		"unlocked_characters": ["diver", "scavenger"],
+		"last_selected_character_id": "scavenger",
+		"progress": {"total_kills": 999}
+	}
+	var stale_backup_write := FileAccess.open(profile_backup_path, FileAccess.WRITE)
+	stale_backup_write.store_string(JSON.stringify(stale_backup_profile, "\t"))
+	stale_backup_write.flush()
+	stale_backup_write = null
+	var profile_store_empty_primary: Node = profile_script.new()
+	get_tree().root.add_child.call_deferred(profile_store_empty_primary)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	profile_store_empty_primary.load_profile("diver")
+	_assert_equal(profile_store_empty_primary.get_selected_character_id("diver"), "diver", "valid empty profile does not get replaced by stale backup")
+	_assert_true(not FileAccess.file_exists(profile_backup_path), "valid primary profile clears stale backup file")
+	profile_store_empty_primary.queue_free()
+	await get_tree().process_frame
 
 	var player_scene: PackedScene = load("res://scenes/player/Player.tscn")
 	var player = player_scene.instantiate()
@@ -410,13 +479,20 @@ func _run_character_profile_tests() -> void:
 	profile_store.queue_free()
 	profile_store_reloaded.queue_free()
 	await get_tree().process_frame
-	if had_backup:
+	if had_profile_backup:
 		var restore := FileAccess.open(profile_path, FileAccess.WRITE)
-		restore.store_string(backup_content)
+		restore.store_string(profile_backup_content)
 		restore.flush()
 		restore = null
 	elif FileAccess.file_exists(profile_path):
-		DirAccess.remove_absolute(profile_path)
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(profile_path))
+	if had_backup_file:
+		var restore_backup := FileAccess.open(profile_backup_path, FileAccess.WRITE)
+		restore_backup.store_string(backup_file_content)
+		restore_backup.flush()
+		restore_backup = null
+	elif FileAccess.file_exists(profile_backup_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(profile_backup_path))
 
 
 func _run_weapon_system_tests() -> void:
@@ -1157,6 +1233,93 @@ func _run_map_biome_tests() -> void:
 		DirAccess.remove_absolute(profile_path)
 
 	registry.free()
+
+
+func _run_flare_ping_radius_sync_tests() -> void:
+	var player_scene: PackedScene = load("res://scenes/player/Player.tscn")
+	var player = player_scene.instantiate()
+	var dummy_enemy_manager := DummyEnemyManager.new()
+	var projectile_manager := Node2D.new()
+	var target_enemy := Node2D.new()
+	target_enemy.add_to_group("enemy")
+	target_enemy.global_position = Vector2(900.0, 0.0)
+
+	get_tree().root.add_child.call_deferred(dummy_enemy_manager)
+	get_tree().root.add_child.call_deferred(projectile_manager)
+	get_tree().root.add_child.call_deferred(target_enemy)
+	get_tree().root.add_child.call_deferred(player)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var run_rng := RandomNumberGenerator.new()
+	run_rng.seed = 6142
+	player.setup(dummy_enemy_manager, projectile_manager, run_rng, DataRegistry.get_character("diver"))
+	player.global_position = Vector2.ZERO
+
+	player.apply_environment_modifiers({}, {"max_radius_mult": 0.92}, {})
+	player.skill_cd_remaining = 0.0
+	player._trigger_flare_skill()
+	_assert_equal(int(player.sonar_ping_count), 0, "flare ping count respects reduced map sonar radius multiplier")
+
+	player.apply_environment_modifiers({}, {"max_radius_mult": 1.08}, {})
+	player.skill_cd_remaining = 0.0
+	player._trigger_flare_skill()
+	_assert_equal(int(player.sonar_ping_count), 1, "flare ping count respects boosted map sonar radius multiplier")
+
+	player.queue_free()
+	target_enemy.queue_free()
+	projectile_manager.queue_free()
+	dummy_enemy_manager.queue_free()
+	await get_tree().process_frame
+
+
+func _run_world_pulse_reveal_multiplier_tests() -> void:
+	var world_scene: PackedScene = load("res://scenes/world/World.tscn")
+	var world = world_scene.instantiate()
+	get_tree().root.add_child.call_deferred(world)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var run_rng := RandomNumberGenerator.new()
+	run_rng.seed = 9941
+	world.setup_run(run_rng, DataRegistry.get_character("diver"), "map_trench_lab", 9941)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var sonar_manager := world.get_node_or_null("SonarManager")
+	_assert_true(sonar_manager != null, "world pulse test has sonar manager")
+	if sonar_manager == null:
+		world.queue_free()
+		await get_tree().process_frame
+		return
+
+	world.player.apply_environment_modifiers({}, {"reveal_duration_mult": 0.5}, {})
+	sonar_manager.waves.clear()
+	world._on_hit_landed(Vector2.ZERO, 0.4, false)
+	await get_tree().process_frame
+	var hit_reveal := -1.0
+	if not sonar_manager.waves.is_empty():
+		var wave_variant: Variant = sonar_manager.waves[0]
+		if wave_variant is Dictionary:
+			hit_reveal = float((wave_variant as Dictionary).get("reveal_duration", -1.0))
+	var base_reveal := float(DataRegistry.get_sonar_config().get("reveal_duration", 1.8))
+	var expected_hit_reveal := base_reveal * float(world.player.get_sonar_reveal_duration_multiplier())
+	_assert_true(is_equal_approx(hit_reveal, expected_hit_reveal), "world hit pulse forwards player reveal duration multiplier")
+
+	world.player.apply_environment_modifiers({}, {"reveal_duration_mult": 1.4}, {})
+	sonar_manager.waves.clear()
+	world._on_boss_true_form_revealed("boss_abyss", Vector2.ZERO)
+	await get_tree().process_frame
+	var boss_reveal := -1.0
+	if not sonar_manager.waves.is_empty():
+		var boss_wave_variant: Variant = sonar_manager.waves[0]
+		if boss_wave_variant is Dictionary:
+			boss_reveal = float((boss_wave_variant as Dictionary).get("reveal_duration", -1.0))
+	var expected_boss_reveal := base_reveal * float(world.player.get_sonar_reveal_duration_multiplier())
+	_assert_true(is_equal_approx(boss_reveal, expected_boss_reveal), "world boss flare pulse forwards player reveal duration multiplier")
+
+	world.queue_free()
+	await get_tree().process_frame
 
 
 func _run_p0f_system_tests() -> void:

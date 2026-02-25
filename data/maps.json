@@ -5,10 +5,10 @@
     {
       "id": "map_trench_lab",
       "name": "Trench Lab",
-      "description": "Neon industrial trench with unstable magnetic storms.",
+      "description": "Ancient dungeon trench threaded with unstable magnetic storms.",
       "hazard_id": "hazard_magnetic_interference",
       "event_table_id": "event_table_trench_lab",
-      "hazard_summary": "Magnetic storms disrupt sonar and raise noise risk.",
+      "hazard_summary": "Magnetic storms distort flare reveals and raise noise risk.",
       "event_summary": "Supply pods and rift surges create tempo spikes.",
       "modifiers": {
         "fog": {

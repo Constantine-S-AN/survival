@@ -114,7 +114,7 @@
   "silence_dart": {
     "id": "silence_dart",
     "name": "Silence Dart",
-    "description": "Low-signature dart that extends sonar reveal windows.",
+    "description": "Low-signature dart that extends flare reveal windows.",
     "attack_model": "projectile",
     "tags": [
       "silence",
@@ -377,8 +377,8 @@
   },
   "sonar_blade": {
     "id": "sonar_blade",
-    "name": "Sonar Blade",
-    "description": "Close-range arc strike that emits amplified sonar.",
+    "name": "Flare Blade",
+    "description": "Close-range arc strike that emits amplified flare echoes.",
     "attack_model": "melee",
     "tags": [
       "sonar",

@@ -53,7 +53,7 @@
     {
       "id": "jammer",
       "name": "Jammer",
-      "description": "Weakens sonar reveal while nearby.",
+      "description": "Weakens flare reveal while nearby.",
       "color": "#b68eff",
       "stat_multipliers": {
         "max_hp_mult": 1.2,

@@ -133,7 +133,7 @@
         {
           "id": "event_tide_quiet_pocket",
           "name": "Quiet Pocket",
-          "description": "A temporary calm zone restores sonar clarity.",
+          "description": "A temporary calm zone restores flare clarity.",
           "type": "quiet_pocket",
           "weight": 0.60,
           "cooldown_seconds": 62.0,

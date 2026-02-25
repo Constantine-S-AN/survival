@@ -505,7 +505,8 @@ func _apply_map_snapshot(snapshot: Dictionary) -> void:
 		sonar_manager.set_runtime_modifiers(sonar_runtime)
 	if player != null and is_instance_valid(player) and player.has_method("apply_environment_modifiers"):
 		var player_sonar_mod := {
-			"reveal_duration_mult": float(sonar_mods.get("reveal_duration_mult", 1.0))
+			"reveal_duration_mult": float(sonar_mods.get("reveal_duration_mult", 1.0)),
+			"max_radius_mult": float(sonar_mods.get("max_radius_mult", 1.0))
 		}
 		player.apply_environment_modifiers(noise_mods, player_sonar_mod, rewards_mods)
 	if enemy_manager != null and enemy_manager.has_method("set_map_spawn_modifiers"):
@@ -636,7 +637,8 @@ func _on_hit_landed(world_position: Vector2, intensity: float, killed: bool) -> 
 	_play_hit_sfx(intensity, killed)
 	FeedbackBus.emit_sonar_pulse(world_position, {
 		"source": "hit",
-		"strength": intensity
+		"strength": intensity,
+		"reveal_duration_multiplier": _get_player_sonar_reveal_multiplier()
 	})
 
 
@@ -703,8 +705,17 @@ func _on_boss_true_form_revealed(_boss_id: String, world_position: Vector2) -> v
 	FeedbackBus.emit_sonar_pulse(world_position, {
 		"source": "flare",
 		"strength": 0.95,
-		"radius_scale": 1.2
+		"radius_scale": 1.2,
+		"reveal_duration_multiplier": _get_player_sonar_reveal_multiplier()
 	})
+
+
+func _get_player_sonar_reveal_multiplier() -> float:
+	if player == null or not is_instance_valid(player):
+		return 1.0
+	if not player.has_method("get_sonar_reveal_duration_multiplier"):
+		return 1.0
+	return maxf(0.05, float(player.call("get_sonar_reveal_duration_multiplier")))
 
 
 func _spawn_hit_particles(world_position: Vector2, intensity: float, killed: bool) -> void:
@@ -899,14 +910,14 @@ func play_boss_true_reveal_sfx() -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2(-4200.0, -4200.0), Vector2(8400.0, 8400.0)), Color(0.015, 0.03, 0.055, 1.0), true)
+	draw_rect(Rect2(Vector2(-4200.0, -4200.0), Vector2(8400.0, 8400.0)), Color(0.022, 0.016, 0.012, 1.0), true)
 	if terrain_floor != null and terrain_floor.visible:
 		return
 	for i in range(-30, 31):
 		var x := float(i) * 240.0
-		draw_line(Vector2(x, -4200.0), Vector2(x, 4200.0), Color(0.12, 0.55, 0.78, 0.12), 1.0)
+		draw_line(Vector2(x, -4200.0), Vector2(x, 4200.0), Color(0.38, 0.29, 0.18, 0.10), 1.0)
 		var y := float(i) * 240.0
-		draw_line(Vector2(-4200.0, y), Vector2(4200.0, y), Color(0.12, 0.55, 0.78, 0.12), 1.0)
+		draw_line(Vector2(-4200.0, y), Vector2(4200.0, y), Color(0.38, 0.29, 0.18, 0.10), 1.0)
 
 
 func _apply_map_visual_layout(map_id: String) -> void:

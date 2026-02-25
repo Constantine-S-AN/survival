@@ -4,7 +4,7 @@
     {
       "id": "abyss_siren",
       "name": "Abyss Siren",
-      "description": "Signal predator that manipulates sonar echoes.",
+      "description": "Signal predator that manipulates flare echoes.",
       "spawn_time_seconds": 540.0,
       "max_hp": 2800.0,
       "speed": 62.0,
@@ -22,7 +22,7 @@
           "id": "phase_1",
           "start_hp_ratio": 1.0,
           "label": "Echo Barrage",
-          "description": "Fires sonar spikes and summons fast chasers.",
+          "description": "Fires flare spikes and summons fast chasers.",
           "telegraph_text": "Abyss Siren charging echo barrage",
           "attack_interval": 2.4,
           "summon_interval": 8.0,

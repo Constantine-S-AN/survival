@@ -35,13 +35,9 @@ func _ready() -> void:
 
 
 func load_profile(default_character_id: String, default_map_id: String = "") -> Dictionary:
-	var raw_profile: Dictionary = {}
 	var profile_path := _resolve_profile_path()
-	if FileAccess.file_exists(profile_path):
-		var text: String = FileAccess.get_file_as_string(profile_path)
-		var parsed: Variant = JSON.parse_string(text)
-		if parsed is Dictionary:
-			raw_profile = (parsed as Dictionary).duplicate(true)
+	var backup_path := _resolve_profile_backup_path(profile_path)
+	var raw_profile: Dictionary = _load_profile_payload(profile_path, backup_path)
 	profile = _migrate_profile(raw_profile, default_character_id, default_map_id)
 	loaded = true
 	save_profile()
@@ -262,12 +258,27 @@ func save_profile() -> bool:
 
 	var profile_abs_path := ProjectSettings.globalize_path(profile_path)
 	var profile_tmp_abs_path := ProjectSettings.globalize_path(profile_tmp_path)
-	if FileAccess.file_exists(profile_path):
-		DirAccess.remove_absolute(profile_abs_path)
+	var backup_path := _resolve_profile_backup_path(profile_path)
+	var backup_abs_path := ProjectSettings.globalize_path(backup_path)
+	var has_existing_profile := FileAccess.file_exists(profile_path)
+	if has_existing_profile:
+		if FileAccess.file_exists(backup_path):
+			DirAccess.remove_absolute(backup_abs_path)
+		var backup_err := DirAccess.rename_absolute(profile_abs_path, backup_abs_path)
+		if backup_err != OK:
+			push_error("[profile] failed to create profile backup %s (err=%d)" % [backup_path, backup_err])
+			DirAccess.remove_absolute(profile_tmp_abs_path)
+			return false
 	var err := DirAccess.rename_absolute(profile_tmp_abs_path, profile_abs_path)
 	if err != OK:
 		push_error("[profile] failed to move tmp profile to profile path %s (err=%d)" % [profile_path, err])
+		if has_existing_profile and FileAccess.file_exists(backup_path):
+			var restore_err := DirAccess.rename_absolute(backup_abs_path, profile_abs_path)
+			if restore_err != OK:
+				push_error("[profile] failed to restore profile backup %s (err=%d)" % [backup_path, restore_err])
 		return false
+	if has_existing_profile and FileAccess.file_exists(backup_path):
+		DirAccess.remove_absolute(backup_abs_path)
 	return true
 
 
@@ -283,6 +294,7 @@ func begin_test_session(session_id: String, clean_existing: bool = true) -> void
 	if clean_existing:
 		_remove_path_if_exists(_profile_path_override)
 		_remove_path_if_exists(_profile_tmp_path_override)
+		_remove_path_if_exists(_resolve_profile_backup_path(_profile_path_override))
 	Engine.set_meta(TEST_SESSION_META_KEY, normalized_session)
 
 
@@ -291,10 +303,12 @@ func end_test_session(cleanup_files: bool = true) -> void:
 		return
 	var profile_path := _profile_path_override
 	var profile_tmp_path := _profile_tmp_path_override
+	var profile_backup_path := _resolve_profile_backup_path(profile_path)
 	var root_dir := profile_path.get_base_dir()
 	if cleanup_files:
 		_remove_path_if_exists(profile_path)
 		_remove_path_if_exists(profile_tmp_path)
+		_remove_path_if_exists(profile_backup_path)
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(root_dir))
 	_profile_path_override = ""
 	_profile_tmp_path_override = ""
@@ -394,6 +408,64 @@ func _resolve_profile_path() -> String:
 
 func _resolve_profile_tmp_path() -> String:
 	return _profile_tmp_path_override if not _profile_tmp_path_override.is_empty() else PROFILE_TMP_PATH
+
+
+func _resolve_profile_backup_path(profile_path: String = "") -> String:
+	var target_path := profile_path if not profile_path.is_empty() else _resolve_profile_path()
+	return "%s.bak" % target_path
+
+
+func _load_profile_payload(profile_path: String, backup_path: String) -> Dictionary:
+	var primary_read := _read_profile_payload_result(profile_path)
+	if bool(primary_read.get("ok", false)):
+		var raw_variant: Variant = primary_read.get("data", {})
+		var raw_profile: Dictionary = raw_variant if raw_variant is Dictionary else {}
+		if FileAccess.file_exists(backup_path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(backup_path))
+		return raw_profile
+	if bool(primary_read.get("exists", false)):
+		push_warning("[profile] profile parse failed, attempting backup restore: %s" % profile_path)
+	var backup_read := _read_profile_payload_result(backup_path)
+	if not bool(backup_read.get("ok", false)):
+		return {}
+	var backup_variant: Variant = backup_read.get("data", {})
+	var backup_profile: Dictionary = backup_variant if backup_variant is Dictionary else {}
+	var profile_abs_path := ProjectSettings.globalize_path(profile_path)
+	var backup_abs_path := ProjectSettings.globalize_path(backup_path)
+	if FileAccess.file_exists(profile_path):
+		DirAccess.remove_absolute(profile_abs_path)
+	var restore_err := DirAccess.rename_absolute(backup_abs_path, profile_abs_path)
+	if restore_err != OK:
+		push_warning("[profile] failed to restore backup %s (err=%d)" % [backup_path, restore_err])
+	return backup_profile
+
+
+func _read_profile_payload_result(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {
+			"exists": false,
+			"ok": false,
+			"data": {}
+		}
+	var text: String = FileAccess.get_file_as_string(path)
+	if text.strip_edges().is_empty():
+		return {
+			"exists": true,
+			"ok": false,
+			"data": {}
+		}
+	var parsed: Variant = JSON.parse_string(text)
+	if parsed is Dictionary:
+		return {
+			"exists": true,
+			"ok": true,
+			"data": (parsed as Dictionary).duplicate(true)
+		}
+	return {
+		"exists": true,
+		"ok": false,
+		"data": {}
+	}
 
 
 func _remove_path_if_exists(path: String) -> void:

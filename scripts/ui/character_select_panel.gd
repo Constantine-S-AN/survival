@@ -149,7 +149,7 @@ func _refresh_detail() -> void:
 		_l("Move Mult: %.2f", "移速倍率：%.2f") % float(mods.get("move_speed_multiplier", 1.0)),
 		_l("Dash CD Mult: %.2f", "冲刺冷却倍率：%.2f") % float(mods.get("dash_cooldown_multiplier", 1.0)),
 		_l("Noise Mult: %.2f", "噪声倍率：%.2f") % float(mods.get("noise_gain_multiplier", 1.0)),
-		_l("Sonar Reveal Mult: %.2f", "声呐显形倍率：%.2f") % float(mods.get("sonar_reveal_duration_multiplier", 1.0)),
+		_l("Flare Reveal Mult: %.2f", "照明弹显形倍率：%.2f") % float(mods.get("sonar_reveal_duration_multiplier", 1.0)),
 		_l("Pickup Radius Mult: %.2f", "拾取半径倍率：%.2f") % float(mods.get("pickup_radius_multiplier", 1.0))
 	])
 

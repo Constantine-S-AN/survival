@@ -4,7 +4,7 @@
     {
       "id": "hazard_magnetic_interference",
       "name": "Magnetic Interference",
-      "description": "Electromagnetic bursts destabilize sonar and amplify noise signatures.",
+      "description": "Electromagnetic bursts destabilize flare echoes and amplify noise signatures.",
       "cycle_seconds": 30.0,
       "active_seconds": 8.0,
       "telegraph_seconds": 2.0,

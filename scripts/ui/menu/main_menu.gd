@@ -7,7 +7,7 @@ signal settings_pressed
 signal quit_pressed
 
 const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
-const MENU_BACKDROP_TEXTURE_PATH := "res://assets/textures/commercial/neon_grid_bg.png"
+const MENU_BACKDROP_TEXTURE_PATH := "res://assets/textures/pixel/maps/dungeon/dungeon_tileset_atlas.png"
 
 @onready var background_rect: ColorRect = $BackgroundLayer/Background
 @onready var backdrop_texture: TextureRect = $BackgroundLayer/BackdropTexture
@@ -56,7 +56,7 @@ func _process(delta: float) -> void:
 	_bg_time += delta
 	if _background_material != null:
 		_background_material.set_shader_parameter("time_sec", _bg_time)
-	glow_overlay.modulate.a = 0.08 + sin(_bg_time * 0.42) * 0.014
+	glow_overlay.modulate.a = 0.06 + sin(_bg_time * 0.42) * 0.012
 
 
 func _unhandled_input(event: InputEvent) -> void:

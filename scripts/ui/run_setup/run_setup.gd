@@ -377,7 +377,9 @@ func _build_contract_cards() -> void:
 		if not impact_line.is_empty():
 			desc = impact_line if desc.is_empty() else "%s\n%s" % [desc, impact_line]
 		var action_text := _t("run_setup.action.remove") if selected else _t("run_setup.action.add")
-		var disabled := (not selected and max_contract_select > 0 and selected_contract_ids.size() >= max_contract_select)
+		var disabled := false
+		if not selected:
+			disabled = _is_contract_locked(contract_id)
 		var tooltip_text := _build_contract_tooltip(display_row, selected)
 		var card_btn := _add_card_item(title, desc, action_text, false if selected else disabled, tooltip_text)
 		_card_buttons.append(card_btn)
@@ -514,13 +516,33 @@ func _toggle_contract(contract_id: String) -> void:
 	if selected_contract_ids.has(contract_id):
 		selected_contract_ids.erase(contract_id)
 	else:
-		if max_contract_select > 0 and selected_contract_ids.size() >= max_contract_select:
+		if _is_contract_locked(contract_id):
 			return
 		selected_contract_ids.append(contract_id)
 	selected_contract_ids = DataRegistry.normalize_contract_selection(selected_contract_ids)
 	_refresh_summary()
 	_refresh_content()
 	_refresh_nav_buttons()
+
+
+func _is_contract_locked(contract_id: String) -> bool:
+	if contract_id.is_empty():
+		return true
+	if max_contract_select > 0 and selected_contract_ids.size() >= max_contract_select:
+		return true
+	var contract := DataRegistry.get_contract(contract_id)
+	if contract.is_empty():
+		return true
+	var group := String(contract.get("exclusive_group", "")).strip_edges()
+	if group.is_empty():
+		return false
+	for selected_id in selected_contract_ids:
+		if selected_id == contract_id:
+			continue
+		var selected_contract := DataRegistry.get_contract(selected_id)
+		if String(selected_contract.get("exclusive_group", "")).strip_edges() == group:
+			return true
+	return false
 
 
 func _refresh_summary() -> void:

@@ -109,6 +109,7 @@ var bonus_chain_chance: float = 0.0
 var environment_noise_gain_multiplier: float = 1.0
 var environment_noise_decay_multiplier: float = 1.0
 var environment_sonar_reveal_multiplier: float = 1.0
+var environment_sonar_radius_multiplier: float = 1.0
 var environment_xp_gain_multiplier: float = 1.0
 var run_reward_multipliers: Dictionary = {
 	"xp": 1.0,
@@ -312,6 +313,7 @@ func _reset_run_stats() -> void:
 	environment_noise_gain_multiplier = 1.0
 	environment_noise_decay_multiplier = 1.0
 	environment_sonar_reveal_multiplier = 1.0
+	environment_sonar_radius_multiplier = 1.0
 	environment_xp_gain_multiplier = 1.0
 	run_reward_multipliers = {
 		"xp": 1.0,
@@ -489,7 +491,7 @@ func _trigger_flare_skill() -> void:
 	_add_noise_source("skill")
 	var sonar_cfg := DataRegistry.get_sonar_config()
 	var base_radius := maxf(120.0, float(sonar_cfg.get("max_radius", 720.0)))
-	var ping_radius := base_radius * 1.26
+	var ping_radius := base_radius * 1.26 * environment_sonar_radius_multiplier
 	sonar_ping_count = _estimate_enemy_count_in_radius(global_position, ping_radius)
 	sonar_ping_sequence += 1
 	sonar_feedback_timer = sonar_feedback_duration
@@ -1082,6 +1084,7 @@ func take_damage(amount: float) -> void:
 
 func gain_xp(amount: int) -> void:
 	xp += float(amount) * xp_gain_mult * environment_xp_gain_multiplier
+	xp = maxf(0.0, xp)
 	var leveled = false
 	while xp >= xp_to_next:
 		xp -= xp_to_next
@@ -1344,6 +1347,7 @@ func apply_environment_modifiers(
 	environment_noise_gain_multiplier = maxf(0.05, float(noise_modifiers.get("gain_mult", 1.0)))
 	environment_noise_decay_multiplier = maxf(0.05, float(noise_modifiers.get("decay_mult", 1.0)))
 	environment_sonar_reveal_multiplier = maxf(0.05, float(sonar_modifiers.get("reveal_duration_mult", 1.0)))
+	environment_sonar_radius_multiplier = maxf(0.05, float(sonar_modifiers.get("max_radius_mult", 1.0)))
 	environment_xp_gain_multiplier = maxf(0.05, float(reward_modifiers.get("xp_mult", 1.0)))
 
 
@@ -1537,6 +1541,7 @@ func get_hud_data() -> Dictionary:
 		"env_noise_gain_multiplier": environment_noise_gain_multiplier,
 		"env_noise_decay_multiplier": environment_noise_decay_multiplier,
 		"env_sonar_reveal_multiplier": environment_sonar_reveal_multiplier,
+		"env_sonar_radius_multiplier": environment_sonar_radius_multiplier,
 		"env_xp_gain_multiplier": environment_xp_gain_multiplier,
 		"run_reward_multipliers": run_reward_multipliers.duplicate(true),
 		"contract_dash_disabled": contract_dash_disabled,

@@ -1,8 +1,8 @@
 [
   {
     "id": "u_sonar_scope_matrix",
-    "name": "Sonar Scope Matrix",
-    "description": "[Tag: sonar] Range +12%.",
+    "name": "Flare Scope Matrix",
+    "description": "[Tag: flare] Range +12%.",
     "rarity": "common",
     "max_stacks": 4,
     "tags": [
@@ -33,7 +33,7 @@
   {
     "id": "u_echo_stabilizer",
     "name": "Echo Stabilizer",
-    "description": "Sonar reveal duration +14%.",
+    "description": "Flare reveal duration +14%.",
     "rarity": "uncommon",
     "max_stacks": 3,
     "tags": [
@@ -91,8 +91,8 @@
   },
   {
     "id": "u_ping_accelerant",
-    "name": "Ping Accelerant",
-    "description": "[Tag: sonar] Attack rate +10%.",
+    "name": "Flare Accelerant",
+    "description": "[Tag: flare] Attack rate +10%.",
     "rarity": "common",
     "max_stacks": 3,
     "tags": [
@@ -992,7 +992,7 @@
   {
     "id": "u_blade_resonance",
     "name": "Blade Resonance",
-    "description": "[Weapon: sonar_blade] Damage +16%, attack rate +12%.",
+    "description": "Flare Blade damage +16%, attack rate +12%.",
     "rarity": "rare",
     "max_stacks": 2,
     "tags": [

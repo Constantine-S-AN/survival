@@ -1,11 +1,11 @@
 shader_type canvas_item;
 
-uniform vec4 top_color : source_color = vec4(0.018, 0.035, 0.070, 1.0);
-uniform vec4 bottom_color : source_color = vec4(0.004, 0.010, 0.028, 1.0);
-uniform vec4 accent_color : source_color = vec4(0.180, 0.640, 0.920, 1.0);
-uniform float scanline_strength : hint_range(0.0, 0.08) = 0.024;
-uniform float noise_strength : hint_range(0.0, 0.08) = 0.018;
-uniform float pulse_strength : hint_range(0.0, 0.08) = 0.026;
+uniform vec4 top_color : source_color = vec4(0.070, 0.052, 0.038, 1.0);
+uniform vec4 bottom_color : source_color = vec4(0.020, 0.014, 0.012, 1.0);
+uniform vec4 accent_color : source_color = vec4(0.980, 0.698, 0.420, 1.0);
+uniform float scanline_strength : hint_range(0.0, 0.08) = 0.012;
+uniform float noise_strength : hint_range(0.0, 0.08) = 0.016;
+uniform float pulse_strength : hint_range(0.0, 0.08) = 0.020;
 uniform float time_sec = 0.0;
 
 float hash(vec2 p) {

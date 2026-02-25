@@ -24,7 +24,7 @@ const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 const MAP_SELECT_SCENE := preload("res://scenes/ui/MapSelect.tscn")
 const CONTRACT_SELECT_SCENE := preload("res://scenes/ui/ContractSelect.tscn")
 const TAG_DISPLAY_NAMES: Dictionary = {
-	"sonar": "Sonar",
+	"sonar": "Flare",
 	"silence": "Silence",
 	"heat": "Heat",
 	"crit": "Crit",
@@ -61,7 +61,7 @@ const UPGRADE_STAT_DISPLAY_NAMES: Dictionary = {
 	"noise_generation_mult": "Noise Gain",
 	"noise_decay_bonus": "Noise Decay",
 	"dash_noise_mult": "Dash Noise",
-	"sonar_reveal_duration_mult": "Reveal Duration",
+	"sonar_reveal_duration_mult": "Flare Reveal Duration",
 	"revealed_damage_mult": "Revealed Target Damage",
 	"low_noise_damage_mult": "Low-Noise Damage",
 	"pickup_radius_mult": "Pickup Radius",
@@ -160,6 +160,7 @@ var debug_panel: Panel
 var debug_label: RichTextLabel
 var system_msg_label: Label
 var system_msg_timer: Timer
+var system_msg_fade_tween: Tween
 var last_noise_tier_id: String = ""
 var main_menu_panel: CanvasItem
 var run_setup_panel: CanvasItem
@@ -300,10 +301,15 @@ func _create_system_message_widget() -> void:
 	system_msg_timer.timeout.connect(func() -> void:
 		if system_msg_label == null:
 			return
-		var tween := create_tween()
-		tween.tween_property(system_msg_label, "modulate:a", 0.0, 0.28)
-		tween.finished.connect(func() -> void:
+		if system_msg_fade_tween != null and is_instance_valid(system_msg_fade_tween):
+			system_msg_fade_tween.kill()
+		system_msg_fade_tween = create_tween()
+		system_msg_fade_tween.tween_property(system_msg_label, "modulate:a", 0.0, 0.28)
+		system_msg_fade_tween.finished.connect(func() -> void:
+			if system_msg_label == null:
+				return
 			system_msg_label.visible = false
+			system_msg_fade_tween = null
 		)
 	)
 	add_child(system_msg_timer)
@@ -675,6 +681,11 @@ func update_debug_data(data: Dictionary) -> void:
 func show_system_message(text: String, is_error: bool = false) -> void:
 	if system_msg_label == null:
 		return
+	if system_msg_fade_tween != null and is_instance_valid(system_msg_fade_tween):
+		system_msg_fade_tween.kill()
+		system_msg_fade_tween = null
+	if system_msg_timer != null:
+		system_msg_timer.stop()
 	system_msg_label.text = text
 	system_msg_label.modulate = Color(1.0, 0.72, 0.72, 1.0) if is_error else Color(0.72, 0.96, 1.0, 1.0)
 	system_msg_label.visible = true
@@ -996,12 +1007,12 @@ func show_game_over(summary: Dictionary) -> void:
 
 	var lines := [
 		_l("Run Ended", "本局结束"),
-		_l("Time: %s", "时间：%s") % _format_time(float(summary.get("time", 0.0))),
+		_l("Time: %s", "时间：%s") % _format_time(float(summary.get("time_survived_sec", summary.get("time", 0.0)))),
 		_l("Kills: %d", "击杀：%d") % int(summary.get("kills", 0)),
 		_l("Level: %d", "等级：%d") % int(summary.get("level", 1)),
 		_l("Seed: %d", "种子：%d") % int(summary.get("seed", 0))
 	]
-	var unlocked_count := int(summary.get("unlocked_count", 0))
+	var unlocked_count := int(summary.get("unlocked_count", summary.get("newly_unlocked_names", []).size()))
 	if unlocked_count > 0:
 		lines.append(_l("New Unlocks: %d", "新解锁：%d") % unlocked_count)
 	game_over_summary.text = "\n".join(lines)

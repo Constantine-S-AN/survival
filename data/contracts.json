@@ -64,8 +64,8 @@
     },
     {
       "id": "contract_sonar_fuzzy",
-      "name": "Sonar Fuzzy",
-      "description": "Sonar reveal duration reduced by 20%.",
+      "name": "Flare Distortion",
+      "description": "Flare reveal duration reduced by 20%.",
       "category": "sonar",
       "reward_pct": 15.0,
       "effects": {

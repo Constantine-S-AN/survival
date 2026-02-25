@@ -18,7 +18,7 @@ const LANGUAGE_DISPLAY_NAMES := {
 
 const TAG_LABELS := {
 	"en": {
-		"sonar": "Sonar",
+		"sonar": "Flare",
 		"silence": "Silence",
 		"heat": "Heat",
 		"crit": "Crit",
@@ -43,7 +43,7 @@ const TAG_LABELS := {
 		"starter": "Starter"
 	},
 	"zh_CN": {
-		"sonar": "声呐",
+		"sonar": "照明弹",
 		"silence": "静默",
 		"heat": "热能",
 		"crit": "暴击",
@@ -102,7 +102,7 @@ const STAT_LABELS := {
 		"noise_generation_mult": "Noise Gain",
 		"noise_decay_bonus": "Noise Decay",
 		"dash_noise_mult": "Dash Noise",
-		"sonar_reveal_duration_mult": "Reveal Duration",
+		"sonar_reveal_duration_mult": "Flare Reveal Duration",
 		"revealed_damage_mult": "Revealed Damage",
 		"low_noise_damage_mult": "Low-Noise Damage",
 		"pickup_radius_mult": "Pickup Radius",
@@ -140,7 +140,7 @@ const STAT_LABELS := {
 		"noise_generation_mult": "噪声获取",
 		"noise_decay_bonus": "噪声衰减",
 		"dash_noise_mult": "冲刺噪声",
-		"sonar_reveal_duration_mult": "显形时长",
+		"sonar_reveal_duration_mult": "照明显形时长",
 		"revealed_damage_mult": "对显形目标伤害",
 		"low_noise_damage_mult": "低噪伤害",
 		"pickup_radius_mult": "拾取范围",
@@ -300,7 +300,7 @@ const UI_TEXT := {
 	"sys.debug_unlock_all": {"en": "Debug: all characters unlocked.", "zh_CN": "调试：已解锁全部角色。"},
 	"sys.sonar_ping": {"en": "Flare exposed: {count} contacts", "zh_CN": "照明弹显形：{count} 个目标"},
 	"sys.data_reload_failed": {"en": "Data reload failed.", "zh_CN": "数据重载失败。"},
-	"sys.data_reloaded": {"en": "Data reloaded (fog/sonar/noise/maps).", "zh_CN": "数据已重载（迷雾/声呐/噪声/地图）。"},
+	"sys.data_reloaded": {"en": "Data reloaded (fog/flare/noise/maps).", "zh_CN": "数据已重载（迷雾/照明弹/噪声/地图）。"},
 	"sys.hazard_shift": {"en": "Hazard shift", "zh_CN": "灾害切换"},
 	"sys.event_triggered": {"en": "{name} triggered", "zh_CN": "{name} 已触发"},
 	"sys.unlocked_list": {"en": "Unlocked:\n{value}", "zh_CN": "已解锁：\n{value}"},
@@ -330,7 +330,7 @@ const DATA_TEXT_BY_ID := {
 
 	"diver": {
 		"display_name": {"en": "Silent Diver", "zh_CN": "静潜者"},
-		"short_desc": {"en": "Low-noise sonar specialist.", "zh_CN": "低噪声声呐专家。"},
+		"short_desc": {"en": "Low-noise flare specialist.", "zh_CN": "低噪声照明弹专家。"},
 		"passive_summary": {"en": "Reduced noise gain, longer reveal windows.", "zh_CN": "降低噪声获取，延长显形窗口。"},
 		"unlock_display": {"en": "Survive for 7:00 in a single run.", "zh_CN": "在单局中生存 7:00。"}
 	},
@@ -353,7 +353,7 @@ const DATA_TEXT_BY_ID := {
 		"unlock_display": {"en": "Collect 250 pickups.", "zh_CN": "累计拾取 250 个掉落物。"}
 	},
 	"scavenger": {
-		"display_name": {"en": "Neon Scavenger", "zh_CN": "霓虹拾荒者"},
+		"display_name": {"en": "Crypt Scavenger", "zh_CN": "地牢拾荒者"},
 		"short_desc": {"en": "Resource diver who turns scraps into growth.", "zh_CN": "把残骸转化为成长资源的潜行者。"},
 		"passive_summary": {"en": "Larger pickup radius and better XP conversion.", "zh_CN": "更大拾取半径与更高经验转化。"},
 		"unlock_display": {"en": "Survive for 10:00 in a single run.", "zh_CN": "在单局中生存 10:00。"}
@@ -361,8 +361,8 @@ const DATA_TEXT_BY_ID := {
 
 	"map_trench_lab": {
 		"name": {"en": "Trench Lab", "zh_CN": "海沟实验区"},
-		"description": {"en": "Neon industrial trench with unstable magnetic storms.", "zh_CN": "霓虹工业海沟，伴随不稳定磁暴。"},
-		"hazard_summary": {"en": "Magnetic storms disrupt sonar and raise noise risk.", "zh_CN": "磁暴会干扰声呐并提高噪声风险。"},
+		"description": {"en": "Ancient dungeon trench threaded with unstable magnetic storms.", "zh_CN": "古老地牢海沟中伴随不稳定磁暴。"},
+		"hazard_summary": {"en": "Magnetic storms distort flare reveals and raise noise risk.", "zh_CN": "磁暴会扭曲照明弹显形并提高噪声风险。"},
 		"event_summary": {"en": "Supply pods and rift surges create tempo spikes.", "zh_CN": "补给舱与裂隙浪涌会带来节奏尖峰。"}
 	},
 	"map_black_tide": {
@@ -374,7 +374,7 @@ const DATA_TEXT_BY_ID := {
 
 	"hazard_magnetic_interference": {
 		"name": {"en": "Magnetic Interference", "zh_CN": "磁干扰风暴"},
-		"description": {"en": "Electromagnetic bursts destabilize sonar and amplify noise signatures.", "zh_CN": "电磁脉冲会扰乱声呐并放大噪声特征。"},
+		"description": {"en": "Electromagnetic bursts destabilize flare echoes and amplify noise signatures.", "zh_CN": "电磁脉冲会扰乱照明弹回波并放大噪声特征。"},
 		"warning_text": {"en": "Magnetic interference incoming", "zh_CN": "磁干扰即将来袭"}
 	},
 	"hazard_black_tide_surge": {
@@ -412,7 +412,7 @@ const DATA_TEXT_BY_ID := {
 	},
 	"event_tide_quiet_pocket": {
 		"name": {"en": "Quiet Pocket", "zh_CN": "静默空腔"},
-		"description": {"en": "A temporary calm zone restores sonar clarity.", "zh_CN": "临时平静区可恢复声呐清晰度。"},
+		"description": {"en": "A temporary calm zone restores flare clarity.", "zh_CN": "临时平静区可恢复照明弹清晰度。"},
 		"immediate_message": {"en": "Quiet pocket formed", "zh_CN": "静默空腔形成"}
 	},
 
@@ -421,7 +421,7 @@ const DATA_TEXT_BY_ID := {
 	"contract_elite_rush": {"name": {"en": "Elite Rush", "zh_CN": "精英狂潮"}, "description": {"en": "Elite spawn chance increased.", "zh_CN": "精英刷新概率提高。"}},
 	"contract_no_dash": {"name": {"en": "No Dash", "zh_CN": "禁用冲刺"}, "description": {"en": "Dash is disabled.", "zh_CN": "冲刺被禁用。"}},
 	"contract_black_tide_often": {"name": {"en": "Frequent Black Tide", "zh_CN": "高频黑潮"}, "description": {"en": "Hazard cycles speed up.", "zh_CN": "灾害循环加速。"}},
-	"contract_sonar_fuzzy": {"name": {"en": "Sonar Fuzzy", "zh_CN": "声呐失真"}, "description": {"en": "Sonar reveal duration reduced by 20%.", "zh_CN": "声呐显形时长降低 20%。"}},
+	"contract_sonar_fuzzy": {"name": {"en": "Flare Distortion", "zh_CN": "照明弹失真"}, "description": {"en": "Flare reveal duration reduced by 20%.", "zh_CN": "照明弹显形时长降低 20%。"}},
 	"contract_pursuer_hunt": {"name": {"en": "Pursuer Hunt", "zh_CN": "追猎协议"}, "description": {"en": "Pursuers spawn more often but drop better loot.", "zh_CN": "追猎者刷新更频繁，但掉落更好。"}},
 	"contract_fast_enemies": {"name": {"en": "Fast Enemies", "zh_CN": "疾速敌群"}, "description": {"en": "Enemy speed and spawn rate increased.", "zh_CN": "敌人移速与刷新速率提高。"}},
 	"contract_fragile_player": {"name": {"en": "Fragile Hull", "zh_CN": "脆弱船体"}, "description": {"en": "Player max HP reduced by 15%.", "zh_CN": "玩家最大生命降低 15%。"}},
@@ -431,12 +431,12 @@ const DATA_TEXT_BY_ID := {
 
 	"needle_rifle": {"name": {"en": "Needle Rifle", "zh_CN": "针刺步枪"}, "description": {"en": "Mid-speed puncture rifle tuned for trench lanes.", "zh_CN": "为海沟战线调校的中速穿刺步枪。"}},
 	"burst_smg": {"name": {"en": "Burst SMG", "zh_CN": "爆发冲锋枪"}, "description": {"en": "High-rate muzzle storm with heavy acoustic footprint.", "zh_CN": "高射速火力风暴，声学暴露较高。"}},
-	"silence_dart": {"name": {"en": "Silence Dart", "zh_CN": "静默飞镖"}, "description": {"en": "Low-signature dart that extends sonar reveal windows.", "zh_CN": "低特征飞镖，可延长声呐显形窗口。"}},
+	"silence_dart": {"name": {"en": "Silence Dart", "zh_CN": "静默飞镖"}, "description": {"en": "Low-signature dart that extends flare reveal windows.", "zh_CN": "低特征飞镖，可延长照明弹显形窗口。"}},
 	"shock_pulse": {"name": {"en": "Shock Pulse", "zh_CN": "震荡脉冲"}, "description": {"en": "Near-field ring pulse for close swarm clearing.", "zh_CN": "近场环形脉冲，适合清理贴身敌群。"}},
 	"abyss_mine": {"name": {"en": "Abyss Mine", "zh_CN": "深渊地雷"}, "description": {"en": "Timed abyss charge that detonates on proximity.", "zh_CN": "延时深渊炸弹，接近即爆。"}},
 	"tether_beam": {"name": {"en": "Tether Beam", "zh_CN": "束缚光束"}, "description": {"en": "Locks one target with continuous control damage.", "zh_CN": "锁定单体目标并持续施加控制伤害。"}},
 	"orbital_drone": {"name": {"en": "Orbital Drone", "zh_CN": "轨道无人机"}, "description": {"en": "Summons an orbiting drone that auto-fires around you.", "zh_CN": "召唤环绕无人机自动射击。"}},
-	"sonar_blade": {"name": {"en": "Sonar Blade", "zh_CN": "声呐刃"}, "description": {"en": "Close-range arc strike that emits amplified sonar.", "zh_CN": "近战弧斩并释放强化声呐。"}},
+	"sonar_blade": {"name": {"en": "Flare Blade", "zh_CN": "照明刃"}, "description": {"en": "Close-range arc strike that emits amplified flare echoes.", "zh_CN": "近战弧斩并释放强化照明弹回波。"}},
 	"flare_lance": {"name": {"en": "Flare Lance", "zh_CN": "炽焰长枪"}, "description": {"en": "High-velocity lance round with bright muzzle burn.", "zh_CN": "高速枪矛弹，具备强烈枪口灼烧效果。"}},
 	"night_carbine": {"name": {"en": "Night Carbine", "zh_CN": "夜行卡宾枪"}, "description": {"en": "Stable mid-range carbine tuned for clean burst control.", "zh_CN": "稳定的中距离卡宾枪，适合精准点射控场。"}},
 	"pulse_emitter": {"name": {"en": "Pulse Emitter", "zh_CN": "脉冲发射器"}, "description": {"en": "Emits rhythmic control pulses that carve nearby packs.", "zh_CN": "周期释放控制脉冲，切割近身敌群。"}},
@@ -464,10 +464,10 @@ const DATA_TEXT_BY_ID := {
 	"ink_mite": {"name": {"en": "Ink Mite", "zh_CN": "墨蚀螨"}},
 	"rusher_eel": {"name": {"en": "Rusher Eel", "zh_CN": "冲锋鳗"}},
 
-	"u_sonar_scope_matrix": {"name": {"en": "Sonar Scope Matrix", "zh_CN": "声呐视域矩阵"}, "description": {"en": "[Tag: sonar] Range +12%.", "zh_CN": "[标签：声呐] 射程 +12%。"}},
-	"u_echo_stabilizer": {"name": {"en": "Echo Stabilizer", "zh_CN": "回波稳定器"}, "description": {"en": "Sonar reveal duration +14%.", "zh_CN": "声呐显形时长 +14%。"}},
+	"u_sonar_scope_matrix": {"name": {"en": "Flare Scope Matrix", "zh_CN": "照明弹视域矩阵"}, "description": {"en": "[Tag: flare] Range +12%.", "zh_CN": "[标签：照明弹] 射程 +12%。"}},
+	"u_echo_stabilizer": {"name": {"en": "Echo Stabilizer", "zh_CN": "回波稳定器"}, "description": {"en": "Flare reveal duration +14%.", "zh_CN": "照明弹显形时长 +14%。"}},
 	"u_exposed_breaker": {"name": {"en": "Exposed Breaker", "zh_CN": "暴露粉碎者"}, "description": {"en": "Damage to revealed enemies +18%.", "zh_CN": "对显形敌人伤害 +18%。"}},
-	"u_ping_accelerant": {"name": {"en": "Ping Accelerant", "zh_CN": "脉冲加速剂"}, "description": {"en": "[Tag: sonar] Attack rate +10%.", "zh_CN": "[标签：声呐] 攻速 +10%。"}},
+	"u_ping_accelerant": {"name": {"en": "Flare Accelerant", "zh_CN": "照明弹加速剂"}, "description": {"en": "[Tag: flare] Attack rate +10%.", "zh_CN": "[标签：照明弹] 攻速 +10%。"}},
 	"u_silent_baffles": {"name": {"en": "Silent Baffles", "zh_CN": "静音隔板"}, "description": {"en": "Noise generation -14%.", "zh_CN": "噪声获取 -14%。"}},
 	"u_thermal_sink": {"name": {"en": "Thermal Sink", "zh_CN": "热沉模块"}, "description": {"en": "Noise decay +1.6/s.", "zh_CN": "噪声衰减 +1.6/秒。"}},
 	"u_quiet_stride": {"name": {"en": "Quiet Stride", "zh_CN": "静行步态"}, "description": {"en": "Dash noise -25%.", "zh_CN": "冲刺噪声 -25%。"}},
@@ -494,7 +494,7 @@ const DATA_TEXT_BY_ID := {
 	"u_mine_chain_relay": {"name": {"en": "Mine Chain Relay", "zh_CN": "地雷连锁继电"}, "description": {"en": "[Weapon: abyss_mine] Damage +20%, radius +12%.", "zh_CN": "[武器：深渊地雷] 伤害 +20%，半径 +12%。"}},
 	"u_tether_focus": {"name": {"en": "Tether Focus", "zh_CN": "束缚聚焦"}, "description": {"en": "[Weapon: tether_beam] Damage +15%, range +12%.", "zh_CN": "[武器：束缚光束] 伤害 +15%，射程 +12%。"}},
 	"u_drone_cluster_ai": {"name": {"en": "Drone Cluster AI", "zh_CN": "蜂群无人机 AI"}, "description": {"en": "[Weapon: orbital_drone] Summon +1, attack rate +10%.", "zh_CN": "[武器：轨道无人机] 召唤 +1，攻速 +10%。"}},
-	"u_blade_resonance": {"name": {"en": "Blade Resonance", "zh_CN": "刃波共振"}, "description": {"en": "[Weapon: sonar_blade] Damage +16%, attack rate +12%.", "zh_CN": "[武器：声呐刃] 伤害 +16%，攻速 +12%。"}}
+	"u_blade_resonance": {"name": {"en": "Blade Resonance", "zh_CN": "刃波共振"}, "description": {"en": "Flare Blade damage +16%, attack rate +12%.", "zh_CN": "照明刃伤害 +16%，攻速 +12%。"}}
 }
 
 var _language_code: String = DEFAULT_LANGUAGE_CODE

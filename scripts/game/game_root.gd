@@ -47,6 +47,10 @@ var _game_over_latched: bool = false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	if world != null:
+		world.process_mode = Node.PROCESS_MODE_PAUSABLE
+	if ui != null:
+		ui.process_mode = Node.PROCESS_MODE_ALWAYS
 	Engine.time_scale = 1.0
 	InputConfig.ensure_default_actions()
 	if not DataRegistry.load_all():
@@ -161,15 +165,16 @@ func _process(delta: float) -> void:
 func _on_enemy_killed(enemy_id: String, xp_reward: int, world_position: Vector2, meta: Dictionary = {}) -> void:
 	kills += 1
 	run_stats.total_kills += 1
+	var elite_or_pursuer_kill := bool(meta.get("is_elite", false)) or bool(meta.get("is_pursuer", false))
 	var enemy_def := DataRegistry.get_enemy(enemy_id)
 	var tags_variant: Variant = enemy_def.get("tags", [])
-	if tags_variant is Array:
+	if not elite_or_pursuer_kill and tags_variant is Array:
 		var tags: Array = tags_variant
 		if tags.has("elite") or tags.has("pursuer"):
-			run_stats.elite_or_pursuer_kills += 1
-	if bool(meta.get("is_elite", false)) or bool(meta.get("is_pursuer", false)):
-		run_stats.elite_or_pursuer_kills += 1
-	if enemy_id.find("pursuer") >= 0 or bool(meta.get("is_pursuer", false)):
+			elite_or_pursuer_kill = true
+	if not elite_or_pursuer_kill and enemy_id.find("pursuer") >= 0:
+		elite_or_pursuer_kill = true
+	if elite_or_pursuer_kill:
 		run_stats.elite_or_pursuer_kills += 1
 	var drop_mult := maxf(0.0, float(run_reward_multipliers.get("drop", 1.0)))
 	var spawn_count := 1
