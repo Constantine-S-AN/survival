@@ -1,20 +1,27 @@
 ; Engine configuration file.
-; It's best edited using the editor and not directly.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
 ;
 ; Format:
-;   [section]
-;   param=value
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
 [application]
+
 config/name="Survive - Neon Sonar"
 run/main_scene="res://scenes/game/GameRoot.tscn"
-config/features=PackedStringArray("4.2")
+config/features=PackedStringArray("4.6")
 boot_splash/show_image=false
 icon="res://assets/textures/icon.svg"
 
 [autoload]
+
 SceneTransition="*res://scenes/ui/SceneTransition.tscn"
 DataRegistry="*res://scripts/core/data_registry.gd"
 FeedbackBus="*res://scripts/core/feedback_bus.gd"
@@ -23,15 +30,16 @@ ProfileStore="*res://scripts/core/profile_store.gd"
 Localization="*res://scripts/core/localization.gd"
 
 [display]
+
 window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/vsync/vsync_mode=1
 
 [rendering]
-renderer/rendering_method="gl_compatibility"
+
 textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"
 2d/snap/snap_2d_transforms_to_pixel=true
 2d/snap/snap_2d_vertices_to_pixel=true

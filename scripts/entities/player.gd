@@ -12,6 +12,7 @@ const DASH_DURATION = 0.14
 const BASE_DASH_COOLDOWN = 2.2
 const BASE_MAX_HP = 100.0
 const BASE_XP_TO_NEXT = 20.0
+const XP_REQUIREMENT_MULTIPLIER = 2.0
 const BASE_ACTIVE_WEAPON_ID = "needle_rifle"
 const PLAYER_TEXTURE_PATH := "res://assets/textures/player/diver_ship.png"
 const LOW_NOISE_THRESHOLD = 25.0
@@ -65,7 +66,7 @@ var rng = RandomNumberGenerator.new()
 var max_hp = 100.0
 var hp = 100.0
 var xp = 0.0
-var xp_to_next = 20.0
+var xp_to_next = BASE_XP_TO_NEXT * XP_REQUIREMENT_MULTIPLIER
 var level = 1
 var noise = 0.0
 var noise_min = 0.0
@@ -315,7 +316,7 @@ func _reset_run_stats() -> void:
 	max_hp = BASE_MAX_HP
 	hp = BASE_MAX_HP
 	xp = 0.0
-	xp_to_next = BASE_XP_TO_NEXT
+	xp_to_next = BASE_XP_TO_NEXT * XP_REQUIREMENT_MULTIPLIER
 	level = 1
 	noise = 0.0
 	damage_mult = 1.0
@@ -637,12 +638,12 @@ func _trigger_flare_skill() -> void:
 	FeedbackBus.emit_sonar_pulse(global_position, {
 		"source": "flare",
 		"player_skill": true,
-		"screen_flash": 1.18 + flare_strength * 0.52,
+		"screen_flash": 1.35 + flare_strength * 0.62,
 		"strength": flare_strength,
 		"radius_scale": 1.06 + flare_strength * 0.30,
 		"speed": 980.0,
 		"line_width": 7.6 + flare_strength_norm * 2.8,
-		"flare_duration_mult": 0.90 + flare_strength_norm * 0.45,
+		"flare_duration_mult": 2.20 + flare_strength_norm * 1.40,
 		"ping_count": sonar_ping_count,
 		"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
 	})
@@ -1217,15 +1218,36 @@ func _apply_damage_to_enemy(enemy: Node, base_damage: float, runtime, impulse: V
 	var payload = compute_hit_payload(enemy, base_damage, runtime.crit_chance, runtime.crit_multiplier, payload_context)
 	var final_damage = float(payload.get("damage", base_damage))
 	var is_crit = bool(payload.get("crit", false))
+	var runtime_weapon_id := String(runtime.weapon_id) if runtime != null else String(active_weapon_id)
+	var runtime_attack_model := String(runtime.attack_model) if runtime != null else "projectile"
+	var runtime_tags_variant: Variant = runtime.tags if runtime != null else []
+	var runtime_tags: Array = runtime_tags_variant if runtime_tags_variant is Array else []
+	var runtime_fx_color := String(runtime.fx_color) if runtime != null else ""
 	var killed = bool(enemy.take_hit(final_damage, impulse))
 	if runtime.reveal_bonus_duration > 0.0 and enemy.has_method("set_revealed"):
 		enemy.set_revealed(runtime.reveal_bonus_duration)
 	_handle_signature_post_hit(enemy, final_damage, is_crit, killed, payload, global_position)
 	var intensity = clampf((final_damage / 34.0) + (0.08 if killed else 0.0) + (0.05 if is_crit else 0.0), 0.08, 0.38)
 	if enemy is Node2D:
-		FeedbackBus.emit_hit((enemy as Node2D).global_position, intensity, killed)
+		FeedbackBus.emit_hit((enemy as Node2D).global_position, intensity, killed, {
+			"is_crit": is_crit,
+			"source": "player_attack",
+			"weapon_id": runtime_weapon_id,
+			"attack_model": runtime_attack_model,
+			"weapon_tags": runtime_tags.duplicate(),
+			"fx_color": runtime_fx_color,
+			"damage": final_damage
+		})
 	else:
-		FeedbackBus.emit_hit(global_position, intensity, killed)
+		FeedbackBus.emit_hit(global_position, intensity, killed, {
+			"is_crit": is_crit,
+			"source": "player_attack",
+			"weapon_id": runtime_weapon_id,
+			"attack_model": runtime_attack_model,
+			"weapon_tags": runtime_tags.duplicate(),
+			"fx_color": runtime_fx_color,
+			"damage": final_damage
+		})
 
 	var chain_parameters = _get_chain_parameters(runtime)
 	if bool(chain_parameters.get("enabled", false)):
@@ -1489,7 +1511,14 @@ func _update_drone_contact_damage(drone_index: int, runtime, contact_radius: flo
 		_apply_damage_to_enemy(enemy_node, runtime.damage * 0.35, runtime, Vector2.ZERO, 1)
 		if bonus_summon_hit_noise_refund > 0.0:
 			noise = maxf(noise_min, noise - bonus_summon_hit_noise_refund)
-		FeedbackBus.emit_hit(drone.global_position, 0.14, false)
+		FeedbackBus.emit_hit(drone.global_position, 0.14, false, {
+			"is_crit": false,
+			"source": "drone_contact",
+			"weapon_id": String(runtime.weapon_id),
+			"attack_model": String(runtime.attack_model),
+			"weapon_tags": runtime.tags.duplicate(),
+			"fx_color": String(runtime.fx_color)
+		})
 		break
 
 
@@ -1568,7 +1597,8 @@ func gain_xp(amount: int) -> void:
 		xp -= xp_to_next
 		level += 1
 		pending_level_ups += 1
-		xp_to_next = floor(xp_to_next * 1.18 + 6.0)
+		var base_curve_xp_to_next: float = xp_to_next / XP_REQUIREMENT_MULTIPLIER
+		xp_to_next = floor(base_curve_xp_to_next * 1.18 + 6.0) * XP_REQUIREMENT_MULTIPLIER
 		leveled = true
 
 	if leveled:
@@ -2008,6 +2038,7 @@ func _build_signature_context_from_runtime(runtime, hit_origin: Vector2 = Vector
 		"weapon_attack_interval": float(runtime.attack_interval),
 		"hit_origin": hit_origin,
 		"weapon_tags": runtime.tags.duplicate(),
+		"fx_color": String(runtime.fx_color),
 		"signature_mode": String(runtime.signature_mode),
 		"signature_power": float(runtime.signature_power),
 		"signature_aux": float(runtime.signature_aux),
@@ -2121,6 +2152,7 @@ func compute_hit_payload(
 	var signature_aux := float(context.get("signature_aux", 0.0))
 	var signature_cycle := maxi(0, int(context.get("signature_cycle", 0)))
 	var signature_duration := maxf(0.0, float(context.get("signature_duration", 0.0)))
+	var fx_color := String(context.get("fx_color", "")).strip_edges()
 	var weapon_tags := _normalize_tag_array(context.get("weapon_tags", []))
 	var precision_bonus := clampf(float(context.get("precision_bonus", 0.0)), 0.0, 0.1)
 	var weapon_attack_interval := maxf(0.02, float(context.get("weapon_attack_interval", 0.12)))
@@ -2216,6 +2248,7 @@ func compute_hit_payload(
 		"signature_cycle": signature_cycle,
 		"signature_duration": signature_duration,
 		"weapon_tags": weapon_tags,
+		"fx_color": fx_color,
 		"weapon_attack_interval": weapon_attack_interval,
 		"conditional_triggers": conditional_triggers.duplicate(true),
 		"conditional_light_ratio": light_ratio,
@@ -2234,6 +2267,10 @@ func _handle_signature_post_hit(
 	if target == null or not is_instance_valid(target):
 		return
 	var weapon_id := String(payload.get("weapon_id", "")).strip_edges().to_lower()
+	var attack_model := String(payload.get("attack_model", "")).strip_edges().to_lower()
+	var weapon_tags_payload_variant: Variant = payload.get("weapon_tags", payload.get("tags", []))
+	var weapon_tags_payload: Array = weapon_tags_payload_variant if weapon_tags_payload_variant is Array else []
+	var fx_color := String(payload.get("fx_color", "")).strip_edges()
 	var mode := String(payload.get("signature_mode", "")).strip_edges().to_lower()
 	var power := float(payload.get("signature_power", 0.0))
 	var aux := float(payload.get("signature_aux", 0.0))
@@ -2263,7 +2300,15 @@ func _handle_signature_post_hit(
 				var echo_damage := maxf(0.5, final_damage * maxf(0.1, power))
 				var echo_kill := bool(target.take_hit(echo_damage, Vector2.ZERO))
 				if target is Node2D:
-					FeedbackBus.emit_hit((target as Node2D).global_position, clampf(echo_damage / 45.0, 0.06, 0.22), echo_kill)
+					FeedbackBus.emit_hit((target as Node2D).global_position, clampf(echo_damage / 45.0, 0.06, 0.22), echo_kill, {
+						"is_crit": true,
+						"source": "crit_echo",
+						"weapon_id": weapon_id,
+						"attack_model": attack_model,
+						"weapon_tags": weapon_tags_payload.duplicate(),
+						"fx_color": fx_color,
+						"damage": echo_damage
+					})
 		"finisher_cycle":
 			if cycle <= 0:
 				return
@@ -2286,7 +2331,15 @@ func _handle_signature_post_hit(
 				if not enemy_node.has_method("take_hit"):
 					continue
 				var splash_kill := bool(enemy_node.take_hit(splash_damage, Vector2.ZERO))
-				FeedbackBus.emit_hit(enemy_node.global_position, clampf(splash_damage / 52.0, 0.05, 0.24), splash_kill)
+				FeedbackBus.emit_hit(enemy_node.global_position, clampf(splash_damage / 52.0, 0.05, 0.24), splash_kill, {
+					"is_crit": false,
+					"source": "finisher_cycle",
+					"weapon_id": weapon_id,
+					"attack_model": attack_model,
+					"weapon_tags": weapon_tags_payload.duplicate(),
+					"fx_color": fx_color,
+					"damage": splash_damage
+				})
 		"kill_reset":
 			if killed:
 				attack_cd_remaining = maxf(0.0, attack_cd_remaining - clampf(power, 0.02, 0.8))
@@ -2439,18 +2492,23 @@ func _apply_tag_combat_proc(
 		if target.has_method("set_revealed"):
 			target.set_revealed(0.8 + (0.55 * proc_scale))
 	if weapon_tags.has("chain") and rng.randf() <= clampf(0.26 + 0.08 * proc_scale, 0.0, 0.6):
-		_emit_tag_chain_arc(target, final_damage * (0.28 + 0.08 * proc_scale))
+		_emit_tag_chain_arc(target, final_damage * (0.28 + 0.08 * proc_scale), payload)
 	if weapon_tags.has("aoe") and rng.randf() <= clampf(0.18 + 0.05 * proc_scale, 0.0, 0.55):
 		var blast_radius := clampf(88.0 + aux * 0.1, 80.0, 220.0)
 		var splash_damage := maxf(0.5, final_damage * (0.16 + 0.08 * proc_scale))
-		_emit_tag_aoe_splash(target, splash_damage, blast_radius, impact_position)
+		_emit_tag_aoe_splash(target, splash_damage, blast_radius, impact_position, payload)
 
 
-func _emit_tag_chain_arc(source_target: Node, arc_damage: float) -> void:
+func _emit_tag_chain_arc(source_target: Node, arc_damage: float, payload: Dictionary = {}) -> void:
 	if source_target == null or not is_instance_valid(source_target):
 		return
 	if not (source_target is Node2D):
 		return
+	var weapon_id := String(payload.get("weapon_id", active_weapon_id)).strip_edges().to_lower()
+	var attack_model := String(payload.get("attack_model", "beam")).strip_edges().to_lower()
+	var weapon_tags_variant: Variant = payload.get("weapon_tags", payload.get("tags", []))
+	var weapon_tags: Array = weapon_tags_variant if weapon_tags_variant is Array else []
+	var fx_color := String(payload.get("fx_color", "")).strip_edges()
 	var source_node := source_target as Node2D
 	var visited := {int(source_node.get_instance_id()): true}
 	var chain_target := _pick_beam_chain_target(source_node.global_position, 190.0, visited)
@@ -2467,10 +2525,29 @@ func _emit_tag_chain_arc(source_target: Node, arc_damage: float) -> void:
 		"radius_scale": 0.82,
 		"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
 	})
-	FeedbackBus.emit_hit(chain_target.global_position, clampf(arc_damage / 56.0, 0.04, 0.22), killed)
+	FeedbackBus.emit_hit(chain_target.global_position, clampf(arc_damage / 56.0, 0.04, 0.22), killed, {
+		"is_crit": false,
+		"source": "chain_arc",
+		"weapon_id": weapon_id,
+		"attack_model": attack_model,
+		"weapon_tags": weapon_tags.duplicate(),
+		"fx_color": fx_color,
+		"damage": arc_damage
+	})
 
 
-func _emit_tag_aoe_splash(primary_target: Node, splash_damage: float, radius: float, impact_position: Vector2) -> void:
+func _emit_tag_aoe_splash(
+	primary_target: Node,
+	splash_damage: float,
+	radius: float,
+	impact_position: Vector2,
+	payload: Dictionary = {}
+) -> void:
+	var weapon_id := String(payload.get("weapon_id", active_weapon_id)).strip_edges().to_lower()
+	var attack_model := String(payload.get("attack_model", "pulse")).strip_edges().to_lower()
+	var weapon_tags_variant: Variant = payload.get("weapon_tags", payload.get("tags", []))
+	var weapon_tags: Array = weapon_tags_variant if weapon_tags_variant is Array else []
+	var fx_color := String(payload.get("fx_color", "")).strip_edges()
 	FeedbackBus.emit_sonar_pulse(impact_position, {
 		"source": "hit",
 		"strength": 0.36,
@@ -2493,7 +2570,15 @@ func _emit_tag_aoe_splash(primary_target: Node, splash_damage: float, radius: fl
 		var killed := bool(enemy_node.take_hit(maxf(0.4, splash_damage), push))
 		if enemy_node.has_method("apply_status_effect"):
 			enemy_node.apply_status_effect("shock", 0.45, 0.22)
-		FeedbackBus.emit_hit(enemy_node.global_position, clampf(splash_damage / 60.0, 0.04, 0.20), killed)
+		FeedbackBus.emit_hit(enemy_node.global_position, clampf(splash_damage / 60.0, 0.04, 0.20), killed, {
+			"is_crit": false,
+			"source": "tag_aoe_splash",
+			"weapon_id": weapon_id,
+			"attack_model": attack_model,
+			"weapon_tags": weapon_tags.duplicate(),
+			"fx_color": fx_color,
+			"damage": splash_damage
+		})
 		hit_budget -= 1
 
 

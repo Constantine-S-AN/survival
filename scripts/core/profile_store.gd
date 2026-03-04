@@ -14,7 +14,8 @@ const DEFAULT_PROGRESS: Dictionary = {
 	"elite_or_pursuer_kills": 0,
 	"best_survive_time_seconds": 0.0,
 	"best_max_noise_reached": 0.0,
-	"reached_noise_tiers": []
+	"reached_noise_tiers": [],
+	"meta_currency_total": 0
 }
 
 var profile: Dictionary = {}
@@ -147,6 +148,11 @@ func get_progress_snapshot() -> Dictionary:
 	return DEFAULT_PROGRESS.duplicate(true)
 
 
+func get_meta_currency_total() -> int:
+	var progress := get_progress_snapshot()
+	return maxi(0, int(progress.get("meta_currency_total", 0)))
+
+
 func update_progress_from_run(run_stats: Dictionary) -> void:
 	var progress: Dictionary = get_progress_snapshot()
 	progress["total_kills"] = int(progress.get("total_kills", 0)) + int(run_stats.get("total_kills", 0))
@@ -154,6 +160,10 @@ func update_progress_from_run(run_stats: Dictionary) -> void:
 	progress["elite_or_pursuer_kills"] = int(progress.get("elite_or_pursuer_kills", 0)) + int(run_stats.get("elite_or_pursuer_kills", 0))
 	progress["best_survive_time_seconds"] = maxf(float(progress.get("best_survive_time_seconds", 0.0)), float(run_stats.get("survive_time_seconds", 0.0)))
 	progress["best_max_noise_reached"] = maxf(float(progress.get("best_max_noise_reached", 0.0)), float(run_stats.get("max_noise_reached", 0.0)))
+	progress["meta_currency_total"] = maxi(
+		0,
+		int(progress.get("meta_currency_total", 0)) + _extract_meta_currency_earned_total(run_stats)
+	)
 
 	var tiers_variant: Variant = progress.get("reached_noise_tiers", [])
 	var reached_tiers: Array[String] = _normalize_string_array(tiers_variant)
@@ -334,6 +344,18 @@ func _is_unlock_requirement_met(requirement: Dictionary) -> bool:
 	return bool(result.get("met", false))
 
 
+func _extract_meta_currency_earned_total(run_stats: Dictionary) -> int:
+	if run_stats.has("meta_currency_earned_total"):
+		return maxi(0, int(run_stats.get("meta_currency_earned_total", 0)))
+	var earned_variant: Variant = run_stats.get("meta_currency_earned", null)
+	if earned_variant is Dictionary:
+		var earned_dict: Dictionary = earned_variant
+		return maxi(0, int(earned_dict.get("total", 0)))
+	if earned_variant != null:
+		return maxi(0, int(earned_variant))
+	return 0
+
+
 func _migrate_profile(raw_profile: Dictionary, default_character_id: String, default_map_id: String = "") -> Dictionary:
 	var migrated: Dictionary = raw_profile.duplicate(true)
 	var schema_version := int(migrated.get("schema_version", 1))
@@ -454,12 +476,13 @@ func _read_profile_payload_result(path: String) -> Dictionary:
 			"ok": false,
 			"data": {}
 		}
-	var parsed: Variant = JSON.parse_string(text)
-	if parsed is Dictionary:
+	var parser := JSON.new()
+	var parse_err := parser.parse(text)
+	if parse_err == OK and parser.data is Dictionary:
 		return {
 			"exists": true,
 			"ok": true,
-			"data": (parsed as Dictionary).duplicate(true)
+			"data": (parser.data as Dictionary).duplicate(true)
 		}
 	return {
 		"exists": true,

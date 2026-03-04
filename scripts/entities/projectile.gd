@@ -2,7 +2,10 @@ extends Area2D
 class_name Projectile
 
 const PixelStickerRegistry := preload("res://scripts/visual/pixel_sticker_registry.gd")
+const CombatPaletteClass := preload("res://scripts/visual/combat_palette.gd")
 const PROJECTILE_IDLE_FRAME_SEC := 0.16
+const PROJECTILE_GLOW_SCALE_MULT := 1.88
+const PROJECTILE_GLOW_PULSE_AMPLITUDE := 0.14
 
 var direction := Vector2.RIGHT
 var speed := 520.0
@@ -37,6 +40,11 @@ var active: bool = false
 var _weapon_sticker_frames: Array[Texture2D] = []
 var _weapon_sticker_timer: float = 0.0
 var _weapon_sticker_frame_idx: int = 0
+var _projectile_core_color: Color = Color(0.76, 0.98, 1.0, 1.0)
+var _projectile_glow_color: Color = Color(0.86, 0.98, 1.0, 0.34)
+var _glow_visual: Polygon2D
+var _glow_phase: float = 0.0
+var _body_base_scale: Vector2 = Vector2.ONE
 
 @onready var body_visual: Polygon2D = $Body
 @onready var sticker_visual: Sprite2D = $Sticker
@@ -44,6 +52,7 @@ var _weapon_sticker_frame_idx: int = 0
 
 
 func _ready() -> void:
+	_ensure_glow_visual()
 	on_pool_recycle()
 
 
@@ -89,7 +98,10 @@ func configure(origin: Vector2, fire_direction: Vector2, projectile_data: Dictio
 	if shape is CircleShape2D:
 		shape.radius = radius
 	body_visual.scale = Vector2.ONE * (radius / 6.0)
+	_body_base_scale = body_visual.scale
 	_apply_projectile_sticker(weapon_id, radius)
+	_apply_projectile_palette()
+	_apply_layer_hierarchy()
 
 	rotation = direction.angle()
 	on_pool_spawned()
@@ -99,6 +111,7 @@ func _physics_process(delta: float) -> void:
 	if not active:
 		return
 	_tick_weapon_sticker(delta)
+	_tick_glow_visual(delta)
 	var motion := direction * speed * delta
 	global_position += motion
 	remaining_range -= motion.length()
@@ -139,7 +152,15 @@ func _on_body_entered(body: Node) -> void:
 		if reveal_bonus_duration > 0.0 and body.has_method("set_revealed"):
 			body.set_revealed(reveal_bonus_duration)
 		var intensity := clampf((final_damage / 34.0) + (0.07 if killed else 0.0) + (0.05 if is_crit else 0.0), 0.08, 0.36)
-		FeedbackBus.emit_hit(global_position, intensity, killed)
+		FeedbackBus.emit_hit(global_position, intensity, killed, {
+			"is_crit": is_crit,
+			"source": "projectile",
+			"weapon_id": weapon_id,
+			"attack_model": attack_model,
+			"weapon_tags": weapon_tags.duplicate(),
+			"fx_color": fx_color.to_html(false),
+			"damage": final_damage
+		})
 		_apply_impact_aoe(body, final_damage)
 		_emit_impact_pulse()
 		hit_count += 1
@@ -149,10 +170,13 @@ func _on_body_entered(body: Node) -> void:
 
 func on_pool_spawned() -> void:
 	active = true
+	_apply_layer_hierarchy()
 	set_deferred("monitoring", true)
 	set_deferred("monitorable", true)
 	set_physics_process(true)
 	visible = true
+	if _glow_visual != null:
+		_glow_visual.visible = true
 
 
 func on_pool_recycle() -> void:
@@ -178,6 +202,7 @@ func on_pool_recycle() -> void:
 	signature_duration = 0.0
 	precision_bonus = 0.0
 	weapon_tags.clear()
+	_glow_phase = 0.0
 	if sticker_visual != null:
 		sticker_visual.texture = null
 		sticker_visual.visible = false
@@ -187,6 +212,14 @@ func on_pool_recycle() -> void:
 	_weapon_sticker_frame_idx = 0
 	body_visual.visible = true
 	body_visual.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	body_visual.color = Color(0.76, 0.98, 1.0, 1.0)
+	_projectile_core_color = body_visual.color
+	_projectile_glow_color = Color(0.86, 0.98, 1.0, 0.34)
+	_body_base_scale = Vector2.ONE
+	if _glow_visual != null:
+		_glow_visual.visible = false
+		_glow_visual.color = _projectile_glow_color
+		_glow_visual.scale = Vector2.ONE
 	visible = false
 
 
@@ -207,6 +240,64 @@ func _dispatch_recycle_request() -> void:
 	queue_free()
 
 
+func _ensure_glow_visual() -> void:
+	if _glow_visual != null:
+		return
+	_glow_visual = Polygon2D.new()
+	_glow_visual.name = "Glow"
+	_glow_visual.polygon = body_visual.polygon
+	_glow_visual.color = _projectile_glow_color
+	_glow_visual.visible = false
+	var glow_material := CanvasItemMaterial.new()
+	glow_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	_glow_visual.material = glow_material
+	add_child(_glow_visual)
+	move_child(_glow_visual, 0)
+
+
+func _apply_projectile_palette() -> void:
+	var palette_variant: Variant = CombatPaletteClass.projectile_palette(fx_color, attack_model, weapon_tags)
+	var palette: Dictionary = palette_variant if palette_variant is Dictionary else {}
+	var core_variant: Variant = palette.get("core", fx_color)
+	var glow_variant: Variant = palette.get("glow", fx_color)
+	var core_color: Color = core_variant if core_variant is Color else fx_color
+	var glow_color: Color = glow_variant if glow_variant is Color else fx_color
+	_projectile_core_color = core_color
+	_projectile_glow_color = glow_color
+	body_visual.color = _projectile_core_color
+	body_visual.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	if sticker_visual != null and sticker_visual.visible:
+		sticker_visual.modulate = _projectile_core_color
+	_ensure_glow_visual()
+	if _glow_visual != null:
+		_glow_visual.color = _projectile_glow_color
+		_glow_visual.scale = _body_base_scale * PROJECTILE_GLOW_SCALE_MULT
+
+
+func _apply_layer_hierarchy() -> void:
+	z_index = CombatPaletteClass.LAYER_PROJECTILE
+	body_visual.z_index = 0
+	if sticker_visual != null:
+		sticker_visual.z_index = 1
+	if _glow_visual != null:
+		_glow_visual.z_index = CombatPaletteClass.LAYER_PROJECTILE_GLOW - CombatPaletteClass.LAYER_PROJECTILE
+
+
+func _tick_glow_visual(delta: float) -> void:
+	if _glow_visual == null:
+		return
+	if not active:
+		_glow_visual.visible = false
+		return
+	_glow_phase += delta * (6.0 + clampf(speed / 620.0, 0.2, 2.4))
+	var wave := 0.5 + 0.5 * sin(_glow_phase)
+	var glow_color := _projectile_glow_color
+	glow_color.a = clampf(_projectile_glow_color.a * lerpf(0.74, 1.18, wave), 0.06, 0.72)
+	_glow_visual.color = glow_color
+	_glow_visual.scale = _body_base_scale * (PROJECTILE_GLOW_SCALE_MULT + PROJECTILE_GLOW_PULSE_AMPLITUDE * wave)
+	_glow_visual.visible = true
+
+
 func _apply_projectile_sticker(weapon_id: String, projectile_radius: float) -> void:
 	if sticker_visual == null:
 		return
@@ -215,7 +306,7 @@ func _apply_projectile_sticker(weapon_id: String, projectile_radius: float) -> v
 	if texture == null:
 		sticker_visual.visible = false
 		body_visual.visible = true
-		body_visual.modulate = fx_color
+		body_visual.modulate = Color(1.0, 1.0, 1.0, 1.0)
 		_weapon_sticker_frames.clear()
 		return
 	_weapon_sticker_timer = 0.0
@@ -223,7 +314,7 @@ func _apply_projectile_sticker(weapon_id: String, projectile_radius: float) -> v
 	sticker_visual.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sticker_visual.texture = texture
 	sticker_visual.visible = true
-	sticker_visual.modulate = fx_color
+	sticker_visual.modulate = _projectile_core_color
 	var max_dim := maxf(texture.get_size().x, texture.get_size().y)
 	var desired_world_size := maxf(8.0, projectile_radius * 2.8)
 	sticker_visual.scale = Vector2.ONE * (desired_world_size / maxf(1.0, max_dim))
@@ -267,7 +358,15 @@ func _apply_impact_aoe(primary_target: Node, base_impact_damage: float) -> void:
 		if reveal_bonus_duration > 0.0 and enemy.has_method("set_revealed"):
 			enemy.set_revealed(reveal_bonus_duration * 0.55)
 		var intensity := clampf((resolved_damage / 42.0) + (0.05 if killed else 0.0), 0.05, 0.28)
-		FeedbackBus.emit_hit(enemy.global_position, intensity, killed)
+		FeedbackBus.emit_hit(enemy.global_position, intensity, killed, {
+			"is_crit": false,
+			"source": "projectile_aoe",
+			"weapon_id": weapon_id,
+			"attack_model": attack_model,
+			"weapon_tags": weapon_tags.duplicate(),
+			"fx_color": fx_color.to_html(false),
+			"damage": resolved_damage
+		})
 
 
 func _tick_weapon_sticker(delta: float) -> void:

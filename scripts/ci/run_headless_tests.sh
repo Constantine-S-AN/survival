@@ -6,11 +6,56 @@ LOG_DIR="${ROOT_DIR}/tmp/logs"
 GODOT_BIN="${GODOT_BIN:-godot}"
 TEST_SCENE="${TEST_SCENE:-res://tests/TestRunner.tscn}"
 QUIT_AFTER="${QUIT_AFTER:-3600}"
+ENGINE_ERROR_REGEX="${ENGINE_ERROR_REGEX:-^(SCRIPT ERROR:|ERROR:|SHADER ERROR:|FATAL:)}"
+ALLOW_ENGINE_ERROR_REGEX="${ALLOW_ENGINE_ERROR_REGEX:-}"
+KEEP_HEADLESS_LOG_FILES="${KEEP_HEADLESS_LOG_FILES:-80}"
+KEEP_RECORDING_ENTRIES="${KEEP_RECORDING_ENTRIES:-40}"
 RUN_ID="$(date +%Y%m%d_%H%M%S)_${RANDOM}"
 IMPORT_LOG="${LOG_DIR}/headless_import_${RUN_ID}.log"
 TEST_LOG="${LOG_DIR}/headless_tests_${RUN_ID}.log"
 SUMMARY_LOG="${LOG_DIR}/headless_summary_${RUN_ID}.log"
 DO_IMPORT=1
+
+prune_entries_by_count() {
+	local keep="${1:-0}"
+	local pattern="${2:-}"
+	local rm_mode="${3:-file}"
+	if [[ -z "${pattern}" ]]; then
+		return
+	fi
+	if ! [[ "${keep}" =~ ^[0-9]+$ ]]; then
+		return
+	fi
+	if [[ "${keep}" -eq 0 ]]; then
+		keep=1
+	fi
+	if ! ls -1 ${pattern} >/dev/null 2>&1; then
+		return
+	fi
+	local idx=0
+	local list_cmd="ls -1t"
+	if [[ "${rm_mode}" == "tree" ]]; then
+		list_cmd="ls -1dt"
+	fi
+	${list_cmd} ${pattern} 2>/dev/null | while IFS= read -r stale; do
+		idx=$((idx + 1))
+		if [[ "${idx}" -le "${keep}" ]]; then
+			continue
+		fi
+		if [[ "${rm_mode}" == "tree" ]]; then
+			rm -rf "${stale}" || true
+		else
+			rm -f "${stale}" || true
+		fi
+	done
+}
+
+cleanup_artifacts() {
+	prune_entries_by_count "${KEEP_HEADLESS_LOG_FILES}" "${LOG_DIR}/headless_*" "file"
+	prune_entries_by_count "${KEEP_RECORDING_ENTRIES}" "${ROOT_DIR}/tmp/recordings/*" "tree"
+}
+
+trap cleanup_artifacts EXIT
 
 for arg in "$@"; do
 	case "$arg" in
@@ -74,6 +119,18 @@ fi
 if ! grep -q "Tests finished. failed=0" "${TEST_LOG}"; then
 	echo "[headless] tests reported failures" >&2
 	tail -n 120 "${TEST_LOG}" || true
+	exit 1
+fi
+
+engine_errors=""
+if [[ -n "${ALLOW_ENGINE_ERROR_REGEX}" ]]; then
+	engine_errors="$(grep -nE "${ENGINE_ERROR_REGEX}" "${TEST_LOG}" | grep -Ev "${ALLOW_ENGINE_ERROR_REGEX}" || true)"
+else
+	engine_errors="$(grep -nE "${ENGINE_ERROR_REGEX}" "${TEST_LOG}" || true)"
+fi
+if [[ -n "${engine_errors}" ]]; then
+	echo "[headless] engine/runtime errors detected in test log" >&2
+	echo "${engine_errors}" | head -n 120 >&2
 	exit 1
 fi
 

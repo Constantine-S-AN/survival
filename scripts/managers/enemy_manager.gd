@@ -11,6 +11,9 @@ signal boss_echoes_spawned(boss_id: String, count: int, world_position: Vector2)
 signal boss_true_form_revealed(boss_id: String, world_position: Vector2)
 
 var enemy_scene := preload("res://scenes/enemy/Enemy.tscn")
+const SPAWN_RATE_SMOOTH_SPEED := 2.35
+const MAX_SPAWN_STEPS_PER_TICK := 5
+const MAX_SPAWN_TIMER_BACKLOG := 1.6
 
 const ENEMY_COMBO_PATTERNS: Array[Dictionary] = [
 	{
@@ -113,6 +116,7 @@ var noise_factor := 0.0
 var active_enemies: Array = []
 var pursuer_cooldown_remaining := 0.0
 var current_spawn_rate_multiplier := 1.0
+var effective_spawn_rate_multiplier := 1.0
 var current_spawn_cap_multiplier := 1.0
 var current_pursuer_chance := 0.0
 var noise_spawn_rate_multiplier := 1.0
@@ -156,6 +160,8 @@ var enemy_pool_enabled: bool = false
 var run_active: bool = false
 var combo_spawned_total: int = 0
 var last_combo_id: String = ""
+var spawn_steps_last_tick: int = 0
+var spawn_backlog_active: bool = false
 
 
 func setup_pool(pool_manager_ref: Node, key: String = "enemy", prewarm_size: int = 72) -> void:
@@ -180,6 +186,7 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 	noise_factor = 0.0
 	pursuer_cooldown_remaining = 0.0
 	current_spawn_rate_multiplier = 1.0
+	effective_spawn_rate_multiplier = 1.0
 	current_spawn_cap_multiplier = 1.0
 	current_pursuer_chance = 0.0
 	noise_spawn_rate_multiplier = 1.0
@@ -215,6 +222,8 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 	active_enemies.clear()
 	combo_spawned_total = 0
 	last_combo_id = ""
+	spawn_steps_last_tick = 0
+	spawn_backlog_active = false
 	var bosses: Array = DataRegistry.get_bosses()
 	if not bosses.is_empty() and bosses[0] is Dictionary:
 		boss_definition = (bosses[0] as Dictionary).duplicate(true)
@@ -224,6 +233,8 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 func begin_run() -> void:
 	run_active = true
 	spawn_timer = 0.0
+	spawn_steps_last_tick = 0
+	spawn_backlog_active = false
 
 
 func update_difficulty(elapsed: float, noise: float) -> void:
@@ -244,6 +255,11 @@ func _process(delta: float) -> void:
 	noise_spawn_cap_multiplier = float(noise_modifiers.get("spawn_cap_multiplier", 1.0))
 	noise_pursuer_chance = float(noise_modifiers.get("pursuer_chance", 0.0))
 	current_spawn_rate_multiplier = noise_spawn_rate_multiplier * map_spawn_rate_multiplier * contract_spawn_rate_multiplier * boss_spawn_rate_multiplier
+	effective_spawn_rate_multiplier = lerpf(
+		effective_spawn_rate_multiplier,
+		current_spawn_rate_multiplier,
+		clampf(delta * SPAWN_RATE_SMOOTH_SPEED, 0.0, 1.0)
+	)
 	current_spawn_cap_multiplier = noise_spawn_cap_multiplier * map_spawn_cap_multiplier * contract_spawn_cap_multiplier
 	current_elite_chance = clampf(
 		DataRegistry.get_default_elite_chance() + map_elite_chance_add + contract_elite_chance_add,
@@ -259,12 +275,14 @@ func _process(delta: float) -> void:
 	_update_next_pursuer_eta()
 
 	spawn_timer -= delta
-	var spawn_rate: float = DataRegistry.get_spawn_rate(elapsed_time, 0.0) * current_spawn_rate_multiplier
+	var spawn_rate: float = DataRegistry.get_spawn_rate(elapsed_time, 0.0) * effective_spawn_rate_multiplier
 	var spawn_interval: float = 1.0 / maxf(0.05, spawn_rate)
 	var enemy_cap := int(round(DataRegistry.get_enemy_cap(elapsed_time, 0.0) * current_spawn_cap_multiplier))
+	spawn_steps_last_tick = 0
 
-	while spawn_timer <= 0.0:
+	while spawn_timer <= 0.0 and spawn_steps_last_tick < MAX_SPAWN_STEPS_PER_TICK:
 		spawn_timer += spawn_interval
+		spawn_steps_last_tick += 1
 		var alive_before := _get_alive_enemy_count()
 		if alive_before >= enemy_cap:
 			break
@@ -272,6 +290,11 @@ func _process(delta: float) -> void:
 		var spawned_now := _spawn_enemy_wave(slots)
 		if spawned_now <= 0:
 			break
+	if spawn_timer <= 0.0:
+		spawn_backlog_active = true
+		spawn_timer = -minf(-spawn_timer, MAX_SPAWN_TIMER_BACKLOG)
+	else:
+		spawn_backlog_active = false
 
 	_try_spawn_pursuer(delta)
 	_try_spawn_boss(delta)
@@ -301,6 +324,7 @@ func get_noise_debug_snapshot() -> Dictionary:
 	var enemy_pool_stats := get_enemy_pool_stats()
 	return {
 		"spawn_rate_multiplier": current_spawn_rate_multiplier,
+		"effective_spawn_rate_multiplier": effective_spawn_rate_multiplier,
 		"spawn_cap_multiplier": current_spawn_cap_multiplier,
 		"pursuer_chance": current_pursuer_chance,
 		"noise_spawn_rate_multiplier": noise_spawn_rate_multiplier,
@@ -332,9 +356,11 @@ func get_noise_debug_snapshot() -> Dictionary:
 			"boss_summon_break_kills": boss_summon_break_kills,
 			"boss_summon_break_alive": boss_summon_break_alive,
 			"elite_jam_multiplier": elite_jam_multiplier_runtime,
-		"combo_spawned_total": combo_spawned_total,
-		"last_combo_id": last_combo_id,
-		"enemy_pool_hit_rate": float(enemy_pool_stats.get("hit_rate", -1.0)),
+			"combo_spawned_total": combo_spawned_total,
+			"last_combo_id": last_combo_id,
+			"spawn_steps_last_tick": spawn_steps_last_tick,
+			"spawn_backlog_active": spawn_backlog_active,
+			"enemy_pool_hit_rate": float(enemy_pool_stats.get("hit_rate", -1.0)),
 		"enemy_pool_hits": int(enemy_pool_stats.get("hits", 0)),
 		"enemy_pool_misses": int(enemy_pool_stats.get("misses", 0))
 	}

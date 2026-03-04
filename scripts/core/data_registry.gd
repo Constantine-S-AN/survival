@@ -375,6 +375,7 @@ var elites_config: Dictionary = {}
 var bosses_config: Dictionary = {}
 var contracts_config: Dictionary = {}
 var upgrades: Array = []
+var upgrades_by_id: Dictionary = {}
 var spawn_curve: Array = []
 var fog_config: Dictionary = {}
 var sonar_config: Dictionary = {}
@@ -402,6 +403,16 @@ var loaded: bool = false
 func _ready() -> void:
 	if not loaded:
 		load_all()
+
+
+func ensure_loaded(log_errors: bool = true) -> bool:
+	if loaded:
+		return true
+	return load_all(log_errors)
+
+
+func is_loaded() -> bool:
+	return loaded
 
 
 func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
@@ -433,6 +444,7 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	boss_order.clear()
 	contracts.clear()
 	contract_order.clear()
+	upgrades_by_id.clear()
 
 	_validate_weapons()
 	_validate_characters()
@@ -879,12 +891,12 @@ func get_enemy(enemy_id: String) -> Dictionary:
 
 
 func get_upgrade(upgrade_id: String) -> Dictionary:
-	for upgrade_variant in upgrades:
-		if not (upgrade_variant is Dictionary):
-			continue
-		var upgrade: Dictionary = upgrade_variant
-		if String(upgrade.get("id", "")) == upgrade_id:
-			return _localize_dictionary_row(upgrade)
+	var normalized_id := upgrade_id.strip_edges()
+	if normalized_id.is_empty():
+		return {}
+	var payload: Variant = upgrades_by_id.get(normalized_id, {})
+	if payload is Dictionary:
+		return _localize_dictionary_row(payload as Dictionary)
 	return {}
 
 
@@ -931,27 +943,6 @@ func get_upgrade_choices(
 		picked.append(_localize_dictionary_row(choice))
 		picked_ids[chosen_id] = true
 		candidates = _remove_upgrade_candidate_by_id(candidates, chosen_id)
-
-	# Keep UI consistent with a three-card level-up surface even when strict runtime
-	# rules temporarily leave too few valid candidates.
-	if picked.size() < count:
-		var fallback_pool: Array = []
-		for upgrade_variant in upgrades:
-			if not (upgrade_variant is Dictionary):
-				continue
-			var upgrade: Dictionary = upgrade_variant
-			var upgrade_id := String(upgrade.get("id", ""))
-			if upgrade_id.is_empty() or picked_ids.has(upgrade_id):
-				continue
-			fallback_pool.append(upgrade)
-		while picked.size() < count and not fallback_pool.is_empty():
-			var fallback_choice: Dictionary = _weighted_pick_upgrade(rng, fallback_pool, tag_weights, runtime_context)
-			var chosen_fallback_id := String(fallback_choice.get("id", ""))
-			if chosen_fallback_id.is_empty() or picked_ids.has(chosen_fallback_id):
-				break
-			picked.append(_localize_dictionary_row(fallback_choice))
-			picked_ids[chosen_fallback_id] = true
-			fallback_pool = _remove_upgrade_candidate_by_id(fallback_pool, chosen_fallback_id)
 
 	return picked
 
@@ -1683,6 +1674,15 @@ func _validate_upgrades() -> void:
 				)
 
 	upgrades = normalized_upgrades
+	upgrades_by_id.clear()
+	for upgrade_variant in upgrades:
+		if not (upgrade_variant is Dictionary):
+			continue
+		var normalized_upgrade: Dictionary = upgrade_variant
+		var normalized_upgrade_id := String(normalized_upgrade.get("id", "")).strip_edges()
+		if normalized_upgrade_id.is_empty():
+			continue
+		upgrades_by_id[normalized_upgrade_id] = normalized_upgrade
 
 
 func _validate_spawn_curve() -> void:

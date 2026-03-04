@@ -10,9 +10,18 @@ signal boss_true_form_revealed(world_position: Vector2)
 
 const BossEchoDecoyScene := preload("res://scenes/enemy/BossEchoDecoy.tscn")
 const PixelStickerRegistry := preload("res://scripts/visual/pixel_sticker_registry.gd")
+const CombatPaletteClass := preload("res://scripts/visual/combat_palette.gd")
 const ENEMY_IDLE_FRAME_SEC := 0.12
 const ENEMY_BOB_AMPLITUDE := 0.72
 const VISUAL_OFFSET_SNAP := 0.25
+const HIT_OUTLINE_PULSE_SEC := 0.16
+const HIT_OUTLINE_SCALE_BONUS := 0.18
+const HIT_OUTLINE_LIGHTEN := 0.58
+const ENEMY_AURA_BASE_SCALE := 1.58
+const ENEMY_AURA_PULSE_AMPLITUDE := 0.11
+const ENEMY_AURA_BASE_ALPHA := 0.20
+const ENEMY_AURA_ELITE_ALPHA_BONUS := 0.08
+const ENEMY_AURA_PURSUER_ALPHA_BONUS := 0.10
 
 var enemy_id := "drifter"
 var enemy_name := "Drifter"
@@ -133,6 +142,13 @@ var _sticker_idle_timer: float = 0.0
 var _sticker_frame_idx: int = 0
 var _sticker_base_position: Vector2 = Vector2.ZERO
 var _sticker_idle_offset_y: float = 0.0
+var _body_base_scale: Vector2 = Vector2.ONE
+var _outline_base_scale: Vector2 = Vector2.ONE
+var _outline_base_color: Color = Color(0.72, 0.96, 1.0, 1.0)
+var _hit_outline_timer: float = 0.0
+var _palette_seed_color: Color = Color(0.22, 0.9, 1.0, 1.0)
+var _enemy_aura_visual: Polygon2D
+var _enemy_aura_phase: float = 0.0
 
 @onready var outline_visual: Polygon2D = $Outline
 @onready var body_visual: Polygon2D = $Body
@@ -145,6 +161,7 @@ func _ready() -> void:
 	default_collision_mask = collision_mask
 	if sticker_visual != null:
 		_sticker_base_position = sticker_visual.position
+	_ensure_enemy_aura_visual()
 	on_pool_recycle()
 
 
@@ -275,30 +292,35 @@ func setup(new_enemy_id: String, definition: Dictionary, player_target: Node2D, 
 		apply_boss_phase(initial_phase, definition)
 
 	var color_text := String(definition.get("color", "#38e7ff"))
-	body_visual.color = Color.from_string(color_text, Color(0.22, 0.9, 1.0, 1.0))
-	outline_visual.color = Color.from_string(color_text, Color(0.22, 0.9, 1.0, 1.0)).lightened(0.45)
+	_palette_seed_color = Color.from_string(color_text, Color(0.22, 0.9, 1.0, 1.0))
 
 	var shape := collision_shape.shape
 	if shape is CircleShape2D:
 		shape.radius = body_radius
 	body_visual.scale = Vector2.ONE * (body_radius / 15.0)
+	_body_base_scale = body_visual.scale
 	outline_visual.scale = Vector2.ONE * ((body_radius / 15.0) * 1.24)
+	_outline_base_scale = outline_visual.scale
 	_apply_enemy_sticker()
-	_update_reveal_visual()
+	z_index = CombatPaletteClass.LAYER_ENEMY
 
 	add_to_group("enemy")
 	if spawn_group == "pursuer":
 		add_to_group("pursuer")
 		is_elite = true
-		outline_visual.color = Color(1.0, 0.52, 0.66, 0.95)
+		_palette_seed_color = Color(1.0, 0.52, 0.66, 1.0)
 	if behavior == "boss":
 		add_to_group("boss")
+	_refresh_enemy_palette()
+	_update_reveal_visual()
 
 
 func _physics_process(delta: float) -> void:
 	if not pooled_active:
 		return
 	_tick_idle_sticker(delta)
+	_tick_hit_outline_pulse(delta)
+	_tick_enemy_aura_visual(delta)
 	if target == null or not is_instance_valid(target):
 		return
 
@@ -587,6 +609,14 @@ func _on_death(from_explosion: bool) -> bool:
 
 
 func _flash_hit(shield_only: bool) -> void:
+	_hit_outline_timer = HIT_OUTLINE_PULSE_SEC
+	if outline_visual != null:
+		outline_visual.visible = true
+		outline_visual.scale = _outline_base_scale * (1.0 + HIT_OUTLINE_SCALE_BONUS)
+		var peak_outline := _outline_base_color.lightened(HIT_OUTLINE_LIGHTEN)
+		if shield_only:
+			peak_outline = peak_outline.lerp(Color(0.80, 1.0, 1.0, peak_outline.a), 0.34)
+		outline_visual.color = peak_outline
 	if shield_only:
 		_set_enemy_visual_modulate(Color(0.9, 1.35, 1.6, 1.0))
 	else:
@@ -596,6 +626,23 @@ func _flash_hit(shield_only: bool) -> void:
 		tween.tween_property(sticker_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.08)
 	else:
 		tween.tween_property(body_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.08)
+
+
+func _tick_hit_outline_pulse(delta: float) -> void:
+	if outline_visual == null:
+		return
+	if _hit_outline_timer <= 0.0:
+		outline_visual.scale = _outline_base_scale
+		outline_visual.color = _outline_base_color
+		return
+	_hit_outline_timer = maxf(0.0, _hit_outline_timer - delta)
+	var ratio := clampf(_hit_outline_timer / HIT_OUTLINE_PULSE_SEC, 0.0, 1.0)
+	var pulse := pow(ratio, 0.42)
+	outline_visual.scale = _outline_base_scale * (1.0 + HIT_OUTLINE_SCALE_BONUS * pulse)
+	outline_visual.color = _outline_base_color.lerp(_outline_base_color.lightened(HIT_OUTLINE_LIGHTEN), pulse)
+	if _hit_outline_timer <= 0.0:
+		outline_visual.scale = _outline_base_scale
+		outline_visual.color = _outline_base_color
 
 
 func apply_status_effect(effect_id: String, duration: float, power: float = 0.0) -> void:
@@ -693,7 +740,9 @@ func is_revealed() -> bool:
 
 func _update_reveal_visual() -> void:
 	var revealed := is_revealed()
-	outline_visual.visible = revealed or shield_hp > 0.0 or is_elite
+	outline_visual.visible = revealed or shield_hp > 0.0 or is_elite or _hit_outline_timer > 0.0
+	if _enemy_aura_visual != null:
+		_enemy_aura_visual.visible = pooled_active and (revealed or shield_hp > 0.0 or is_elite or _hit_outline_timer > 0.0 or behavior == "boss")
 	if revealed:
 		_set_enemy_visual_modulate(Color(1.12, 1.12, 1.16, 1.0))
 	elif shield_hp > 0.0:
@@ -735,7 +784,8 @@ func apply_elite_affix(affix: Dictionary) -> void:
 			elite_xp_siphon_rate = maxf(0.0, float(effects.get("xp_siphon_rate", 0.0)))
 		if effects.has("siphon_radius"):
 			elite_siphon_radius = maxf(0.0, float(effects.get("siphon_radius", 0.0)))
-	outline_visual.color = Color.from_string(String(affix.get("color", "#ffd37f")), Color(1.0, 0.84, 0.6, 1.0)).lightened(0.25)
+	_palette_seed_color = Color.from_string(String(affix.get("color", "#ffd37f")), Color(1.0, 0.84, 0.6, 1.0))
+	_refresh_enemy_palette()
 	xp_reward = int(round(float(xp_reward) * (1.0 + maxf(0.0, float(affix.get("drop_bonus", 0.0))))))
 	add_to_group("elite")
 	_update_reveal_visual()
@@ -1083,6 +1133,12 @@ func on_pool_recycle() -> void:
 	boss_summon_break_remaining = 0
 	boss_summon_break_total_required = 0
 	boss_summon_break_shield_mult = 0.18
+	_hit_outline_timer = 0.0
+	_body_base_scale = Vector2.ONE
+	_outline_base_scale = Vector2.ONE
+	_outline_base_color = Color(0.72, 0.96, 1.0, 1.0)
+	_palette_seed_color = Color(0.22, 0.9, 1.0, 1.0)
+	_enemy_aura_phase = 0.0
 	_clear_boss_decoys()
 	remove_from_group("enemy")
 	remove_from_group("pursuer")
@@ -1090,8 +1146,12 @@ func on_pool_recycle() -> void:
 	remove_from_group("boss")
 	collision_layer = 0
 	collision_mask = 0
+	z_index = CombatPaletteClass.LAYER_ENEMY
 	visible = false
 	set_physics_process(false)
+	if _enemy_aura_visual != null:
+		_enemy_aura_visual.visible = false
+		_enemy_aura_visual.modulate = Color(1.0, 1.0, 1.0, 1.0)
 	if sticker_visual != null:
 		sticker_visual.texture = null
 		sticker_visual.visible = false
@@ -1152,6 +1212,66 @@ func _snap_visual_offset(value: float) -> float:
 	if VISUAL_OFFSET_SNAP <= 0.0:
 		return value
 	return round(value / VISUAL_OFFSET_SNAP) * VISUAL_OFFSET_SNAP
+
+
+func _ensure_enemy_aura_visual() -> void:
+	if _enemy_aura_visual != null:
+		return
+	_enemy_aura_visual = Polygon2D.new()
+	_enemy_aura_visual.name = "Aura"
+	_enemy_aura_visual.polygon = body_visual.polygon
+	_enemy_aura_visual.visible = false
+	_enemy_aura_visual.color = Color(0.78, 0.98, 1.0, 0.32)
+	_enemy_aura_visual.z_index = CombatPaletteClass.LAYER_ENEMY_AURA - CombatPaletteClass.LAYER_ENEMY
+	var aura_material := CanvasItemMaterial.new()
+	aura_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	_enemy_aura_visual.material = aura_material
+	add_child(_enemy_aura_visual)
+	move_child(_enemy_aura_visual, 0)
+
+
+func _refresh_enemy_palette() -> void:
+	var palette_variant: Variant = CombatPaletteClass.enemy_palette(_palette_seed_color, spawn_group, is_elite)
+	var palette: Dictionary = palette_variant if palette_variant is Dictionary else {}
+	var body_variant: Variant = palette.get("body", _palette_seed_color)
+	var outline_variant: Variant = palette.get("outline", _palette_seed_color.lightened(0.32))
+	var aura_variant: Variant = palette.get("aura", _palette_seed_color.lightened(0.18))
+	var body_color: Color = body_variant if body_variant is Color else _palette_seed_color
+	var outline_color: Color = outline_variant if outline_variant is Color else _palette_seed_color.lightened(0.32)
+	var aura_color: Color = aura_variant if aura_variant is Color else _palette_seed_color.lightened(0.18)
+	body_visual.color = body_color
+	_set_outline_base_color(outline_color)
+	_ensure_enemy_aura_visual()
+	if _enemy_aura_visual != null:
+		_enemy_aura_visual.color = aura_color
+		_enemy_aura_visual.scale = _body_base_scale * ENEMY_AURA_BASE_SCALE
+
+
+func _tick_enemy_aura_visual(delta: float) -> void:
+	if _enemy_aura_visual == null:
+		return
+	if not pooled_active:
+		_enemy_aura_visual.visible = false
+		return
+	_enemy_aura_phase += delta * (2.3 + (0.5 if is_elite else 0.0))
+	var wave := 0.5 + 0.5 * sin(_enemy_aura_phase * TAU)
+	var hit_boost := clampf(_hit_outline_timer / maxf(0.001, HIT_OUTLINE_PULSE_SEC), 0.0, 1.0)
+	var base_alpha := ENEMY_AURA_BASE_ALPHA + (ENEMY_AURA_ELITE_ALPHA_BONUS if is_elite else 0.0)
+	if spawn_group == "pursuer":
+		base_alpha += ENEMY_AURA_PURSUER_ALPHA_BONUS
+	var alpha := clampf(base_alpha * lerpf(0.82, 1.16, wave) + hit_boost * 0.18, 0.06, 0.72)
+	var aura_color := _enemy_aura_visual.color
+	aura_color.a = alpha
+	_enemy_aura_visual.color = aura_color
+	_enemy_aura_visual.scale = _body_base_scale * (ENEMY_AURA_BASE_SCALE + ENEMY_AURA_PULSE_AMPLITUDE * wave + hit_boost * 0.12)
+
+
+func _set_outline_base_color(color_value: Color) -> void:
+	_outline_base_color = color_value
+	if outline_visual == null:
+		return
+	if _hit_outline_timer <= 0.0:
+		outline_visual.color = _outline_base_color
 
 
 func _set_enemy_visual_modulate(modulate_color: Color) -> void:

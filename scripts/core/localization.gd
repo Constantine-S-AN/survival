@@ -206,6 +206,12 @@ const UI_TEXT := {
 	"menu.language": {"en": "Language", "zh_CN": "语言"},
 	"menu.placeholder_profile": {"en": "Profile page is coming soon.", "zh_CN": "档案页面即将推出。"},
 	"menu.placeholder_settings": {"en": "Settings page is coming soon.", "zh_CN": "设置页面即将推出。"},
+	"pause.title": {"en": "Paused", "zh_CN": "游戏暂停"},
+	"pause.hint": {"en": "Resume with Esc", "zh_CN": "按 Esc 继续游戏"},
+	"pause.resume": {"en": "Resume", "zh_CN": "继续游戏"},
+	"pause.settings": {"en": "Settings", "zh_CN": "设置"},
+	"pause.main_menu": {"en": "Main Menu", "zh_CN": "返回主菜单"},
+	"pause.quit": {"en": "Quit Game", "zh_CN": "退出游戏"},
 
 	"run_setup.title": {"en": "Run Setup", "zh_CN": "开局配置"},
 	"run_setup.hint": {"en": "Pick character and map to unlock contracts.", "zh_CN": "先选择角色与地图，再配置契约。"},

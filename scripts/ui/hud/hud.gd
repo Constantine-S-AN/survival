@@ -5,6 +5,7 @@ const HUDStateClass := preload("res://scripts/ui/hud/hud_state.gd")
 const UIMotionClass := preload("res://scripts/ui/ui_motion.gd")
 const UISfx := preload("res://scripts/ui/ui_sfx.gd")
 const IconRegistry := preload("res://scripts/ui/icon_registry.gd")
+const FLARE_EDGE_SHADER := preload("res://assets/shaders/flare_edge_flash.gdshader")
 const TAG_ICON_CODES: Dictionary = {
 	"sonar": "SO",
 	"silence": "SI",
@@ -30,6 +31,13 @@ const TAG_ICON_CODES: Dictionary = {
 }
 const WEAPON_ICON_ANIM_SEC := 0.18
 const WEAPON_PART_PULSE_SEC := 0.12
+const HUD_DANGER_LOW_HP_START := 0.46
+const HUD_DANGER_NOISE_START := 0.72
+const HUD_DANGER_EDGE_MAX := 0.62
+const HUD_DANGER_PULSE_BASE := 1.4
+const HUD_DANGER_PULSE_BOOST := 3.2
+const HUD_DANGER_BOSS_EDGE_BONUS := 0.22
+const HUD_NOISE_OVERDRIVE_SCALE_MAX := 1.028
 
 @onready var noise_panel: PanelContainer = $TopNoise/NoisePanel
 @onready var noise_meter: VBoxContainer = $TopNoise/NoisePanel/Margin/VBox/NoiseMeter
@@ -78,6 +86,8 @@ const WEAPON_PART_PULSE_SEC := 0.12
 
 @onready var damage_flash: ColorRect = $DamageFlash
 
+var _danger_edge_overlay: ColorRect
+var _danger_edge_material: ShaderMaterial
 var _last_tier_id: String = ""
 var _last_hp_ratio: float = 1.0
 var _last_sonar_ping_sequence: int = 0
@@ -91,6 +101,9 @@ var _intro_played: bool = false
 var _last_raw_state: Dictionary = {}
 var _boss_tween: Tween
 var _boss_hp_ratio_last: float = 1.0
+var _boss_phase_tween: Tween
+var _last_boss_phase_token: String = ""
+var _danger_intensity_smoothed: float = 0.0
 var _weapon_icon_frames: Array[Texture2D] = []
 var _weapon_icon_timer: float = 0.0
 var _weapon_icon_frame_idx: int = 0
@@ -121,6 +134,7 @@ func _ready() -> void:
 	dash_bar.min_value = 0.0
 	sonar_hint_label.text = _t("hud.ready")
 	contract_status_label.visible = false
+	_create_danger_edge_overlay()
 	if sonar_icon != null:
 		sonar_icon.texture = IconRegistry.get_skill_icon("sonar")
 	if dash_icon != null:
@@ -188,6 +202,8 @@ func apply_state(state) -> void:
 	var boss_name := String(state.get("boss_name", "Boss"))
 	var boss_hp := maxf(0.0, float(state.get("boss_hp", 0.0)))
 	var boss_hp_max := maxf(1.0, float(state.get("boss_hp_max", 1.0)))
+	var boss_hp_ratio := clampf(boss_hp / boss_hp_max, 0.0, 1.0)
+	var boss_phase_id := String(state.get("boss_phase_id", ""))
 	var boss_phase := String(state.get("boss_phase_label", ""))
 	var boss_exam_objective := String(state.get("boss_exam_objective", ""))
 	var boss_summon_break_active := bool(state.get("boss_summon_break_active", false))
@@ -217,9 +233,11 @@ func apply_state(state) -> void:
 	if noise_meter != null and noise_meter.has_method("update_meter"):
 		noise_meter.call("update_meter", noise_value, noise_min, noise_max, noise_tier_name, noise_tier_color)
 	_update_threshold_progress(state, tier_index)
+	_update_noise_overdrive_fx(noise_value, noise_min, noise_max, noise_tier_color, boss_active)
 
 	if noise_tier_id != _last_tier_id:
-		_play_tier_change_feedback(tier_index, noise_tier_color)
+		if _last_tier_id != "":
+			_play_tier_change_feedback(tier_index, noise_tier_color)
 		_last_tier_id = noise_tier_id
 
 	weapon_name_label.text = _t("hud.weapon", {"value": weapon_name})
@@ -253,10 +271,22 @@ func apply_state(state) -> void:
 		boss_name,
 		boss_hp,
 		boss_hp_max,
+		boss_phase_id,
 		boss_phase,
 		boss_exam_objective,
 		boss_summon_break_active,
 		boss_summon_break_alive
+	)
+	_update_danger_edge_fx(
+		hp_ratio,
+		noise_value,
+		noise_min,
+		noise_max,
+		noise_tier_color,
+		boss_active,
+		boss_hp_ratio,
+		boss_phase_id,
+		boss_phase
 	)
 	_update_damage_feedback(hp_ratio)
 
@@ -277,7 +307,8 @@ func get_debug_snapshot() -> Dictionary:
 		"streak_tier": _last_streak_tier,
 		"streak_hint": streak_hint_label.text,
 		"dash_hint": dash_hint_label.text,
-		"contract_visible": contract_status_label.visible
+		"contract_visible": contract_status_label.visible,
+		"danger_edge": _danger_intensity_smoothed
 	}
 
 
@@ -391,6 +422,7 @@ func _update_boss_block(
 	boss_name: String,
 	hp: float,
 	hp_max: float,
+	phase_id: String,
 	phase_text: String,
 	objective_text: String,
 	summon_break_active: bool,
@@ -401,6 +433,9 @@ func _update_boss_block(
 	boss_top.visible = active
 	if not active:
 		_boss_hp_ratio_last = 1.0
+		_last_boss_phase_token = ""
+		boss_panel.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		boss_phase_label.modulate = Color(1.0, 1.0, 1.0, 1.0)
 		return
 	var safe_name := boss_name.strip_edges()
 	if safe_name.is_empty():
@@ -413,6 +448,9 @@ func _update_boss_block(
 	boss_hp_bar.value = safe_hp
 	var hp_ratio := clampf(safe_hp / safe_max, 0.0, 1.0)
 	boss_hp_bar.modulate = Color(0.84, 0.94, 1.0, 1.0).lerp(Color(1.0, 0.62, 0.58, 1.0), 1.0 - hp_ratio)
+	var phase_color := _resolve_boss_phase_color(phase_id, phase_text)
+	boss_phase_label.modulate = Color(1.0, 1.0, 1.0, 1.0).lerp(phase_color, 0.62)
+	boss_panel.modulate = Color(1.0, 1.0, 1.0, 1.0).lerp(phase_color, 0.12 + (1.0 - hp_ratio) * 0.12)
 	var hint := objective_text.strip_edges()
 	if summon_break_active and summon_break_alive > 0:
 		if hint.is_empty():
@@ -426,7 +464,126 @@ func _update_boss_block(
 		_boss_tween = create_tween()
 		_boss_tween.tween_property(boss_panel, "scale", Vector2(1.01, 1.01), 0.05)
 		_boss_tween.tween_property(boss_panel, "scale", Vector2.ONE, 0.08)
+	var phase_token := String(phase_id).strip_edges().to_lower()
+	if phase_token.is_empty():
+		phase_token = String(phase_text).strip_edges().to_lower()
+	if not phase_token.is_empty() and phase_token != _last_boss_phase_token:
+		_play_boss_phase_shift_feedback(phase_color)
+	_last_boss_phase_token = phase_token
 	_boss_hp_ratio_last = hp_ratio
+
+
+func _create_danger_edge_overlay() -> void:
+	if _danger_edge_overlay != null:
+		return
+	_danger_edge_overlay = ColorRect.new()
+	_danger_edge_overlay.name = "DangerEdgeOverlay"
+	_danger_edge_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_danger_edge_overlay.offset_left = 0.0
+	_danger_edge_overlay.offset_top = 0.0
+	_danger_edge_overlay.offset_right = 0.0
+	_danger_edge_overlay.offset_bottom = 0.0
+	_danger_edge_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_danger_edge_overlay.color = Color(1.0, 1.0, 1.0, 1.0)
+	_danger_edge_overlay.visible = false
+	_danger_edge_material = ShaderMaterial.new()
+	_danger_edge_material.shader = FLARE_EDGE_SHADER
+	_danger_edge_material.set_shader_parameter("edge_strength", 0.0)
+	_danger_edge_material.set_shader_parameter("edge_softness", 0.23)
+	_danger_edge_material.set_shader_parameter("edge_color", Color(1.0, 0.70, 0.72, 1.0))
+	_danger_edge_overlay.material = _danger_edge_material
+	add_child(_danger_edge_overlay)
+	move_child(_danger_edge_overlay, 1)
+
+
+func _update_noise_overdrive_fx(noise_value: float, noise_min: float, noise_max: float, tier_color: Color, boss_active: bool) -> void:
+	var noise_ratio := _resolve_noise_ratio(noise_value, noise_min, noise_max)
+	var overdrive := clampf((noise_ratio - HUD_DANGER_NOISE_START) / maxf(0.001, 1.0 - HUD_DANGER_NOISE_START), 0.0, 1.0)
+	var pulse := 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.001 * (2.4 + overdrive * 4.0))
+	var tint := Color(1.0, 1.0, 1.0, 1.0).lerp(tier_color, 0.18 + overdrive * 0.42)
+	if boss_active:
+		tint = tint.lerp(Color(1.0, 0.62, 0.68, 1.0), 0.22)
+	threshold_bar.modulate = tint
+	noise_panel.modulate = Color(1.0, 1.0, 1.0, 1.0).lerp(tint, 0.18)
+	var scale_boost := overdrive * (0.4 + pulse * 0.6)
+	noise_panel.scale = Vector2.ONE * lerpf(1.0, HUD_NOISE_OVERDRIVE_SCALE_MAX, scale_boost)
+
+
+func _update_danger_edge_fx(
+	hp_ratio: float,
+	noise_value: float,
+	noise_min: float,
+	noise_max: float,
+	noise_tier_color: Color,
+	boss_active: bool,
+	boss_hp_ratio: float,
+	boss_phase_id: String,
+	boss_phase: String
+) -> void:
+	if _danger_edge_overlay == null or _danger_edge_material == null:
+		return
+	var low_hp_pressure := clampf((HUD_DANGER_LOW_HP_START - hp_ratio) / maxf(0.001, HUD_DANGER_LOW_HP_START), 0.0, 1.0)
+	var noise_ratio := _resolve_noise_ratio(noise_value, noise_min, noise_max)
+	var noise_pressure := clampf((noise_ratio - HUD_DANGER_NOISE_START) / maxf(0.001, 1.0 - HUD_DANGER_NOISE_START), 0.0, 1.0)
+	var boss_pressure := 0.0
+	if boss_active:
+		boss_pressure = clampf(0.28 + (1.0 - boss_hp_ratio) * 0.72, 0.0, 1.0)
+	var target_intensity := clampf(low_hp_pressure * 0.78 + noise_pressure * 0.44 + boss_pressure * 0.68, 0.0, 1.25)
+	_danger_intensity_smoothed = lerpf(_danger_intensity_smoothed, target_intensity, 0.12)
+	if _danger_intensity_smoothed <= 0.001:
+		_danger_edge_overlay.visible = false
+		_danger_edge_material.set_shader_parameter("edge_strength", 0.0)
+		return
+	var pulse_speed := HUD_DANGER_PULSE_BASE + _danger_intensity_smoothed * HUD_DANGER_PULSE_BOOST
+	var pulse := 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.001 * pulse_speed)
+	var edge_strength := clampf(
+		_danger_intensity_smoothed * (0.12 + 0.88 * pulse) + boss_pressure * HUD_DANGER_BOSS_EDGE_BONUS,
+		0.0,
+		HUD_DANGER_EDGE_MAX
+	)
+	var phase_color := _resolve_boss_phase_color(boss_phase_id, boss_phase)
+	var danger_color := noise_tier_color.lerp(Color(1.0, 0.34, 0.34, 1.0), low_hp_pressure * 0.84)
+	danger_color = danger_color.lerp(phase_color, boss_pressure * 0.58)
+	danger_color.a = 1.0
+	_danger_edge_material.set_shader_parameter("edge_strength", edge_strength)
+	_danger_edge_material.set_shader_parameter("edge_color", danger_color)
+	_danger_edge_overlay.visible = edge_strength > 0.002
+
+
+func _resolve_noise_ratio(noise_value: float, noise_min: float, noise_max: float) -> float:
+	var span := maxf(1.0, noise_max - noise_min)
+	return clampf((noise_value - noise_min) / span, 0.0, 1.0)
+
+
+func _resolve_boss_phase_color(phase_id: String, phase_text: String) -> Color:
+	var token := phase_id.strip_edges().to_lower()
+	if token.is_empty():
+		token = phase_text.strip_edges().to_lower()
+	if token.find("phase_4") >= 0 or token.find("phase 4") >= 0:
+		return Color(1.0, 0.34, 0.42, 1.0)
+	if token.find("phase_3") >= 0 or token.find("phase 3") >= 0:
+		return Color(0.82, 0.60, 1.0, 1.0)
+	if token.find("phase_2") >= 0 or token.find("phase 2") >= 0:
+		return Color(1.0, 0.62, 0.68, 1.0)
+	return Color(0.94, 0.84, 0.70, 1.0)
+
+
+func _play_boss_phase_shift_feedback(phase_color: Color) -> void:
+	if not UIMotionClass.is_motion_enabled():
+		return
+	if _boss_phase_tween != null and is_instance_valid(_boss_phase_tween):
+		_boss_phase_tween.kill()
+	_boss_phase_tween = create_tween()
+	boss_panel.scale = Vector2.ONE
+	_boss_phase_tween.tween_property(boss_panel, "scale", Vector2(1.024, 1.024), 0.09)
+	_boss_phase_tween.parallel().tween_property(boss_phase_label, "modulate", phase_color.lightened(0.16), 0.10)
+	_boss_phase_tween.tween_property(boss_panel, "scale", Vector2.ONE, 0.13)
+	_boss_phase_tween.parallel().tween_property(
+		boss_phase_label,
+		"modulate",
+		Color(1.0, 1.0, 1.0, 1.0).lerp(phase_color, 0.62),
+		0.16
+	)
 
 
 func _play_kill_streak_feedback(tier_color: Color) -> void:
@@ -661,6 +818,9 @@ func _tick_weapon_parts(delta: float) -> void:
 func _on_visibility_changed() -> void:
 	if not visible:
 		_intro_played = false
+		if _danger_edge_overlay != null and _danger_edge_material != null:
+			_danger_edge_overlay.visible = false
+			_danger_edge_material.set_shader_parameter("edge_strength", 0.0)
 		return
 	if _intro_played:
 		return

@@ -98,9 +98,9 @@ static func get_upgrade_icon_frames(option: Dictionary) -> Array[Texture2D]:
 			var weapon_id := String(weapon_variant).strip_edges().to_lower()
 			if weapon_id.is_empty():
 				continue
-			var weapon_frames := get_weapon_icon_frames(weapon_id)
-			if not weapon_frames.is_empty():
-				return weapon_frames
+			var weapon_texture := _load_texture(get_weapon_icon_path(weapon_id))
+			if weapon_texture != null:
+				return [weapon_texture]
 	var tags_variant: Variant = option.get("tags", [])
 	if tags_variant is Array:
 		for tag_variant in (tags_variant as Array):

@@ -7,8 +7,14 @@ signal hazard_state_changed(active: bool, warning_text: String)
 const MapRuntimeClass := preload("res://scripts/core/map_runtime.gd")
 const BossTelegraphEffectClass := preload("res://scripts/effects/boss_telegraph_effect.gd")
 const ForegroundOccluderClass := preload("res://scripts/game/foreground_occluder.gd")
+const CombatPaletteClass := preload("res://scripts/visual/combat_palette.gd")
 const FLARE_EDGE_SHADER := preload("res://assets/shaders/flare_edge_flash.gdshader")
+const FLOOR_BALANCE_SHADER := preload("res://assets/shaders/floor_luminance_balance.gdshader")
+const WORLD_POST_SHADER := preload("res://assets/shaders/world_post_grade.gdshader")
+const SURFACE_MIST_SHADER := preload("res://assets/shaders/surface_mist.gdshader")
 const BACKDROP_TEXTURE_PATH := ""
+const FLOOR_TEXTURE_FILTER := CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+const LIGHT_TEXTURE_FILTER := CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 const MAP_FLOOR_TEXTURES := {
 	"map_trench_lab": "res://assets/textures/pixel/maps/dungeon/trench_floor_dungeon.png",
 	"map_black_tide": "res://assets/textures/pixel/maps/dungeon/black_tide_floor_dungeon.png"
@@ -18,12 +24,42 @@ const MAP_FLOOR_SCALE := {
 	"map_black_tide": Vector2(4.25, 4.25)
 }
 const MAP_FLOOR_MODULATE := {
-	"map_trench_lab": Color(0.90, 0.86, 0.92, 1.0),
-	"map_black_tide": Color(0.76, 0.90, 1.00, 1.0)
+	"map_trench_lab": Color(0.94, 0.90, 0.96, 1.0),
+	"map_black_tide": Color(0.80, 0.95, 1.00, 1.0)
 }
 const MAP_OBSTACLE_MODULATE := {
-	"map_trench_lab": Color(0.70, 0.72, 0.74, 1.0),
-	"map_black_tide": Color(0.66, 0.68, 0.72, 1.0)
+	"map_trench_lab": Color(0.74, 0.76, 0.80, 1.0),
+	"map_black_tide": Color(0.70, 0.72, 0.78, 1.0)
+}
+const MAP_POST_GRADE_PRESETS := {
+	"map_trench_lab": {
+		"shadow_tint": Color(0.92, 0.88, 0.99, 1.0),
+		"highlight_tint": Color(1.04, 0.98, 0.90, 1.0),
+		"tone_strength": 0.17
+	},
+	"map_black_tide": {
+		"shadow_tint": Color(0.86, 0.94, 1.03, 1.0),
+		"highlight_tint": Color(0.95, 1.05, 1.04, 1.0),
+		"tone_strength": 0.15
+	}
+}
+const MAP_SURFACE_MIST_PRESETS := {
+	"map_trench_lab": {
+		"tint": Color(0.11, 0.16, 0.24, 1.0),
+		"density": 0.16,
+		"softness": 0.68,
+		"scale": 2.40,
+		"flow": Vector2(0.040, -0.026),
+		"pulse_speed": 0.55
+	},
+	"map_black_tide": {
+		"tint": Color(0.09, 0.19, 0.21, 1.0),
+		"density": 0.13,
+		"softness": 0.62,
+		"scale": 2.10,
+		"flow": Vector2(-0.028, 0.033),
+		"pulse_speed": 0.62
+	}
 }
 const OBSTACLE_TEXTURES := {
 	"house": "res://assets/textures/pixel/maps/props/dungeon/house_dungeon.png",
@@ -78,27 +114,102 @@ const CANDLE_BASE_LIGHT_ENERGY := 1.24
 const CANDLE_LIGHT_ENERGY_MIN_MULT := 0.94
 const CANDLE_LIGHT_ENERGY_MAX_MULT := 1.28
 const CANDLE_FRAME_SEC := 0.12
-const FLARE_BOOST_DURATION := 5.0
-const FLARE_ENERGY_MULT := 2.05
-const FLARE_RADIUS_MULT := 1.48
-const FLARE_ENERGY_INTENSITY_BONUS := 0.95
-const FLARE_RADIUS_INTENSITY_BONUS := 0.82
-const FLARE_LIGHT_BASE_COLOR := Color(0.96, 0.84, 0.72, 1.0)
-const FLARE_LIGHT_HOT_COLOR := Color(1.0, 0.92, 0.78, 1.0)
-const FLARE_SCREEN_FLASH_PEAK_SEC := 0.16
-const FLARE_SCREEN_FLASH_DECAY_SEC := 5.0
-const FLARE_SCREEN_FLASH_PEAK_TARGET := Color(0.74, 0.72, 0.66, 1.0)
-const FLARE_SCREEN_FLASH_DECAY_TARGET := Color(0.32, 0.30, 0.27, 1.0)
-const FLARE_SCREEN_FLASH_PEAK_BLEND := 0.98
-const FLARE_SCREEN_FLASH_DECAY_BLEND := 0.88
-const FLARE_EDGE_FLASH_SEC := 0.08
+const OBSTACLE_SHADOW_OFFSET := Vector2(9.0, 7.0)
+const OBSTACLE_SHADOW_SCALE_BOOST := 1.04
+const OBSTACLE_SHADOW_COLOR := Color(0.02, 0.02, 0.03, 0.30)
+const FLARE_BOOST_DURATION := 8.0
+const FLARE_INTENSITY_DECAY_PER_SEC := 0.12
+const FLARE_ENERGY_MULT := 4.20
+const FLARE_RADIUS_MULT := 3.60
+const FLARE_ENERGY_INTENSITY_BONUS := 1.80
+const FLARE_RADIUS_INTENSITY_BONUS := 1.40
+const FLARE_LIGHT_BASE_COLOR := Color(0.98, 0.93, 0.84, 1.0)
+const FLARE_LIGHT_HOT_COLOR := Color(1.0, 0.97, 0.90, 1.0)
+const FLARE_SCREEN_FLASH_PEAK_SEC := 0.30
+const FLARE_SCREEN_FLASH_DECAY_SEC := 12.0
+const FLARE_SCREEN_FLASH_PEAK_TARGET := Color(0.98, 0.97, 0.94, 1.0)
+const FLARE_SCREEN_FLASH_DECAY_TARGET := Color(0.88, 0.86, 0.82, 1.0)
+const FLARE_SCREEN_FLASH_PEAK_BLEND := 1.0
+const FLARE_SCREEN_FLASH_DECAY_BLEND := 0.95
+const FLARE_EDGE_FLASH_SEC := 0.18
 const FLARE_EDGE_FLASH_MAX_STRENGTH := 1.18
-const FLARE_WARM_TONE_SEC := 0.30
-const FLARE_WARM_TONE_ALPHA := 0.20
+const FLARE_WARM_TONE_SEC := 1.60
+const FLARE_WARM_TONE_ALPHA := 0.24
 const FLARE_WARM_TONE_COLOR := Color(1.0, 0.85, 0.66, 1.0)
+const HIT_FLASH_PEAK_SEC := 0.048
+const HIT_FLASH_DECAY_SEC := 0.168
+const HIT_FLASH_BEAT_DELAY_SEC := 0.038
+const HIT_FLASH_BASE_ALPHA := 0.10
+const HIT_FLASH_ALPHA_PER_INTENSITY := 0.24
+const HIT_FLASH_KILL_ALPHA_BONUS := 0.10
+const HIT_FLASH_BEAT_BLEND := 0.58
+const HIT_FLASH_EDGE_STRENGTH_MULT := 0.40
+const HIT_FLASH_COLOR := Color(0.84, 0.96, 1.0, 1.0)
+const HIT_FLASH_KILL_COLOR := Color(1.0, 0.92, 0.72, 1.0)
+const HIT_CRIT_CROSS_DURATION := 0.14
+const HIT_CRIT_CROSS_COLOR := Color(0.72, 0.97, 1.0, 1.0)
+const HIT_CRIT_CROSS_KILL_TINT := Color(1.0, 0.90, 0.66, 1.0)
+const HIT_CRIT_CROSS_BASE_LENGTH := 88.0
+const HIT_CRIT_CROSS_LENGTH_PER_INTENSITY := 138.0
+const HIT_CRIT_CROSS_BASE_WIDTH := 8.0
+const HIT_CRIT_CROSS_WIDTH_PER_INTENSITY := 10.0
+const HIT_KILL_RING_DURATION := 0.28
+const HIT_KILL_RING_COLOR := Color(1.0, 0.88, 0.64, 1.0)
+const HIT_KILL_RING_CRIT_TINT := Color(1.0, 0.96, 0.74, 1.0)
+const HIT_KILL_RING_BASE_RADIUS := 42.0
+const HIT_KILL_RING_RADIUS_PER_INTENSITY := 104.0
 const FOG_INTRO_DURATION := 5.0
 const FOG_INTRO_START_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const FOG_LIGHT_TEXTURE_SIZE := 1024
+const HIT_GLOW_DURATION := 0.24
+const HIT_GLOW_BASE_SIZE := 92.0
+const HIT_GLOW_SIZE_PER_INTENSITY := 78.0
+const HIT_GLOW_KILL_SIZE_BONUS := 48.0
+const HIT_GLOW_BASE_ALPHA := 0.66
+const HIT_GLOW_KILL_ALPHA_BONUS := 0.16
+const HIT_GLOW_COLOR := Color(0.58, 0.95, 1.0, 1.0)
+const HIT_GLOW_KILL_COLOR := Color(1.0, 0.95, 0.76, 1.0)
+const HIT_POST_TRAIL_MAX := 0.78
+const HIT_POST_TINT_MAX := 0.42
+const HIT_POST_LUT_MAX := 0.46
+const HIT_POST_WAVE_BOOST := 0.14
+const HIT_POST_TRAIL_DECAY_DEFAULT := 5.8
+const HIT_POST_TINT_DECAY_DEFAULT := 7.4
+const HIT_POST_LUT_DECAY_DEFAULT := 6.2
+const POST_BASE_CONTRAST := 1.10
+const POST_BASE_SATURATION := 1.10
+const POST_BASE_VIGNETTE := 0.24
+const POST_BASE_GRAIN := 0.012
+const POST_BASE_CHROMA := 0.0
+const POST_BASE_WARP := 0.0
+const POST_BASE_SCANLINE := 0.04
+const POST_BASE_SCANLINE_DENSITY := 540.0
+const POST_BASE_ENERGY_WAVE := 0.0
+const POST_BASE_ENERGY_WAVE_DENSITY := 7.8
+const POST_BASE_ENERGY_WAVE_SPEED := 1.10
+const NOISE_VISUAL_SMOOTH_SPEED := 2.6
+const NOISE_VISUAL_VIGNETTE_BOOST := 0.13
+const NOISE_VISUAL_GRAIN_BOOST := 0.010
+const NOISE_VISUAL_CONTRAST_BOOST := 0.055
+const NOISE_VISUAL_SATURATION_DROP := 0.09
+const NOISE_VISUAL_FOG_DARKEN := 0.16
+const NOISE_VISUAL_FOG_STRESS_TINT := Color(0.11, 0.09, 0.10, 1.0)
+const NOISE_VISUAL_CHROMA_BOOST := 1.20
+const NOISE_VISUAL_WARP_BOOST := 0.018
+const NOISE_VISUAL_SCANLINE_BOOST := 0.10
+const NOISE_VISUAL_WAVE_BOOST := 0.13
+const BOSS_VISUAL_SMOOTH_SPEED := 3.2
+const BOSS_VISUAL_CHROMA_BOOST := 1.55
+const BOSS_VISUAL_WARP_BOOST := 0.020
+const BOSS_VISUAL_SCANLINE_BOOST := 0.16
+const BOSS_VISUAL_WAVE_BOOST := 0.24
+const BOSS_VISUAL_TINT_MAX := 0.36
+const BOSS_EDGE_STRENGTH_BOOST := 0.30
+const BOSS_EDGE_COLOR_BLEND := 0.62
+const BOSS_TINT_PHASE_1 := Color(1.0, 0.86, 0.70, 1.0)
+const BOSS_TINT_PHASE_2 := Color(1.0, 0.60, 0.64, 1.0)
+const BOSS_TINT_PHASE_3 := Color(0.82, 0.60, 1.0, 1.0)
+const BOSS_TINT_PHASE_4 := Color(1.0, 0.34, 0.42, 1.0)
 const MAP_ROOM_SYNTAX_KEYS := [
 	"narrow_corridor",
 	"open_hall",
@@ -158,12 +269,49 @@ var _flare_screen_flash_peak_remaining: float = 0.0
 var _flare_screen_flash_decay_remaining: float = 0.0
 var _flare_edge_flash_remaining: float = 0.0
 var _flare_warm_tone_remaining: float = 0.0
+var _hit_flash_peak_remaining: float = 0.0
+var _hit_flash_decay_remaining: float = 0.0
+var _hit_flash_peak_alpha: float = 0.0
+var _hit_flash_decay_alpha: float = 0.0
+var _hit_flash_beat_timer: float = 0.0
+var _hit_flash_beat_alpha: float = 0.0
+var _hit_flash_color: Color = HIT_FLASH_COLOR
+var _hit_post_trail_amount: float = 0.0
+var _hit_post_tint_amount: float = 0.0
+var _hit_post_lut_amount: float = 0.0
+var _hit_post_trail_pixels: float = 2.4
+var _hit_post_lut_phase: float = 0.0
+var _hit_post_lut_speed: float = 1.6
+var _hit_post_trail_decay: float = HIT_POST_TRAIL_DECAY_DEFAULT
+var _hit_post_tint_decay: float = HIT_POST_TINT_DECAY_DEFAULT
+var _hit_post_lut_decay: float = HIT_POST_LUT_DECAY_DEFAULT
+var _hit_post_trail_direction: Vector2 = Vector2(0.0, -1.0)
+var _hit_post_color: Color = HIT_FLASH_COLOR
 var _fog_darkness_base_color: Color = Color(0.039, 0.078, 0.133, 1.0)
 var _fog_intro_remaining: float = 0.0
+var _noise_visual_ratio: float = 0.0
+var _noise_visual_ratio_smoothed: float = 0.0
+var _boss_visual_intensity: float = 0.0
+var _boss_visual_phase_id: String = ""
+var _boss_visual_tint: Color = BOSS_TINT_PHASE_1
 var _flare_fx_layer: CanvasLayer
 var _flare_edge_overlay: ColorRect
 var _flare_edge_material: ShaderMaterial
 var _flare_warm_overlay: ColorRect
+var _hit_flash_overlay: ColorRect
+var _surface_mist_layer: CanvasLayer
+var _surface_mist_overlay: ColorRect
+var _surface_mist_material: ShaderMaterial
+var _surface_mist_target_density: float = 0.13
+var _surface_mist_current_density: float = 0.13
+var _world_post_fx_layer: CanvasLayer
+var _world_post_overlay: ColorRect
+var _world_post_material: ShaderMaterial
+var _terrain_floor_material: ShaderMaterial
+var _hit_glow_additive_material: CanvasItemMaterial
+var _hit_glow_texture_cache: Texture2D = null
+var _hit_ring_texture_cache: Texture2D = null
+var _hit_cross_texture_cache: Texture2D = null
 var _layout_seed: int = 0
 var _active_map_obstacles: Array = []
 var _active_map_candles: Array[Vector2] = []
@@ -178,8 +326,11 @@ const ENEMY_POOL_PREWARM := 120
 
 func _ready() -> void:
 	sfx_rng.seed = int(Time.get_unix_time_from_system())
+	_create_surface_mist_overlay()
+	_create_world_post_fx_overlay()
 	_create_flare_screen_fx_overlays()
 	_apply_optional_backdrop_texture()
+	_ensure_floor_visual_material()
 	boss_fx_layer = Node2D.new()
 	boss_fx_layer.name = "BossFxLayer"
 	add_child(boss_fx_layer)
@@ -191,7 +342,10 @@ func _ready() -> void:
 	apply_sonar_config(DataRegistry.get_sonar_config())
 	current_map_id = DataRegistry.get_default_map_id()
 	_apply_map_visual_layout(current_map_id)
-	FeedbackBus.hit_landed.connect(_on_hit_landed)
+	if FeedbackBus.has_signal("hit_landed_detailed"):
+		FeedbackBus.hit_landed_detailed.connect(_on_hit_landed_detailed)
+	else:
+		FeedbackBus.hit_landed.connect(_on_hit_landed)
 	FeedbackBus.shot_fired.connect(_on_shot_fired)
 	if not FeedbackBus.sonar_pulse_requested.is_connected(_on_sonar_pulse_requested):
 		FeedbackBus.sonar_pulse_requested.connect(_on_sonar_pulse_requested)
@@ -228,6 +382,18 @@ func _create_flare_screen_fx_overlays() -> void:
 	)
 	_flare_fx_layer.add_child(_flare_warm_overlay)
 
+	_hit_flash_overlay = ColorRect.new()
+	_hit_flash_overlay.name = "HitFlashOverlay"
+	_hit_flash_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_hit_flash_overlay.offset_left = 0.0
+	_hit_flash_overlay.offset_top = 0.0
+	_hit_flash_overlay.offset_right = 0.0
+	_hit_flash_overlay.offset_bottom = 0.0
+	_hit_flash_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hit_flash_overlay.visible = false
+	_hit_flash_overlay.color = Color(HIT_FLASH_COLOR.r, HIT_FLASH_COLOR.g, HIT_FLASH_COLOR.b, 0.0)
+	_flare_fx_layer.add_child(_hit_flash_overlay)
+
 	_flare_edge_overlay = ColorRect.new()
 	_flare_edge_overlay.name = "FlareEdgeOverlay"
 	_flare_edge_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -247,11 +413,103 @@ func _create_flare_screen_fx_overlays() -> void:
 	_flare_fx_layer.add_child(_flare_edge_overlay)
 
 
+func _create_surface_mist_overlay() -> void:
+	if _surface_mist_layer != null:
+		return
+	_surface_mist_layer = CanvasLayer.new()
+	_surface_mist_layer.name = "SurfaceMistFxLayer"
+	_surface_mist_layer.layer = 0
+	add_child(_surface_mist_layer)
+
+	_surface_mist_overlay = ColorRect.new()
+	_surface_mist_overlay.name = "SurfaceMistOverlay"
+	_surface_mist_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_surface_mist_overlay.offset_left = 0.0
+	_surface_mist_overlay.offset_top = 0.0
+	_surface_mist_overlay.offset_right = 0.0
+	_surface_mist_overlay.offset_bottom = 0.0
+	_surface_mist_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_surface_mist_overlay.color = Color(1.0, 1.0, 1.0, 1.0)
+	_surface_mist_overlay.visible = true
+
+	_surface_mist_material = ShaderMaterial.new()
+	_surface_mist_material.shader = SURFACE_MIST_SHADER
+	_surface_mist_material.set_shader_parameter("effect_enabled", true)
+	_surface_mist_material.set_shader_parameter("mist_tint", Color(0.10, 0.17, 0.24, 1.0))
+	_surface_mist_material.set_shader_parameter("mist_density", _surface_mist_current_density)
+	_surface_mist_material.set_shader_parameter("mist_softness", 0.66)
+	_surface_mist_material.set_shader_parameter("mist_scale", 2.2)
+	_surface_mist_material.set_shader_parameter("flow_velocity", Vector2(0.032, -0.022))
+	_surface_mist_material.set_shader_parameter("pulse_speed", 0.58)
+	_surface_mist_material.set_shader_parameter("flare_reveal", 0.0)
+	_surface_mist_overlay.material = _surface_mist_material
+
+	_surface_mist_layer.add_child(_surface_mist_overlay)
+	_apply_map_surface_mist_preset(current_map_id)
+	_update_surface_mist_fx(0.0)
+
+
+func _create_world_post_fx_overlay() -> void:
+	if _world_post_fx_layer != null:
+		return
+	_world_post_fx_layer = CanvasLayer.new()
+	_world_post_fx_layer.name = "WorldPostFxLayer"
+	_world_post_fx_layer.layer = 1
+	add_child(_world_post_fx_layer)
+
+	_world_post_overlay = ColorRect.new()
+	_world_post_overlay.name = "WorldPostGradeOverlay"
+	_world_post_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_world_post_overlay.offset_left = 0.0
+	_world_post_overlay.offset_top = 0.0
+	_world_post_overlay.offset_right = 0.0
+	_world_post_overlay.offset_bottom = 0.0
+	_world_post_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_world_post_overlay.color = Color(1.0, 1.0, 1.0, 1.0)
+
+	_world_post_material = ShaderMaterial.new()
+	_world_post_material.shader = WORLD_POST_SHADER
+	_world_post_material.set_shader_parameter("exposure", 1.07)
+	_world_post_material.set_shader_parameter("contrast", POST_BASE_CONTRAST)
+	_world_post_material.set_shader_parameter("saturation", POST_BASE_SATURATION)
+	_world_post_material.set_shader_parameter("tone_strength", 0.16)
+	_world_post_material.set_shader_parameter("shadow_tint", Color(0.90, 0.92, 1.0, 1.0))
+	_world_post_material.set_shader_parameter("highlight_tint", Color(1.0, 0.99, 0.93, 1.0))
+	_world_post_material.set_shader_parameter("sharpen_strength", 0.23)
+	_world_post_material.set_shader_parameter("vignette_strength", POST_BASE_VIGNETTE)
+	_world_post_material.set_shader_parameter("vignette_softness", 0.30)
+	_world_post_material.set_shader_parameter("grain_strength", POST_BASE_GRAIN)
+	_world_post_material.set_shader_parameter("flare_lift", 0.0)
+	_world_post_material.set_shader_parameter("hit_trail_amount", 0.0)
+	_world_post_material.set_shader_parameter("hit_trail_direction", Vector2(0.0, -1.0))
+	_world_post_material.set_shader_parameter("hit_trail_pixels", 2.4)
+	_world_post_material.set_shader_parameter("hit_trail_tint", HIT_FLASH_COLOR)
+	_world_post_material.set_shader_parameter("hit_tint_strength", 0.0)
+	_world_post_material.set_shader_parameter("hit_tint_color", HIT_FLASH_COLOR)
+	_world_post_material.set_shader_parameter("lut_pulse_strength", 0.0)
+	_world_post_material.set_shader_parameter("lut_palette_phase", 0.0)
+	_world_post_material.set_shader_parameter("chroma_strength", POST_BASE_CHROMA)
+	_world_post_material.set_shader_parameter("radial_warp_strength", POST_BASE_WARP)
+	_world_post_material.set_shader_parameter("scanline_strength", POST_BASE_SCANLINE)
+	_world_post_material.set_shader_parameter("scanline_density", POST_BASE_SCANLINE_DENSITY)
+	_world_post_material.set_shader_parameter("phase_tint_strength", 0.0)
+	_world_post_material.set_shader_parameter("phase_tint_color", BOSS_TINT_PHASE_1)
+	_world_post_material.set_shader_parameter("energy_wave_strength", POST_BASE_ENERGY_WAVE)
+	_world_post_material.set_shader_parameter("energy_wave_density", POST_BASE_ENERGY_WAVE_DENSITY)
+	_world_post_material.set_shader_parameter("energy_wave_speed", POST_BASE_ENERGY_WAVE_SPEED)
+	_world_post_material.set_shader_parameter("energy_wave_color", Color(0.62, 0.90, 1.0, 1.0))
+	_world_post_overlay.material = _world_post_material
+	_world_post_fx_layer.add_child(_world_post_overlay)
+
+	_apply_map_post_grade_preset(current_map_id)
+	_update_world_post_fx()
+
+
 func _process(delta: float) -> void:
 	_tick_candle_fx(delta)
 	if _flare_boost_remaining > 0.0:
 		_flare_boost_remaining = maxf(0.0, _flare_boost_remaining - delta)
-	_flare_boost_intensity = maxf(1.0, _flare_boost_intensity - delta * 0.50)
+	_flare_boost_intensity = maxf(1.0, _flare_boost_intensity - delta * FLARE_INTENSITY_DECAY_PER_SEC)
 	if _flare_screen_flash_peak_remaining > 0.0:
 		_flare_screen_flash_peak_remaining = maxf(0.0, _flare_screen_flash_peak_remaining - delta)
 	if _flare_screen_flash_decay_remaining > 0.0:
@@ -260,11 +518,34 @@ func _process(delta: float) -> void:
 		_flare_edge_flash_remaining = maxf(0.0, _flare_edge_flash_remaining - delta)
 	if _flare_warm_tone_remaining > 0.0:
 		_flare_warm_tone_remaining = maxf(0.0, _flare_warm_tone_remaining - delta)
+	if _hit_flash_peak_remaining > 0.0:
+		_hit_flash_peak_remaining = maxf(0.0, _hit_flash_peak_remaining - delta)
+	if _hit_flash_decay_remaining > 0.0:
+		_hit_flash_decay_remaining = maxf(0.0, _hit_flash_decay_remaining - delta)
+	if _hit_flash_beat_timer > 0.0:
+		var beat_before := _hit_flash_beat_timer
+		_hit_flash_beat_timer = maxf(0.0, _hit_flash_beat_timer - delta)
+		if beat_before > 0.0 and _hit_flash_beat_timer <= 0.0 and _hit_flash_beat_alpha > 0.0:
+			_hit_flash_peak_remaining = maxf(_hit_flash_peak_remaining, HIT_FLASH_PEAK_SEC * 0.72)
+			_hit_flash_decay_remaining = maxf(_hit_flash_decay_remaining, HIT_FLASH_DECAY_SEC * 0.60)
+			_hit_flash_peak_alpha = maxf(_hit_flash_peak_alpha, _hit_flash_beat_alpha)
+			_hit_flash_decay_alpha = maxf(_hit_flash_decay_alpha, _hit_flash_beat_alpha * 0.56)
+			_hit_flash_beat_alpha = 0.0
+	if _hit_post_trail_amount > 0.0:
+		_hit_post_trail_amount = maxf(0.0, _hit_post_trail_amount - delta * _hit_post_trail_decay)
+	if _hit_post_tint_amount > 0.0:
+		_hit_post_tint_amount = maxf(0.0, _hit_post_tint_amount - delta * _hit_post_tint_decay)
+	if _hit_post_lut_amount > 0.0:
+		_hit_post_lut_amount = maxf(0.0, _hit_post_lut_amount - delta * _hit_post_lut_decay)
+	_hit_post_lut_phase = fposmod(_hit_post_lut_phase + delta * _hit_post_lut_speed, 1.0)
 	if _fog_intro_remaining > 0.0:
 		_fog_intro_remaining = maxf(0.0, _fog_intro_remaining - delta)
 	_update_player_fog_light()
+	_update_noise_visual_response(delta)
 	_update_fog_darkness_modulate()
 	_update_flare_screen_fx_overlays()
+	_update_surface_mist_fx(delta)
+	_update_world_post_fx()
 
 
 func _update_flare_screen_fx_overlays() -> void:
@@ -272,16 +553,47 @@ func _update_flare_screen_fx_overlays() -> void:
 		return
 	var edge_ratio := clampf(_flare_edge_flash_remaining / FLARE_EDGE_FLASH_SEC, 0.0, 1.0)
 	var edge_strength := pow(edge_ratio, 0.44) * FLARE_EDGE_FLASH_MAX_STRENGTH
+	var hit_flash_alpha := _resolve_hit_flash_alpha()
+	var boss_curve := clampf(_boss_visual_intensity, 0.0, 1.0)
+	edge_strength += hit_flash_alpha * HIT_FLASH_EDGE_STRENGTH_MULT
+	edge_strength += boss_curve * BOSS_EDGE_STRENGTH_BOOST
 	_flare_edge_overlay.visible = edge_strength > 0.001
 	if _flare_edge_material != null:
 		_flare_edge_material.set_shader_parameter("edge_strength", edge_strength)
+		var edge_color := Color(1.0, 1.0, 1.0, 1.0).lerp(
+			_boss_visual_tint,
+			clampf(boss_curve * BOSS_EDGE_COLOR_BLEND, 0.0, 1.0)
+		)
+		_flare_edge_material.set_shader_parameter("edge_color", edge_color)
 
 	var warm_ratio := clampf(_flare_warm_tone_remaining / FLARE_WARM_TONE_SEC, 0.0, 1.0)
 	var warm_alpha := pow(warm_ratio, 0.72) * FLARE_WARM_TONE_ALPHA
 	var warm_color := _flare_warm_overlay.color
+	var warm_tint := FLARE_WARM_TONE_COLOR.lerp(_boss_visual_tint, boss_curve * 0.34)
+	warm_color.r = warm_tint.r
+	warm_color.g = warm_tint.g
+	warm_color.b = warm_tint.b
 	warm_color.a = warm_alpha
 	_flare_warm_overlay.color = warm_color
 	_flare_warm_overlay.visible = warm_alpha > 0.002
+
+	if _hit_flash_overlay != null:
+		var flash_color := _hit_flash_color
+		flash_color.a = hit_flash_alpha
+		_hit_flash_overlay.color = flash_color
+		_hit_flash_overlay.visible = hit_flash_alpha > 0.002
+
+
+func _resolve_hit_flash_alpha() -> float:
+	var peak_alpha := 0.0
+	if _hit_flash_peak_remaining > 0.0:
+		var peak_ratio := clampf(_hit_flash_peak_remaining / HIT_FLASH_PEAK_SEC, 0.0, 1.0)
+		peak_alpha = _hit_flash_peak_alpha * pow(peak_ratio, 0.40)
+	var decay_alpha := 0.0
+	if _hit_flash_decay_remaining > 0.0:
+		var decay_ratio := clampf(_hit_flash_decay_remaining / HIT_FLASH_DECAY_SEC, 0.0, 1.0)
+		decay_alpha = _hit_flash_decay_alpha * pow(decay_ratio, 0.78)
+	return clampf(maxf(peak_alpha, decay_alpha), 0.0, 0.58)
 
 
 func _apply_optional_backdrop_texture() -> void:
@@ -307,6 +619,266 @@ func _apply_optional_backdrop_texture() -> void:
 	backdrop_accent.visible = true
 
 
+func _ensure_floor_visual_material() -> void:
+	if terrain_floor == null:
+		return
+	if _terrain_floor_material == null:
+		_terrain_floor_material = ShaderMaterial.new()
+		_terrain_floor_material.shader = FLOOR_BALANCE_SHADER
+		_terrain_floor_material.set_shader_parameter("blend_neighbors", 0.70)
+		_terrain_floor_material.set_shader_parameter("luma_mix", 0.54)
+		_terrain_floor_material.set_shader_parameter("contrast", 0.46)
+		_terrain_floor_material.set_shader_parameter("gamma", 1.05)
+	terrain_floor.material = _terrain_floor_material
+
+
+func _apply_map_post_grade_preset(map_id: String) -> void:
+	if _world_post_material == null:
+		return
+	var preset_variant: Variant = MAP_POST_GRADE_PRESETS.get(map_id, {})
+	var preset: Dictionary = preset_variant if preset_variant is Dictionary else {}
+	var shadow_variant: Variant = preset.get("shadow_tint", Color(0.90, 0.92, 1.0, 1.0))
+	var highlight_variant: Variant = preset.get("highlight_tint", Color(1.0, 0.99, 0.93, 1.0))
+	var tone_strength := float(preset.get("tone_strength", 0.16))
+	var shadow_color: Color = shadow_variant if shadow_variant is Color else Color(0.90, 0.92, 1.0, 1.0)
+	var highlight_color: Color = highlight_variant if highlight_variant is Color else Color(1.0, 0.99, 0.93, 1.0)
+	_world_post_material.set_shader_parameter("shadow_tint", shadow_color)
+	_world_post_material.set_shader_parameter("highlight_tint", highlight_color)
+	_world_post_material.set_shader_parameter("tone_strength", clampf(tone_strength, 0.0, 1.0))
+
+
+func _apply_map_surface_mist_preset(map_id: String) -> void:
+	if _surface_mist_material == null:
+		return
+	var preset_variant: Variant = MAP_SURFACE_MIST_PRESETS.get(map_id, {})
+	var preset: Dictionary = preset_variant if preset_variant is Dictionary else {}
+	var tint_variant: Variant = preset.get("tint", Color(0.10, 0.17, 0.24, 1.0))
+	var tint_color: Color = tint_variant if tint_variant is Color else Color(0.10, 0.17, 0.24, 1.0)
+	var density := clampf(float(preset.get("density", 0.13)), 0.0, 0.45)
+	var softness := clampf(float(preset.get("softness", 0.66)), 0.10, 0.95)
+	var scale := clampf(float(preset.get("scale", 2.2)), 0.2, 8.0)
+	var flow_variant: Variant = preset.get("flow", Vector2(0.032, -0.022))
+	var flow_velocity: Vector2 = flow_variant if flow_variant is Vector2 else Vector2(0.032, -0.022)
+	var pulse_speed := clampf(float(preset.get("pulse_speed", 0.58)), 0.05, 2.50)
+	_surface_mist_target_density = density
+	if _surface_mist_current_density <= 0.001:
+		_surface_mist_current_density = density
+	_surface_mist_material.set_shader_parameter("mist_tint", tint_color)
+	_surface_mist_material.set_shader_parameter("mist_softness", softness)
+	_surface_mist_material.set_shader_parameter("mist_scale", scale)
+	_surface_mist_material.set_shader_parameter("flow_velocity", flow_velocity)
+	_surface_mist_material.set_shader_parameter("pulse_speed", pulse_speed)
+	_surface_mist_overlay.visible = density > 0.001
+
+
+func _update_surface_mist_fx(delta: float) -> void:
+	if _surface_mist_material == null or _surface_mist_overlay == null:
+		return
+	var blend_ratio := clampf(delta * 3.8, 0.0, 1.0)
+	_surface_mist_current_density = lerpf(_surface_mist_current_density, _surface_mist_target_density, blend_ratio)
+	var flare_ratio := clampf(_flare_boost_remaining / maxf(0.001, FLARE_BOOST_DURATION), 0.0, 1.0)
+	var flare_eased := flare_ratio * flare_ratio
+	_surface_mist_material.set_shader_parameter("mist_density", _surface_mist_current_density)
+	_surface_mist_material.set_shader_parameter("flare_reveal", flare_eased)
+	_surface_mist_overlay.visible = _surface_mist_current_density > 0.001
+
+
+func _update_world_post_fx() -> void:
+	if _world_post_material == null:
+		return
+	var flare_ratio := clampf(_flare_boost_remaining / maxf(0.001, FLARE_BOOST_DURATION), 0.0, 1.0)
+	var flare_eased := flare_ratio * flare_ratio
+	var noise_curve := clampf(_noise_visual_ratio_smoothed, 0.0, 1.0)
+	noise_curve = noise_curve * noise_curve
+	var boss_curve := clampf(_boss_visual_intensity, 0.0, 1.25)
+	_world_post_material.set_shader_parameter(
+		"contrast",
+		clampf(
+			POST_BASE_CONTRAST + noise_curve * NOISE_VISUAL_CONTRAST_BOOST + boss_curve * 0.04,
+			0.5,
+			1.8
+		)
+	)
+	_world_post_material.set_shader_parameter(
+		"saturation",
+		clampf(
+			POST_BASE_SATURATION - noise_curve * NOISE_VISUAL_SATURATION_DROP - boss_curve * 0.05 + flare_eased * 0.028,
+			0.0,
+			2.0
+		)
+	)
+	_world_post_material.set_shader_parameter("flare_lift", 0.22 * flare_eased)
+	var vignette_target := clampf(POST_BASE_VIGNETTE + noise_curve * NOISE_VISUAL_VIGNETTE_BOOST, 0.0, 1.0)
+	_world_post_material.set_shader_parameter("vignette_strength", lerpf(vignette_target, 0.06, flare_eased))
+	_world_post_material.set_shader_parameter(
+		"grain_strength",
+		lerpf(
+			POST_BASE_GRAIN + noise_curve * NOISE_VISUAL_GRAIN_BOOST,
+			0.006,
+			flare_eased
+		) + clampf(_hit_post_trail_amount * 0.008, 0.0, 0.010)
+	)
+	_world_post_material.set_shader_parameter(
+		"chroma_strength",
+		clampf(
+			POST_BASE_CHROMA
+			+ noise_curve * NOISE_VISUAL_CHROMA_BOOST
+			+ boss_curve * BOSS_VISUAL_CHROMA_BOOST
+			+ clampf(_hit_post_trail_amount * 0.80, 0.0, 0.8),
+			0.0,
+			4.0
+		)
+	)
+	_world_post_material.set_shader_parameter(
+		"radial_warp_strength",
+		clampf(
+			POST_BASE_WARP
+			+ noise_curve * NOISE_VISUAL_WARP_BOOST
+			+ boss_curve * BOSS_VISUAL_WARP_BOOST
+			+ clampf(_hit_post_lut_amount * 0.025, 0.0, 0.018),
+			0.0,
+			0.08
+		)
+	)
+	_world_post_material.set_shader_parameter(
+		"scanline_strength",
+		clampf(
+			POST_BASE_SCANLINE
+			+ noise_curve * NOISE_VISUAL_SCANLINE_BOOST
+			+ boss_curve * BOSS_VISUAL_SCANLINE_BOOST
+			+ clampf(_hit_post_tint_amount * 0.08, 0.0, 0.04),
+			0.0,
+			0.5
+		)
+	)
+	_world_post_material.set_shader_parameter(
+		"scanline_density",
+		POST_BASE_SCANLINE_DENSITY + noise_curve * 160.0 + boss_curve * 220.0
+	)
+	_world_post_material.set_shader_parameter(
+		"phase_tint_strength",
+		clampf(boss_curve * BOSS_VISUAL_TINT_MAX + noise_curve * 0.06, 0.0, 1.0)
+	)
+	_world_post_material.set_shader_parameter("phase_tint_color", _boss_visual_tint)
+	_world_post_material.set_shader_parameter(
+		"energy_wave_strength",
+		clampf(
+			POST_BASE_ENERGY_WAVE
+			+ noise_curve * NOISE_VISUAL_WAVE_BOOST
+			+ boss_curve * BOSS_VISUAL_WAVE_BOOST
+			+ clampf(_hit_post_lut_amount * HIT_POST_WAVE_BOOST, 0.0, HIT_POST_WAVE_BOOST)
+			+ flare_eased * 0.06,
+			0.0,
+			0.6
+		)
+	)
+	_world_post_material.set_shader_parameter(
+		"energy_wave_density",
+		POST_BASE_ENERGY_WAVE_DENSITY + noise_curve * 2.6 + boss_curve * 2.2
+	)
+	_world_post_material.set_shader_parameter(
+		"energy_wave_speed",
+		POST_BASE_ENERGY_WAVE_SPEED + noise_curve * 0.34 + boss_curve * 0.52
+	)
+	var wave_color := Color(0.62, 0.90, 1.0, 1.0).lerp(_boss_visual_tint, clampf(boss_curve * 0.56, 0.0, 1.0))
+	wave_color = wave_color.lerp(_hit_post_color, clampf(_hit_post_lut_amount * 0.40, 0.0, 0.40))
+	wave_color.a = 1.0
+	_world_post_material.set_shader_parameter("energy_wave_color", wave_color)
+	var trail_color := _hit_post_color.lerp(Color(1.0, 1.0, 1.0, 1.0), 0.24)
+	trail_color.a = 1.0
+	var tint_color := _hit_post_color
+	tint_color.a = 1.0
+	_world_post_material.set_shader_parameter("hit_trail_amount", clampf(_hit_post_trail_amount, 0.0, HIT_POST_TRAIL_MAX))
+	_world_post_material.set_shader_parameter("hit_trail_direction", _hit_post_trail_direction)
+	_world_post_material.set_shader_parameter("hit_trail_pixels", clampf(_hit_post_trail_pixels, 0.0, 10.0))
+	_world_post_material.set_shader_parameter("hit_trail_tint", trail_color)
+	_world_post_material.set_shader_parameter("hit_tint_strength", clampf(_hit_post_tint_amount, 0.0, HIT_POST_TINT_MAX))
+	_world_post_material.set_shader_parameter("hit_tint_color", tint_color)
+	_world_post_material.set_shader_parameter("lut_pulse_strength", clampf(_hit_post_lut_amount, 0.0, HIT_POST_LUT_MAX))
+	_world_post_material.set_shader_parameter("lut_palette_phase", fposmod(_hit_post_lut_phase, 1.0))
+
+
+func _update_noise_visual_response(delta: float) -> void:
+	var target_ratio := _resolve_player_noise_ratio()
+	_noise_visual_ratio = target_ratio
+	var blend_speed := NOISE_VISUAL_SMOOTH_SPEED + target_ratio * 1.4
+	_noise_visual_ratio_smoothed = lerpf(
+		_noise_visual_ratio_smoothed,
+		target_ratio,
+		clampf(delta * blend_speed, 0.0, 1.0)
+	)
+	var boss_target := _resolve_boss_visual_target_intensity()
+	_boss_visual_intensity = lerpf(
+		_boss_visual_intensity,
+		boss_target,
+		clampf(delta * BOSS_VISUAL_SMOOTH_SPEED, 0.0, 1.0)
+	)
+	var boss_tint_target := _resolve_boss_phase_tint(_boss_visual_phase_id)
+	_boss_visual_tint = _boss_visual_tint.lerp(
+		boss_tint_target,
+		clampf(delta * (BOSS_VISUAL_SMOOTH_SPEED + 0.8), 0.0, 1.0)
+	)
+
+
+func _resolve_player_noise_ratio() -> float:
+	if player == null or not is_instance_valid(player):
+		return 0.0
+	var noise_value := 0.0
+	if player.has_method("get_noise_value"):
+		noise_value = float(player.call("get_noise_value"))
+	else:
+		var noise_variant: Variant = player.get("noise")
+		if typeof(noise_variant) == TYPE_FLOAT or typeof(noise_variant) == TYPE_INT:
+			noise_value = float(noise_variant)
+	var noise_min := 0.0
+	var noise_max := 100.0
+	var min_variant: Variant = player.get("noise_min")
+	if typeof(min_variant) == TYPE_FLOAT or typeof(min_variant) == TYPE_INT:
+		noise_min = float(min_variant)
+	var max_variant: Variant = player.get("noise_max")
+	if typeof(max_variant) == TYPE_FLOAT or typeof(max_variant) == TYPE_INT:
+		noise_max = float(max_variant)
+	var span := maxf(1.0, noise_max - noise_min)
+	return clampf((noise_value - noise_min) / span, 0.0, 1.0)
+
+
+func _resolve_boss_visual_target_intensity() -> float:
+	_boss_visual_phase_id = ""
+	if enemy_manager == null or not is_instance_valid(enemy_manager):
+		return 0.0
+	if not enemy_manager.has_method("get_boss_hud_snapshot"):
+		return 0.0
+	var snapshot_variant: Variant = enemy_manager.call("get_boss_hud_snapshot")
+	if not (snapshot_variant is Dictionary):
+		return 0.0
+	var snapshot: Dictionary = snapshot_variant
+	if not bool(snapshot.get("boss_active", false)):
+		return 0.0
+	var phase_id := String(snapshot.get("boss_phase_id", "phase_1")).strip_edges().to_lower()
+	_boss_visual_phase_id = phase_id
+	var hp_ratio := clampf(float(snapshot.get("boss_hp_ratio", 1.0)), 0.0, 1.0)
+	var pressure := 1.0 - hp_ratio
+	var intensity := 0.42 + pressure * 0.46
+	if phase_id.find("phase_4") >= 0:
+		intensity += 0.44
+	elif phase_id.find("phase_3") >= 0:
+		intensity += 0.34
+	elif phase_id.find("phase_2") >= 0:
+		intensity += 0.24
+	return clampf(intensity, 0.0, 1.25)
+
+
+func _resolve_boss_phase_tint(phase_id: String) -> Color:
+	var normalized := phase_id.strip_edges().to_lower()
+	if normalized.find("phase_4") >= 0:
+		return BOSS_TINT_PHASE_4
+	if normalized.find("phase_3") >= 0:
+		return BOSS_TINT_PHASE_3
+	if normalized.find("phase_2") >= 0:
+		return BOSS_TINT_PHASE_2
+	return BOSS_TINT_PHASE_1
+
+
 func setup_run(
 	run_rng: RandomNumberGenerator,
 	character_def: Dictionary = {},
@@ -330,8 +902,32 @@ func setup_run(
 	_flare_screen_flash_decay_remaining = 0.0
 	_flare_edge_flash_remaining = 0.0
 	_flare_warm_tone_remaining = 0.0
+	_hit_flash_peak_remaining = 0.0
+	_hit_flash_decay_remaining = 0.0
+	_hit_flash_peak_alpha = 0.0
+	_hit_flash_decay_alpha = 0.0
+	_hit_flash_beat_timer = 0.0
+	_hit_flash_beat_alpha = 0.0
+	_hit_flash_color = HIT_FLASH_COLOR
+	_hit_post_trail_amount = 0.0
+	_hit_post_tint_amount = 0.0
+	_hit_post_lut_amount = 0.0
+	_hit_post_trail_pixels = 2.4
+	_hit_post_lut_phase = 0.0
+	_hit_post_lut_speed = 1.6
+	_hit_post_trail_decay = HIT_POST_TRAIL_DECAY_DEFAULT
+	_hit_post_tint_decay = HIT_POST_TINT_DECAY_DEFAULT
+	_hit_post_lut_decay = HIT_POST_LUT_DECAY_DEFAULT
+	_hit_post_trail_direction = Vector2(0.0, -1.0)
+	_hit_post_color = HIT_FLASH_COLOR
 	_fog_intro_remaining = 0.0
+	_noise_visual_ratio = 0.0
+	_noise_visual_ratio_smoothed = 0.0
+	_boss_visual_intensity = 0.0
+	_boss_visual_phase_id = ""
+	_boss_visual_tint = BOSS_TINT_PHASE_1
 	_update_flare_screen_fx_overlays()
+	_update_world_post_fx()
 	set_current_map(map_id, run_seed)
 
 
@@ -342,9 +938,12 @@ func begin_run() -> void:
 		enemy_manager.begin_run()
 
 
-func apply_screen_shake(amount: float) -> void:
+func apply_screen_shake(amount: float, profile: Dictionary = {}) -> void:
 	if camera != null and camera.has_method("add_trauma"):
-		camera.add_trauma(amount)
+		if camera.has_method("add_trauma_profile"):
+			camera.add_trauma_profile(amount, profile)
+		else:
+			camera.add_trauma(amount)
 
 
 func apply_fog_config(config: Dictionary) -> void:
@@ -604,6 +1203,7 @@ func get_map_debug_snapshot() -> Dictionary:
 		"noise_gain_multiplier": float(noise_mod.get("gain_mult", 1.0)),
 		"contracts_active": active_contract_ids.duplicate(),
 		"contract_event_rate_mult": float(events_mod.get("rate_mult", 1.0)),
+		"noise_visual_ratio": _noise_visual_ratio_smoothed,
 		"terrain_room_syntax": _active_map_room_syntax.duplicate(),
 		"terrain_obstacle_count": _active_map_obstacles.size(),
 		"terrain_candle_count": _active_map_candles.size()
@@ -670,6 +1270,7 @@ func _apply_fog_modifier_bundle(fog_modifiers: Dictionary) -> void:
 func _ensure_fog_light_texture() -> void:
 	if fog_light == null:
 		return
+	fog_light.texture_filter = LIGHT_TEXTURE_FILTER
 	if _fog_light_texture_cache == null:
 		if fog_light.texture != null:
 			_fog_light_texture_cache = fog_light.texture
@@ -723,17 +1324,25 @@ func _update_fog_darkness_modulate() -> void:
 
 
 func _get_fog_darkness_baseline_color() -> Color:
-	if _fog_intro_remaining <= 0.0 or FOG_INTRO_DURATION <= 0.0:
-		return _fog_darkness_base_color
-	var intro_ratio := clampf(1.0 - (_fog_intro_remaining / FOG_INTRO_DURATION), 0.0, 1.0)
-	var intro_eased := intro_ratio * intro_ratio * (3.0 - 2.0 * intro_ratio)
-	return FOG_INTRO_START_COLOR.lerp(_fog_darkness_base_color, intro_eased)
+	var base_color := _fog_darkness_base_color
+	if _fog_intro_remaining > 0.0 and FOG_INTRO_DURATION > 0.0:
+		var intro_ratio := clampf(1.0 - (_fog_intro_remaining / FOG_INTRO_DURATION), 0.0, 1.0)
+		var intro_eased := intro_ratio * intro_ratio * (3.0 - 2.0 * intro_ratio)
+		base_color = FOG_INTRO_START_COLOR.lerp(_fog_darkness_base_color, intro_eased)
+	var noise_curve := clampf(_noise_visual_ratio_smoothed, 0.0, 1.0)
+	if noise_curve <= 0.0001:
+		return base_color
+	var intensity := noise_curve * noise_curve
+	var darkened := base_color.darkened(NOISE_VISUAL_FOG_DARKEN * intensity)
+	var stressed := darkened.lerp(NOISE_VISUAL_FOG_STRESS_TINT, 0.28 * intensity)
+	stressed.a = base_color.a
+	return stressed
 
 
 func _trigger_flare_screen_flash(strength: float) -> void:
 	var normalized := clampf(strength, 0.05, 2.0)
 	var peak_dur := FLARE_SCREEN_FLASH_PEAK_SEC * lerpf(0.92, 1.35, normalized * 0.5)
-	var decay_dur := FLARE_SCREEN_FLASH_DECAY_SEC
+	var decay_dur := FLARE_SCREEN_FLASH_DECAY_SEC * lerpf(0.90, 1.35, normalized * 0.5)
 	var edge_dur := FLARE_EDGE_FLASH_SEC * lerpf(0.94, 1.18, normalized * 0.5)
 	var warm_dur := FLARE_WARM_TONE_SEC * lerpf(0.84, 1.28, normalized * 0.5)
 	_flare_screen_flash_peak_remaining = maxf(_flare_screen_flash_peak_remaining, peak_dur)
@@ -742,6 +1351,117 @@ func _trigger_flare_screen_flash(strength: float) -> void:
 	_flare_warm_tone_remaining = maxf(_flare_warm_tone_remaining, warm_dur)
 	_update_fog_darkness_modulate()
 	_update_flare_screen_fx_overlays()
+
+
+func _trigger_hit_screen_flash(intensity: float, killed: bool, style: Dictionary = {}) -> void:
+	var normalized := clampf(intensity, 0.02, 1.0)
+	var peak_alpha := clampf(
+		HIT_FLASH_BASE_ALPHA + normalized * HIT_FLASH_ALPHA_PER_INTENSITY + (HIT_FLASH_KILL_ALPHA_BONUS if killed else 0.0),
+		0.04,
+		0.56
+	)
+	var flash_variant: Variant = style.get("flash", HIT_FLASH_COLOR)
+	var kill_variant: Variant = style.get("kill_color", HIT_FLASH_KILL_COLOR)
+	var flash_color: Color = flash_variant if flash_variant is Color else HIT_FLASH_COLOR
+	var kill_color: Color = kill_variant if kill_variant is Color else HIT_FLASH_KILL_COLOR
+	_hit_flash_color = kill_color if killed else flash_color
+	_hit_flash_peak_alpha = maxf(_hit_flash_peak_alpha, peak_alpha)
+	_hit_flash_decay_alpha = maxf(_hit_flash_decay_alpha, peak_alpha * 0.66)
+	_hit_flash_peak_remaining = maxf(_hit_flash_peak_remaining, HIT_FLASH_PEAK_SEC * lerpf(0.92, 1.20, normalized))
+	_hit_flash_decay_remaining = maxf(_hit_flash_decay_remaining, HIT_FLASH_DECAY_SEC * lerpf(0.88, 1.22, normalized))
+	if killed or normalized >= 0.12:
+		_hit_flash_beat_timer = maxf(_hit_flash_beat_timer, HIT_FLASH_BEAT_DELAY_SEC)
+		_hit_flash_beat_alpha = maxf(_hit_flash_beat_alpha, peak_alpha * HIT_FLASH_BEAT_BLEND)
+	_update_flare_screen_fx_overlays()
+
+
+func _trigger_hit_post_fx(world_position: Vector2, intensity: float, killed: bool, style: Dictionary = {}, payload: Dictionary = {}) -> void:
+	var post_variant: Variant = style.get("post_fx", {})
+	var post_fx: Dictionary = post_variant if post_variant is Dictionary else {}
+	var accent_variant: Variant = style.get("accent", HIT_FLASH_COLOR)
+	var accent_color: Color = accent_variant if accent_variant is Color else HIT_FLASH_COLOR
+	var tint_variant: Variant = post_fx.get("trail_tint", accent_color)
+	var trail_tint: Color = tint_variant if tint_variant is Color else accent_color
+	trail_tint.a = 1.0
+	var normalized := clampf(intensity, 0.04, 1.0)
+	var impact_boost := normalized + (0.20 if killed else 0.0)
+	var trail_target := clampf(float(post_fx.get("trail_strength", 0.16)) * (0.60 + impact_boost * 0.90), 0.0, HIT_POST_TRAIL_MAX)
+	var tint_target := clampf(float(post_fx.get("tint_strength", 0.10)) * (0.58 + impact_boost * 0.96), 0.0, HIT_POST_TINT_MAX)
+	var lut_target := clampf(float(post_fx.get("lut_strength", 0.10)) * (0.56 + impact_boost * 1.04), 0.0, HIT_POST_LUT_MAX)
+	if killed:
+		trail_target = clampf(trail_target + 0.04, 0.0, HIT_POST_TRAIL_MAX)
+		tint_target = clampf(tint_target + 0.03, 0.0, HIT_POST_TINT_MAX)
+		lut_target = clampf(lut_target + 0.03, 0.0, HIT_POST_LUT_MAX)
+	_hit_post_trail_amount = maxf(_hit_post_trail_amount, trail_target)
+	_hit_post_tint_amount = maxf(_hit_post_tint_amount, tint_target)
+	_hit_post_lut_amount = maxf(_hit_post_lut_amount, lut_target)
+	_hit_post_trail_pixels = clampf(lerpf(_hit_post_trail_pixels, float(post_fx.get("trail_pixels", 2.4)), 0.72), 0.8, 8.0)
+	_hit_post_lut_speed = clampf(float(post_fx.get("lut_speed", 1.6)), 0.35, 4.8)
+	_hit_post_trail_decay = clampf(float(post_fx.get("trail_decay", HIT_POST_TRAIL_DECAY_DEFAULT)), 2.5, 12.0)
+	_hit_post_tint_decay = clampf(float(post_fx.get("tint_decay", HIT_POST_TINT_DECAY_DEFAULT)), 2.5, 12.0)
+	_hit_post_lut_decay = clampf(float(post_fx.get("lut_decay", HIT_POST_LUT_DECAY_DEFAULT)), 2.5, 12.0)
+	var phase := fposmod(float(post_fx.get("lut_palette_phase", _hit_post_lut_phase)), 1.0)
+	var weapon_id := String(payload.get("weapon_id", style.get("weapon_id", ""))).strip_edges().to_lower()
+	if not weapon_id.is_empty():
+		var seed := int(hash(weapon_id)) & 255
+		phase = fposmod(phase + (float(seed) / 255.0) * 0.23, 1.0)
+	_hit_post_lut_phase = phase
+	var direction := Vector2.RIGHT.rotated(sfx_rng.randf_range(0.0, TAU))
+	if player != null and is_instance_valid(player) and player is Node2D:
+		var from_player: Vector2 = world_position - (player as Node2D).global_position
+		if from_player.length() > 0.01:
+			direction = from_player.normalized()
+	if killed:
+		direction = direction.rotated(0.08)
+	_hit_post_trail_direction = direction
+	_hit_post_color = trail_tint if _hit_post_color.a <= 0.001 else _hit_post_color.lerp(trail_tint, 0.72)
+	_hit_post_color.a = 1.0
+
+
+func _normalize_payload_tags(tags_variant: Variant) -> Array:
+	var tags: Array = []
+	if not (tags_variant is Array):
+		return tags
+	for item in (tags_variant as Array):
+		var tag := String(item).strip_edges().to_lower()
+		if tag.is_empty() or tags.has(tag):
+			continue
+		tags.append(tag)
+	return tags
+
+
+func _resolve_hit_style(payload: Dictionary) -> Dictionary:
+	var weapon_id := String(payload.get("weapon_id", "")).strip_edges().to_lower()
+	var attack_model := String(payload.get("attack_model", "")).strip_edges().to_lower()
+	var tags := _normalize_payload_tags(payload.get("weapon_tags", payload.get("tags", [])))
+	var fx_color_hex := String(payload.get("fx_color", "")).strip_edges()
+	if (attack_model.is_empty() or tags.is_empty() or fx_color_hex.is_empty()) and not weapon_id.is_empty():
+		var weapon_def := DataRegistry.get_weapon_runtime(weapon_id)
+		if attack_model.is_empty():
+			attack_model = String(weapon_def.get("attack_model", "")).strip_edges().to_lower()
+		if tags.is_empty():
+			tags = _normalize_payload_tags(weapon_def.get("tags", []))
+		if fx_color_hex.is_empty():
+			fx_color_hex = String(weapon_def.get("fx_color", "")).strip_edges()
+	var fx_color := Color(0.0, 0.0, 0.0, 0.0)
+	if not fx_color_hex.is_empty():
+		fx_color = Color.from_string(fx_color_hex, Color(0.0, 0.0, 0.0, 0.0))
+	var style_variant: Variant = CombatPaletteClass.hit_feedback_profile(attack_model, tags, fx_color, weapon_id)
+	var style: Dictionary = style_variant if style_variant is Dictionary else {}
+	if style.is_empty():
+		style = {
+			"family": "tech",
+			"flash": HIT_FLASH_COLOR,
+			"particle": HIT_GLOW_COLOR,
+			"glow": HIT_GLOW_COLOR,
+			"crit_color": HIT_CRIT_CROSS_COLOR,
+			"kill_color": HIT_GLOW_KILL_COLOR,
+			"crit_shape": "cross",
+			"kill_shape": "ring",
+			"transient": {},
+			"post_fx": {}
+		}
+	return style
 
 
 func _handle_map_notifications(snapshot: Dictionary) -> void:
@@ -822,9 +1542,19 @@ func spawn_xp_pickup(world_position: Vector2, xp_amount: int) -> void:
 	pickup.setup(xp_amount, player)
 
 
-func _on_hit_landed(world_position: Vector2, intensity: float, killed: bool) -> void:
-	_spawn_hit_particles(world_position, intensity, killed)
-	_play_hit_sfx(intensity, killed)
+func _on_hit_landed_detailed(world_position: Vector2, intensity: float, killed: bool, payload: Dictionary) -> void:
+	_on_hit_landed(world_position, intensity, killed, payload)
+
+
+func _on_hit_landed(world_position: Vector2, intensity: float, killed: bool, payload: Dictionary = {}) -> void:
+	var hit_style := _resolve_hit_style(payload)
+	_trigger_hit_screen_flash(intensity, killed, hit_style)
+	_trigger_hit_post_fx(world_position, intensity, killed, hit_style, payload)
+	_spawn_hit_shape_fx(world_position, intensity, killed, payload, hit_style)
+	_spawn_hit_particles(world_position, intensity, killed, hit_style)
+	_spawn_hit_glow(world_position, intensity, killed, hit_style)
+	var is_crit := bool(payload.get("is_crit", payload.get("crit", false)))
+	_play_hit_sfx(intensity, killed, is_crit, hit_style)
 	FeedbackBus.emit_sonar_pulse(world_position, {
 		"source": "hit",
 		"strength": intensity,
@@ -848,7 +1578,7 @@ func _on_sonar_pulse_requested(world_position: Vector2, payload: Dictionary) -> 
 	var strength := clampf(float(payload.get("strength", 1.0)), 0.2, 2.4)
 	var ping_count := int(payload.get("ping_count", -1))
 	_play_flare_skill_sfx(strength, ping_count)
-	var flare_duration_mult := clampf(float(payload.get("flare_duration_mult", 1.0)), 0.5, 1.8)
+	var flare_duration_mult := clampf(float(payload.get("flare_duration_mult", 1.0)), 0.5, 5.0)
 	_flare_boost_remaining = maxf(_flare_boost_remaining, FLARE_BOOST_DURATION * flare_duration_mult)
 	_flare_boost_intensity = maxf(_flare_boost_intensity, strength)
 	apply_screen_shake(0.12 + strength * 0.09)
@@ -926,7 +1656,7 @@ func _get_player_sonar_reveal_multiplier() -> float:
 	return maxf(0.05, float(player.call("get_sonar_reveal_duration_multiplier")))
 
 
-func _spawn_hit_particles(world_position: Vector2, intensity: float, killed: bool) -> void:
+func _spawn_hit_particles(world_position: Vector2, intensity: float, killed: bool, style: Dictionary = {}) -> void:
 	var p := CPUParticles2D.new()
 	add_child(p)
 	p.global_position = world_position
@@ -942,8 +1672,276 @@ func _spawn_hit_particles(world_position: Vector2, intensity: float, killed: boo
 	p.initial_velocity_max = 220.0 + intensity * 130.0
 	p.scale_amount_min = 1.6
 	p.scale_amount_max = 3.6 + intensity * 1.8
-	p.color = Color(0.72, 0.98, 1.0, 0.95) if not killed else Color(1.0, 0.98, 0.75, 1.0)
+	var particle_variant: Variant = style.get("particle", HIT_GLOW_COLOR)
+	var kill_variant: Variant = style.get("kill_color", HIT_GLOW_KILL_COLOR)
+	var particle_color: Color = particle_variant if particle_variant is Color else HIT_GLOW_COLOR
+	var kill_color: Color = kill_variant if kill_variant is Color else HIT_GLOW_KILL_COLOR
+	var final_color := kill_color if killed else particle_color
+	final_color.a = 1.0
+	p.color = final_color
 	p.finished.connect(p.queue_free)
+
+
+func _spawn_hit_shape_fx(
+	world_position: Vector2,
+	intensity: float,
+	killed: bool,
+	payload: Dictionary = {},
+	style: Dictionary = {}
+) -> void:
+	var is_crit := bool(payload.get("is_crit", payload.get("crit", false)))
+	if not is_crit and not killed:
+		return
+	if is_crit:
+		_spawn_crit_signature_flash(world_position, intensity, killed, style)
+	if killed:
+		_spawn_kill_ring_shock(world_position, intensity, is_crit, style)
+
+
+func _get_hit_glow_material() -> CanvasItemMaterial:
+	if _hit_glow_additive_material == null:
+		_hit_glow_additive_material = CanvasItemMaterial.new()
+		_hit_glow_additive_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	return _hit_glow_additive_material
+
+
+func _get_hit_glow_texture() -> Texture2D:
+	if _hit_glow_texture_cache != null:
+		return _hit_glow_texture_cache
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.25, 0.58, 1.0])
+	gradient.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 1.0),
+		Color(1.0, 1.0, 1.0, 0.62),
+		Color(1.0, 1.0, 1.0, 0.22),
+		Color(1.0, 1.0, 1.0, 0.0)
+	])
+	var texture := GradientTexture2D.new()
+	texture.width = 256
+	texture.height = 256
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.gradient = gradient
+	_hit_glow_texture_cache = texture
+	return _hit_glow_texture_cache
+
+
+func _get_hit_ring_texture() -> Texture2D:
+	if _hit_ring_texture_cache != null:
+		return _hit_ring_texture_cache
+	var tex_size := 256
+	var image := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
+	var center := (float(tex_size) - 1.0) * 0.5
+	var band_radius := center * 0.72
+	var band_half_width := center * 0.13
+	var feather := center * 0.06
+	for y in range(tex_size):
+		for x in range(tex_size):
+			var dx := float(x) - center
+			var dy := float(y) - center
+			var dist := sqrt(dx * dx + dy * dy)
+			var band_dist := absf(dist - band_radius)
+			var alpha := 1.0 - clampf((band_dist - feather) / maxf(0.001, band_half_width), 0.0, 1.0)
+			alpha = pow(clampf(alpha, 0.0, 1.0), 1.45)
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+	var texture := ImageTexture.create_from_image(image)
+	_hit_ring_texture_cache = texture
+	return _hit_ring_texture_cache
+
+
+func _get_hit_cross_texture() -> Texture2D:
+	if _hit_cross_texture_cache != null:
+		return _hit_cross_texture_cache
+	var tex_w := 512
+	var tex_h := 96
+	var image := Image.create(tex_w, tex_h, false, Image.FORMAT_RGBA8)
+	var cx := (float(tex_w) - 1.0) * 0.5
+	var cy := (float(tex_h) - 1.0) * 0.5
+	for y in range(tex_h):
+		for x in range(tex_w):
+			var nx := absf((float(x) - cx) / maxf(1.0, cx))
+			var ny := absf((float(y) - cy) / maxf(1.0, cy))
+			var length_falloff := clampf(1.0 - pow(nx, 0.62), 0.0, 1.0)
+			var width_falloff := clampf(1.0 - pow(ny, 1.55), 0.0, 1.0)
+			var center_boost := clampf(1.0 - nx * 2.2, 0.0, 1.0)
+			var alpha := pow(length_falloff * width_falloff, 0.92) * (0.78 + center_boost * 0.22)
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0)))
+	var texture := ImageTexture.create_from_image(image)
+	_hit_cross_texture_cache = texture
+	return _hit_cross_texture_cache
+
+
+func _spawn_crit_signature_flash(world_position: Vector2, intensity: float, killed: bool, style: Dictionary = {}) -> void:
+	var cross_texture := _get_hit_cross_texture()
+	if cross_texture == null:
+		return
+	var clamped_intensity := clampf(intensity, 0.0, 1.0)
+	var shape_id := String(style.get("crit_shape", "cross")).strip_edges().to_lower()
+	var length_px := HIT_CRIT_CROSS_BASE_LENGTH + clamped_intensity * HIT_CRIT_CROSS_LENGTH_PER_INTENSITY + (26.0 if killed else 0.0)
+	var width_px := HIT_CRIT_CROSS_BASE_WIDTH + clamped_intensity * HIT_CRIT_CROSS_WIDTH_PER_INTENSITY + (2.0 if killed else 0.0)
+	var duration := HIT_CRIT_CROSS_DURATION + clamped_intensity * 0.06 + (0.02 if killed else 0.0)
+	var tex_w := maxf(1.0, float(cross_texture.get_width()))
+	var tex_h := maxf(1.0, float(cross_texture.get_height()))
+	var crit_variant: Variant = style.get("crit_color", HIT_CRIT_CROSS_COLOR)
+	var kill_variant: Variant = style.get("kill_color", HIT_CRIT_CROSS_KILL_TINT)
+	var crit_color: Color = crit_variant if crit_variant is Color else HIT_CRIT_CROSS_COLOR
+	var kill_color: Color = kill_variant if kill_variant is Color else HIT_CRIT_CROSS_KILL_TINT
+	var cross_color := crit_color.lerp(kill_color, 0.48 if killed else 0.0)
+	var cross_alpha := clampf(0.42 + clamped_intensity * 0.44 + (0.06 if killed else 0.0), 0.14, 0.88)
+	var rotations: Array = [0.0, PI * 0.5]
+	var length_mult := 1.0
+	var width_mult := 1.0
+	match shape_id:
+		"x":
+			rotations = [PI * 0.25, PI * 0.75]
+		"star":
+			rotations = [0.0, PI * 0.5, PI * 0.25, PI * 0.75]
+			length_mult = 0.94
+			width_mult = 0.82
+		"slash":
+			rotations = [sfx_rng.randf_range(-0.34, 0.34)]
+			length_mult = 1.20
+			width_mult = 0.72
+		"diamond":
+			rotations = [PI * 0.25, PI * 0.75]
+			length_mult = 1.02
+			width_mult = 0.78
+		_:
+			pass
+	var root := Node2D.new()
+	root.global_position = world_position
+	root.z_index = 9
+	add_child(root)
+	for angle_variant in rotations:
+		var angle := float(angle_variant)
+		var sprite := Sprite2D.new()
+		sprite.texture = cross_texture
+		sprite.texture_filter = LIGHT_TEXTURE_FILTER
+		sprite.centered = true
+		sprite.material = _get_hit_glow_material()
+		sprite.rotation = angle + sfx_rng.randf_range(-0.04, 0.04)
+		sprite.scale = Vector2((length_px * length_mult) / tex_w, (width_px * width_mult) / tex_h)
+		sprite.modulate = Color(cross_color.r, cross_color.g, cross_color.b, cross_alpha)
+		root.add_child(sprite)
+		var tween := create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(sprite, "scale", sprite.scale * Vector2(1.16 + clamped_intensity * 0.12, 1.0), duration)
+		tween.tween_property(sprite, "modulate:a", 0.0, duration)
+	var tree := get_tree()
+	if tree == null:
+		root.queue_free()
+		return
+	var cleanup_timer := tree.create_timer(duration + 0.03)
+	cleanup_timer.timeout.connect(func() -> void:
+		if is_instance_valid(root):
+			root.queue_free()
+	)
+
+
+func _spawn_kill_ring_shock(world_position: Vector2, intensity: float, is_crit: bool, style: Dictionary = {}) -> void:
+	var ring_texture := _get_hit_ring_texture()
+	if ring_texture == null:
+		return
+	var clamped_intensity := clampf(intensity, 0.0, 1.0)
+	var shape_id := String(style.get("kill_shape", "ring")).strip_edges().to_lower()
+	var radius_px := HIT_KILL_RING_BASE_RADIUS + clamped_intensity * HIT_KILL_RING_RADIUS_PER_INTENSITY + (18.0 if is_crit else 0.0)
+	var tex_size := maxf(1.0, float(ring_texture.get_width()))
+	var target_scale := (radius_px * 2.0) / tex_size
+	var kill_variant: Variant = style.get("kill_color", HIT_KILL_RING_COLOR)
+	var crit_variant: Variant = style.get("crit_color", HIT_KILL_RING_CRIT_TINT)
+	var kill_color: Color = kill_variant if kill_variant is Color else HIT_KILL_RING_COLOR
+	var crit_color: Color = crit_variant if crit_variant is Color else HIT_KILL_RING_CRIT_TINT
+	var ring_color := kill_color.lerp(crit_color, 0.54 if is_crit else 0.0)
+	var ring_alpha := clampf(0.38 + clamped_intensity * 0.30 + (0.05 if is_crit else 0.0), 0.14, 0.90)
+	var duration := HIT_KILL_RING_DURATION + clamped_intensity * 0.08 + (0.04 if is_crit else 0.0)
+	var pulses := 1
+	var aspect := Vector2.ONE
+	var rotation_offset := 0.0
+	var emit_burst := false
+	match shape_id:
+		"ripple":
+			pulses = 2
+		"diamond_ring":
+			aspect = Vector2(1.18, 0.82)
+			rotation_offset = PI * 0.25
+		"burst":
+			emit_burst = true
+		_:
+			pass
+	var tree := get_tree()
+	for pulse_idx in range(pulses):
+		var delay := 0.03 * float(pulse_idx)
+		var pulse_scale := lerpf(1.0, 1.28, float(pulse_idx) / maxf(1.0, float(pulses)))
+		var pulse_alpha := ring_alpha * lerpf(1.0, 0.72, float(pulse_idx) / maxf(1.0, float(pulses)))
+		var spawn_ring := func() -> void:
+			var sprite := Sprite2D.new()
+			sprite.texture = ring_texture
+			sprite.texture_filter = LIGHT_TEXTURE_FILTER
+			sprite.centered = true
+			sprite.material = _get_hit_glow_material()
+			sprite.global_position = world_position
+			sprite.z_index = 8
+			sprite.rotation = rotation_offset
+			sprite.scale = Vector2.ONE * (target_scale * 0.34 * pulse_scale)
+			sprite.scale = Vector2(sprite.scale.x * aspect.x, sprite.scale.y * aspect.y)
+			sprite.modulate = Color(ring_color.r, ring_color.g, ring_color.b, pulse_alpha)
+			add_child(sprite)
+			var tween := create_tween()
+			tween.set_parallel(true)
+			tween.tween_property(sprite, "scale", sprite.scale * (1.24 + clamped_intensity * 0.18), duration)
+			tween.tween_property(sprite, "modulate:a", 0.0, duration)
+			tween.finished.connect(sprite.queue_free)
+		if delay <= 0.0 or tree == null:
+			spawn_ring.call()
+			continue
+		tree.create_timer(delay).timeout.connect(func() -> void:
+			if not is_inside_tree():
+				return
+			spawn_ring.call()
+		)
+	if emit_burst:
+		_spawn_crit_signature_flash(world_position, intensity * 0.92, true, {
+			"crit_shape": "star",
+			"crit_color": ring_color,
+			"kill_color": ring_color
+		})
+
+
+func _spawn_hit_glow(world_position: Vector2, intensity: float, killed: bool, style: Dictionary = {}) -> void:
+	var glow_texture := _get_hit_glow_texture()
+	if glow_texture == null:
+		return
+	var sprite := Sprite2D.new()
+	sprite.texture = glow_texture
+	sprite.texture_filter = LIGHT_TEXTURE_FILTER
+	sprite.centered = true
+	sprite.global_position = world_position
+	sprite.material = _get_hit_glow_material()
+	sprite.z_index = 6
+	var clamped_intensity := clampf(intensity, 0.0, 3.0)
+	var size := HIT_GLOW_BASE_SIZE + clamped_intensity * HIT_GLOW_SIZE_PER_INTENSITY + (HIT_GLOW_KILL_SIZE_BONUS if killed else 0.0)
+	var texture_w := float(glow_texture.get_width())
+	var texture_h := float(glow_texture.get_height())
+	var base_dim := maxf(1.0, maxf(texture_w, texture_h))
+	var start_scale := size / base_dim
+	sprite.scale = Vector2.ONE * start_scale
+	var glow_alpha := clampf(
+		HIT_GLOW_BASE_ALPHA + clamped_intensity * 0.08 + (HIT_GLOW_KILL_ALPHA_BONUS if killed else 0.0),
+		0.08,
+		1.0
+	)
+	var glow_variant: Variant = style.get("glow", HIT_GLOW_COLOR)
+	var kill_variant: Variant = style.get("kill_color", HIT_GLOW_KILL_COLOR)
+	var glow_color: Color = glow_variant if glow_variant is Color else HIT_GLOW_COLOR
+	var kill_color: Color = kill_variant if kill_variant is Color else HIT_GLOW_KILL_COLOR
+	glow_color = kill_color if killed else glow_color
+	sprite.modulate = Color(glow_color.r, glow_color.g, glow_color.b, glow_alpha)
+	add_child(sprite)
+	var tween := create_tween()
+	var duration := HIT_GLOW_DURATION + (0.05 if killed else 0.0)
+	tween.set_parallel(true)
+	tween.tween_property(sprite, "scale", sprite.scale * (1.30 + clamped_intensity * 0.08), duration)
+	tween.tween_property(sprite, "modulate:a", 0.0, duration)
+	tween.finished.connect(sprite.queue_free)
 
 
 func _configure_synth_player(player_ref: AudioStreamPlayer) -> void:
@@ -987,20 +1985,52 @@ func _play_flare_skill_sfx(intensity: float, ping_count: int = -1) -> void:
 		generator.push_frame(Vector2(sample, sample))
 
 
-func _play_hit_sfx(intensity: float, killed: bool) -> void:
+func _play_hit_sfx(intensity: float, killed: bool, is_crit: bool = false, style: Dictionary = {}) -> void:
 	hit_sfx.play()
 	var playback = hit_sfx.get_stream_playback()
 	if playback is AudioStreamGeneratorPlayback:
 		var generator: AudioStreamGeneratorPlayback = playback
 		var sample_rate := 44100.0
-		var length := 0.08 + (0.03 if killed else 0.0)
-		var freq_base := sfx_rng.randf_range(740.0, 980.0)
+		var accent := clampf(intensity, 0.04, 1.0)
+		var transient_variant: Variant = style.get("transient", {})
+		var transient: Dictionary = transient_variant if transient_variant is Dictionary else {}
+		var pitch_mult := clampf(float(transient.get("pitch_mult", 1.0)), 0.65, 1.55)
+		var click_gain := clampf(float(transient.get("click_gain", 1.0)), 0.45, 1.70)
+		var low_gain := clampf(float(transient.get("low_gain", 1.0)), 0.45, 1.90)
+		var high_gain := clampf(float(transient.get("high_gain", 1.0)), 0.45, 1.90)
+		var noise_gain := clampf(float(transient.get("noise_gain", 1.0)), 0.20, 1.90)
+		var rhythm_hz_add := clampf(float(transient.get("rhythm_hz_add", 0.0)), -3.0, 4.0)
+		var length := 0.090 + accent * 0.020 + (0.034 if killed else 0.0) + (0.018 if is_crit else 0.0)
+		var freq_base := sfx_rng.randf_range(740.0, 980.0) * pitch_mult
+		var rhythm_hz := 10.8 + accent * 5.6 + rhythm_hz_add
+		var beat_phase := sfx_rng.randf_range(0.0, TAU)
+		var crit_mix := 1.0 if is_crit else 0.0
+		var kill_mix := 1.0 if killed else 0.0
 		for i in range(int(sample_rate * length)):
 			var t := float(i) / sample_rate
-			var env := exp(-t * 32.0)
-			var wave := sin(TAU * (freq_base - 420.0 * t) * t)
+			var body_env := exp(-t * (24.0 - accent * 4.0))
+			var click_env := exp(-t * (78.0 + accent * 26.0))
+			var body_wave := sin(TAU * (freq_base - (360.0 + accent * 200.0) * t) * t)
+			var click_wave := sin(TAU * (freq_base * 2.25 + 1220.0 * t) * t)
+			var sub_wave := sin(TAU * (freq_base * 0.46 + 22.0 * sin(t * 33.0)) * t)
+			var crit_env := exp(-t * (118.0 - accent * 24.0))
+			var crit_wave := sin(TAU * (1840.0 + 460.0 * sin(t * 30.0)) * t + beat_phase * 0.4)
+			var crit_hiss := sin(TAU * (2440.0 + 820.0 * t) * t)
+			var kill_env := exp(-t * 10.8)
+			var kill_wave := sin(TAU * (freq_base * 0.34 + 18.0 * sin(t * 20.0)) * t)
 			var noise := sfx_rng.randf_range(-1.0, 1.0)
-			var sample := (wave * 0.72 + noise * 0.28) * env * (0.12 + intensity * 0.26)
+			var rhythm_gate := 0.84 + 0.16 * sin(TAU * rhythm_hz * t + beat_phase)
+			var sample := (
+				body_wave * (0.66 * low_gain) * body_env +
+				click_wave * (0.42 * click_gain) * click_env +
+				sub_wave * (0.28 * low_gain) * body_env +
+				noise * (0.22 * noise_gain) * click_env +
+				(crit_wave * (0.26 * high_gain) + crit_hiss * (0.14 * high_gain)) * crit_env * crit_mix +
+				kill_wave * (0.34 * low_gain) * kill_env * kill_mix
+			) * rhythm_gate * (0.10 + accent * 0.22)
+			if killed:
+				sample += sin(TAU * (freq_base * 1.38 + 180.0 * t) * t) * exp(-t * 13.5) * (0.10 * low_gain)
+			sample = clampf(sample, -0.95, 0.95)
 			generator.push_frame(Vector2(sample, sample))
 
 
@@ -1132,6 +2162,10 @@ func _apply_map_visual_layout(map_id: String) -> void:
 	_cache_tactical_layout(map_id)
 	_apply_map_floor_texture(map_id)
 	_rebuild_map_obstacles(map_id)
+	_apply_map_surface_mist_preset(map_id)
+	_apply_map_post_grade_preset(map_id)
+	_update_surface_mist_fx(0.0)
+	_update_world_post_fx()
 	queue_redraw()
 
 
@@ -1149,9 +2183,19 @@ func _clear_map_visual_layout() -> void:
 	_flare_screen_flash_decay_remaining = 0.0
 	_flare_edge_flash_remaining = 0.0
 	_flare_warm_tone_remaining = 0.0
+	_hit_flash_peak_remaining = 0.0
+	_hit_flash_decay_remaining = 0.0
+	_hit_flash_peak_alpha = 0.0
+	_hit_flash_decay_alpha = 0.0
+	_hit_flash_beat_timer = 0.0
+	_hit_flash_beat_alpha = 0.0
+	_hit_flash_color = HIT_FLASH_COLOR
 	_fog_intro_remaining = 0.0
+	_apply_map_surface_mist_preset("")
+	_update_surface_mist_fx(0.0)
 	_update_fog_darkness_modulate()
 	_update_flare_screen_fx_overlays()
+	_update_world_post_fx()
 
 
 func _apply_map_floor_texture(map_id: String) -> void:
@@ -1167,7 +2211,8 @@ func _apply_map_floor_texture(map_id: String) -> void:
 		terrain_floor.visible = false
 		terrain_floor.texture = null
 		return
-	terrain_floor.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	terrain_floor.texture_filter = FLOOR_TEXTURE_FILTER
+	_ensure_floor_visual_material()
 	terrain_floor.texture = texture
 	terrain_floor.centered = true
 	terrain_floor.position = Vector2.ZERO
@@ -1241,6 +2286,7 @@ func _spawn_map_candles(_map_id: String) -> void:
 		var light := PointLight2D.new()
 		if _fog_light_texture_cache != null:
 			light.texture = _fog_light_texture_cache
+		light.texture_filter = LIGHT_TEXTURE_FILTER
 		light.enabled = true
 		light.texture_scale = CANDLE_LIGHT_SCALE
 		light.energy = CANDLE_BASE_LIGHT_ENERGY * sfx_rng.randf_range(0.96, 1.08)
@@ -1323,13 +2369,23 @@ func _spawn_obstacle_row(definition: Dictionary) -> void:
 	obstacle_bodies.add_child(body)
 
 	if obstacle_visuals != null and texture != null:
+		var y_offset := float(definition.get("y_offset", 0.0))
+		var shadow := Sprite2D.new()
+		shadow.texture = texture
+		shadow.texture_filter = FLOOR_TEXTURE_FILTER
+		shadow.centered = true
+		shadow.position = pos + Vector2(0.0, y_offset) + OBSTACLE_SHADOW_OFFSET
+		shadow.scale = visual_scale * OBSTACLE_SHADOW_SCALE_BOOST
+		shadow.modulate = OBSTACLE_SHADOW_COLOR
+		shadow.z_index = -2
+		obstacle_visuals.add_child(shadow)
+
 		var sprite := Sprite2D.new()
 		sprite.texture = texture
 		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		sprite.centered = true
 		sprite.position = pos
 		sprite.scale = visual_scale
-		var y_offset := float(definition.get("y_offset", 0.0))
 		sprite.position.y += y_offset
 		var tint_variant: Variant = definition.get("modulate", null)
 		if tint_variant is Color:

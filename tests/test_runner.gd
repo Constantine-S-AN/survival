@@ -198,6 +198,20 @@ func _run_data_registry_tests() -> void:
 	rng.seed = 42
 	var choices: Array = registry.get_upgrade_choices(rng, {}, 3)
 	_assert_equal(choices.size(), 3, "upgrade choice count should be 3")
+	var saturated_stacks: Dictionary = {}
+	for upgrade_variant in registry.upgrades:
+		if not (upgrade_variant is Dictionary):
+			continue
+		var upgrade: Dictionary = upgrade_variant
+		var upgrade_id := String(upgrade.get("id", "")).strip_edges()
+		if upgrade_id.is_empty():
+			continue
+		var max_rank := int(upgrade.get("max_rank", upgrade.get("max_stacks", 1)))
+		saturated_stacks[upgrade_id] = maxi(1, max_rank)
+	var saturated_rng := RandomNumberGenerator.new()
+	saturated_rng.seed = 4242
+	var saturated_choices: Array = registry.get_upgrade_choices(saturated_rng, saturated_stacks, 3)
+	_assert_equal(saturated_choices.size(), 0, "upgrade choices do not bypass max_stacks when all upgrades are saturated")
 
 	var weapons_path := "res://data/weapons.json"
 	var original_weapons := FileAccess.get_file_as_string(weapons_path)
@@ -375,6 +389,7 @@ func _run_character_profile_tests() -> void:
 	var migrated_progress_variant: Variant = migrated_profile.get("progress", {})
 	var migrated_progress: Dictionary = migrated_progress_variant if migrated_progress_variant is Dictionary else {}
 	_assert_equal(int(migrated_progress.get("total_kills", 0)), 12, "profile migration preserves legacy progress fields")
+	_assert_equal(int(migrated_progress.get("meta_currency_total", 0)), 0, "profile migration initializes meta currency progress")
 
 	profile_store.set_selected_character_id("scavenger")
 	profile_store.save_profile()
@@ -488,7 +503,8 @@ func _run_character_profile_tests() -> void:
 		"elite_or_pursuer_kills": 3,
 		"survive_time_seconds": 620.0,
 		"max_noise_reached": 72.0,
-		"max_noise_tier_id": "exposed"
+		"max_noise_tier_id": "exposed",
+		"meta_currency_earned_total": 47
 	}
 	var newly_unlocked: Array[String] = profile_store_reloaded.evaluate_character_unlocks(DataRegistry.get_characters(), run_summary)
 	_assert_true(newly_unlocked.has("arc_tech"), "unlock evaluation unlocks arc_tech from total_kills")
@@ -501,6 +517,8 @@ func _run_character_profile_tests() -> void:
 	var arc_unlock: Dictionary = arc_unlock_variant if arc_unlock_variant is Dictionary else {}
 	var arc_progress: Dictionary = profile_store_reloaded.get_requirement_progress(arc_unlock)
 	_assert_true(bool(arc_progress.get("met", false)), "progress query returns met after unlock")
+	var updated_progress: Dictionary = profile_store_reloaded.get_progress_snapshot()
+	_assert_equal(int(updated_progress.get("meta_currency_total", 0)), 47, "profile progress accumulates earned meta currency from run summary")
 
 	profile_store_reloaded.unlock_all_characters(DataRegistry.get_characters())
 	profile_store_reloaded.set_selected_character_id("scavenger")

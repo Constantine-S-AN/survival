@@ -13,6 +13,10 @@ signal contract_select_back_requested
 signal run_setup_start_requested(run_config: Dictionary)
 signal unlock_all_debug_requested
 signal summary_back_to_menu_requested
+signal pause_resume_requested
+signal pause_main_menu_requested
+signal pause_quit_requested
+signal pause_settings_requested
 
 const FOG_SHADER := preload("res://assets/shaders/fog_scan_noise.gdshader")
 const NEON_THEME := preload("res://ui/theme/NeonTheme.tres")
@@ -20,6 +24,7 @@ const MAIN_MENU_SCENE := preload("res://scenes/ui/menu/MainMenu.tscn")
 const RUN_SETUP_SCENE := preload("res://scenes/ui/run_setup/RunSetup.tscn")
 const UPGRADE_SELECT_SCENE := preload("res://scenes/ui/upgrade/UpgradeSelect.tscn")
 const RUN_SUMMARY_SCENE := preload("res://scenes/ui/summary/RunSummary.tscn")
+const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause/PauseMenu.tscn")
 const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 const MAP_SELECT_SCENE := preload("res://scenes/ui/MapSelect.tscn")
 const CONTRACT_SELECT_SCENE := preload("res://scenes/ui/ContractSelect.tscn")
@@ -145,6 +150,16 @@ const SECONDS_STAT_KEYS: Dictionary = {
 	"kill_skill_cd_refund": true,
 	"flare_overdrive_duration": true
 }
+const MAP_UI_GRADE_PRESETS: Dictionary = {
+	"map_trench_lab": {
+		"color": Color(0.24, 0.38, 0.54, 1.0),
+		"alpha": 0.08
+	},
+	"map_black_tide": {
+		"color": Color(0.16, 0.40, 0.34, 1.0),
+		"alpha": 0.07
+	}
+}
 
 @onready var root: Control = $Root
 @onready var stats_box: VBoxContainer = $Root/HUD/Stats
@@ -174,8 +189,14 @@ var current_options: Array = []
 var fog_overlay: ColorRect
 var fog_overlay_material: ShaderMaterial
 var fog_overlay_allowed: bool = true
+var ui_grade_overlay: ColorRect
+var ui_grade_current_color: Color = Color(0.0, 0.0, 0.0, 0.0)
+var ui_grade_target_color: Color = Color(0.0, 0.0, 0.0, 0.0)
 var fog_line_strength_base: float = 0.08
 var fog_noise_strength_base: float = 0.05
+var fog_noise_scale_base: float = 920.0
+var fog_noise_scroll_speed_base: float = 0.82
+var fog_noise_softness_base: float = 0.74
 var fog_pulse_speed_base: float = 0.65
 var noise_bar: ProgressBar
 var noise_tier_label: Label
@@ -191,6 +212,7 @@ var main_menu_panel: CanvasItem
 var run_setup_panel: CanvasItem
 var upgrade_select_panel: CanvasItem
 var run_summary_panel: CanvasItem
+var pause_menu_panel: CanvasItem
 var character_select_panel: CanvasItem
 var map_select_panel: CanvasItem
 var contract_select_panel: CanvasItem
@@ -202,6 +224,7 @@ var latest_run_multipliers: Dictionary = {}
 var latest_summary_data: Dictionary = {}
 var _active_state: String = ""
 var _summary_requested: bool = false
+var _active_map_grade_id: String = ""
 
 
 func _ready() -> void:
@@ -209,6 +232,7 @@ func _ready() -> void:
 	if root.theme == null:
 		root.theme = NEON_THEME
 	_create_fog_overlay()
+	_create_ui_grade_overlay()
 	_create_telegraph_flash_overlay()
 	apply_fog_overlay_config(DataRegistry.get_fog_config())
 	set_fog_overlay_enabled(bool(DataRegistry.get_fog_config().get("enabled", true)))
@@ -219,6 +243,7 @@ func _ready() -> void:
 	_create_run_setup_panel()
 	_create_upgrade_select_panel()
 	_create_run_summary_panel()
+	_create_pause_menu_panel()
 	_create_unlock_toast_widget()
 	set_debug_visible(false)
 
@@ -232,8 +257,9 @@ func _ready() -> void:
 	)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_enforce_summary_visibility()
+	_tick_ui_grade_overlay(delta)
 
 
 func _create_fog_overlay() -> void:
@@ -255,6 +281,21 @@ func _create_fog_overlay() -> void:
 	root.move_child(fog_overlay, 0)
 
 
+func _create_ui_grade_overlay() -> void:
+	ui_grade_overlay = ColorRect.new()
+	ui_grade_overlay.name = "UIGradeOverlay"
+	ui_grade_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ui_grade_overlay.offset_left = 0.0
+	ui_grade_overlay.offset_top = 0.0
+	ui_grade_overlay.offset_right = 0.0
+	ui_grade_overlay.offset_bottom = 0.0
+	ui_grade_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui_grade_overlay.visible = false
+	ui_grade_overlay.color = ui_grade_current_color
+	root.add_child(ui_grade_overlay)
+	root.move_child(ui_grade_overlay, 1)
+
+
 func _create_telegraph_flash_overlay() -> void:
 	telegraph_flash_overlay = ColorRect.new()
 	telegraph_flash_overlay.name = "TelegraphFlashOverlay"
@@ -267,7 +308,7 @@ func _create_telegraph_flash_overlay() -> void:
 	telegraph_flash_overlay.visible = false
 	telegraph_flash_overlay.color = Color(0.72, 0.95, 1.0, 0.0)
 	root.add_child(telegraph_flash_overlay)
-	root.move_child(telegraph_flash_overlay, 1)
+	root.move_child(telegraph_flash_overlay, 2)
 
 
 func _create_runtime_hud_widgets() -> void:
@@ -425,6 +466,26 @@ func _create_run_summary_panel() -> void:
 		run_summary_panel.connect("back_to_menu_requested", Callable(self, "_on_summary_back_to_menu_requested"))
 
 
+func _create_pause_menu_panel() -> void:
+	if PAUSE_MENU_SCENE == null:
+		return
+	var panel_variant := PAUSE_MENU_SCENE.instantiate()
+	if panel_variant == null:
+		return
+	pause_menu_panel = panel_variant
+	pause_menu_panel.name = "PauseMenu"
+	pause_menu_panel.visible = false
+	root.add_child(pause_menu_panel)
+	if pause_menu_panel.has_signal("resume_pressed"):
+		pause_menu_panel.connect("resume_pressed", Callable(self, "_on_pause_menu_resume_pressed"))
+	if pause_menu_panel.has_signal("settings_pressed"):
+		pause_menu_panel.connect("settings_pressed", Callable(self, "_on_pause_menu_settings_pressed"))
+	if pause_menu_panel.has_signal("main_menu_pressed"):
+		pause_menu_panel.connect("main_menu_pressed", Callable(self, "_on_pause_menu_main_menu_pressed"))
+	if pause_menu_panel.has_signal("quit_pressed"):
+		pause_menu_panel.connect("quit_pressed", Callable(self, "_on_pause_menu_quit_pressed"))
+
+
 func _create_map_select_panel() -> void:
 	if MAP_SELECT_SCENE == null:
 		return
@@ -496,6 +557,22 @@ func _on_summary_back_to_menu_requested() -> void:
 	summary_back_to_menu_requested.emit()
 
 
+func _on_pause_menu_resume_pressed() -> void:
+	pause_resume_requested.emit()
+
+
+func _on_pause_menu_settings_pressed() -> void:
+	pause_settings_requested.emit()
+
+
+func _on_pause_menu_main_menu_pressed() -> void:
+	pause_main_menu_requested.emit()
+
+
+func _on_pause_menu_quit_pressed() -> void:
+	pause_quit_requested.emit()
+
+
 func _on_main_menu_play_pressed() -> void:
 	main_menu_start_requested.emit()
 
@@ -542,11 +619,17 @@ func apply_fog_overlay_config(config: Dictionary) -> void:
 	fog_overlay_allowed = bool(config.get("scanline_enabled", true))
 	fog_line_strength_base = float(config.get("scanline_strength", 0.08))
 	fog_noise_strength_base = float(config.get("noise_strength", 0.05))
+	fog_noise_scale_base = clampf(float(config.get("noise_scale", 920.0)), 80.0, 2200.0)
+	fog_noise_scroll_speed_base = clampf(float(config.get("noise_scroll_speed", 0.82)), 0.0, 4.0)
+	fog_noise_softness_base = clampf(float(config.get("noise_softness", 0.74)), 0.0, 1.0)
 	fog_pulse_speed_base = float(config.get("pulse_speed", 0.65))
 	var tint_color := Color.from_string(String(config.get("tint_color", "#0b1a2a")), Color(0.05, 0.10, 0.16))
 	fog_overlay_material.set_shader_parameter("line_density", float(config.get("scanline_density", 320.0)))
 	fog_overlay_material.set_shader_parameter("line_strength", fog_line_strength_base)
 	fog_overlay_material.set_shader_parameter("noise_strength", fog_noise_strength_base)
+	fog_overlay_material.set_shader_parameter("noise_scale", fog_noise_scale_base)
+	fog_overlay_material.set_shader_parameter("noise_scroll_speed", fog_noise_scroll_speed_base)
+	fog_overlay_material.set_shader_parameter("noise_softness", fog_noise_softness_base)
 	fog_overlay_material.set_shader_parameter("tint_color", tint_color)
 	fog_overlay_material.set_shader_parameter("tint_alpha", float(config.get("tint_alpha", 0.30)))
 	fog_overlay_material.set_shader_parameter("pulse_speed", fog_pulse_speed_base)
@@ -562,8 +645,36 @@ func set_fog_overlay_enabled(enabled: bool) -> void:
 	fog_overlay.visible = final_enabled
 
 
+func _apply_ui_map_grade(map_id: String) -> void:
+	if ui_grade_overlay == null:
+		return
+	var resolved_map_id := map_id.strip_edges()
+	if resolved_map_id == _active_map_grade_id:
+		return
+	_active_map_grade_id = resolved_map_id
+	var preset_variant: Variant = MAP_UI_GRADE_PRESETS.get(resolved_map_id, {})
+	var preset: Dictionary = preset_variant if preset_variant is Dictionary else {}
+	var color_variant: Variant = preset.get("color", Color(0.0, 0.0, 0.0, 1.0))
+	var tint_color: Color = color_variant if color_variant is Color else Color(0.0, 0.0, 0.0, 1.0)
+	var alpha := clampf(float(preset.get("alpha", 0.0)), 0.0, 0.35)
+	ui_grade_target_color = Color(tint_color.r, tint_color.g, tint_color.b, alpha)
+	if ui_grade_current_color.a <= 0.001 and alpha > 0.0:
+		ui_grade_current_color = ui_grade_target_color
+	ui_grade_overlay.visible = alpha > 0.001 or ui_grade_current_color.a > 0.001
+
+
+func _tick_ui_grade_overlay(delta: float) -> void:
+	if ui_grade_overlay == null:
+		return
+	var blend_ratio := clampf(delta * 4.6, 0.0, 1.0)
+	ui_grade_current_color = ui_grade_current_color.lerp(ui_grade_target_color, blend_ratio)
+	ui_grade_overlay.color = ui_grade_current_color
+	ui_grade_overlay.visible = ui_grade_current_color.a > 0.001 or ui_grade_target_color.a > 0.001
+
+
 func update_hud(data: Dictionary) -> void:
 	latest_hud_data = data.duplicate(true)
+	_apply_ui_map_grade(String(data.get("current_map_id", "")))
 	latest_run_multipliers = _extract_run_multipliers(data)
 	var hud_state := String(data.get("state", "")).strip_edges().to_lower()
 	if hud_state != "game_over":
@@ -747,9 +858,9 @@ func _play_telegraph_flash(severity: float, bucket: String) -> void:
 				telegraph_flash_overlay.visible = false
 		)
 	if fog_overlay_material != null and fog_overlay_allowed:
-		var line_peak := fog_line_strength_base + 0.02 * severity
-		var noise_peak := fog_noise_strength_base + 0.02 * severity
-		var pulse_peak := fog_pulse_speed_base + 0.12 * severity
+		var line_peak := clampf(fog_line_strength_base + 0.013 * severity, 0.0, 0.24)
+		var noise_peak := clampf(fog_noise_strength_base + 0.010 * severity, 0.0, 0.12)
+		var pulse_peak := clampf(fog_pulse_speed_base + 0.10 * severity, 0.1, 2.0)
 		fog_overlay_material.set_shader_parameter("line_strength", line_peak)
 		fog_overlay_material.set_shader_parameter("noise_strength", noise_peak)
 		fog_overlay_material.set_shader_parameter("pulse_speed", pulse_peak)
@@ -801,6 +912,29 @@ func set_main_menu_visible(enabled: bool) -> void:
 		map_select_panel.visible = false
 	if enabled and contract_select_panel != null:
 		contract_select_panel.visible = false
+	if enabled and pause_menu_panel != null:
+		pause_menu_panel.visible = false
+	_set_hud_visible(not enabled)
+
+
+func set_pause_menu_visible(enabled: bool) -> void:
+	if pause_menu_panel != null:
+		pause_menu_panel.visible = enabled
+	if enabled:
+		_set_run_summary_visible(false)
+		if main_menu_panel != null:
+			main_menu_panel.visible = false
+		if run_setup_panel != null:
+			run_setup_panel.visible = false
+		if character_select_panel != null:
+			character_select_panel.visible = false
+		if map_select_panel != null:
+			map_select_panel.visible = false
+		if contract_select_panel != null:
+			contract_select_panel.visible = false
+		_set_upgrade_select_visible(false)
+		level_up_panel.visible = false
+		game_over_panel.visible = false
 	_set_hud_visible(not enabled)
 
 
@@ -819,6 +953,8 @@ func set_character_select_visible(enabled: bool) -> void:
 		map_select_panel.visible = false
 	if enabled and contract_select_panel != null:
 		contract_select_panel.visible = false
+	if enabled and pause_menu_panel != null:
+		pause_menu_panel.visible = false
 	_set_hud_visible(not enabled)
 
 
@@ -837,6 +973,8 @@ func set_map_select_visible(enabled: bool) -> void:
 		character_select_panel.visible = false
 	if enabled and contract_select_panel != null:
 		contract_select_panel.visible = false
+	if enabled and pause_menu_panel != null:
+		pause_menu_panel.visible = false
 	_set_hud_visible(not enabled)
 
 
@@ -855,6 +993,8 @@ func set_contract_select_visible(enabled: bool) -> void:
 		character_select_panel.visible = false
 	if enabled and map_select_panel != null:
 		map_select_panel.visible = false
+	if enabled and pause_menu_panel != null:
+		pause_menu_panel.visible = false
 	_set_hud_visible(not enabled)
 
 
@@ -1053,6 +1193,7 @@ func on_game_state_changed(state: String) -> void:
 			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
 			_set_upgrade_select_visible(false)
+			set_pause_menu_visible(false)
 			game_over_panel.visible = false
 			_set_run_summary_visible(false)
 			set_main_menu_visible(true)
@@ -1060,6 +1201,7 @@ func on_game_state_changed(state: String) -> void:
 			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
 			_set_upgrade_select_visible(false)
+			set_pause_menu_visible(false)
 			game_over_panel.visible = false
 			_set_run_summary_visible(false)
 			set_character_select_visible(true)
@@ -1067,6 +1209,7 @@ func on_game_state_changed(state: String) -> void:
 			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
 			_set_upgrade_select_visible(false)
+			set_pause_menu_visible(false)
 			game_over_panel.visible = false
 			_set_run_summary_visible(false)
 			set_map_select_visible(true)
@@ -1074,6 +1217,7 @@ func on_game_state_changed(state: String) -> void:
 			_set_root_input_passthrough(false)
 			level_up_panel.visible = false
 			_set_upgrade_select_visible(false)
+			set_pause_menu_visible(false)
 			game_over_panel.visible = false
 			_set_run_summary_visible(false)
 			set_contract_select_visible(true)
@@ -1081,6 +1225,7 @@ func on_game_state_changed(state: String) -> void:
 			_set_root_input_passthrough(true)
 			level_up_panel.visible = false
 			_set_upgrade_select_visible(false)
+			set_pause_menu_visible(false)
 			game_over_panel.visible = false
 			_set_run_summary_visible(false)
 			set_main_menu_visible(false)
@@ -1091,6 +1236,7 @@ func on_game_state_changed(state: String) -> void:
 		"level_up":
 			_set_root_input_passthrough(false)
 			_set_upgrade_select_visible(true)
+			set_pause_menu_visible(false)
 			game_over_panel.visible = false
 			_set_run_summary_visible(false)
 			set_main_menu_visible(false)
@@ -1101,6 +1247,7 @@ func on_game_state_changed(state: String) -> void:
 		"game_over":
 			_set_root_input_passthrough(false)
 			_set_upgrade_select_visible(false)
+			set_pause_menu_visible(false)
 			game_over_panel.visible = run_summary_panel == null
 			if run_summary_panel != null:
 				_set_run_summary_visible(false)
@@ -1108,6 +1255,18 @@ func on_game_state_changed(state: String) -> void:
 			set_character_select_visible(false)
 			set_map_select_visible(false)
 			set_contract_select_visible(false)
+			_set_hud_visible(false)
+		"paused":
+			_set_root_input_passthrough(false)
+			level_up_panel.visible = false
+			_set_upgrade_select_visible(false)
+			game_over_panel.visible = false
+			_set_run_summary_visible(false)
+			set_main_menu_visible(false)
+			set_character_select_visible(false)
+			set_map_select_visible(false)
+			set_contract_select_visible(false)
+			set_pause_menu_visible(true)
 			_set_hud_visible(false)
 		_:
 			pass

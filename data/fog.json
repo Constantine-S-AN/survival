@@ -1,14 +1,17 @@
 {
   "schema_version": 1,
   "enabled": true,
-  "darkness_color": "#060709",
-  "vision_radius": 340.0,
-  "vision_energy": 0.98,
+  "darkness_color": "#090b0f",
+  "vision_radius": 360.0,
+  "vision_energy": 1.04,
   "scanline_enabled": true,
-  "scanline_density": 320.0,
-  "scanline_strength": 0.08,
-  "noise_strength": 0.045,
-  "tint_color": "#120f0d",
-  "tint_alpha": 0.46,
-  "pulse_speed": 0.65
+  "scanline_density": 300.0,
+  "scanline_strength": 0.045,
+  "noise_strength": 0.020,
+  "noise_scale": 920.0,
+  "noise_scroll_speed": 0.82,
+  "noise_softness": 0.74,
+  "tint_color": "#151318",
+  "tint_alpha": 0.33,
+  "pulse_speed": 0.58
 }

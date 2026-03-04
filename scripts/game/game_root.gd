@@ -2,6 +2,7 @@ extends Node
 class_name GameRoot
 
 const STATE_PLAYING := "playing"
+const STATE_PAUSED := "paused"
 const STATE_LEVEL_UP := "level_up"
 const STATE_GAME_OVER := "game_over"
 const STATE_MENU := "menu"
@@ -10,9 +11,16 @@ const STATE_MAP_SELECT := "map_select"
 const STATE_CONTRACT_SELECT := "contract_select"
 const InputConfig := preload("res://scripts/core/input_config.gd")
 const RunStatsClass := preload("res://scripts/core/run_stats.gd")
+const CombatPaletteClass := preload("res://scripts/visual/combat_palette.gd")
 const KILL_STREAK_WINDOW_SEC := 4.2
 const KILL_STREAK_STEP := 6
 const KILL_STREAK_MAX_REWARD_TIER := 8
+const HITSTOP_MIN_DURATION_SEC := 0.016
+const HITSTOP_MAX_DURATION_SEC := 0.086
+const HITSTOP_BASE_SCALE := 0.24
+const HITSTOP_MIN_SCALE := 0.055
+const HITSTOP_KILL_SCALE_BONUS := 0.05
+const HITSTOP_RECOVER_SEC := 0.050
 
 @onready var world = $World
 @onready var ui = $UI
@@ -24,6 +32,11 @@ var kills := 0
 var run_state := STATE_MENU
 var hitstop_active := false
 var hitstop_end_usec: int = 0
+var hitstop_recovering := false
+var hitstop_recover_start_usec: int = 0
+var hitstop_recover_end_usec: int = 0
+var hitstop_recover_start_scale: float = 1.0
+var hitstop_low_scale: float = 1.0
 var fog_enabled: bool = true
 var sonar_visual_enabled: bool = true
 var fixed_noise_enabled: bool = false
@@ -58,9 +71,9 @@ func _ready() -> void:
 		world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	if ui != null:
 		ui.process_mode = Node.PROCESS_MODE_ALWAYS
-	Engine.time_scale = 1.0
+	_clear_hitstop_state(true)
 	InputConfig.ensure_default_actions()
-	if not DataRegistry.load_all():
+	if not DataRegistry.ensure_loaded():
 		push_error("DataRegistry failed to load JSON. Check console for details.")
 	var default_character_id := DataRegistry.get_default_character_id()
 	var default_map_id := DataRegistry.get_default_map_id()
@@ -105,7 +118,10 @@ func _ready() -> void:
 	world.enemy_manager.boss_true_form_revealed.connect(_on_boss_true_form_revealed)
 	world.map_event_triggered.connect(_on_map_event_triggered)
 	world.hazard_state_changed.connect(_on_hazard_state_changed)
-	FeedbackBus.hit_landed.connect(_on_hit_landed)
+	if FeedbackBus.has_signal("hit_landed_detailed"):
+		FeedbackBus.hit_landed_detailed.connect(_on_hit_landed_detailed)
+	else:
+		FeedbackBus.hit_landed.connect(_on_hit_landed)
 	FeedbackBus.pickup_collected.connect(_on_pickup_collected)
 	if not TelegraphBus.warning_emitted.is_connected(_on_telegraph_warning_emitted):
 		TelegraphBus.warning_emitted.connect(_on_telegraph_warning_emitted)
@@ -121,6 +137,14 @@ func _ready() -> void:
 	ui.contract_select_back_requested.connect(_on_contract_select_back_requested)
 	ui.run_setup_start_requested.connect(_on_run_setup_start_requested)
 	ui.unlock_all_debug_requested.connect(_on_unlock_all_debug_requested)
+	if ui.has_signal("pause_resume_requested"):
+		ui.pause_resume_requested.connect(_on_pause_resume_requested)
+	if ui.has_signal("pause_main_menu_requested"):
+		ui.pause_main_menu_requested.connect(_on_pause_main_menu_requested)
+	if ui.has_signal("pause_quit_requested"):
+		ui.pause_quit_requested.connect(_on_pause_quit_requested)
+	if ui.has_signal("pause_settings_requested"):
+		ui.pause_settings_requested.connect(_on_pause_settings_requested)
 	if ui.has_signal("summary_back_to_menu_requested"):
 		ui.summary_back_to_menu_requested.connect(_on_summary_back_to_menu_requested)
 
@@ -143,9 +167,20 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if hitstop_active and Time.get_ticks_usec() >= hitstop_end_usec:
-		Engine.time_scale = 1.0
+	var now_usec := Time.get_ticks_usec()
+	if hitstop_active and now_usec >= hitstop_end_usec:
 		hitstop_active = false
+		hitstop_recovering = true
+		hitstop_recover_start_usec = now_usec
+		hitstop_recover_end_usec = now_usec + int(HITSTOP_RECOVER_SEC * 1000000.0)
+		hitstop_recover_start_scale = clampf(Engine.time_scale, 0.0, 1.0)
+	if hitstop_recovering:
+		var recover_total := maxf(1.0, float(hitstop_recover_end_usec - hitstop_recover_start_usec))
+		var recover_t := clampf(float(now_usec - hitstop_recover_start_usec) / recover_total, 0.0, 1.0)
+		var eased := recover_t * recover_t * (3.0 - 2.0 * recover_t)
+		Engine.time_scale = lerpf(hitstop_recover_start_scale, 1.0, eased)
+		if recover_t >= 1.0:
+			_clear_hitstop_state(true)
 
 	if run_state == STATE_LEVEL_UP and not get_tree().paused:
 		get_tree().paused = true
@@ -170,6 +205,8 @@ func _process(delta: float) -> void:
 			_reset_kill_streak_state()
 
 	if run_state != STATE_PLAYING:
+		if hitstop_active or hitstop_recovering:
+			_clear_hitstop_state(true)
 		_push_debug_snapshot()
 		return
 	elapsed_time += delta
@@ -405,11 +442,212 @@ func _on_player_attack_mode_changed(_is_auto: bool) -> void:
 	_refresh_hud()
 
 
-func _on_hit_landed(_world_position: Vector2, intensity: float, _killed: bool) -> void:
+func _normalize_hit_payload_tags(tags_variant: Variant) -> Array:
+	var tags: Array = []
+	if not (tags_variant is Array):
+		return tags
+	for item in (tags_variant as Array):
+		var tag := String(item).strip_edges().to_lower()
+		if tag.is_empty() or tags.has(tag):
+			continue
+		tags.append(tag)
+	return tags
+
+
+func _resolve_hit_feedback_style(payload: Dictionary) -> Dictionary:
+	var weapon_id := String(payload.get("weapon_id", "")).strip_edges().to_lower()
+	var attack_model := String(payload.get("attack_model", "")).strip_edges().to_lower()
+	var tags := _normalize_hit_payload_tags(payload.get("weapon_tags", payload.get("tags", [])))
+	var fx_color_hex := String(payload.get("fx_color", "")).strip_edges()
+	if (attack_model.is_empty() or tags.is_empty() or fx_color_hex.is_empty()) and not weapon_id.is_empty():
+		var weapon_def := DataRegistry.get_weapon_runtime(weapon_id)
+		if attack_model.is_empty():
+			attack_model = String(weapon_def.get("attack_model", "")).strip_edges().to_lower()
+		if tags.is_empty():
+			tags = _normalize_hit_payload_tags(weapon_def.get("tags", []))
+		if fx_color_hex.is_empty():
+			fx_color_hex = String(weapon_def.get("fx_color", "")).strip_edges()
+	var fx_color := Color(0.0, 0.0, 0.0, 0.0)
+	if not fx_color_hex.is_empty():
+		fx_color = Color.from_string(fx_color_hex, Color(0.0, 0.0, 0.0, 0.0))
+	var style_variant: Variant = CombatPaletteClass.hit_feedback_profile(attack_model, tags, fx_color, weapon_id)
+	return style_variant if style_variant is Dictionary else {}
+
+
+func _build_hit_shake_profile(
+	world_position: Vector2,
+	intensity: float,
+	is_crit: bool,
+	killed: bool,
+	style: Dictionary
+) -> Dictionary:
+	var family := String(style.get("family", "tech")).strip_edges().to_lower()
+	var profile := {
+		"amplitude_mult": 1.0,
+		"freq_mult": 1.0,
+		"decay_mult": 1.0,
+		"response_mult": 1.0,
+		"rotation_mult": 1.0,
+		"axis_scale": Vector2.ONE,
+		"direction": Vector2.ZERO,
+		"directional_impulse": 0.16,
+		"directional_decay": 9.0,
+		"afterimage_strength": 0.16,
+		"afterimage_decay": 5.8,
+		"afterimage_curve": 1.45
+	}
+	match family:
+		"ballistic":
+			profile["amplitude_mult"] = 1.06
+			profile["freq_mult"] = 1.32
+			profile["decay_mult"] = 1.08
+			profile["response_mult"] = 1.18
+			profile["rotation_mult"] = 1.02
+			profile["axis_scale"] = Vector2(1.28, 0.92)
+			profile["directional_impulse"] = 0.24
+			profile["directional_decay"] = 11.0
+			profile["afterimage_strength"] = 0.14
+			profile["afterimage_decay"] = 6.4
+			profile["afterimage_curve"] = 1.35
+		"pulse":
+			profile["amplitude_mult"] = 0.98
+			profile["freq_mult"] = 0.94
+			profile["decay_mult"] = 0.82
+			profile["response_mult"] = 0.92
+			profile["rotation_mult"] = 0.86
+			profile["axis_scale"] = Vector2(0.88, 1.22)
+			profile["directional_impulse"] = 0.12
+			profile["directional_decay"] = 7.2
+			profile["afterimage_strength"] = 0.36
+			profile["afterimage_decay"] = 4.8
+			profile["afterimage_curve"] = 1.90
+		"beam":
+			profile["amplitude_mult"] = 1.10
+			profile["freq_mult"] = 1.12
+			profile["decay_mult"] = 0.96
+			profile["response_mult"] = 1.06
+			profile["rotation_mult"] = 1.25
+			profile["axis_scale"] = Vector2(1.36, 0.74)
+			profile["directional_impulse"] = 0.20
+			profile["directional_decay"] = 9.8
+			profile["afterimage_strength"] = 0.28
+			profile["afterimage_decay"] = 5.2
+			profile["afterimage_curve"] = 1.65
+		"chain":
+			profile["amplitude_mult"] = 1.12
+			profile["freq_mult"] = 1.48
+			profile["decay_mult"] = 1.18
+			profile["response_mult"] = 1.22
+			profile["rotation_mult"] = 1.14
+			profile["axis_scale"] = Vector2(1.22, 1.10)
+			profile["directional_impulse"] = 0.26
+			profile["directional_decay"] = 12.0
+			profile["afterimage_strength"] = 0.24
+			profile["afterimage_decay"] = 6.8
+			profile["afterimage_curve"] = 1.38
+		"ordnance":
+			profile["amplitude_mult"] = 1.22
+			profile["freq_mult"] = 0.72
+			profile["decay_mult"] = 0.74
+			profile["response_mult"] = 0.84
+			profile["rotation_mult"] = 0.72
+			profile["axis_scale"] = Vector2(0.96, 1.42)
+			profile["directional_impulse"] = 0.34
+			profile["directional_decay"] = 8.4
+			profile["afterimage_strength"] = 0.44
+			profile["afterimage_decay"] = 3.6
+			profile["afterimage_curve"] = 2.20
+		"summon":
+			profile["amplitude_mult"] = 0.96
+			profile["freq_mult"] = 1.22
+			profile["decay_mult"] = 0.92
+			profile["response_mult"] = 1.08
+			profile["rotation_mult"] = 0.90
+			profile["axis_scale"] = Vector2(0.90, 1.06)
+			profile["directional_impulse"] = 0.14
+			profile["directional_decay"] = 8.2
+			profile["afterimage_strength"] = 0.30
+			profile["afterimage_decay"] = 5.5
+			profile["afterimage_curve"] = 1.70
+		"blade":
+			profile["amplitude_mult"] = 1.18
+			profile["freq_mult"] = 1.36
+			profile["decay_mult"] = 1.16
+			profile["response_mult"] = 1.26
+			profile["rotation_mult"] = 1.32
+			profile["axis_scale"] = Vector2(1.30, 0.86)
+			profile["directional_impulse"] = 0.30
+			profile["directional_decay"] = 11.2
+			profile["afterimage_strength"] = 0.18
+			profile["afterimage_decay"] = 6.0
+			profile["afterimage_curve"] = 1.28
+		"sonic":
+			profile["amplitude_mult"] = 1.00
+			profile["freq_mult"] = 1.08
+			profile["decay_mult"] = 0.88
+			profile["response_mult"] = 1.04
+			profile["rotation_mult"] = 0.88
+			profile["axis_scale"] = Vector2(0.84, 1.28)
+			profile["directional_impulse"] = 0.16
+			profile["directional_decay"] = 7.6
+			profile["afterimage_strength"] = 0.38
+			profile["afterimage_decay"] = 4.4
+			profile["afterimage_curve"] = 2.10
+		_:
+			pass
+	var normalized := clampf(intensity, 0.04, 1.0)
+	profile["directional_impulse"] = clampf(
+		float(profile.get("directional_impulse", 0.16))
+		+ normalized * 0.22
+		+ (0.08 if is_crit else 0.0)
+		+ (0.10 if killed else 0.0),
+		0.0,
+		1.0
+	)
+	profile["afterimage_strength"] = clampf(
+		float(profile.get("afterimage_strength", 0.16))
+		+ normalized * 0.26
+		+ (0.09 if is_crit else 0.0)
+		+ (0.07 if killed else 0.0),
+		0.0,
+		1.0
+	)
+	profile["amplitude_mult"] = clampf(
+		float(profile.get("amplitude_mult", 1.0))
+		+ normalized * 0.14
+		+ (0.06 if is_crit else 0.0)
+		+ (0.08 if killed else 0.0),
+		0.60,
+		1.90
+	)
+	var direction := Vector2.ZERO
+	if world != null and world.player != null and world.player is Node2D:
+		var player_node := world.player as Node2D
+		var from_player: Vector2 = world_position - player_node.global_position
+		if from_player.length() > 0.01:
+			direction = from_player.normalized()
+	if direction.length() <= 0.01:
+		direction = Vector2.RIGHT.rotated(rng.randf_range(0.0, TAU))
+	profile["direction"] = direction
+	return profile
+
+
+func _on_hit_landed_detailed(world_position: Vector2, intensity: float, killed: bool, payload: Dictionary) -> void:
+	_on_hit_landed(world_position, intensity, killed, payload)
+
+
+func _on_hit_landed(world_position: Vector2, intensity: float, killed: bool, payload: Dictionary = {}) -> void:
 	if run_state != STATE_PLAYING:
 		return
-	world.apply_screen_shake(0.06 + intensity * 0.14)
-	_apply_hitstop(0.038 + intensity * 0.04)
+	var is_crit := bool(payload.get("is_crit", payload.get("crit", false)))
+	var style := _resolve_hit_feedback_style(payload)
+	var shake_profile := _build_hit_shake_profile(world_position, intensity, is_crit, killed, style)
+	var amplitude_mult := clampf(float(shake_profile.get("amplitude_mult", 1.0)), 0.60, 1.90)
+	var shake := (0.06 + intensity * 0.14 + (0.04 if is_crit else 0.0) + (0.03 if killed else 0.0)) * amplitude_mult
+	world.apply_screen_shake(shake, shake_profile)
+	var hitstop_duration := 0.030 + intensity * 0.050 + (0.010 if killed else 0.0) + (0.008 if is_crit else 0.0)
+	var hitstop_intensity := intensity + (0.14 if is_crit else 0.0) + (0.08 if killed else 0.0)
+	_apply_hitstop(hitstop_duration, hitstop_intensity, killed)
 
 
 func _on_map_event_triggered(_event_id: String, event_name: String, message: String) -> void:
@@ -438,12 +676,35 @@ func _on_hazard_state_changed(active: bool, warning_text: String) -> void:
 	)
 
 
-func _apply_hitstop(duration: float) -> void:
-	if hitstop_active:
+func _apply_hitstop(duration: float, intensity: float = 0.5, killed: bool = false) -> void:
+	if run_state != STATE_PLAYING:
 		return
+	var clamped_duration := clampf(duration, HITSTOP_MIN_DURATION_SEC, HITSTOP_MAX_DURATION_SEC)
+	var normalized_intensity := clampf(intensity, 0.0, 1.0)
+	var target_scale := lerpf(HITSTOP_BASE_SCALE, HITSTOP_MIN_SCALE, pow(normalized_intensity, 0.72))
+	if killed:
+		target_scale = maxf(0.03, target_scale - HITSTOP_KILL_SCALE_BONUS)
+	var now_usec := Time.get_ticks_usec()
+	if not hitstop_active:
+		hitstop_low_scale = target_scale
+	else:
+		hitstop_low_scale = minf(hitstop_low_scale, target_scale)
 	hitstop_active = true
-	Engine.time_scale = 0.08
-	hitstop_end_usec = Time.get_ticks_usec() + int(duration * 1000000.0)
+	hitstop_recovering = false
+	hitstop_end_usec = maxi(hitstop_end_usec, now_usec + int(clamped_duration * 1000000.0))
+	Engine.time_scale = minf(Engine.time_scale, hitstop_low_scale)
+
+
+func _clear_hitstop_state(reset_time_scale: bool = false) -> void:
+	hitstop_active = false
+	hitstop_end_usec = 0
+	hitstop_recovering = false
+	hitstop_recover_start_usec = 0
+	hitstop_recover_end_usec = 0
+	hitstop_recover_start_scale = 1.0
+	hitstop_low_scale = 1.0
+	if reset_time_scale:
+		Engine.time_scale = 1.0
 
 
 func _on_player_died() -> void:
@@ -469,7 +730,7 @@ func _on_player_died() -> void:
 
 func _on_retry_requested() -> void:
 	get_tree().set_deferred("paused", false)
-	Engine.time_scale = 1.0
+	_clear_hitstop_state(true)
 	if _can_use_scene_transition() and SceneTransition.has_method("transition_call"):
 		SceneTransition.transition_call(Callable(self, "_retry_run"), 0.18)
 		return
@@ -478,7 +739,7 @@ func _on_retry_requested() -> void:
 
 func _on_summary_back_to_menu_requested() -> void:
 	get_tree().set_deferred("paused", false)
-	Engine.time_scale = 1.0
+	_clear_hitstop_state(true)
 	if _can_use_scene_transition() and SceneTransition.has_method("transition_call"):
 		SceneTransition.transition_call(Callable(self, "_return_to_menu"), 0.16)
 		return
@@ -498,6 +759,32 @@ func _on_main_menu_start_requested() -> void:
 		DataRegistry.get_contract_max_select()
 	)
 	_transition_to_state(STATE_CHARACTER_SELECT, 0.14)
+
+
+func _on_pause_resume_requested() -> void:
+	if run_state != STATE_PAUSED:
+		return
+	_set_state(STATE_PLAYING)
+	_refresh_hud()
+
+
+func _on_pause_main_menu_requested() -> void:
+	if run_state != STATE_PAUSED:
+		return
+	get_tree().set_deferred("paused", false)
+	_clear_hitstop_state(true)
+	if _can_use_scene_transition() and SceneTransition.has_method("transition_call"):
+		SceneTransition.transition_call(Callable(self, "_return_to_menu"), 0.16)
+		return
+	_return_to_menu()
+
+
+func _on_pause_quit_requested() -> void:
+	get_tree().quit()
+
+
+func _on_pause_settings_requested() -> void:
+	ui.show_system_message(_t("sys.settings_coming"), false)
 
 
 func _on_start_run_requested(character_id: String) -> void:
@@ -611,7 +898,7 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 		world.begin_run()
 	_sync_runtime_fog_overlay(true)
 	fixed_noise_value = _get_player_noise(fixed_noise_value)
-	Engine.time_scale = 1.0
+	_clear_hitstop_state(true)
 	_set_state(STATE_PLAYING)
 	if not skip_play_transition and _can_use_scene_transition() and SceneTransition.has_method("play_pulse"):
 		SceneTransition.play_pulse(0.14)
@@ -627,6 +914,12 @@ func _evaluate_character_unlocks() -> Array[String]:
 	summary["max_noise_reached"] = maxf(float(summary.get("max_noise_reached", 0.0)), _get_player_noise(0.0))
 	var noise_tier: Dictionary = DataRegistry.get_noise_tier(float(summary.get("max_noise_reached", 0.0)))
 	summary["max_noise_tier_id"] = String(noise_tier.get("id", summary.get("max_noise_tier_id", "silent")))
+	var level_reached := 1
+	if world != null and world.player != null:
+		var hud_data: Dictionary = _get_player_hud_data()
+		level_reached = int(hud_data.get("level", level_reached))
+	var meta_currency := _calculate_meta_currency_earned(level_reached)
+	summary["meta_currency_earned_total"] = int(meta_currency.get("total", 0))
 	return ProfileStore.evaluate_character_unlocks(DataRegistry.get_characters(), summary)
 
 
@@ -831,6 +1124,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not event.pressed or event.echo:
 		return
+	if event.keycode == KEY_ESCAPE:
+		if run_state == STATE_PLAYING:
+			_set_state(STATE_PAUSED)
+			return
+		if run_state == STATE_PAUSED:
+			_set_state(STATE_PLAYING)
+			_refresh_hud()
+			return
 	if event.keycode == KEY_F2:
 		fog_enabled = not fog_enabled
 		world.set_fog_enabled(fog_enabled)
@@ -859,11 +1160,12 @@ func _set_state(next_state: String) -> void:
 	if run_state != STATE_LEVEL_UP:
 		_level_up_option_ids.clear()
 	if run_state == STATE_PLAYING:
-		Engine.time_scale = 1.0
+		_clear_hitstop_state(true)
 		get_tree().paused = false
 	else:
+		_clear_hitstop_state(true)
 		get_tree().paused = true
-		if run_state != STATE_LEVEL_UP:
+		if run_state != STATE_LEVEL_UP and run_state != STATE_PAUSED:
 			_reset_kill_streak_state()
 	ui.on_game_state_changed(run_state)
 
@@ -921,6 +1223,7 @@ func _refresh_hud() -> void:
 	for key_variant in boss_hud.keys():
 		hud[String(key_variant)] = boss_hud.get(key_variant)
 	hud["state"] = run_state
+	hud["current_map_id"] = world.get_current_map_id()
 	hud["contracts_active"] = selected_contract_ids.duplicate()
 	hud["kill_streak"] = kill_streak_count
 	hud["kill_streak_timer"] = kill_streak_timer
@@ -1119,4 +1422,4 @@ func _t(key: String, args: Dictionary = {}) -> String:
 func _exit_tree() -> void:
 	if run_started and run_state == STATE_PLAYING:
 		_evaluate_character_unlocks()
-	Engine.time_scale = 1.0
+	_clear_hitstop_state(true)
