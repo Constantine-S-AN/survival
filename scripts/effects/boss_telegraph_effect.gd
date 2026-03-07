@@ -10,15 +10,21 @@ var radius: float = 140.0
 var length: float = 220.0
 var direction: Vector2 = Vector2.RIGHT
 var cone_angle_deg: float = 50.0
+var recycle_handler: Callable = Callable()
+var active: bool = false
 
 
 func _ready() -> void:
 	add_to_group("boss_telegraph")
-	set_process(true)
-	queue_redraw()
+	on_pool_recycle()
+
+
+func set_recycle_handler(handler: Callable) -> void:
+	recycle_handler = handler
 
 
 func configure(type_id: String, payload: Dictionary = {}) -> void:
+	on_pool_spawned()
 	telegraph_type = type_id.strip_edges().to_lower()
 	duration = maxf(0.06, float(payload.get("duration", duration)))
 	color = Color.from_string(String(payload.get("color", "#8be8ff")), color)
@@ -41,14 +47,18 @@ func configure(type_id: String, payload: Dictionary = {}) -> void:
 
 
 func _process(delta: float) -> void:
+	if not active:
+		return
 	elapsed += delta
 	if elapsed >= duration:
-		queue_free()
+		_request_recycle()
 		return
 	queue_redraw()
 
 
 func _draw() -> void:
+	if not active:
+		return
 	var progress := clampf(elapsed / maxf(duration, 0.001), 0.0, 1.0)
 	var pulse := 0.65 + 0.35 * sin(progress * PI)
 	var alpha := clampf((1.0 - progress) * 0.9 + 0.1, 0.0, 1.0)
@@ -84,3 +94,27 @@ func _draw_cone(draw_color: Color, pulse: float) -> void:
 	var fill := draw_color * Color(1.0, 1.0, 1.0, 0.16)
 	draw_colored_polygon(points, fill)
 	draw_polyline(points, draw_color, line_width * pulse, true)
+
+
+func on_pool_spawned() -> void:
+	active = true
+	visible = true
+	set_process(true)
+
+
+func on_pool_recycle() -> void:
+	active = false
+	visible = false
+	elapsed = 0.0
+	set_process(false)
+
+
+func _request_recycle() -> void:
+	if not active:
+		return
+	active = false
+	set_process(false)
+	if recycle_handler.is_valid():
+		recycle_handler.call(self)
+		return
+	queue_free()

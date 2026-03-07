@@ -15,6 +15,7 @@ IMPORT_LOG="${LOG_DIR}/headless_import_${RUN_ID}.log"
 TEST_LOG="${LOG_DIR}/headless_tests_${RUN_ID}.log"
 SUMMARY_LOG="${LOG_DIR}/headless_summary_${RUN_ID}.log"
 DO_IMPORT=1
+USER_ARGS=()
 
 prune_entries_by_count() {
 	local keep="${1:-0}"
@@ -62,6 +63,12 @@ for arg in "$@"; do
 		--skip-import)
 			DO_IMPORT=0
 			;;
+		--suite=*)
+			USER_ARGS+=("$arg")
+			;;
+		--user-arg=*)
+			USER_ARGS+=("${arg#--user-arg=}")
+			;;
 		*)
 			echo "Unknown argument: $arg" >&2
 			exit 2
@@ -88,6 +95,9 @@ fi
 
 echo "[headless] run tests scene=${TEST_SCENE} quit_after=${QUIT_AFTER}"
 TEST_CMD=("${GODOT_BIN}" --headless --path "${ROOT_DIR}" "${TEST_SCENE}" --quit-after "${QUIT_AFTER}")
+if [[ ${#USER_ARGS[@]} -gt 0 ]]; then
+	TEST_CMD+=("--" "${USER_ARGS[@]}")
+fi
 set +e
 if command -v timeout >/dev/null 2>&1; then
 	timeout --preserve-status "$((QUIT_AFTER + 120))" "${TEST_CMD[@]}" >"${TEST_LOG}" 2>&1

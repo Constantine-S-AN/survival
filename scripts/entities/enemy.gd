@@ -149,6 +149,8 @@ var _hit_outline_timer: float = 0.0
 var _palette_seed_color: Color = Color(0.22, 0.9, 1.0, 1.0)
 var _enemy_aura_visual: Polygon2D
 var _enemy_aura_phase: float = 0.0
+var _visual_modulate_cache: Color = Color(1.0, 1.0, 1.0, 1.0)
+var _visual_modulate_cache_valid: bool = false
 
 @onready var outline_visual: Polygon2D = $Outline
 @onready var body_visual: Polygon2D = $Body
@@ -321,7 +323,8 @@ func _physics_process(delta: float) -> void:
 	_tick_idle_sticker(delta)
 	_tick_hit_outline_pulse(delta)
 	_tick_enemy_aura_visual(delta)
-	if target == null or not is_instance_valid(target):
+	var target_node := target
+	if target_node == null or not is_instance_valid(target_node):
 		return
 
 	contact_timer = maxf(0.0, contact_timer - delta)
@@ -346,9 +349,10 @@ func _physics_process(delta: float) -> void:
 	if is_elite:
 		_apply_elite_auras(delta)
 
-	var to_target := target.global_position - global_position
-	var distance := to_target.length()
-	var dir := to_target.normalized() if distance > 0.01 else Vector2.ZERO
+	var to_target := target_node.global_position - global_position
+	var distance_sq := to_target.length_squared()
+	var distance := sqrt(distance_sq) if distance_sq > 0.0001 else 0.0
+	var dir := to_target / distance if distance > 0.01 else Vector2.ZERO
 
 	if behavior == "bloater":
 		_update_bloater_state(distance)
@@ -372,9 +376,10 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_update_reveal_visual()
 
-	if distance <= body_radius + 13.0 and contact_timer <= 0.0:
-		if target.has_method("take_damage"):
-			target.take_damage(contact_damage)
+	var contact_distance := body_radius + 13.0
+	if distance_sq <= contact_distance * contact_distance and contact_timer <= 0.0:
+		if target_node.has_method("take_damage"):
+			target_node.take_damage(contact_damage)
 		_apply_contact_specials()
 		contact_timer = contact_cooldown
 
@@ -551,6 +556,8 @@ func _drain_target_xp(amount: float) -> void:
 
 
 func _get_noise_aggression_multiplier() -> float:
+	if noise_aggression_scale <= 0.0:
+		return 1.0
 	if target == null or not is_instance_valid(target):
 		return 1.0
 	if not ("noise" in target):
@@ -740,9 +747,13 @@ func is_revealed() -> bool:
 
 func _update_reveal_visual() -> void:
 	var revealed := is_revealed()
-	outline_visual.visible = revealed or shield_hp > 0.0 or is_elite or _hit_outline_timer > 0.0
+	var outline_visible := revealed or shield_hp > 0.0 or is_elite or _hit_outline_timer > 0.0
+	if outline_visual.visible != outline_visible:
+		outline_visual.visible = outline_visible
 	if _enemy_aura_visual != null:
-		_enemy_aura_visual.visible = pooled_active and (revealed or shield_hp > 0.0 or is_elite or _hit_outline_timer > 0.0 or behavior == "boss")
+		var aura_visible := pooled_active and (revealed or shield_hp > 0.0 or is_elite or _hit_outline_timer > 0.0 or behavior == "boss")
+		if _enemy_aura_visual.visible != aura_visible:
+			_enemy_aura_visual.visible = aura_visible
 	if revealed:
 		_set_enemy_visual_modulate(Color(1.12, 1.12, 1.16, 1.0))
 	elif shield_hp > 0.0:
@@ -919,6 +930,8 @@ func get_boss_summon_break_total_required() -> int:
 
 
 func _apply_elite_auras(delta: float) -> void:
+	if elite_noise_aura_add <= 0.0 and (elite_xp_siphon_rate <= 0.0 or elite_siphon_radius <= 0.0):
+		return
 	if target == null or not is_instance_valid(target):
 		return
 	if elite_noise_aura_add > 0.0 and target.has_method("add_noise_delta"):
@@ -1138,6 +1151,7 @@ func on_pool_recycle() -> void:
 	_outline_base_scale = Vector2.ONE
 	_outline_base_color = Color(0.72, 0.96, 1.0, 1.0)
 	_palette_seed_color = Color(0.22, 0.9, 1.0, 1.0)
+	_visual_modulate_cache_valid = false
 	_enemy_aura_phase = 0.0
 	_clear_boss_decoys()
 	remove_from_group("enemy")
@@ -1275,10 +1289,14 @@ func _set_outline_base_color(color_value: Color) -> void:
 
 
 func _set_enemy_visual_modulate(modulate_color: Color) -> void:
-	if sticker_visual != null and sticker_visual.visible:
-		sticker_visual.modulate = modulate_color
-	else:
+	if _visual_modulate_cache_valid and _visual_modulate_cache == modulate_color:
+		return
+	_visual_modulate_cache = modulate_color
+	_visual_modulate_cache_valid = true
+	if body_visual != null:
 		body_visual.modulate = modulate_color
+	if sticker_visual != null:
+		sticker_visual.modulate = modulate_color
 
 
 func _request_recycle() -> void:

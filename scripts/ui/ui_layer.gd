@@ -673,7 +673,7 @@ func _tick_ui_grade_overlay(delta: float) -> void:
 
 
 func update_hud(data: Dictionary) -> void:
-	latest_hud_data = data.duplicate(true)
+	latest_hud_data = data.duplicate()
 	_apply_ui_map_grade(String(data.get("current_map_id", "")))
 	latest_run_multipliers = _extract_run_multipliers(data)
 	var hud_state := String(data.get("state", "")).strip_edges().to_lower()

@@ -207,6 +207,13 @@ var flare_exposure_surge_rate: float = 0.0
 var flare_overdrive_remaining: float = 0.0
 var darkness_pressure: float = 0.0
 var last_flare_strength: float = FLARE_DECISION_MIN_STRENGTH
+var _hud_build_tags_dirty: bool = true
+var _hud_snapshot_cache_dirty: bool = true
+var _cached_top_build_tags: Array[String] = []
+var _cached_upgrade_stacks_snapshot: Dictionary = {}
+var _cached_acquired_tags_snapshot: Dictionary = {}
+var _cached_run_reward_snapshot: Dictionary = {}
+var _cached_current_weapons: Array[String] = [BASE_ACTIVE_WEAPON_ID]
 
 
 func _ready() -> void:
@@ -332,6 +339,7 @@ func _reset_run_stats() -> void:
 	sonar_silence_synergy_bonus = 0.0
 	upgrade_stacks.clear()
 	acquired_tags.clear()
+	_invalidate_hud_snapshot_caches(true)
 	pending_level_ups = 0
 	level_up_open = false
 	dash_cd_remaining = 0.0
@@ -392,6 +400,7 @@ func _reset_run_stats() -> void:
 		"drop": 1.0,
 		"meta_currency": 1.0
 	}
+	_invalidate_hud_snapshot_caches()
 	contract_max_hp_multiplier = 1.0
 	contract_dash_disabled = false
 	contract_low_noise_damage_multiplier = 1.0
@@ -472,6 +481,7 @@ func apply_character(character_def: Dictionary) -> void:
 		active_weapon_id = starting_weapon_id
 	else:
 		active_weapon_id = BASE_ACTIVE_WEAPON_ID
+	_sync_hud_weapon_cache()
 	_apply_optional_player_texture()
 	_apply_weapon_sticker()
 
@@ -1139,6 +1149,15 @@ func _query_enemy_nodes(
 	return candidates
 
 
+func query_enemy_nodes(
+	center: Vector2,
+	radius: float,
+	max_results: int = TARGET_QUERY_MAX_RESULTS,
+	allow_group_fallback: bool = false
+) -> Array[Node2D]:
+	return _query_enemy_nodes(center, radius, max_results, allow_group_fallback)
+
+
 func _has_enemy_in_radius(center: Vector2, radius: float) -> bool:
 	return _query_enemy_nodes(center, radius, 1, false).size() > 0
 
@@ -1146,21 +1165,19 @@ func _has_enemy_in_radius(center: Vector2, radius: float) -> bool:
 func _pick_target_in_direction(direction: Vector2, max_range: float = INF) -> Node2D:
 	var best_target: Node2D = null
 	var best_score = -INF
-	for enemy in get_tree().get_nodes_in_group("enemy"):
-		if enemy == null or not is_instance_valid(enemy):
-			continue
-		if not (enemy is Node2D):
-			continue
-		var enemy_node = enemy as Node2D
+	var search_radius := max_range if max_range < INF else maxf(_get_runtime_vision_radius() * get_visibility_penalty_multiplier(), 96.0)
+	for enemy_node in _query_enemy_nodes(global_position, search_radius, TARGET_QUERY_MAX_RESULTS, true):
 		var to_enemy = enemy_node.global_position - global_position
-		if to_enemy.length() < 0.01:
+		var distance_sq := to_enemy.length_squared()
+		if distance_sq < 0.0001:
 			continue
-		if to_enemy.length() > max_range:
+		if distance_sq > search_radius * search_radius:
 			continue
-		var alignment = direction.dot(to_enemy.normalized())
+		var distance := sqrt(distance_sq)
+		var alignment = direction.dot(to_enemy / distance)
 		if alignment < 0.2:
 			continue
-		var score = alignment * 1.8 - (to_enemy.length() * 0.0015)
+		var score = alignment * 1.8 - (distance * 0.0015)
 		if score > best_score:
 			best_score = score
 			best_target = enemy_node
@@ -1624,6 +1641,7 @@ func apply_upgrade(upgrade_id: String) -> void:
 
 	_recompute_synergies()
 	cached_runtime = null
+	_invalidate_hud_snapshot_caches(true)
 	level_up_open = false
 	pending_level_ups = max(0, pending_level_ups - 1)
 	emit_stats_changed()
@@ -1652,7 +1670,7 @@ func _build_upgrade_context() -> Dictionary:
 	var noise_tier = DataRegistry.get_noise_tier(noise)
 	var rarity_mult := float(run_reward_multipliers.get("rarity", run_reward_multipliers.get("rarity_mult", 1.0)))
 	return {
-		"acquired_tags": acquired_tags.duplicate(true),
+		"acquired_tags": acquired_tags.duplicate(),
 		"current_weapon_ids": [active_weapon_id],
 		"active_weapon_id": active_weapon_id,
 		"player_level": level,
@@ -1660,7 +1678,7 @@ func _build_upgrade_context() -> Dictionary:
 		"noise_tier_id": String(noise_tier.get("id", "silent")),
 		"force_route_core_offer": true,
 		"rarity_mult": rarity_mult,
-		"run_reward_multipliers": run_reward_multipliers.duplicate(true)
+		"run_reward_multipliers": run_reward_multipliers.duplicate()
 	}
 
 
@@ -1899,6 +1917,7 @@ func set_run_reward_multipliers(multipliers: Dictionary = {}) -> void:
 		"drop": maxf(0.0, float(multipliers.get("drop", multipliers.get("drop_mult", 1.0)))),
 		"meta_currency": maxf(0.0, float(multipliers.get("meta_currency", multipliers.get("meta_currency_mult", 1.0))))
 	}
+	_invalidate_hud_snapshot_caches()
 
 
 func apply_contract_modifiers(player_modifiers: Dictionary = {}) -> void:
@@ -1930,7 +1949,9 @@ func _ensure_weapon_state() -> void:
 		return
 	if not weapon_levels.has(active_weapon_id):
 		weapon_levels[active_weapon_id] = 1
+	_sync_hud_weapon_cache()
 	if previous_weapon_id != active_weapon_id or displayed_weapon_sticker_id != active_weapon_id:
+		_sync_hud_weapon_cache()
 		_apply_weapon_sticker()
 
 
@@ -2599,6 +2620,7 @@ func get_hud_data() -> Dictionary:
 		runtime = _build_active_weapon_runtime()
 	if runtime != null:
 		cached_runtime = runtime
+	_ensure_hud_snapshot_caches()
 	var weapon_name = runtime.display_name if runtime != null else active_weapon_id
 	var weapon_model = runtime.attack_model if runtime != null else "unknown"
 	var weapon_tags = runtime.tags if runtime != null else []
@@ -2606,8 +2628,15 @@ func get_hud_data() -> Dictionary:
 	var weapon_noise_rate = runtime.noise_per_attack * runtime.attack_rate if runtime != null else 0.0
 	var weapon_dps = runtime.estimate_dps() if runtime != null else 0.0
 	var weapon_level = runtime.level if runtime != null else int(weapon_levels.get(active_weapon_id, 1))
-	var build_tags := _get_top_build_tags(5)
-	var chain_params := _get_chain_parameters(runtime) if runtime != null else {"enabled": false, "chance": 0.0, "max_hops": 0}
+	var build_tags := _cached_top_build_tags
+	var chain_enabled := false
+	var chain_chance := 0.0
+	var chain_max_hops := 0
+	if runtime != null:
+		var chain_params := _get_chain_parameters(runtime)
+		chain_enabled = bool(chain_params.get("enabled", false))
+		chain_chance = float(chain_params.get("chance", 0.0))
+		chain_max_hops = int(chain_params.get("max_hops", 0))
 	return {
 		"hp": hp,
 		"max_hp": max_hp,
@@ -2627,15 +2656,15 @@ func get_hud_data() -> Dictionary:
 		"attack_mode": "AUTO" if auto_attack else "AIM",
 		"character_id": character_id,
 		"character_name": character_name,
-		"current_weapons": [active_weapon_id],
+		"current_weapons": _cached_current_weapons,
 		"active_weapon_id": active_weapon_id,
 		"active_weapon_name": weapon_name,
 		"active_weapon_model": weapon_model,
 		"active_weapon_level": weapon_level,
 		"weapon_tags": weapon_tags,
 		"build_tags": build_tags,
-		"upgrade_stacks": upgrade_stacks.duplicate(true),
-		"acquired_tags": acquired_tags.duplicate(true),
+		"upgrade_stacks": _cached_upgrade_stacks_snapshot,
+		"acquired_tags": _cached_acquired_tags_snapshot,
 			"weapon_noise_per_attack": weapon_noise,
 			"weapon_noise_rate": weapon_noise_rate,
 			"weapon_dps_estimate": weapon_dps,
@@ -2649,16 +2678,16 @@ func get_hud_data() -> Dictionary:
 			"flare_overdrive_remaining": flare_overdrive_remaining,
 			"target_query_count_per_sec": target_query_count_per_sec,
 		"target_query_total": target_query_total,
-		"chain_enabled": bool(chain_params.get("enabled", false)),
-		"chain_chance": float(chain_params.get("chance", 0.0)),
-		"chain_max_hops": int(chain_params.get("max_hops", 0)),
+		"chain_enabled": chain_enabled,
+		"chain_chance": chain_chance,
+		"chain_max_hops": chain_max_hops,
 		"summon_resistance": bonus_summon_resistance,
 		"env_noise_gain_multiplier": environment_noise_gain_multiplier,
 		"env_noise_decay_multiplier": environment_noise_decay_multiplier,
 		"env_sonar_reveal_multiplier": environment_sonar_reveal_multiplier,
 		"env_sonar_radius_multiplier": environment_sonar_radius_multiplier,
 		"env_xp_gain_multiplier": environment_xp_gain_multiplier,
-		"run_reward_multipliers": run_reward_multipliers.duplicate(true),
+		"run_reward_multipliers": _cached_run_reward_snapshot,
 		"contract_dash_disabled": contract_dash_disabled,
 		"contract_low_noise_damage_multiplier": contract_low_noise_damage_multiplier,
 		"contract_high_noise_damage_multiplier": contract_high_noise_damage_multiplier
@@ -2666,6 +2695,8 @@ func get_hud_data() -> Dictionary:
 
 
 func emit_stats_changed() -> void:
+	if stats_changed.get_connections().is_empty():
+		return
 	stats_changed.emit(get_hud_data())
 
 
@@ -2690,3 +2721,29 @@ func _get_top_build_tags(max_count: int = 5) -> Array[String]:
 		var pair: Dictionary = pairs[i]
 		output.append(String(pair.get("tag", "")))
 	return output
+
+
+func _invalidate_hud_snapshot_caches(include_build_tags: bool = false) -> void:
+	_hud_snapshot_cache_dirty = true
+	if include_build_tags:
+		_hud_build_tags_dirty = true
+
+
+func _sync_hud_weapon_cache() -> void:
+	if _cached_current_weapons.size() == 1 and String(_cached_current_weapons[0]) == active_weapon_id:
+		return
+	_cached_current_weapons = [active_weapon_id]
+	_hud_snapshot_cache_dirty = true
+
+
+func _ensure_hud_snapshot_caches() -> void:
+	_sync_hud_weapon_cache()
+	if _hud_build_tags_dirty:
+		_cached_top_build_tags = _get_top_build_tags(5)
+		_hud_build_tags_dirty = false
+	if not _hud_snapshot_cache_dirty:
+		return
+	_cached_upgrade_stacks_snapshot = upgrade_stacks.duplicate()
+	_cached_acquired_tags_snapshot = acquired_tags.duplicate()
+	_cached_run_reward_snapshot = run_reward_multipliers.duplicate()
+	_hud_snapshot_cache_dirty = false

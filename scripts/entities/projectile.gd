@@ -338,12 +338,7 @@ func _apply_impact_aoe(primary_target: Node, base_impact_damage: float) -> void:
 	var splash_damage := base_impact_damage * impact_aoe_damage_mult
 	if splash_damage <= 0.0:
 		return
-	for enemy_variant in get_tree().get_nodes_in_group("enemy"):
-		if enemy_variant == null or not is_instance_valid(enemy_variant):
-			continue
-		if not (enemy_variant is Node2D):
-			continue
-		var enemy := enemy_variant as Node2D
+	for enemy in _query_enemy_nodes(global_position, impact_aoe_radius, 24):
 		if enemy == primary_target:
 			continue
 		if enemy.global_position.distance_to(global_position) > impact_aoe_radius:
@@ -367,6 +362,33 @@ func _apply_impact_aoe(primary_target: Node, base_impact_damage: float) -> void:
 			"fx_color": fx_color.to_html(false),
 			"damage": resolved_damage
 		})
+
+
+func _query_enemy_nodes(center: Vector2, search_radius: float, max_results: int = 24) -> Array[Node2D]:
+	if search_radius <= 0.0:
+		var empty: Array[Node2D] = []
+		return empty
+	if source_owner != null and source_owner.has_method("query_enemy_nodes"):
+		var query_variant: Variant = source_owner.call("query_enemy_nodes", center, search_radius, max_results, true)
+		if query_variant is Array:
+			var owner_candidates: Array[Node2D] = []
+			for enemy_variant in (query_variant as Array):
+				if enemy_variant is Node2D:
+					owner_candidates.append(enemy_variant as Node2D)
+			return owner_candidates
+	var candidates: Array[Node2D] = []
+	for enemy_variant in get_tree().get_nodes_in_group("enemy"):
+		if enemy_variant == null or not is_instance_valid(enemy_variant):
+			continue
+		if not (enemy_variant is Node2D):
+			continue
+		var enemy := enemy_variant as Node2D
+		if enemy.global_position.distance_to(center) > search_radius:
+			continue
+		candidates.append(enemy)
+		if candidates.size() >= max_results:
+			break
+	return candidates
 
 
 func _tick_weapon_sticker(delta: float) -> void:

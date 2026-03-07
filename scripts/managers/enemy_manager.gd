@@ -114,6 +114,7 @@ var elapsed_time := 0.0
 var spawn_timer := 0.0
 var noise_factor := 0.0
 var active_enemies: Array = []
+var alive_enemy_count: int = 0
 var pursuer_cooldown_remaining := 0.0
 var current_spawn_rate_multiplier := 1.0
 var effective_spawn_rate_multiplier := 1.0
@@ -220,6 +221,7 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 	_reset_boss_exam_state()
 	run_active = true
 	active_enemies.clear()
+	alive_enemy_count = 0
 	combo_spawned_total = 0
 	last_combo_id = ""
 	spawn_steps_last_tick = 0
@@ -320,6 +322,10 @@ func get_alive_enemy_count() -> int:
 	return _get_alive_enemy_count()
 
 
+func get_active_enemies() -> Array:
+	return active_enemies
+
+
 func get_noise_debug_snapshot() -> Dictionary:
 	var enemy_pool_stats := get_enemy_pool_stats()
 	return {
@@ -364,6 +370,18 @@ func get_noise_debug_snapshot() -> Dictionary:
 		"enemy_pool_hits": int(enemy_pool_stats.get("hits", 0)),
 		"enemy_pool_misses": int(enemy_pool_stats.get("misses", 0))
 	}
+
+
+func populate_hud_debug_fields(target_snapshot: Dictionary) -> void:
+	target_snapshot["spawn_rate_multiplier"] = current_spawn_rate_multiplier
+	target_snapshot["pursuer_chance"] = current_pursuer_chance
+	target_snapshot["elite_count"] = active_elite_count
+	target_snapshot["pursuer_count"] = active_pursuer_count
+	target_snapshot["pursuer_spawned_total"] = pursuer_spawned_total
+	target_snapshot["boss_state"] = boss_state
+	target_snapshot["noise_spawn_rate_multiplier"] = noise_spawn_rate_multiplier
+	target_snapshot["map_spawn_rate_multiplier"] = map_spawn_rate_multiplier
+	target_snapshot["contract_spawn_rate_multiplier"] = contract_spawn_rate_multiplier
 
 
 func get_enemy_pool_stats() -> Dictionary:
@@ -426,6 +444,53 @@ func get_boss_hud_snapshot() -> Dictionary:
 		"boss_summon_break_alive": boss_summon_break_alive,
 		"boss_summon_break_active": boss_phase_exam_type == "summon_break" and maxi(0, boss_summon_break_required - boss_summon_break_kills) > 0
 	}
+
+
+func populate_boss_hud_fields(target_snapshot: Dictionary) -> void:
+	var active := boss_node != null and is_instance_valid(boss_node)
+	if not active:
+		target_snapshot["boss_active"] = false
+		target_snapshot["boss_name"] = ""
+		target_snapshot["boss_hp"] = 0.0
+		target_snapshot["boss_hp_max"] = 0.0
+		target_snapshot["boss_hp_ratio"] = 0.0
+		target_snapshot["boss_phase_id"] = ""
+		target_snapshot["boss_phase_label"] = ""
+		target_snapshot["boss_exam_type"] = ""
+		target_snapshot["boss_exam_objective"] = ""
+		target_snapshot["boss_summon_break_required"] = 0
+		target_snapshot["boss_summon_break_kills"] = 0
+		target_snapshot["boss_summon_break_alive"] = 0
+		target_snapshot["boss_summon_break_active"] = false
+		return
+	var hp_current := 0.0
+	var hp_max := 1.0
+	var hp_variant: Variant = boss_node.get("hp")
+	if hp_variant != null:
+		hp_current = float(hp_variant)
+	var hp_max_variant: Variant = boss_node.get("max_hp")
+	if hp_max_variant != null:
+		hp_max = maxf(1.0, float(hp_max_variant))
+	var hp_ratio := clampf(hp_current / maxf(1.0, hp_max), 0.0, 1.0)
+	var objective := boss_phase_exam_objective
+	if objective.is_empty():
+		objective = boss_phase_label_runtime
+	if boss_phase_exam_type == "summon_break" and boss_summon_break_required > 0:
+		var solved := clampi(boss_summon_break_kills, 0, boss_summon_break_required)
+		objective = "%s (%d/%d)" % [objective, solved, boss_summon_break_required]
+	target_snapshot["boss_active"] = true
+	target_snapshot["boss_name"] = String(boss_definition.get("name", boss_id))
+	target_snapshot["boss_hp"] = hp_current
+	target_snapshot["boss_hp_max"] = hp_max
+	target_snapshot["boss_hp_ratio"] = hp_ratio
+	target_snapshot["boss_phase_id"] = boss_phase_id_runtime
+	target_snapshot["boss_phase_label"] = boss_phase_label_runtime
+	target_snapshot["boss_exam_type"] = boss_phase_exam_type
+	target_snapshot["boss_exam_objective"] = objective
+	target_snapshot["boss_summon_break_required"] = boss_summon_break_required
+	target_snapshot["boss_summon_break_kills"] = boss_summon_break_kills
+	target_snapshot["boss_summon_break_alive"] = boss_summon_break_alive
+	target_snapshot["boss_summon_break_active"] = boss_phase_exam_type == "summon_break" and maxi(0, boss_summon_break_required - boss_summon_break_kills) > 0
 
 
 func get_boss_decoy_count() -> int:
@@ -682,15 +747,12 @@ func _on_enemy_died(enemy_id: String, xp_reward: int, enemy: Node) -> void:
 			boss_spawn_rate_multiplier = 1.0
 			_reset_boss_exam_state()
 	active_enemies.erase(enemy)
+	alive_enemy_count = active_enemies.size()
 	enemy_killed.emit(enemy_id, xp_reward, position, meta)
 
 
 func _get_alive_enemy_count() -> int:
-	var alive := 0
-	for enemy in active_enemies:
-		if enemy != null and is_instance_valid(enemy):
-			alive += 1
-	return alive
+	return alive_enemy_count
 
 
 func _bind_enemy_signals(enemy: Node) -> void:
@@ -777,6 +839,7 @@ func _spawn_enemy_node(enemy_id: String, definition: Dictionary, world_position:
 	if allow_elite and _can_become_elite(definition):
 		_try_apply_elite(enemy)
 	active_enemies.append(enemy)
+	alive_enemy_count = active_enemies.size()
 	return enemy
 
 
@@ -822,10 +885,17 @@ func _refresh_live_enemy_counters() -> void:
 	elite_jam_multiplier_runtime = 1.0
 	var player_pos := player.global_position if player != null and is_instance_valid(player) else Vector2.ZERO
 	var compact: Array = []
+	var needs_compact := false
+	var source_index := 0
 	for enemy in active_enemies:
 		if enemy == null or not is_instance_valid(enemy):
+			if not needs_compact:
+				needs_compact = true
+				compact = active_enemies.slice(0, source_index)
+			source_index += 1
 			continue
-		compact.append(enemy)
+		if needs_compact:
+			compact.append(enemy)
 		if bool(enemy.get("is_elite")):
 			active_elite_count += 1
 			if enemy.has_method("get_pursuer_bonus"):
@@ -834,7 +904,10 @@ func _refresh_live_enemy_counters() -> void:
 				elite_jam_multiplier_runtime *= clampf(float(enemy.get_elite_jam_multiplier(player_pos)), 0.25, 1.0)
 		if enemy.is_in_group("pursuer"):
 			active_pursuer_count += 1
-	active_enemies = compact
+		source_index += 1
+	if needs_compact:
+		active_enemies = compact
+	alive_enemy_count = active_enemies.size()
 
 
 func _update_next_pursuer_eta() -> void:
@@ -1051,6 +1124,7 @@ func _clear_all_active_enemies() -> void:
 			continue
 		_recycle_enemy(child)
 	active_enemies.clear()
+	alive_enemy_count = 0
 	active_elite_count = 0
 	active_pursuer_count = 0
 	elite_pursuer_bonus_runtime = 0.0
@@ -1062,6 +1136,7 @@ func _recycle_enemy(enemy: Node) -> void:
 	if enemy == null or not is_instance_valid(enemy):
 		return
 	active_enemies.erase(enemy)
+	alive_enemy_count = active_enemies.size()
 	if enemy == boss_node:
 		boss_node = null
 		boss_phase_index = -1

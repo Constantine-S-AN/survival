@@ -160,7 +160,7 @@ func _process(delta: float) -> void:
 
 
 func apply_hud_dict(data: Dictionary) -> void:
-	_last_raw_state = data.duplicate(true)
+	_last_raw_state = data.duplicate()
 	apply_state(HUDStateClass.from_dict(data))
 
 
@@ -184,8 +184,10 @@ func apply_state(state) -> void:
 	var noise_tier_color := Color(state.get("noise_tier_color", Color(0.45, 0.9, 1.0, 1.0)))
 	var weapon_id := String(state.get("weapon_id", ""))
 	var weapon_name := String(state.get("weapon_name", "--"))
-	var build_tags: Array[String] = HUDStateClass._string_array(state.get("build_tags", []))
-	var weapon_tags: Array[String] = HUDStateClass._string_array(state.get("weapon_tags", []))
+	var build_tags_variant: Variant = state.get("build_tags", [])
+	var build_tags: Array[String] = build_tags_variant if build_tags_variant is Array else HUDStateClass._string_array(build_tags_variant)
+	var weapon_tags_variant: Variant = state.get("weapon_tags", [])
+	var weapon_tags: Array[String] = weapon_tags_variant if weapon_tags_variant is Array else HUDStateClass._string_array(weapon_tags_variant)
 	var sonar_cd_remaining := float(state.get("sonar_cd_remaining", 0.0))
 	var sonar_cd_total := float(state.get("sonar_cd_total", 0.0))
 	var sonar_feedback_timer := float(state.get("sonar_feedback_timer", 0.0))

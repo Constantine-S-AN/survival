@@ -4,6 +4,7 @@ class_name SonarManager
 var config: Dictionary = {}
 var waves: Array = []
 var visual_enabled: bool = true
+var enemy_manager: Node = null
 var runtime_modifiers: Dictionary = {
 	"wave_speed_mult": 1.0,
 	"max_radius_mult": 1.0,
@@ -13,6 +14,9 @@ var runtime_modifiers: Dictionary = {
 
 func _ready() -> void:
 	FeedbackBus.sonar_pulse_requested.connect(_on_sonar_pulse_requested)
+	var parent := get_parent()
+	if parent != null:
+		enemy_manager = parent.get_node_or_null("EnemyManager")
 
 
 func apply_config(new_config: Dictionary) -> void:
@@ -38,7 +42,7 @@ func is_visual_enabled() -> bool:
 
 func get_revealed_enemy_count() -> int:
 	var count := 0
-	for enemy in get_tree().get_nodes_in_group("enemy"):
+	for enemy in _get_enemy_iterable():
 		if enemy != null and is_instance_valid(enemy) and enemy.has_method("is_revealed"):
 			if bool(enemy.is_revealed()):
 				count += 1
@@ -68,6 +72,8 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if not visual_enabled:
 		return
+	var base_color := Color.from_string(String(config.get("color", "#63e8ff")), Color(0.39, 0.91, 1.0, 1.0))
+	var glow := float(config.get("glow_intensity", 1.0))
 	for wave_variant in waves:
 		if not (wave_variant is Dictionary):
 			continue
@@ -75,10 +81,8 @@ func _draw() -> void:
 		var origin := Vector2(wave.get("origin", Vector2.ZERO))
 		var radius := float(wave.get("radius", 0.0))
 		var thickness := float(wave.get("line_width", 4.0))
-		var base_color := Color.from_string(String(config.get("color", "#63e8ff")), Color(0.39, 0.91, 1.0, 1.0))
 		var strength := float(wave.get("strength", 0.6))
 		var alpha := clampf(1.0 - (radius / maxf(1.0, float(wave.get("max_radius", 700.0)))), 0.0, 1.0)
-		var glow := float(config.get("glow_intensity", 1.0))
 		var color := base_color * (0.5 + strength * glow)
 		color.a = 0.14 + alpha * 0.56
 		draw_arc(origin, radius, 0.0, TAU, 96, color, thickness, true)
@@ -127,7 +131,7 @@ func _reveal_enemies_for_wave(wave: Dictionary) -> void:
 	var revealed_ids_variant: Variant = wave.get("revealed_ids", {})
 	var revealed_ids: Dictionary = revealed_ids_variant if revealed_ids_variant is Dictionary else {}
 
-	for enemy in get_tree().get_nodes_in_group("enemy"):
+	for enemy in _get_enemy_iterable():
 		if enemy == null or not is_instance_valid(enemy):
 			continue
 		if not enemy.has_method("set_revealed"):
@@ -141,3 +145,11 @@ func _reveal_enemies_for_wave(wave: Dictionary) -> void:
 			revealed_ids[instance_key] = true
 
 	wave["revealed_ids"] = revealed_ids
+
+
+func _get_enemy_iterable() -> Array:
+	if enemy_manager != null and enemy_manager.has_method("get_active_enemies"):
+		var active_variant: Variant = enemy_manager.get_active_enemies()
+		if active_variant is Array:
+			return active_variant
+	return get_tree().get_nodes_in_group("enemy")

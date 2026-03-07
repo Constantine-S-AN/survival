@@ -1253,19 +1253,25 @@ func _refresh_hud() -> void:
 	hud["noise_tier_name"] = String(noise_tier.get("name", "Silent"))
 	hud["noise_tier_color"] = String(noise_tier.get("hud_color", "#74e7ff"))
 	hud["noise_tier_id"] = String(noise_tier.get("id", "silent"))
-	var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
-	hud["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
-	hud["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
-	hud["elite_count"] = int(noise_debug.get("elite_count", 0))
-	hud["pursuer_count"] = int(noise_debug.get("pursuer_count", 0))
-	hud["pursuer_spawned_total"] = int(noise_debug.get("pursuer_spawned_total", 0))
-	hud["boss_state"] = String(noise_debug.get("boss_state", "idle"))
-	hud["noise_spawn_rate_multiplier"] = float(noise_debug.get("noise_spawn_rate_multiplier", 1.0))
-	hud["map_spawn_rate_multiplier"] = float(noise_debug.get("map_spawn_rate_multiplier", 1.0))
-	hud["contract_spawn_rate_multiplier"] = float(noise_debug.get("contract_spawn_rate_multiplier", 1.0))
-	var boss_hud: Dictionary = world.enemy_manager.get_boss_hud_snapshot()
-	for key_variant in boss_hud.keys():
-		hud[String(key_variant)] = boss_hud.get(key_variant)
+	if world.enemy_manager.has_method("populate_hud_debug_fields"):
+		world.enemy_manager.populate_hud_debug_fields(hud)
+	else:
+		var noise_debug: Dictionary = world.enemy_manager.get_noise_debug_snapshot()
+		hud["spawn_rate_multiplier"] = float(noise_debug.get("spawn_rate_multiplier", 1.0))
+		hud["pursuer_chance"] = float(noise_debug.get("pursuer_chance", 0.0))
+		hud["elite_count"] = int(noise_debug.get("elite_count", 0))
+		hud["pursuer_count"] = int(noise_debug.get("pursuer_count", 0))
+		hud["pursuer_spawned_total"] = int(noise_debug.get("pursuer_spawned_total", 0))
+		hud["boss_state"] = String(noise_debug.get("boss_state", "idle"))
+		hud["noise_spawn_rate_multiplier"] = float(noise_debug.get("noise_spawn_rate_multiplier", 1.0))
+		hud["map_spawn_rate_multiplier"] = float(noise_debug.get("map_spawn_rate_multiplier", 1.0))
+		hud["contract_spawn_rate_multiplier"] = float(noise_debug.get("contract_spawn_rate_multiplier", 1.0))
+	if world.enemy_manager.has_method("populate_boss_hud_fields"):
+		world.enemy_manager.populate_boss_hud_fields(hud)
+	else:
+		var boss_hud: Dictionary = world.enemy_manager.get_boss_hud_snapshot()
+		for key_variant in boss_hud.keys():
+			hud[String(key_variant)] = boss_hud.get(key_variant)
 	hud["state"] = run_state
 	hud["current_map_id"] = world.get_current_map_id()
 	hud["contracts_active"] = selected_contract_ids.duplicate()
@@ -1363,7 +1369,7 @@ func _get_player_hud_data() -> Dictionary:
 	if player_node.has_method("get_hud_data"):
 		var payload: Variant = player_node.call("get_hud_data")
 		if payload is Dictionary:
-			return (payload as Dictionary).duplicate(true)
+			return payload as Dictionary
 	return {}
 
 
