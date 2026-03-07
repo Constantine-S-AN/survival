@@ -13,8 +13,11 @@ const FARM_ACTION_WATER := "water"
 const FARM_ACTION_HARVEST := "harvest"
 const FARM_TILL_STAMINA_COST := 1
 const FARM_WATER_STAMINA_COST := 1
+const FARM_ACTION_TIME_COST := 1
+const RESTAURANT_SERVICE_ACTION_COST := 3
 const RESTAURANT_MAX_MENU_SIZE := 3
 
+const DayClockClass := preload("res://scripts/meta/day_clock.gd")
 const DayStateClass := preload("res://scripts/meta/day_state.gd")
 const InventoryStateClass := preload("res://scripts/meta/inventory.gd")
 const EconomyStateClass := preload("res://scripts/meta/economy_state.gd")
@@ -41,6 +44,7 @@ var _farm_state: Dictionary = {}
 var _restaurant_state: Dictionary = {}
 var _pending_return_summary: Dictionary = {}
 var _current_state: String = STATE_MENU
+var _day_hub_status_text: String = ""
 var _farm_status_text: String = ""
 var _restaurant_status_text: String = ""
 
@@ -60,6 +64,7 @@ func _connect_signals() -> void:
 	if day_hub != null:
 		day_hub.farm_requested.connect(_on_day_hub_farm_requested)
 		day_hub.restaurant_requested.connect(_on_day_hub_restaurant_requested)
+		day_hub.wait_requested.connect(_on_day_hub_wait_requested)
 		day_hub.night_requested.connect(_on_day_hub_night_requested)
 		day_hub.menu_requested.connect(_on_menu_requested)
 	if farm_view != null:
@@ -103,7 +108,7 @@ func _load_meta_progress() -> void:
 	var summary_variant: Variant = snapshot.get("pending_return_summary", {})
 	_pending_return_summary = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
 	if _day_state.current_phase == DayStateClass.PHASE_NIGHT and _pending_return_summary.is_empty():
-		_day_state.current_phase = DayStateClass.PHASE_DAY
+		_day_state.reset_daytime()
 		_save_meta_progress()
 
 
@@ -111,7 +116,7 @@ func _save_meta_progress() -> void:
 	if ProfileStore == null or not ProfileStore.has_method("set_meta_progress_state"):
 		return
 	ProfileStore.set_meta_progress_state({
-		"schema_version": 4,
+		"schema_version": 5,
 		"day_state": _day_state.to_dict(),
 		"economy": _economy.to_dict(),
 		"inventory": _inventory.to_dict(),
@@ -282,6 +287,10 @@ func _on_day_hub_restaurant_requested() -> void:
 	_show_state(STATE_RESTAURANT)
 
 
+func _on_day_hub_wait_requested() -> void:
+	_wait_until_evening()
+
+
 func _on_day_hub_night_requested() -> void:
 	_launch_night()
 
@@ -310,7 +319,27 @@ func _on_restaurant_service_requested() -> void:
 	_open_restaurant_service()
 
 
-func _launch_night() -> void:
+func _wait_until_evening() -> bool:
+	if _day_state.current_phase == DayStateClass.PHASE_NIGHT:
+		return false
+	var spent_actions := _day_state.rest_until_evening()
+	if spent_actions <= 0:
+		_day_hub_status_text = _build_day_hub_status_text()
+		_refresh_views()
+		return false
+	_day_hub_status_text = _t("meta.hub.status_waited", {"value": spent_actions})
+	_farm_status_text = ""
+	_restaurant_status_text = ""
+	_save_meta_progress()
+	_refresh_views()
+	return true
+
+
+func _launch_night() -> bool:
+	if not _day_state.can_launch_night():
+		_day_hub_status_text = _t("meta.hub.status_night_locked", {"value": _day_state.actions_until_evening()})
+		_refresh_views()
+		return false
 	var character_id := ProfileStore.get_selected_character_id(DataRegistry.get_default_character_id())
 	if not ProfileStore.is_character_unlocked(character_id):
 		character_id = DataRegistry.get_default_character_id()
@@ -326,12 +355,14 @@ func _launch_night() -> void:
 	}
 	_day_state.begin_night()
 	_pending_return_summary.clear()
+	_day_hub_status_text = ""
 	_farm_status_text = ""
 	_restaurant_status_text = ""
 	_save_meta_progress()
 	_refresh_views()
 	_show_state(STATE_NIGHT)
 	night_combat_root.start_session(request)
+	return true
 
 
 func _on_night_session_completed(summary: Dictionary) -> void:
@@ -347,6 +378,7 @@ func _on_return_summary_continue_requested() -> void:
 	_day_state.begin_next_day()
 	_advance_farm_for_new_day(previous_day)
 	_pending_return_summary.clear()
+	_day_hub_status_text = ""
 	_farm_status_text = ""
 	_restaurant_status_text = ""
 	_save_meta_progress()
@@ -397,13 +429,26 @@ func _apply_farm_plot_action(plot_index: int, action_id: String, seed_id: String
 	return ok
 
 
+func _try_consume_farm_action(stamina_cost: int, action_cost: int = FARM_ACTION_TIME_COST) -> bool:
+	if not _day_state.can_spend_action_budget(action_cost):
+		_farm_status_text = _t("meta.common.no_actions")
+		return false
+	if not _day_state.can_spend_stamina(stamina_cost):
+		_farm_status_text = _t("meta.common.no_stamina")
+		return false
+	if not _day_state.spend_daytime_action(stamina_cost, action_cost):
+		_farm_status_text = _t("meta.common.no_actions")
+		return false
+	_day_hub_status_text = ""
+	return true
+
+
 func _apply_till_action(plot_index: int, plot: Dictionary, plots: Array) -> bool:
 	var crop_state: Dictionary = _crop_from_dict(plot.get("crop", {}))
 	if bool(plot.get("tilled", false)) or not _crop_is_empty(crop_state):
 		_farm_status_text = _t("meta.farm.status_tilled")
 		return false
-	if not _day_state.spend_stamina(FARM_TILL_STAMINA_COST):
-		_farm_status_text = _t("meta.common.no_stamina")
+	if not _try_consume_farm_action(FARM_TILL_STAMINA_COST):
 		return false
 	plot["tilled"] = true
 	plot["crop"] = {}
@@ -434,8 +479,7 @@ func _apply_plant_action(plot_index: int, plot: Dictionary, plots: Array, seed_i
 		_farm_status_text = _t("meta.farm.status_invalid")
 		return false
 	var plant_cost := maxi(0, int(seed_def.get("plant_stamina_cost", 1)))
-	if not _day_state.spend_stamina(plant_cost):
-		_farm_status_text = _t("meta.common.no_stamina")
+	if not _try_consume_farm_action(plant_cost):
 		return false
 	var crop_state = _new_crop_instance(
 		normalized_seed_id,
@@ -461,8 +505,7 @@ func _apply_water_action(plot_index: int, plot: Dictionary, plots: Array) -> boo
 	if not _crop_can_water(crop_state, _day_state.current_day):
 		_farm_status_text = _t("meta.farm.status_watered")
 		return false
-	if not _day_state.spend_stamina(FARM_WATER_STAMINA_COST):
-		_farm_status_text = _t("meta.common.no_stamina")
+	if not _try_consume_farm_action(FARM_WATER_STAMINA_COST):
 		return false
 	_crop_mark_watered(crop_state, _day_state.current_day)
 	plot["crop"] = crop_state.duplicate(true)
@@ -476,6 +519,8 @@ func _apply_harvest_action(plot_index: int, plot: Dictionary, plots: Array) -> b
 	var crop_state: Dictionary = _crop_from_dict(plot.get("crop", {}))
 	if _crop_is_empty(crop_state) or not _crop_is_harvestable(crop_state):
 		_farm_status_text = _t("meta.farm.status_not_ready")
+		return false
+	if not _try_consume_farm_action(0):
 		return false
 	var crop_id := String(crop_state.get("crop_id", ""))
 	var crop_def := DataRegistry.get_crop(crop_id)
@@ -531,6 +576,10 @@ func _open_restaurant_service() -> bool:
 		_restaurant_status_text = _t("meta.restaurant.status_closed_today")
 		_refresh_views()
 		return false
+	if not _day_state.can_spend_action_budget(RESTAURANT_SERVICE_ACTION_COST):
+		_restaurant_status_text = _t("meta.restaurant.status_need_time")
+		_refresh_views()
+		return false
 	var selected_menu_ids: Array[String] = _normalize_string_id_array(_restaurant_state.get("selected_menu_recipe_ids", []))
 	if selected_menu_ids.is_empty():
 		_restaurant_status_text = _t("meta.restaurant.status_need_menu")
@@ -576,9 +625,11 @@ func _open_restaurant_service() -> bool:
 		for dish_id_variant in (sold_dishes_variant as Dictionary).keys():
 			_economy.record_dish_sales(String(dish_id_variant), int((sold_dishes_variant as Dictionary).get(dish_id_variant, 0)))
 
+	_day_state.spend_action_budget(RESTAURANT_SERVICE_ACTION_COST)
 	_restaurant_state["last_service_day"] = _day_state.current_day
 	_restaurant_state["last_service_summary"] = simulation.duplicate(true)
 	var unlocked_recipe_names := _maybe_unlock_restaurant_recipes()
+	_day_hub_status_text = ""
 	_restaurant_status_text = _t("meta.restaurant.status_service_complete", {
 		"gold": int(simulation.get("revenue", 0)),
 		"rep": _format_signed_int(int(simulation.get("reputation_delta", 0)))
@@ -646,12 +697,15 @@ func _apply_night_rewards(summary: Dictionary) -> Dictionary:
 
 func _build_day_hub_model() -> Dictionary:
 	var bridge_info := _build_day_hub_bridge_info()
+	var night_ready := _day_state.can_launch_night()
 	return {
 		"current_day": _day_state.current_day,
 		"gold": _economy.gold,
 		"reputation": _economy.restaurant_reputation,
 		"stamina": _day_state.stamina,
 		"max_stamina": _day_state.max_stamina,
+		"action_budget": _day_state.action_budget,
+		"max_action_budget": _day_state.max_action_budget,
 		"phase": _day_state.current_phase,
 		"inventory_summary": _build_inventory_summary(),
 		"inventory_tooltip": _build_night_stock_tooltip(),
@@ -663,16 +717,44 @@ func _build_day_hub_model() -> Dictionary:
 		"bonus_tooltip": _build_night_bonus_summary(),
 		"bridge_summary": String(bridge_info.get("summary", _t("meta.bridge.summary_none"))),
 		"bridge_tooltip": String(bridge_info.get("tooltip", "")),
-		"night_button_disabled": false
+		"status_text": _build_day_hub_status_text(),
+		"wait_button_text": _t("meta.hub.wait_evening"),
+		"wait_button_tooltip": _build_wait_button_tooltip(),
+		"wait_button_disabled": night_ready,
+		"night_button_disabled": not night_ready,
+		"night_button_tooltip": _build_night_button_tooltip()
 	}
+
+
+func _build_day_hub_status_text() -> String:
+	if not _day_hub_status_text.is_empty():
+		return _day_hub_status_text
+	if _day_state.can_launch_night():
+		return _t("meta.hub.status_night_ready")
+	return _t("meta.hub.status_night_locked", {"value": _day_state.actions_until_evening()})
+
+
+func _build_wait_button_tooltip() -> String:
+	if _day_state.can_launch_night():
+		return _t("meta.hub.wait_tooltip_ready")
+	return _t("meta.hub.wait_tooltip", {"value": _day_state.actions_until_evening()})
+
+
+func _build_night_button_tooltip() -> String:
+	if _day_state.can_launch_night():
+		return _t("meta.hub.night_tooltip_ready")
+	return _t("meta.hub.night_tooltip_locked", {"value": _day_state.actions_until_evening()})
 
 
 func _build_farm_model() -> Dictionary:
 	var bridge_info := _build_farm_bridge_info()
 	return {
 		"current_day": _day_state.current_day,
+		"phase": _day_state.current_phase,
 		"stamina": _day_state.stamina,
 		"max_stamina": _day_state.max_stamina,
+		"action_budget": _day_state.action_budget,
+		"max_action_budget": _day_state.max_action_budget,
 		"inventory_summary": _build_inventory_summary(),
 		"inventory_tooltip": _build_night_stock_tooltip(),
 		"bridge_summary": String(bridge_info.get("summary", _t("meta.bridge.summary_none"))),
@@ -690,19 +772,19 @@ func _build_farm_tools() -> Array[Dictionary]:
 			"id": FARM_ACTION_TILL,
 			"seed_id": "",
 			"label": _t("meta.farm.tool_till"),
-			"enabled": _day_state.can_spend_stamina(FARM_TILL_STAMINA_COST)
+			"enabled": _day_state.can_take_daytime_action(FARM_TILL_STAMINA_COST, FARM_ACTION_TIME_COST)
 		},
 		{
 			"id": FARM_ACTION_WATER,
 			"seed_id": "",
 			"label": _t("meta.farm.tool_water"),
-			"enabled": _day_state.can_spend_stamina(FARM_WATER_STAMINA_COST)
+			"enabled": _day_state.can_take_daytime_action(FARM_WATER_STAMINA_COST, FARM_ACTION_TIME_COST)
 		},
 		{
 			"id": FARM_ACTION_HARVEST,
 			"seed_id": "",
 			"label": _t("meta.farm.tool_harvest"),
-			"enabled": true
+			"enabled": _day_state.can_spend_action_budget(FARM_ACTION_TIME_COST)
 		}
 	]
 	for seed_variant in DataRegistry.get_seeds():
@@ -732,7 +814,7 @@ func _build_farm_tools() -> Array[Dictionary]:
 			"id": "plant",
 			"seed_id": seed_id,
 			"label": label,
-			"enabled": _inventory.has_seed(seed_id) and _day_state.can_spend_stamina(plant_cost),
+			"enabled": _inventory.has_seed(seed_id) and _day_state.can_take_daytime_action(plant_cost, FARM_ACTION_TIME_COST),
 			"tooltip": _build_seed_tooltip(seed, crop_def)
 		})
 	return tools
@@ -796,8 +878,11 @@ func _build_restaurant_model() -> Dictionary:
 	var bridge_info := _build_restaurant_bridge_info()
 	return {
 		"current_day": _day_state.current_day,
+		"phase": _day_state.current_phase,
 		"gold": _economy.gold,
 		"reputation": _economy.restaurant_reputation,
+		"action_budget": _day_state.action_budget,
+		"max_action_budget": _day_state.max_action_budget,
 		"ingredient_summary": _build_restaurant_ingredient_summary(),
 		"ingredient_tooltip": _build_night_stock_tooltip(),
 		"bridge_summary": String(bridge_info.get("summary", _t("meta.bridge.summary_none"))),
@@ -810,6 +895,7 @@ func _build_restaurant_model() -> Dictionary:
 			"max": RESTAURANT_MAX_MENU_SIZE
 		}),
 		"service_button_text": _build_restaurant_service_button_text(),
+		"service_button_tooltip": _t("meta.restaurant.service_tooltip", {"value": RESTAURANT_SERVICE_ACTION_COST}),
 		"service_button_enabled": _can_open_restaurant_service(),
 		"clear_button_enabled": not selected_menu_ids.is_empty(),
 		"result_title": _build_restaurant_result_title(last_service_summary),
@@ -865,11 +951,13 @@ func _build_restaurant_ingredient_summary() -> String:
 func _build_restaurant_service_button_text() -> String:
 	if _restaurant_service_completed_today():
 		return _t("meta.restaurant.service_closed_today")
-	return _t("meta.restaurant.open_service")
+	return _t("meta.restaurant.open_service_cost", {"value": RESTAURANT_SERVICE_ACTION_COST})
 
 
 func _can_open_restaurant_service() -> bool:
 	if _restaurant_service_completed_today():
+		return false
+	if not _day_state.can_spend_action_budget(RESTAURANT_SERVICE_ACTION_COST):
 		return false
 	var selected_menu_ids: Array[String] = _normalize_string_id_array(_restaurant_state.get("selected_menu_recipe_ids", []))
 	if selected_menu_ids.is_empty():
@@ -1791,8 +1879,12 @@ func debug_open_restaurant_service() -> bool:
 	return _open_restaurant_service()
 
 
-func debug_launch_night() -> void:
-	_launch_night()
+func debug_wait_until_evening() -> bool:
+	return _wait_until_evening()
+
+
+func debug_launch_night() -> bool:
+	return _launch_night()
 
 
 func debug_complete_active_night(summary_override: Dictionary = {}) -> void:
@@ -1829,6 +1921,8 @@ func debug_get_snapshot() -> Dictionary:
 		"reputation": _economy.restaurant_reputation,
 		"stamina": _day_state.stamina,
 		"max_stamina": _day_state.max_stamina,
+		"action_budget": _day_state.action_budget,
+		"max_action_budget": _day_state.max_action_budget,
 		"pending_next_day_stamina_penalty": _day_state.pending_next_day_stamina_penalty,
 		"next_day_stamina_preview": _day_state.preview_next_day_stamina(),
 		"inventory_summary": _build_inventory_summary(),
@@ -1837,6 +1931,9 @@ func debug_get_snapshot() -> Dictionary:
 		"unlocked_recipe_ids": _inventory.unlocked_recipes.duplicate(),
 		"seed_summary": _build_unlocked_seed_summary(),
 		"recipe_summary": _build_unlocked_recipe_summary(),
+		"day_hub_status_text": String(day_hub_model.get("status_text", "")),
+		"night_button_disabled": bool(day_hub_model.get("night_button_disabled", false)),
+		"wait_button_disabled": bool(day_hub_model.get("wait_button_disabled", false)),
 		"day_hub_bridge_summary": String(day_hub_model.get("bridge_summary", "")),
 		"day_hub_bridge_tooltip": String(day_hub_model.get("bridge_tooltip", "")),
 		"pending_summary": not _pending_return_summary.is_empty(),

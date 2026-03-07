@@ -4,9 +4,10 @@ signal language_code_changed(language_code: String)
 
 const PROFILE_PATH := "user://profile.json"
 const PROFILE_TMP_PATH := "user://profile.json.tmp"
-const PROFILE_SCHEMA_VERSION := 5
+const PROFILE_SCHEMA_VERSION := 6
 const TEST_SESSION_META_KEY := "profile_store_test_session_id"
 const DEFAULT_LANGUAGE_CODE := "en"
+const DayClockClass := preload("res://scripts/meta/day_clock.gd")
 
 const DEFAULT_PROGRESS: Dictionary = {
 	"total_kills": 0,
@@ -19,12 +20,14 @@ const DEFAULT_PROGRESS: Dictionary = {
 }
 
 const DEFAULT_META_PROGRESS: Dictionary = {
-	"schema_version": 4,
+	"schema_version": 5,
 	"day_state": {
 		"current_day": 1,
-		"current_phase": "day",
+		"current_phase": DayClockClass.PHASE_MORNING,
 		"stamina": 6,
 		"max_stamina": 6,
+		"action_budget": DayClockClass.DEFAULT_MAX_ACTION_BUDGET,
+		"max_action_budget": DayClockClass.DEFAULT_MAX_ACTION_BUDGET,
 		"pending_night_gold_bonus": 0,
 		"pending_night_material_bonus": 0,
 		"pending_next_day_stamina_penalty": 0
@@ -481,9 +484,21 @@ func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
 		var day_state: Dictionary = (default_day_state_variant as Dictionary).duplicate(true) if default_day_state_variant is Dictionary else {}
 		var source_day_state: Dictionary = day_state_variant
 		day_state["current_day"] = maxi(1, int(source_day_state.get("current_day", day_state.get("current_day", 1))))
-		day_state["current_phase"] = _normalize_meta_phase(String(source_day_state.get("current_phase", day_state.get("current_phase", "day"))))
+		day_state["current_phase"] = _normalize_meta_phase(String(source_day_state.get("current_phase", day_state.get("current_phase", DayClockClass.PHASE_MORNING))))
 		day_state["max_stamina"] = maxi(1, int(source_day_state.get("max_stamina", day_state.get("max_stamina", 6))))
 		day_state["stamina"] = clampi(int(source_day_state.get("stamina", day_state.get("stamina", 6))), 0, int(day_state.get("max_stamina", 6)))
+		day_state["max_action_budget"] = maxi(1, int(source_day_state.get("max_action_budget", day_state.get("max_action_budget", DayClockClass.DEFAULT_MAX_ACTION_BUDGET))))
+		var default_action_budget := DayClockClass.default_action_budget_for_phase(String(day_state.get("current_phase", DayClockClass.PHASE_MORNING)), int(day_state.get("max_action_budget", DayClockClass.DEFAULT_MAX_ACTION_BUDGET)))
+		day_state["action_budget"] = clampi(
+			int(source_day_state.get("action_budget", default_action_budget)),
+			0,
+			int(day_state.get("max_action_budget", DayClockClass.DEFAULT_MAX_ACTION_BUDGET))
+		)
+		if String(day_state.get("current_phase", "")) != DayClockClass.PHASE_NIGHT:
+			day_state["current_phase"] = DayClockClass.phase_from_action_budget(
+				int(day_state.get("action_budget", default_action_budget)),
+				int(day_state.get("max_action_budget", DayClockClass.DEFAULT_MAX_ACTION_BUDGET))
+			)
 		day_state["pending_night_gold_bonus"] = maxi(0, int(source_day_state.get("pending_night_gold_bonus", day_state.get("pending_night_gold_bonus", 0))))
 		day_state["pending_night_material_bonus"] = maxi(0, int(source_day_state.get("pending_night_material_bonus", day_state.get("pending_night_material_bonus", 0))))
 		day_state["pending_next_day_stamina_penalty"] = clampi(
@@ -631,10 +646,7 @@ func _normalize_restaurant_state(restaurant_variant: Variant) -> Dictionary:
 
 
 func _normalize_meta_phase(phase: String) -> String:
-	var normalized := phase.strip_edges().to_lower()
-	if normalized == "night":
-		return "night"
-	return "day"
+	return DayClockClass.normalize_phase(phase)
 
 
 func _normalize_string_array(source: Variant) -> Array[String]:

@@ -32,9 +32,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -360.0
-offset_top = -290.0
+offset_top = -330.0
 offset_right = 360.0
-offset_bottom = 290.0
+offset_bottom = 330.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"OverlayPanel"
@@ -80,6 +80,10 @@ text = "Reputation: 1"
 layout_mode = 2
 text = "Stamina: 0/0"
 
+[node name="ActionBudgetLabel" type="Label" parent="ContentPanel/Margin/VBox/Stats"]
+layout_mode = 2
+text = "Actions: 0/0"
+
 [node name="PhaseLabel" type="Label" parent="ContentPanel/Margin/VBox/Stats"]
 layout_mode = 2
 text = "Phase: Day"
@@ -110,6 +114,12 @@ autowrap_mode = 3
 text = "Night Bridge: -"
 theme_type_variation = &"BodyMutedLabel"
 
+[node name="StatusLabel" type="Label" parent="ContentPanel/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = ""
+theme_type_variation = &"BodyMutedLabel"
+
 [node name="Actions" type="VBoxContainer" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 12
@@ -125,6 +135,14 @@ enable_motion = true
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 text = "Restaurant"
+script = ExtResource("3")
+use_primary_style = false
+enable_motion = true
+
+[node name="WaitButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Rest Until Evening"
 script = ExtResource("3")
 use_primary_style = false
 enable_motion = true

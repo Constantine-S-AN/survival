@@ -43,8 +43,11 @@ func _apply_view_model() -> void:
 	subtitle_label.text = _t("meta.farm.subtitle")
 	stats_label.text = _t("meta.farm.stats", {
 		"day": int(_view_model.get("current_day", 1)),
+		"phase": _t("meta.phase.%s" % String(_view_model.get("phase", "morning"))),
 		"stamina": int(_view_model.get("stamina", 0)),
-		"max": int(_view_model.get("max_stamina", 0))
+		"max": int(_view_model.get("max_stamina", 0)),
+		"actions": int(_view_model.get("action_budget", 0)),
+		"action_max": int(_view_model.get("max_action_budget", 0))
 	})
 	inventory_label.text = _t("meta.farm.inventory", {"value": String(_view_model.get("inventory_summary", "-"))})
 	inventory_label.tooltip_text = String(_view_model.get("inventory_tooltip", ""))

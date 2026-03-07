@@ -427,7 +427,7 @@ func _run_character_profile_tests() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	profile_store.load_profile("diver")
-	_assert_equal(profile_store.get_schema_version(), 5, "profile migration upgrades schema to v5")
+	_assert_equal(profile_store.get_schema_version(), 6, "profile migration upgrades schema to v6")
 	var migrated_profile: Dictionary = profile_store.get_profile()
 	var migrated_progress_variant: Variant = migrated_profile.get("progress", {})
 	var migrated_progress: Dictionary = migrated_progress_variant if migrated_progress_variant is Dictionary else {}
@@ -2264,6 +2264,10 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	var snapshot: Dictionary = meta_root.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("current_screen", "")), "day_hub", "meta loop enters day hub from main menu")
+	_assert_equal(String(snapshot.get("phase", "")), "morning", "meta loop starts each daytime loop in the morning")
+	_assert_equal(int(snapshot.get("action_budget", 0)), 5, "meta loop starts with a full daytime action budget")
+	_assert_true(bool(snapshot.get("night_button_disabled", false)), "night combat stays locked before evening")
+	_assert_true(not bool(meta_root.call("debug_launch_night")), "night combat cannot launch before the evening phase")
 
 	meta_root.call("debug_open_farm")
 	await get_tree().process_frame
@@ -2272,13 +2276,17 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "till")), "farm till succeeds on plot 0")
 	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "plant", "wheat_seed")), "farm plants wheat on plot 0")
 	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "water")), "farm waters wheat on plot 0")
-	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "till")), "farm till succeeds on plot 1")
-	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "plant", "herb_seed")), "farm plants herb on plot 1")
-	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "water")), "farm waters herb on plot 1")
+	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "till")), "farm can spend more of the day preparing a second plot")
+	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "plant", "herb_seed")), "farm plants herb on plot 1 before the first night")
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(int(snapshot.get("action_budget", 0)), 0, "farm actions can fully consume the shared daytime action budget")
+	_assert_equal(String(snapshot.get("phase", "")), "evening", "enough daytime work advances the clock to evening")
 	meta_root.call("debug_return_to_hub")
 	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_true(not bool(snapshot.get("night_button_disabled", true)), "night combat unlocks once the evening phase is reached")
 
-	meta_root.call("debug_launch_night")
+	_assert_true(bool(meta_root.call("debug_launch_night")), "night combat launches from the evening phase")
 	await get_tree().process_frame
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
@@ -2313,8 +2321,10 @@ func _run_meta_loop_scaffold_tests() -> void:
 	snapshot = meta_root.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("current_screen", "")), "day_hub", "meta loop returns to day hub after summary")
 	_assert_equal(int(snapshot.get("current_day", 0)), 2, "meta loop advances to next day after summary")
-	_assert_equal(String(snapshot.get("phase", "")), "day", "meta loop resets phase to day after summary")
+	_assert_equal(String(snapshot.get("phase", "")), "morning", "meta loop resets phase to morning after summary")
 	_assert_equal(int(snapshot.get("stamina", 0)), 4, "injury penalty reduces next-day stamina")
+	_assert_equal(int(snapshot.get("action_budget", 0)), 5, "next day restores the daytime action budget")
+	_assert_true(bool(snapshot.get("night_button_disabled", false)), "night combat locks again at the start of the next day")
 	var day2_materials: Dictionary = snapshot.get("inventory_materials", {})
 	_assert_equal(int(day2_materials.get("abyssfin", 0)), 1, "shared inventory retains abyssfin after returning from combat")
 	_assert_equal(int(day2_materials.get("reef_salt", 0)), 0, "shared inventory does not gain Reef Salt until a successful night clear")
@@ -2329,17 +2339,20 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true(day2_plots.size() >= 2, "farm exposes two plots in snapshot")
 	if day2_plots.size() >= 2:
 		var wheat_plot: Dictionary = day2_plots[0]
-		var herb_plot: Dictionary = day2_plots[1]
+		var second_plot: Dictionary = day2_plots[1]
 		_assert_equal(String(wheat_plot.get("crop_id", "")), "wheat", "wheat plot remains planted on day 2")
 		_assert_equal(int(wheat_plot.get("growth_progress_days", 0)), 1, "watered wheat advances one growth day")
 		_assert_true(not bool(wheat_plot.get("harvestable", false)), "wheat is not harvestable after one day")
-		_assert_equal(String(herb_plot.get("crop_id", "")), "herb", "herb plot remains planted on day 2")
-		_assert_true(bool(herb_plot.get("harvestable", false)), "herb becomes harvestable after one watered day")
+		_assert_equal(String(second_plot.get("crop_id", "")), "herb", "second plot keeps its planted herb when day 1 time is invested in farm prep")
+		_assert_true(not bool(second_plot.get("harvestable", false)), "herb still needs a later watering pass before it can be harvested")
 	var mooncap_seed_tool := _find_entry_by_id(snapshot.get("farm_tools", []), "mooncap_seed")
 	_assert_true(String(mooncap_seed_tool.get("tooltip", "")).find("Moon Spore") >= 0, "farm tooltip explains the night-drop seed path")
 	_assert_true(String(snapshot.get("farm_bridge_summary", "")).find("Mooncap Seed Study") >= 0, "farm bridge summary highlights night-driven crop progression")
-	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "harvest")), "harvest adds herb to inventory")
 	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "water")), "watering wheat again succeeds on day 2")
+	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "water")), "watering herb on day 2 keeps the fast crop path viable")
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(int(snapshot.get("action_budget", 0)), 3, "watering multiple crops spends multiple daytime actions")
+	_assert_equal(String(snapshot.get("phase", "")), "afternoon", "multiple farm actions advance the visible daytime phase")
 	meta_root.call("debug_return_to_hub")
 	await get_tree().process_frame
 
@@ -2361,6 +2374,8 @@ func _run_meta_loop_scaffold_tests() -> void:
 	snapshot = meta_root.call("debug_get_snapshot")
 	_assert_true(int(snapshot.get("gold", 0)) > gold_before_service, "restaurant service generates gold")
 	_assert_equal(int(snapshot.get("restaurant_last_service_day", 0)), 2, "restaurant records the service day")
+	_assert_equal(String(snapshot.get("phase", "")), "evening", "restaurant service consumes a major chunk of the day")
+	_assert_equal(int(snapshot.get("action_budget", 0)), 0, "restaurant service can finish the remaining daytime action budget")
 	var sold_stats: Dictionary = snapshot.get("sold_dishes_stats", {})
 	_assert_true(int(sold_stats.get("field_stew", 0)) >= 1, "restaurant service records sold dish stats")
 	_assert_true(not bool(snapshot.get("restaurant_service_button_enabled", true)), "restaurant closes service for the rest of the day")
@@ -2379,6 +2394,8 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	var reload_snapshot: Dictionary = meta_root_reload.call("debug_get_snapshot")
 	_assert_equal(int(reload_snapshot.get("current_day", 0)), 2, "meta loop preserves day across reload")
+	_assert_equal(String(reload_snapshot.get("phase", "")), "evening", "save/load preserves the current daytime phase")
+	_assert_equal(int(reload_snapshot.get("action_budget", 0)), 0, "save/load preserves an exhausted daytime action budget")
 	_assert_true(int(reload_snapshot.get("gold", 0)) > 15, "meta loop preserves restaurant gold after reload")
 	_assert_equal(int(reload_snapshot.get("restaurant_last_service_day", 0)), 2, "meta loop preserves restaurant service day after reload")
 	_assert_equal(int((reload_snapshot.get("inventory_materials", {}) as Dictionary).get("abyssfin", 0)), 1, "save/load preserves night-only restaurant ingredient inventory")
@@ -2399,15 +2416,22 @@ func _run_meta_loop_scaffold_tests() -> void:
 	var reload_plots: Array = reload_snapshot.get("farm_plots", [])
 	if reload_plots.size() >= 2:
 		var reload_wheat_plot: Dictionary = reload_plots[0]
-		var reload_herb_plot: Dictionary = reload_plots[1]
+		var reload_second_plot: Dictionary = reload_plots[1]
 		_assert_equal(String(reload_wheat_plot.get("crop_id", "")), "wheat", "save/load preserves growing wheat plot")
 		_assert_equal(int(reload_wheat_plot.get("growth_progress_days", 0)), 1, "save/load preserves wheat growth progress")
 		_assert_equal(int(reload_wheat_plot.get("watered_day", 0)), 2, "save/load preserves same-day watering")
-		_assert_equal(String(reload_herb_plot.get("crop_id", "")), "", "save/load preserves harvested herb plot as empty")
+		_assert_equal(String(reload_second_plot.get("crop_id", "")), "herb", "save/load preserves the second planted crop")
+		_assert_equal(int(reload_second_plot.get("watered_day", 0)), 2, "save/load preserves same-day watering on the second crop")
+	_assert_true(not bool(meta_root_reload.call("debug_interact_farm_plot", 2, "till")), "farm work stops once the daytime budget is exhausted")
+	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
+	_assert_equal(int(reload_snapshot.get("action_budget", 0)), 0, "using the last farm action exhausts the shared daytime budget")
+	_assert_true(String(reload_snapshot.get("farm_status_text", "")).find("No daytime actions") >= 0, "farm status explains when no daytime actions remain")
 	meta_root_reload.call("debug_return_to_hub")
 	await get_tree().process_frame
+	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
+	_assert_true(not bool(reload_snapshot.get("night_button_disabled", true)), "night combat stays available in the evening even after daytime actions run out")
 
-	meta_root_reload.call("debug_launch_night")
+	_assert_true(bool(meta_root_reload.call("debug_launch_night")), "second night launch still works after reload")
 	await get_tree().process_frame
 	await get_tree().process_frame
 	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
@@ -2432,6 +2456,8 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
 	_assert_equal(int(reload_snapshot.get("current_day", 0)), 3, "second return summary advances to day 3")
+	_assert_equal(String(reload_snapshot.get("phase", "")), "morning", "day 3 starts back at the morning phase")
+	_assert_equal(int(reload_snapshot.get("action_budget", 0)), 5, "day 3 restores the daytime budget after night combat")
 	_assert_true((reload_snapshot.get("unlocked_seed_ids", []) as Array).has("mooncap_seed"), "mooncap seed unlock persists into daytime farm state")
 	_assert_true((reload_snapshot.get("unlocked_recipe_ids", []) as Array).has("mooncap_hotpot"), "mooncap hotpot unlock persists into daytime restaurant state")
 	_assert_true((reload_snapshot.get("unlocked_recipe_ids", []) as Array).has("abyssfin_crudo"), "additional premium recipe unlock persists into daytime restaurant state")
@@ -2440,15 +2466,20 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
 	var day3_plots: Array = reload_snapshot.get("farm_plots", [])
-	if day3_plots.size() >= 1:
+	if day3_plots.size() >= 2:
 		var day3_wheat_plot: Dictionary = day3_plots[0]
+		var day3_second_plot: Dictionary = day3_plots[1]
 		_assert_true(bool(day3_wheat_plot.get("harvestable", false)), "wheat becomes harvestable on day 3")
+		_assert_true(bool(day3_second_plot.get("harvestable", false)), "the fast herb crop becomes harvestable once day 2 watering is banked")
 	_assert_true(bool(meta_root_reload.call("debug_interact_farm_plot", 0, "harvest")), "harvesting wheat succeeds on day 3")
-	_assert_true(bool(meta_root_reload.call("debug_interact_farm_plot", 1, "till")), "special crop plot can be tilled after unlock")
+	_assert_true(bool(meta_root_reload.call("debug_interact_farm_plot", 1, "harvest")), "harvesting herb succeeds on day 3")
+	_assert_true(bool(meta_root_reload.call("debug_interact_farm_plot", 1, "till")), "harvested plots can be repurposed for special crops")
 	_assert_true(bool(meta_root_reload.call("debug_interact_farm_plot", 1, "plant", "mooncap_seed")), "mooncap seed path can be planted after collecting night spores")
 	_assert_true(bool(meta_root_reload.call("debug_interact_farm_plot", 1, "water")), "mooncap crop follows the normal daytime farm loop once unlocked")
 	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
 	var day3_materials: Dictionary = reload_snapshot.get("inventory_materials", {})
+	_assert_equal(String(reload_snapshot.get("phase", "")), "evening", "day 3 farm work can also advance the clock to evening")
+	_assert_equal(int(reload_snapshot.get("action_budget", 0)), 0, "farm work spends the shared budget instead of allowing unlimited daytime actions")
 	_assert_true(int(day3_materials.get("moon_spore", 0)) == 0, "moon spores are consumed by the unlock hook once the seed unlocks")
 	_assert_true(int(day3_materials.get("kitchen_blueprint_fragment", 0)) == 0, "blueprint fragments are consumed by the recipe unlock hook once complete")
 	_assert_true(int(day3_materials.get("abyssfin", 0)) >= 2, "night-only restaurant ingredient accumulates across runs")
@@ -2463,6 +2494,7 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(int(reload_snapshot.get("restaurant_last_service_day", 0)), 2, "restaurant summary persists across day transitions")
 	_assert_true(not String(reload_snapshot.get("restaurant_result_summary", "")).is_empty(), "restaurant summary remains visible on the next day")
 	_assert_true(String(reload_snapshot.get("restaurant_bridge_summary", "")).find("Kelpfire Noodles") >= 0 or String(reload_snapshot.get("restaurant_bridge_summary", "")).find("Abyssfin Crudo") >= 0, "restaurant summary surfaces premium daytime uses of night loot")
+	_assert_true(not bool(reload_snapshot.get("restaurant_service_button_enabled", true)), "restaurant service respects the remaining daytime budget on day 3")
 	var kelpfire_card_day3 := _find_entry_by_id(reload_snapshot.get("restaurant_recipe_cards", []), "kelpfire_noodles")
 	var crudo_card_day3 := _find_entry_by_id(reload_snapshot.get("restaurant_recipe_cards", []), "abyssfin_crudo")
 	_assert_true(int(kelpfire_card_day3.get("craftable_servings", 0)) >= 1, "Kelpfire Noodles becomes craftable from night loot on day 3")
@@ -2484,6 +2516,8 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true((final_snapshot.get("unlocked_recipe_ids", []) as Array).has("abyssfin_crudo"), "save/load preserves unlocked abyssfin crudo recipe")
 	_assert_true(int((final_snapshot.get("inventory_materials", {}) as Dictionary).get("abyssfin", 0)) >= 2, "save/load preserves night-only ingredient stock after unlock flow")
 	_assert_true(int((final_snapshot.get("inventory_materials", {}) as Dictionary).get("glow_kelp", 0)) >= 1, "save/load preserves Glow Kelp stock after unlock flow")
+	_assert_equal(String(final_snapshot.get("phase", "")), "evening", "save/load preserves the current day phase after daytime actions")
+	_assert_equal(int(final_snapshot.get("action_budget", 0)), 0, "save/load preserves the remaining daytime action budget after daytime actions")
 	meta_root_final.queue_free()
 	await get_tree().process_frame
 

@@ -58,8 +58,11 @@ func _apply_view_model() -> void:
 	menu_title_label.text = _t("meta.restaurant.menu_title")
 	stats_label.text = _t("meta.restaurant.stats", {
 		"day": int(_view_model.get("current_day", 1)),
+		"phase": _t("meta.phase.%s" % String(_view_model.get("phase", "morning"))),
 		"gold": int(_view_model.get("gold", 0)),
-		"reputation": int(_view_model.get("reputation", 0))
+		"reputation": int(_view_model.get("reputation", 0)),
+		"actions": int(_view_model.get("action_budget", 0)),
+		"action_max": int(_view_model.get("max_action_budget", 0))
 	})
 	bridge_label.text = _t("meta.restaurant.bridge", {"value": String(_view_model.get("bridge_summary", _t("meta.bridge.summary_none")))})
 	bridge_label.tooltip_text = String(_view_model.get("bridge_tooltip", ""))
@@ -67,6 +70,7 @@ func _apply_view_model() -> void:
 	pantry_label.tooltip_text = String(_view_model.get("ingredient_tooltip", ""))
 	status_label.text = String(_view_model.get("status_text", ""))
 	service_button.text = String(_view_model.get("service_button_text", _t("meta.restaurant.open_service")))
+	service_button.tooltip_text = String(_view_model.get("service_button_tooltip", ""))
 	service_button.disabled = not bool(_view_model.get("service_button_enabled", false))
 	clear_button.text = _t("meta.restaurant.clear_menu")
 	clear_button.disabled = not bool(_view_model.get("clear_button_enabled", false))
