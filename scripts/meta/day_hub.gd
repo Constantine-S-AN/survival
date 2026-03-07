@@ -10,6 +10,7 @@ signal menu_requested
 @onready var subtitle_label: Label = $ContentPanel/Margin/VBox/Subtitle
 @onready var day_label: Label = $ContentPanel/Margin/VBox/Stats/DayLabel
 @onready var gold_label: Label = $ContentPanel/Margin/VBox/Stats/GoldLabel
+@onready var reputation_label: Label = $ContentPanel/Margin/VBox/Stats/ReputationLabel
 @onready var stamina_label: Label = $ContentPanel/Margin/VBox/Stats/StaminaLabel
 @onready var phase_label: Label = $ContentPanel/Margin/VBox/Stats/PhaseLabel
 @onready var inventory_label: Label = $ContentPanel/Margin/VBox/InventoryLabel
@@ -57,6 +58,7 @@ func _apply_view_model() -> void:
 	menu_button.text = _t("meta.hub.menu")
 	day_label.text = _t("meta.hub.day", {"value": int(_view_model.get("current_day", 1))})
 	gold_label.text = _t("meta.hub.gold", {"value": int(_view_model.get("gold", 0))})
+	reputation_label.text = _t("meta.hub.reputation", {"value": int(_view_model.get("reputation", 1))})
 	stamina_label.text = _t("meta.hub.stamina", {
 		"current": int(_view_model.get("stamina", 0)),
 		"max": int(_view_model.get("max_stamina", 0))

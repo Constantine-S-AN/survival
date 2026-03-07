@@ -4,7 +4,7 @@ signal language_code_changed(language_code: String)
 
 const PROFILE_PATH := "user://profile.json"
 const PROFILE_TMP_PATH := "user://profile.json.tmp"
-const PROFILE_SCHEMA_VERSION := 4
+const PROFILE_SCHEMA_VERSION := 5
 const TEST_SESSION_META_KEY := "profile_store_test_session_id"
 const DEFAULT_LANGUAGE_CODE := "en"
 
@@ -19,7 +19,7 @@ const DEFAULT_PROGRESS: Dictionary = {
 }
 
 const DEFAULT_META_PROGRESS: Dictionary = {
-	"schema_version": 1,
+	"schema_version": 4,
 	"day_state": {
 		"current_day": 1,
 		"current_phase": "day",
@@ -29,15 +29,18 @@ const DEFAULT_META_PROGRESS: Dictionary = {
 		"pending_night_material_bonus": 0
 	},
 	"economy": {
-		"gold": 12
+		"gold": 12,
+		"restaurant_reputation": 1,
+		"sold_dishes_stats": {}
 	},
 	"inventory": {
 		"materials": {
 			"wheat": 2,
+			"herb": 1,
 			"scrap": 0
 		},
 		"unlocked_seeds": ["wheat_seed", "herb_seed"],
-		"unlocked_recipes": ["field_stew"]
+		"unlocked_recipes": ["field_stew", "herb_tea"]
 	},
 	"farm_state": {
 		"columns": 3,
@@ -50,6 +53,12 @@ const DEFAULT_META_PROGRESS: Dictionary = {
 			{"tilled": false, "crop": {}},
 			{"tilled": false, "crop": {}}
 		]
+	},
+	"restaurant_state": {
+		"selected_menu_recipe_ids": [],
+		"last_service_day": 0,
+		"last_service_summary": {},
+		"owned_upgrade_ids": []
 	},
 	"pending_return_summary": {}
 }
@@ -483,6 +492,20 @@ func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
 		var default_economy_variant: Variant = output.get("economy", {})
 		var economy: Dictionary = (default_economy_variant as Dictionary).duplicate(true) if default_economy_variant is Dictionary else {}
 		economy["gold"] = maxi(0, int((economy_variant as Dictionary).get("gold", economy.get("gold", 0))))
+		economy["restaurant_reputation"] = clampi(
+			int((economy_variant as Dictionary).get("restaurant_reputation", economy.get("restaurant_reputation", 1))),
+			0,
+			20
+		)
+		var sold_dishes_stats: Dictionary = {}
+		var sold_dishes_variant: Variant = (economy_variant as Dictionary).get("sold_dishes_stats", {})
+		if sold_dishes_variant is Dictionary:
+			for dish_id_variant in (sold_dishes_variant as Dictionary).keys():
+				var dish_id := String(dish_id_variant).strip_edges().to_lower()
+				if dish_id.is_empty():
+					continue
+				sold_dishes_stats[dish_id] = maxi(0, int((sold_dishes_variant as Dictionary).get(dish_id_variant, 0)))
+		economy["sold_dishes_stats"] = sold_dishes_stats
 		output["economy"] = economy
 
 	var inventory_variant: Variant = source.get("inventory", {})
@@ -507,11 +530,21 @@ func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
 					continue
 				unlocked_seeds.append(seed_id)
 		inventory["unlocked_seeds"] = unlocked_seeds
-		inventory["unlocked_recipes"] = _normalize_string_array(source_inventory.get("unlocked_recipes", inventory.get("unlocked_recipes", [])))
+		var unlocked_recipes := _normalize_string_array(source_inventory.get("unlocked_recipes", inventory.get("unlocked_recipes", [])))
+		if DataRegistry != null and DataRegistry.has_method("get_recipe_ids_started_unlocked"):
+			for started_recipe_id in DataRegistry.call("get_recipe_ids_started_unlocked"):
+				var recipe_id := String(started_recipe_id).strip_edges().to_lower()
+				if recipe_id.is_empty() or unlocked_recipes.has(recipe_id):
+					continue
+				unlocked_recipes.append(recipe_id)
+		inventory["unlocked_recipes"] = unlocked_recipes
 		output["inventory"] = inventory
 
 	var farm_state_variant: Variant = source.get("farm_state", {})
 	output["farm_state"] = _normalize_farm_state(farm_state_variant)
+
+	var restaurant_state_variant: Variant = source.get("restaurant_state", {})
+	output["restaurant_state"] = _normalize_restaurant_state(restaurant_state_variant)
 
 	var summary_variant: Variant = source.get("pending_return_summary", {})
 	output["pending_return_summary"] = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
@@ -571,6 +604,24 @@ func _normalize_farm_crop(crop_variant: Variant) -> Dictionary:
 		"growth_progress_days": maxi(0, int(crop.get("growth_progress_days", 0))),
 		"watered_day": maxi(0, int(crop.get("watered_day", 0)))
 	}
+
+
+func _normalize_restaurant_state(restaurant_variant: Variant) -> Dictionary:
+	var output: Dictionary = {
+		"selected_menu_recipe_ids": [],
+		"last_service_day": 0,
+		"last_service_summary": {},
+		"owned_upgrade_ids": []
+	}
+	if not (restaurant_variant is Dictionary):
+		return output
+	var source: Dictionary = restaurant_variant
+	output["selected_menu_recipe_ids"] = _normalize_string_array(source.get("selected_menu_recipe_ids", []))
+	output["last_service_day"] = maxi(0, int(source.get("last_service_day", 0)))
+	var summary_variant: Variant = source.get("last_service_summary", {})
+	output["last_service_summary"] = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
+	output["owned_upgrade_ids"] = _normalize_string_array(source.get("owned_upgrade_ids", []))
+	return output
 
 
 func _normalize_meta_phase(phase: String) -> String:

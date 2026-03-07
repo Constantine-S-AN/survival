@@ -13,43 +13,22 @@ const FARM_ACTION_WATER := "water"
 const FARM_ACTION_HARVEST := "harvest"
 const FARM_TILL_STAMINA_COST := 1
 const FARM_WATER_STAMINA_COST := 1
+const RESTAURANT_MAX_MENU_SIZE := 3
 
 const DayStateClass := preload("res://scripts/meta/day_state.gd")
 const InventoryStateClass := preload("res://scripts/meta/inventory.gd")
 const EconomyStateClass := preload("res://scripts/meta/economy_state.gd")
-const RECIPE_ACTIONS: Dictionary = {
-	"field_stew": {
-		"stamina_cost": 1,
-		"ingredients": {
-			"wheat": 2
-		},
-		"night_gold_bonus": 6,
-		"night_material_bonus": 0
-	},
-	"sweet_bread": {
-		"stamina_cost": 1,
-		"ingredients": {
-			"wheat": 2,
-			"herb": 1
-		},
-		"night_gold_bonus": 3,
-		"night_material_bonus": 2
-	}
-}
+const MenuPlannerClass := preload("res://scripts/day/restaurant/menu_planner.gd")
+const ServiceSimulatorClass := preload("res://scripts/day/restaurant/service_simulator.gd")
 
 const MATERIAL_DISPLAY_NAMES: Dictionary = {
 	"scrap": "Scrap"
 }
 
-const RECIPE_DISPLAY_NAMES: Dictionary = {
-	"field_stew": "Field Stew",
-	"sweet_bread": "Sweet Bread"
-}
-
 @onready var main_menu: MainMenuView = $MainMenu
 @onready var day_hub: DayHubView = $DayHub
 @onready var farm_view: Control = $Farm
-@onready var restaurant_view: RestaurantView = $Restaurant
+@onready var restaurant_view: Control = $Restaurant
 @onready var return_summary_view: ReturnSummaryView = $ReturnSummary
 @onready var night_combat_root: NightCombatRoot = $NightCombatRoot
 
@@ -57,6 +36,7 @@ var _day_state = DayStateClass.new()
 var _inventory = InventoryStateClass.new()
 var _economy = EconomyStateClass.new()
 var _farm_state: Dictionary = {}
+var _restaurant_state: Dictionary = {}
 var _pending_return_summary: Dictionary = {}
 var _current_state: String = STATE_MENU
 var _farm_status_text: String = ""
@@ -84,7 +64,9 @@ func _connect_signals() -> void:
 		farm_view.plot_action_requested.connect(_on_farm_plot_action_requested)
 		farm_view.back_requested.connect(_on_farm_back_requested)
 	if restaurant_view != null:
-		restaurant_view.recipe_requested.connect(_on_recipe_requested)
+		restaurant_view.recipe_toggled.connect(_on_restaurant_recipe_toggled)
+		restaurant_view.clear_menu_requested.connect(_on_restaurant_menu_cleared)
+		restaurant_view.service_requested.connect(_on_restaurant_service_requested)
 		restaurant_view.back_requested.connect(_on_restaurant_back_requested)
 	if return_summary_view != null:
 		return_summary_view.continue_requested.connect(_on_return_summary_continue_requested)
@@ -115,6 +97,7 @@ func _load_meta_progress() -> void:
 	_inventory = InventoryStateClass.from_dict(snapshot.get("inventory", {}))
 	_economy = EconomyStateClass.from_dict(snapshot.get("economy", {}))
 	_farm_state = _normalize_farm_state(snapshot.get("farm_state", {}))
+	_restaurant_state = _normalize_restaurant_state(snapshot.get("restaurant_state", {}))
 	var summary_variant: Variant = snapshot.get("pending_return_summary", {})
 	_pending_return_summary = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
 	if _day_state.current_phase == DayStateClass.PHASE_NIGHT and _pending_return_summary.is_empty():
@@ -126,11 +109,12 @@ func _save_meta_progress() -> void:
 	if ProfileStore == null or not ProfileStore.has_method("set_meta_progress_state"):
 		return
 	ProfileStore.set_meta_progress_state({
-		"schema_version": 2,
+		"schema_version": 4,
 		"day_state": _day_state.to_dict(),
 		"economy": _economy.to_dict(),
 		"inventory": _inventory.to_dict(),
 		"farm_state": _farm_state.duplicate(true),
+		"restaurant_state": _restaurant_state.duplicate(true),
 		"pending_return_summary": _pending_return_summary.duplicate(true)
 	})
 
@@ -154,6 +138,16 @@ func _normalize_farm_state(source_variant: Variant) -> Dictionary:
 		"columns": columns,
 		"rows": rows,
 		"plots": normalized_plots
+	}
+
+
+func _normalize_restaurant_state(source_variant: Variant) -> Dictionary:
+	var source: Dictionary = source_variant if source_variant is Dictionary else {}
+	return {
+		"selected_menu_recipe_ids": _normalize_string_id_array(source.get("selected_menu_recipe_ids", [])),
+		"last_service_day": maxi(0, int(source.get("last_service_day", 0))),
+		"last_service_summary": (source.get("last_service_summary", {}) as Dictionary).duplicate(true) if source.get("last_service_summary", {}) is Dictionary else {},
+		"owned_upgrade_ids": _normalize_string_id_array(source.get("owned_upgrade_ids", []))
 	}
 
 
@@ -302,8 +296,16 @@ func _on_farm_plot_action_requested(plot_index: int, action_id: String, seed_id:
 	_apply_farm_plot_action(plot_index, action_id, seed_id)
 
 
-func _on_recipe_requested(recipe_id: String) -> void:
-	_apply_recipe_action(recipe_id)
+func _on_restaurant_recipe_toggled(recipe_id: String) -> void:
+	_toggle_restaurant_recipe(recipe_id)
+
+
+func _on_restaurant_menu_cleared() -> void:
+	_clear_restaurant_menu()
+
+
+func _on_restaurant_service_requested() -> void:
+	_open_restaurant_service()
 
 
 func _launch_night() -> void:
@@ -485,34 +487,104 @@ func _apply_harvest_action(plot_index: int, plot: Dictionary, plots: Array) -> b
 	return true
 
 
-func _apply_recipe_action(recipe_id: String) -> bool:
-	var recipe_variant: Variant = RECIPE_ACTIONS.get(recipe_id, {})
-	if not (recipe_variant is Dictionary):
+func _toggle_restaurant_recipe(recipe_id: String) -> bool:
+	var normalized_id := recipe_id.strip_edges().to_lower()
+	if normalized_id.is_empty() or not DataRegistry.has_recipe(normalized_id):
 		_restaurant_status_text = _t("meta.restaurant.status_invalid")
 		_refresh_views()
 		return false
-	if not _inventory.has_recipe(recipe_id):
-		_restaurant_status_text = _t("meta.restaurant.status_locked", {"value": _display_recipe_name(recipe_id)})
+	if not _inventory.has_recipe(normalized_id):
+		_restaurant_status_text = _t("meta.restaurant.status_locked", {"value": _display_recipe_name(normalized_id)})
 		_refresh_views()
 		return false
-	var recipe: Dictionary = recipe_variant
-	var stamina_cost := maxi(0, int(recipe.get("stamina_cost", 1)))
-	if not _day_state.can_spend_stamina(stamina_cost):
-		_restaurant_status_text = _t("meta.common.no_stamina")
+	var result: Dictionary = MenuPlannerClass.toggle_recipe(
+		_restaurant_state.get("selected_menu_recipe_ids", []),
+		normalized_id,
+		RESTAURANT_MAX_MENU_SIZE
+	)
+	_restaurant_state["selected_menu_recipe_ids"] = result.get("selected_menu_ids", [])
+	var status := String(result.get("status", ""))
+	if status == "full":
+		_restaurant_status_text = _t("meta.restaurant.status_menu_full", {"value": RESTAURANT_MAX_MENU_SIZE})
 		_refresh_views()
 		return false
-	var ingredients_variant: Variant = recipe.get("ingredients", {})
-	var ingredients: Dictionary = ingredients_variant if ingredients_variant is Dictionary else {}
-	if not _has_material_bundle(ingredients):
-		_restaurant_status_text = _t("meta.restaurant.status_ingredients", {"value": _build_material_bundle_text(ingredients)})
+	if status == "removed":
+		_restaurant_status_text = _t("meta.restaurant.status_menu_removed", {"value": _display_recipe_name(normalized_id)})
+	else:
+		_restaurant_status_text = _t("meta.restaurant.status_menu_added", {"value": _display_recipe_name(normalized_id)})
+	_save_meta_progress()
+	_refresh_views()
+	return true
+
+
+func _clear_restaurant_menu() -> void:
+	_restaurant_state["selected_menu_recipe_ids"] = []
+	_restaurant_status_text = _t("meta.restaurant.status_menu_cleared")
+	_save_meta_progress()
+	_refresh_views()
+
+
+func _open_restaurant_service() -> bool:
+	if _restaurant_service_completed_today():
+		_restaurant_status_text = _t("meta.restaurant.status_closed_today")
 		_refresh_views()
 		return false
-	for material_id_variant in ingredients.keys():
-		_inventory.remove_material(String(material_id_variant), int(ingredients.get(material_id_variant, 0)))
-	_day_state.spend_stamina(stamina_cost)
-	_day_state.add_night_gold_bonus(int(recipe.get("night_gold_bonus", 0)))
-	_day_state.add_night_material_bonus(int(recipe.get("night_material_bonus", 0)))
-	_restaurant_status_text = _t("meta.restaurant.status_bonus", {"value": _build_night_bonus_summary()})
+	var selected_menu_ids: Array[String] = _normalize_string_id_array(_restaurant_state.get("selected_menu_recipe_ids", []))
+	if selected_menu_ids.is_empty():
+		_restaurant_status_text = _t("meta.restaurant.status_need_menu")
+		_refresh_views()
+		return false
+	var recipe_lookup := _get_recipe_lookup()
+	var menu_recipes: Array = []
+	for recipe_id in selected_menu_ids:
+		var recipe_variant: Variant = recipe_lookup.get(recipe_id, {})
+		if recipe_variant is Dictionary:
+			menu_recipes.append((recipe_variant as Dictionary).duplicate(true))
+	var simulation: Dictionary = ServiceSimulatorClass.simulate_service({
+		"day": _day_state.current_day,
+		"reputation": _economy.restaurant_reputation,
+		"menu_recipes": menu_recipes,
+		"inventory_materials": _inventory.materials.duplicate(true),
+		"upgrades": _get_owned_restaurant_upgrades()
+	})
+	if not bool(simulation.get("ok", false)):
+		var error_code := String(simulation.get("error", "invalid"))
+		match error_code:
+			"no_menu":
+				_restaurant_status_text = _t("meta.restaurant.status_need_menu")
+			"insufficient_ingredients":
+				_restaurant_status_text = _t("meta.restaurant.status_need_stock")
+			_:
+				_restaurant_status_text = _t("meta.restaurant.status_invalid")
+		_refresh_views()
+		return false
+
+	var ingredients_consumed_variant: Variant = simulation.get("ingredients_consumed", {})
+	var ingredients_consumed: Dictionary = ingredients_consumed_variant if ingredients_consumed_variant is Dictionary else {}
+	for material_id_variant in ingredients_consumed.keys():
+		var material_id := String(material_id_variant)
+		var amount := int(ingredients_consumed.get(material_id_variant, 0))
+		if amount <= 0:
+			continue
+		_inventory.remove_material(material_id, amount)
+	_economy.add_gold(int(simulation.get("revenue", 0)))
+	_economy.add_reputation(int(simulation.get("reputation_delta", 0)))
+	var sold_dishes_variant: Variant = simulation.get("sold_dishes", {})
+	if sold_dishes_variant is Dictionary:
+		for dish_id_variant in (sold_dishes_variant as Dictionary).keys():
+			_economy.record_dish_sales(String(dish_id_variant), int((sold_dishes_variant as Dictionary).get(dish_id_variant, 0)))
+
+	_restaurant_state["last_service_day"] = _day_state.current_day
+	_restaurant_state["last_service_summary"] = simulation.duplicate(true)
+	var unlocked_recipe_names := _maybe_unlock_restaurant_recipes()
+	_restaurant_status_text = _t("meta.restaurant.status_service_complete", {
+		"gold": int(simulation.get("revenue", 0)),
+		"rep": _format_signed_int(int(simulation.get("reputation_delta", 0)))
+	})
+	if not unlocked_recipe_names.is_empty():
+		_restaurant_status_text += "\n%s" % _t("meta.restaurant.status_new_unlock", {
+			"value": ", ".join(unlocked_recipe_names)
+		})
 	_save_meta_progress()
 	_refresh_views()
 	return true
@@ -577,6 +649,7 @@ func _build_day_hub_model() -> Dictionary:
 	return {
 		"current_day": _day_state.current_day,
 		"gold": _economy.gold,
+		"reputation": _economy.restaurant_reputation,
 		"stamina": _day_state.stamina,
 		"max_stamina": _day_state.max_stamina,
 		"phase": _day_state.current_phase,
@@ -690,35 +763,166 @@ func _build_farm_plot_models() -> Array[Dictionary]:
 
 
 func _build_restaurant_model() -> Dictionary:
-	var recipes: Array[Dictionary] = []
-	for recipe_id in ["field_stew", "sweet_bread"]:
-		var recipe_variant: Variant = RECIPE_ACTIONS.get(recipe_id, {})
-		var recipe: Dictionary = recipe_variant if recipe_variant is Dictionary else {}
-		var unlocked := _inventory.has_recipe(recipe_id)
-		var stamina_cost := int(recipe.get("stamina_cost", 1))
-		var ingredients: Dictionary = recipe.get("ingredients", {})
-		var label := _display_recipe_name(recipe_id)
-		if unlocked:
-			label += "\n%s" % _t("meta.restaurant.recipe_detail", {
-				"ingredients": _build_material_bundle_text(ingredients),
-				"cost": stamina_cost,
-				"bonus": _build_recipe_bonus_text(recipe)
-			})
-		else:
-			label += "\n%s" % _t("meta.restaurant.recipe_locked")
-		recipes.append({
-			"id": recipe_id,
-			"label": label,
-			"enabled": unlocked and _day_state.can_spend_stamina(stamina_cost) and _has_material_bundle(ingredients)
-		})
+	var selected_menu_ids: Array[String] = _normalize_string_id_array(_restaurant_state.get("selected_menu_recipe_ids", []))
+	var recipe_lookup := _get_recipe_lookup()
+	var recipe_cards := MenuPlannerClass.build_recipe_cards(
+		DataRegistry.get_recipes(),
+		_inventory.materials.duplicate(true),
+		_inventory.unlocked_recipes,
+		selected_menu_ids
+	)
+	var selected_menu_entries := MenuPlannerClass.build_selected_menu_entries(
+		selected_menu_ids,
+		recipe_lookup,
+		_inventory.materials.duplicate(true)
+	)
+	var last_service_summary := _get_last_restaurant_service_summary()
 	return {
 		"current_day": _day_state.current_day,
-		"stamina": _day_state.stamina,
-		"max_stamina": _day_state.max_stamina,
-		"inventory_summary": _build_inventory_summary(),
+		"gold": _economy.gold,
+		"reputation": _economy.restaurant_reputation,
+		"ingredient_summary": _build_restaurant_ingredient_summary(),
 		"status_text": _restaurant_status_text,
-		"recipes": recipes
+		"recipe_cards": recipe_cards,
+		"selected_menu_entries": selected_menu_entries,
+		"menu_hint_text": _t("meta.restaurant.menu_hint", {
+			"count": selected_menu_ids.size(),
+			"max": RESTAURANT_MAX_MENU_SIZE
+		}),
+		"service_button_text": _build_restaurant_service_button_text(),
+		"service_button_enabled": _can_open_restaurant_service(),
+		"clear_button_enabled": not selected_menu_ids.is_empty(),
+		"result_title": _build_restaurant_result_title(last_service_summary),
+		"result_summary": _build_restaurant_result_summary(last_service_summary),
+		"result_feedback": _build_restaurant_feedback_text(last_service_summary),
+		"sold_stats_text": _build_restaurant_sold_stats_text(last_service_summary)
 	}
+
+
+func _restaurant_service_completed_today() -> bool:
+	return int(_restaurant_state.get("last_service_day", 0)) >= _day_state.current_day
+
+
+func _get_recipe_lookup() -> Dictionary:
+	var lookup: Dictionary = {}
+	for recipe_variant in DataRegistry.get_recipes():
+		if not (recipe_variant is Dictionary):
+			continue
+		var recipe: Dictionary = recipe_variant
+		var recipe_id := String(recipe.get("id", "")).strip_edges().to_lower()
+		if recipe_id.is_empty():
+			continue
+		lookup[recipe_id] = recipe.duplicate(true)
+	return lookup
+
+
+func _get_owned_restaurant_upgrades() -> Array:
+	var owned_upgrades: Array = []
+	var owned_upgrade_ids: Array[String] = _normalize_string_id_array(_restaurant_state.get("owned_upgrade_ids", []))
+	for upgrade_id in owned_upgrade_ids:
+		var upgrade := DataRegistry.get_restaurant_upgrade(upgrade_id)
+		if upgrade.is_empty():
+			continue
+		owned_upgrades.append(upgrade)
+	return owned_upgrades
+
+
+func _maybe_unlock_restaurant_recipes() -> Array[String]:
+	var unlocks: Array[String] = []
+	if not DataRegistry.has_recipe("sweet_bread"):
+		return unlocks
+	if _economy.gold >= 24 and _inventory.unlock_recipe("sweet_bread"):
+		unlocks.append(_display_recipe_name("sweet_bread"))
+	elif _economy.restaurant_reputation >= 3 and _economy.get_dish_sales("field_stew") >= 1 and _inventory.unlock_recipe("sweet_bread"):
+		unlocks.append(_display_recipe_name("sweet_bread"))
+	return unlocks
+
+
+func _build_restaurant_ingredient_summary() -> String:
+	return _build_inventory_summary()
+
+
+func _build_restaurant_service_button_text() -> String:
+	if _restaurant_service_completed_today():
+		return _t("meta.restaurant.service_closed_today")
+	return _t("meta.restaurant.open_service")
+
+
+func _can_open_restaurant_service() -> bool:
+	if _restaurant_service_completed_today():
+		return false
+	var selected_menu_ids: Array[String] = _normalize_string_id_array(_restaurant_state.get("selected_menu_recipe_ids", []))
+	if selected_menu_ids.is_empty():
+		return false
+	var recipe_lookup := _get_recipe_lookup()
+	var total_servings := 0
+	for recipe_id in selected_menu_ids:
+		var recipe_variant: Variant = recipe_lookup.get(recipe_id, {})
+		if not (recipe_variant is Dictionary):
+			continue
+		total_servings += MenuPlannerClass.max_servings(recipe_variant as Dictionary, _inventory.materials)
+	return total_servings > 0
+
+
+func _get_last_restaurant_service_summary() -> Dictionary:
+	var summary_variant: Variant = _restaurant_state.get("last_service_summary", {})
+	return (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
+
+
+func _build_restaurant_result_title(summary: Dictionary) -> String:
+	if summary.is_empty():
+		return _t("meta.restaurant.summary_idle_title")
+	return _t("meta.restaurant.summary_title", {
+		"day": maxi(1, int(summary.get("served_day", _day_state.current_day))),
+		"headline": String(summary.get("headline", _t("meta.restaurant.summary_idle_title")))
+	})
+
+
+func _build_restaurant_result_summary(summary: Dictionary) -> String:
+	if summary.is_empty():
+		return _t("meta.restaurant.summary_idle")
+	return _t("meta.restaurant.summary_body", {
+		"served": maxi(0, int(summary.get("served_customers", 0))),
+		"expected": maxi(0, int(summary.get("expected_customers", 0))),
+		"revenue": maxi(0, int(summary.get("revenue", 0))),
+		"tips": maxi(0, int(summary.get("tips", 0))),
+		"satisfaction": clampi(int(summary.get("satisfaction_pct", 0)), 0, 100),
+		"rep": _format_signed_int(int(summary.get("reputation_delta", 0))),
+		"ingredients": _build_material_bundle_text(summary.get("ingredients_consumed", {}))
+	})
+
+
+func _build_restaurant_feedback_text(summary: Dictionary) -> String:
+	if summary.is_empty():
+		return _t("meta.common.none")
+	var feedback_parts: Array[String] = []
+	var feedback_tags_variant: Variant = summary.get("feedback_tags", [])
+	if feedback_tags_variant is Array:
+		for tag_variant in feedback_tags_variant:
+			var text := _build_feedback_reason_text(String(tag_variant))
+			if text.is_empty() or feedback_parts.has(text):
+				continue
+			feedback_parts.append(text)
+	var synergy_feedback_variant: Variant = summary.get("synergy_feedback", [])
+	if synergy_feedback_variant is Array:
+		for entry_variant in synergy_feedback_variant:
+			var entry_text := String(entry_variant).strip_edges()
+			if entry_text.is_empty() or feedback_parts.has(entry_text):
+				continue
+			feedback_parts.append(entry_text)
+	if feedback_parts.is_empty():
+		return _t("meta.common.none")
+	return _t("meta.restaurant.summary_feedback", {"value": " | ".join(feedback_parts)})
+
+
+func _build_restaurant_sold_stats_text(summary: Dictionary) -> String:
+	var lines: Array[String] = []
+	var today_text := _build_recipe_sales_text(summary.get("sold_dishes", {}))
+	if not summary.is_empty():
+		lines.append(_t("meta.restaurant.summary_sold_today", {"value": today_text}))
+	var lifetime_text := _build_recipe_sales_text(_economy.sold_dishes_stats)
+	lines.append(_t("meta.restaurant.summary_sold_lifetime", {"value": lifetime_text}))
+	return "\n".join(lines)
 
 
 func _build_inventory_summary() -> String:
@@ -830,7 +1034,45 @@ func _display_seed_name(seed_id: String) -> String:
 
 
 func _display_recipe_name(recipe_id: String) -> String:
-	return String(RECIPE_DISPLAY_NAMES.get(recipe_id, recipe_id.capitalize()))
+	var recipe_def := DataRegistry.get_recipe(recipe_id.strip_edges().to_lower())
+	if not recipe_def.is_empty():
+		return String(recipe_def.get("name", recipe_id.capitalize()))
+	return recipe_id.capitalize()
+
+
+func _build_recipe_sales_text(sold_dishes_variant: Variant) -> String:
+	if not (sold_dishes_variant is Dictionary):
+		return _t("meta.common.none")
+	var sold_dishes: Dictionary = sold_dishes_variant
+	if sold_dishes.is_empty():
+		return _t("meta.common.none")
+	var ordered_recipe_ids: Array[String] = []
+	for recipe_id_variant in sold_dishes.keys():
+		var recipe_id := String(recipe_id_variant).strip_edges().to_lower()
+		if recipe_id.is_empty():
+			continue
+		ordered_recipe_ids.append(recipe_id)
+	ordered_recipe_ids.sort()
+	var parts: Array[String] = []
+	for recipe_id in ordered_recipe_ids:
+		var count := maxi(0, int(sold_dishes.get(recipe_id, 0)))
+		if count <= 0:
+			continue
+		parts.append("%s x%d" % [_display_recipe_name(recipe_id), count])
+	if parts.is_empty():
+		return _t("meta.common.none")
+	return ", ".join(parts)
+
+
+func _build_feedback_reason_text(tag: String) -> String:
+	var normalized_tag := tag.strip_edges().to_lower()
+	if normalized_tag.is_empty():
+		return ""
+	var key := "meta.restaurant.feedback.%s" % normalized_tag
+	var text := _t(key)
+	if text == key:
+		return normalized_tag.replace("_", " ").capitalize()
+	return text
 
 
 func _get_farm_plots() -> Array:
@@ -845,10 +1087,28 @@ func _format_time(total_seconds: float) -> String:
 	return "%02d:%02d" % [minutes, seconds]
 
 
+func _format_signed_int(value: int) -> String:
+	if value > 0:
+		return "+%d" % value
+	return str(value)
+
+
 func _t(key: String, args: Dictionary = {}) -> String:
 	if Localization == null or not Localization.has_method("t"):
 		return key
 	return String(Localization.call("t", key, args))
+
+
+func _normalize_string_id_array(source: Variant) -> Array[String]:
+	var output: Array[String] = []
+	if not (source is Array):
+		return output
+	for item in (source as Array):
+		var text := String(item).strip_edges().to_lower()
+		if text.is_empty() or output.has(text):
+			continue
+		output.append(text)
+	return output
 
 
 func debug_press_play() -> void:
@@ -899,7 +1159,15 @@ func debug_interact_farm_plot(plot_index: int, action_id: String, seed_id: Strin
 
 
 func debug_apply_recipe(recipe_id: String) -> bool:
-	return _apply_recipe_action(recipe_id)
+	return _toggle_restaurant_recipe(recipe_id)
+
+
+func debug_toggle_restaurant_recipe(recipe_id: String) -> bool:
+	return _toggle_restaurant_recipe(recipe_id)
+
+
+func debug_open_restaurant_service() -> bool:
+	return _open_restaurant_service()
 
 
 func debug_launch_night() -> void:
@@ -916,6 +1184,7 @@ func debug_continue_summary() -> void:
 
 
 func debug_get_snapshot() -> Dictionary:
+	var restaurant_model := _build_restaurant_model()
 	var farm_plots: Array[Dictionary] = []
 	for plot_variant in _get_farm_plots():
 		var plot: Dictionary = plot_variant if plot_variant is Dictionary else _build_empty_plot()
@@ -934,6 +1203,7 @@ func debug_get_snapshot() -> Dictionary:
 		"current_day": _day_state.current_day,
 		"phase": _day_state.current_phase,
 		"gold": _economy.gold,
+		"reputation": _economy.restaurant_reputation,
 		"stamina": _day_state.stamina,
 		"max_stamina": _day_state.max_stamina,
 		"inventory_summary": _build_inventory_summary(),
@@ -942,5 +1212,15 @@ func debug_get_snapshot() -> Dictionary:
 		"pending_summary": not _pending_return_summary.is_empty(),
 		"night_active": night_combat_root.is_session_active() if night_combat_root != null else false,
 		"farm_status_text": _farm_status_text,
-		"farm_plots": farm_plots
+		"farm_plots": farm_plots,
+		"sold_dishes_stats": _economy.sold_dishes_stats.duplicate(true),
+		"restaurant_status_text": _restaurant_status_text,
+		"restaurant_menu_ids": _normalize_string_id_array(_restaurant_state.get("selected_menu_recipe_ids", [])),
+		"restaurant_last_service_day": int(_restaurant_state.get("last_service_day", 0)),
+		"restaurant_last_service_summary": _get_last_restaurant_service_summary(),
+		"restaurant_service_button_enabled": bool(restaurant_model.get("service_button_enabled", false)),
+		"restaurant_result_title": String(restaurant_model.get("result_title", "")),
+		"restaurant_result_summary": String(restaurant_model.get("result_summary", "")),
+		"restaurant_feedback_text": String(restaurant_model.get("result_feedback", "")),
+		"restaurant_sold_stats_text": String(restaurant_model.get("sold_stats_text", ""))
 	}

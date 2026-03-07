@@ -72,6 +72,10 @@ text = "Day 1"
 layout_mode = 2
 text = "Gold: 0"
 
+[node name="ReputationLabel" type="Label" parent="ContentPanel/Margin/VBox/Stats"]
+layout_mode = 2
+text = "Reputation: 1"
+
 [node name="StaminaLabel" type="Label" parent="ContentPanel/Margin/VBox/Stats"]
 layout_mode = 2
 text = "Stamina: 0/0"

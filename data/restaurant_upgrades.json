@@ -1,0 +1,45 @@
+{
+	"schema_version": 1,
+	"upgrades": [
+		{
+			"id": "decor_window_box",
+			"name": "Window Herb Boxes",
+			"description": "Adds a lived-in daytime look and improves walk-in appeal.",
+			"category": "decor",
+			"gold_cost": 18,
+			"effects": {
+				"demand_bonus": 0.08
+			}
+		},
+		{
+			"id": "equipment_second_pot",
+			"name": "Second Stock Pot",
+			"description": "Raises kitchen throughput for heavier lunch menus.",
+			"category": "equipment",
+			"gold_cost": 24,
+			"effects": {
+				"capacity_bonus": 2
+			}
+		},
+		{
+			"id": "staff_counter_runner",
+			"name": "Counter Runner",
+			"description": "Keeps orders moving and cushions complex menus.",
+			"category": "staff",
+			"gold_cost": 28,
+			"effects": {
+				"satisfaction_bonus": 0.04
+			}
+		},
+		{
+			"id": "specials_night_board",
+			"name": "Night Specials Board",
+			"description": "Unlocks future service hooks for night-only dishes.",
+			"category": "special",
+			"gold_cost": 32,
+			"effects": {
+				"special_slots": 1
+			}
+		}
+	]
+}

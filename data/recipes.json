@@ -1,0 +1,60 @@
+{
+	"schema_version": 1,
+	"recipes": [
+		{
+			"id": "field_stew",
+			"name": "Field Stew",
+			"description": "A hearty lunch bowl built from grain and fresh greens.",
+			"ingredients": {
+				"wheat": 2,
+				"herb": 1
+			},
+			"base_price": 13,
+			"prep_complexity": 2,
+			"category_tags": ["comfort", "stew", "farmhouse"],
+			"night_material_synergy": {
+				"material_id": "scrap",
+				"extra_price": 2,
+				"demand_bonus": 0.12,
+				"satisfaction_bonus": 0.04,
+				"max_bonus_servings": 2,
+				"feedback": "A salvage garnish gave the stew a memorable hook."
+			},
+			"starts_unlocked": true
+		},
+		{
+			"id": "herb_tea",
+			"name": "Herb Tea",
+			"description": "A quick daytime pour that keeps service moving.",
+			"ingredients": {
+				"herb": 1
+			},
+			"base_price": 8,
+			"prep_complexity": 1,
+			"category_tags": ["tea", "light", "refreshing"],
+			"night_material_synergy": {},
+			"starts_unlocked": true
+		},
+		{
+			"id": "sweet_bread",
+			"name": "Sweet Bread",
+			"description": "A richer bakery staple once the restaurant finds its footing.",
+			"ingredients": {
+				"wheat": 3,
+				"herb": 1
+			},
+			"base_price": 16,
+			"prep_complexity": 3,
+			"category_tags": ["bakery", "comfort", "dessert"],
+			"night_material_synergy": {
+				"material_id": "scrap",
+				"extra_price": 3,
+				"demand_bonus": 0.18,
+				"satisfaction_bonus": 0.06,
+				"max_bonus_servings": 2,
+				"feedback": "The night-forged glaze turned heads at the counter."
+			},
+			"starts_unlocked": false
+		}
+	]
+}

@@ -117,12 +117,20 @@ func _run_data_registry_tests() -> void:
 	_assert_true(registry.load_all(), "DataRegistry should load all JSON files")
 	var seeds: Array = registry.get_seeds()
 	var crops: Array = registry.get_crops()
+	var recipes: Array = registry.get_recipes()
+	var restaurant_upgrades: Array = registry.get_restaurant_upgrades()
 	_assert_true(seeds.size() >= 2, "seeds has at least 2 entries")
 	_assert_true(crops.size() >= 2, "crops has at least 2 entries")
+	_assert_true(recipes.size() >= 3, "recipes has at least 3 entries")
+	_assert_true(restaurant_upgrades.size() >= 4, "restaurant upgrades has at least 4 entries")
 	_assert_true(registry.has_seed("wheat_seed"), "seeds include wheat_seed")
 	_assert_true(registry.has_crop("wheat"), "crops include wheat")
+	_assert_true(registry.has_recipe("field_stew"), "recipes include field_stew")
 	var wheat_crop: Dictionary = registry.get_crop_by_seed("wheat_seed")
 	_assert_equal(String(wheat_crop.get("id", "")), "wheat", "crop lookup resolves wheat_seed to wheat")
+	var field_stew: Dictionary = registry.get_recipe("field_stew")
+	_assert_equal(int(field_stew.get("base_price", 0)), 13, "field_stew base price matches data")
+	_assert_equal(String(registry.get_restaurant_upgrade("decor_window_box").get("category", "")), "decor", "restaurant upgrade lookup resolves decor_window_box")
 	var required_weapon_ids: Array[String] = [
 		"needle_rifle",
 		"burst_smg",
@@ -393,7 +401,7 @@ func _run_character_profile_tests() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	profile_store.load_profile("diver")
-	_assert_equal(profile_store.get_schema_version(), 4, "profile migration upgrades schema to v4")
+	_assert_equal(profile_store.get_schema_version(), 5, "profile migration upgrades schema to v5")
 	var migrated_profile: Dictionary = profile_store.get_profile()
 	var migrated_progress_variant: Variant = migrated_profile.get("progress", {})
 	var migrated_progress: Dictionary = migrated_progress_variant if migrated_progress_variant is Dictionary else {}
@@ -2290,6 +2298,22 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("current_screen", "")), "restaurant", "meta loop opens restaurant screen")
+	_assert_true(bool(meta_root.call("debug_toggle_restaurant_recipe", "field_stew")), "restaurant menu can add field stew")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	var selected_menu_ids: Array = snapshot.get("restaurant_menu_ids", [])
+	_assert_true(selected_menu_ids.has("field_stew"), "restaurant keeps selected menu recipe")
+	var gold_before_service := int(snapshot.get("gold", 0))
+	_assert_true(bool(meta_root.call("debug_open_restaurant_service")), "restaurant service opens with stocked ingredients")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_true(int(snapshot.get("gold", 0)) > gold_before_service, "restaurant service generates gold")
+	_assert_equal(int(snapshot.get("restaurant_last_service_day", 0)), 2, "restaurant records the service day")
+	var sold_stats: Dictionary = snapshot.get("sold_dishes_stats", {})
+	_assert_true(int(sold_stats.get("field_stew", 0)) >= 1, "restaurant service records sold dish stats")
+	_assert_true(not bool(snapshot.get("restaurant_service_button_enabled", true)), "restaurant closes service for the rest of the day")
+	_assert_true(not String(snapshot.get("restaurant_result_summary", "")).is_empty(), "restaurant result summary is populated")
+	_assert_true(not String(snapshot.get("restaurant_feedback_text", "")).is_empty(), "restaurant feedback explains the outcome")
 	meta_root.call("debug_return_to_hub")
 	await get_tree().process_frame
 
@@ -2303,6 +2327,16 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	var reload_snapshot: Dictionary = meta_root_reload.call("debug_get_snapshot")
 	_assert_equal(int(reload_snapshot.get("current_day", 0)), 2, "meta loop preserves day across reload")
+	_assert_true(int(reload_snapshot.get("gold", 0)) > 15, "meta loop preserves restaurant gold after reload")
+	_assert_equal(int(reload_snapshot.get("restaurant_last_service_day", 0)), 2, "meta loop preserves restaurant service day after reload")
+	meta_root_reload.call("debug_open_restaurant")
+	await get_tree().process_frame
+	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
+	_assert_true(not bool(reload_snapshot.get("restaurant_service_button_enabled", true)), "save/load preserves closed service state for the same day")
+	_assert_true(not String(reload_snapshot.get("restaurant_result_title", "")).is_empty(), "save/load preserves restaurant result title")
+	_assert_true(int((reload_snapshot.get("sold_dishes_stats", {}) as Dictionary).get("field_stew", 0)) >= 1, "save/load preserves sold dish statistics")
+	meta_root_reload.call("debug_return_to_hub")
+	await get_tree().process_frame
 	meta_root_reload.call("debug_open_farm")
 	await get_tree().process_frame
 	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
@@ -2345,7 +2379,14 @@ func _run_meta_loop_scaffold_tests() -> void:
 		_assert_true(bool(day3_wheat_plot.get("harvestable", false)), "wheat becomes harvestable on day 3")
 	_assert_true(bool(meta_root_reload.call("debug_interact_farm_plot", 0, "harvest")), "harvesting wheat succeeds on day 3")
 	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
-	_assert_equal(String(reload_snapshot.get("inventory_summary", "")), "Wheat x5, Herb x2", "harvests enter shared inventory")
+	_assert_equal(String(reload_snapshot.get("inventory_summary", "")), "Wheat x3, Herb x2", "restaurant ingredient use and harvests share the same inventory")
+	meta_root_reload.call("debug_return_to_hub")
+	await get_tree().process_frame
+	meta_root_reload.call("debug_open_restaurant")
+	await get_tree().process_frame
+	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
+	_assert_equal(int(reload_snapshot.get("restaurant_last_service_day", 0)), 2, "restaurant summary persists across day transitions")
+	_assert_true(not String(reload_snapshot.get("restaurant_result_summary", "")).is_empty(), "restaurant summary remains visible on the next day")
 
 	meta_root_reload.queue_free()
 	await get_tree().process_frame

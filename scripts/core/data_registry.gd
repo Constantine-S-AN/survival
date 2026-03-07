@@ -10,6 +10,8 @@ const DATA_FILES: Dictionary = {
 	"contracts": "res://data/contracts.json",
 	"seeds": "res://data/seeds.json",
 	"crops": "res://data/crops.json",
+	"recipes": "res://data/recipes.json",
+	"restaurant_upgrades": "res://data/restaurant_upgrades.json",
 	"upgrades": "res://data/upgrades.json",
 	"spawn_curve": "res://data/spawn_curve.json",
 	"fog": "res://data/fog.json",
@@ -378,6 +380,8 @@ var bosses_config: Dictionary = {}
 var contracts_config: Dictionary = {}
 var seeds_config: Dictionary = {}
 var crops_config: Dictionary = {}
+var recipes_config: Dictionary = {}
+var restaurant_upgrades_config: Dictionary = {}
 var upgrades: Array = []
 var upgrades_by_id: Dictionary = {}
 var spawn_curve: Array = []
@@ -404,6 +408,10 @@ var seeds: Dictionary = {}
 var seed_order: Array[String] = []
 var crops: Dictionary = {}
 var crop_order: Array[String] = []
+var recipes: Dictionary = {}
+var recipe_order: Array[String] = []
+var restaurant_upgrades: Dictionary = {}
+var restaurant_upgrade_order: Array[String] = []
 var validation_errors: Array[String] = []
 var loaded: bool = false
 
@@ -433,6 +441,8 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	contracts_config = _load_dictionary(String(resolved_files["contracts"]), "contracts")
 	seeds_config = _load_dictionary(String(resolved_files["seeds"]), "seeds")
 	crops_config = _load_dictionary(String(resolved_files["crops"]), "crops")
+	recipes_config = _load_dictionary(String(resolved_files["recipes"]), "recipes")
+	restaurant_upgrades_config = _load_dictionary(String(resolved_files["restaurant_upgrades"]), "restaurant_upgrades")
 	upgrades = _load_array_of_dictionaries(String(resolved_files["upgrades"]), "upgrades")
 	spawn_curve = _load_array_of_dictionaries(String(resolved_files["spawn_curve"]), "spawn_curve")
 	fog_config = _load_dictionary(String(resolved_files["fog"]), "fog")
@@ -458,6 +468,10 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	seed_order.clear()
 	crops.clear()
 	crop_order.clear()
+	recipes.clear()
+	recipe_order.clear()
+	restaurant_upgrades.clear()
+	restaurant_upgrade_order.clear()
 	upgrades_by_id.clear()
 
 	_validate_weapons()
@@ -468,6 +482,8 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	_validate_contracts()
 	_validate_seeds()
 	_validate_crops()
+	_validate_recipes()
+	_validate_restaurant_upgrades()
 	_validate_upgrades()
 	_validate_spawn_curve()
 	_validate_fog()
@@ -540,6 +556,10 @@ func get_data_version(key: String) -> int:
 			payload = seeds_config
 		"crops":
 			payload = crops_config
+		"recipes":
+			payload = recipes_config
+		"restaurant_upgrades":
+			payload = restaurant_upgrades_config
 		"maps":
 			payload = maps_config
 		"hazards":
@@ -775,6 +795,53 @@ func get_crop_by_seed(seed_id: String) -> Dictionary:
 	if seed_def.is_empty():
 		return {}
 	return get_crop(String(seed_def.get("crop_id", "")))
+
+
+func get_recipe(recipe_id: String) -> Dictionary:
+	var payload: Variant = recipes.get(recipe_id, {})
+	if payload is Dictionary:
+		return _localize_dictionary_row(payload as Dictionary)
+	return {}
+
+
+func get_recipes() -> Array:
+	var output: Array = []
+	for recipe_id in recipe_order:
+		var recipe_variant: Variant = recipes.get(recipe_id, {})
+		if recipe_variant is Dictionary:
+			output.append(_localize_dictionary_row(recipe_variant as Dictionary))
+	return output
+
+
+func has_recipe(recipe_id: String) -> bool:
+	return recipes.has(recipe_id)
+
+
+func get_recipe_ids_started_unlocked() -> Array[String]:
+	var output: Array[String] = []
+	for recipe_id in recipe_order:
+		var recipe_variant: Variant = recipes.get(recipe_id, {})
+		if not (recipe_variant is Dictionary):
+			continue
+		if bool((recipe_variant as Dictionary).get("starts_unlocked", false)):
+			output.append(recipe_id)
+	return output
+
+
+func get_restaurant_upgrades() -> Array:
+	var output: Array = []
+	for upgrade_id in restaurant_upgrade_order:
+		var upgrade_variant: Variant = restaurant_upgrades.get(upgrade_id, {})
+		if upgrade_variant is Dictionary:
+			output.append(_localize_dictionary_row(upgrade_variant as Dictionary))
+	return output
+
+
+func get_restaurant_upgrade(upgrade_id: String) -> Dictionary:
+	var payload: Variant = restaurant_upgrades.get(upgrade_id, {})
+	if payload is Dictionary:
+		return _localize_dictionary_row(payload as Dictionary)
+	return {}
 
 
 func normalize_contract_selection(contract_ids: Array) -> Array[String]:
@@ -1619,6 +1686,143 @@ func _validate_crops() -> void:
 		if crop_id.is_empty() or crops.has(crop_id):
 			continue
 		validation_errors.append("[seeds:%s] references unknown crop_id '%s'" % [seed_id, crop_id])
+
+
+func _validate_recipes() -> void:
+	_validate_required_keys(recipes_config, ["schema_version", "recipes"], "recipes")
+	var rows_variant: Variant = recipes_config.get("recipes", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[recipes] recipes must be array")
+		return
+	var rows: Array = rows_variant
+	if rows.size() < 2:
+		validation_errors.append("[recipes] expected at least 2 recipe entries")
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[recipes:%d] entry must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		var label := "recipes:%d" % i
+		_validate_required_keys(
+			row,
+			[
+				"id",
+				"name",
+				"description",
+				"ingredients",
+				"base_price",
+				"prep_complexity",
+				"category_tags",
+				"night_material_synergy",
+				"starts_unlocked"
+			],
+			label
+		)
+		var recipe_id := String(row.get("id", "")).strip_edges().to_lower()
+		if recipe_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(recipe_id):
+			validation_errors.append("[%s] duplicate recipe id '%s'" % [label, recipe_id])
+			continue
+		seen_ids[recipe_id] = true
+
+		var ingredients_variant: Variant = row.get("ingredients", {})
+		if not (ingredients_variant is Dictionary):
+			validation_errors.append("[%s] ingredients must be dictionary" % label)
+		else:
+			var ingredients: Dictionary = ingredients_variant
+			if ingredients.is_empty():
+				validation_errors.append("[%s] ingredients must not be empty" % label)
+			for material_id_variant in ingredients.keys():
+				var material_id := String(material_id_variant).strip_edges().to_lower()
+				if material_id.is_empty():
+					validation_errors.append("[%s] ingredients cannot contain empty keys" % label)
+					continue
+				if int(ingredients.get(material_id_variant, 0)) <= 0:
+					validation_errors.append("[%s] ingredient '%s' must require > 0 units" % [label, material_id])
+
+		if int(row.get("base_price", 0)) <= 0:
+			validation_errors.append("[%s] base_price must be > 0" % label)
+		var prep_complexity := int(row.get("prep_complexity", 0))
+		if prep_complexity <= 0 or prep_complexity > 5:
+			validation_errors.append("[%s] prep_complexity must be within [1, 5]" % label)
+
+		var tags_variant: Variant = row.get("category_tags", [])
+		if not (tags_variant is Array):
+			validation_errors.append("[%s] category_tags must be array" % label)
+		else:
+			var tags: Array = tags_variant
+			if tags.is_empty():
+				validation_errors.append("[%s] category_tags must not be empty" % label)
+			for tag_variant in tags:
+				if String(tag_variant).strip_edges().to_lower().is_empty():
+					validation_errors.append("[%s] category_tags cannot contain empty values" % label)
+					break
+
+		var synergy_variant: Variant = row.get("night_material_synergy", {})
+		if not (synergy_variant is Dictionary):
+			validation_errors.append("[%s] night_material_synergy must be dictionary" % label)
+		else:
+			var synergy: Dictionary = synergy_variant
+			if not synergy.is_empty():
+				_validate_required_keys(
+					synergy,
+					["material_id", "extra_price", "demand_bonus", "satisfaction_bonus", "max_bonus_servings", "feedback"],
+					"%s:night_material_synergy" % label
+				)
+				var material_id := String(synergy.get("material_id", "")).strip_edges().to_lower()
+				if material_id.is_empty():
+					validation_errors.append("[%s] night_material_synergy.material_id must be non-empty" % label)
+				if int(synergy.get("extra_price", 0)) < 0:
+					validation_errors.append("[%s] night_material_synergy.extra_price must be >= 0" % label)
+				if float(synergy.get("demand_bonus", 0.0)) < 0.0:
+					validation_errors.append("[%s] night_material_synergy.demand_bonus must be >= 0" % label)
+				if float(synergy.get("satisfaction_bonus", 0.0)) < 0.0:
+					validation_errors.append("[%s] night_material_synergy.satisfaction_bonus must be >= 0" % label)
+				if int(synergy.get("max_bonus_servings", 0)) < 0:
+					validation_errors.append("[%s] night_material_synergy.max_bonus_servings must be >= 0" % label)
+
+		var normalized := row.duplicate(true)
+		normalized["id"] = recipe_id
+		recipes[recipe_id] = normalized
+		recipe_order.append(recipe_id)
+
+
+func _validate_restaurant_upgrades() -> void:
+	_validate_required_keys(restaurant_upgrades_config, ["schema_version", "upgrades"], "restaurant_upgrades")
+	var rows_variant: Variant = restaurant_upgrades_config.get("upgrades", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[restaurant_upgrades] upgrades must be array")
+		return
+	var rows: Array = rows_variant
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[restaurant_upgrades:%d] entry must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		var label := "restaurant_upgrades:%d" % i
+		_validate_required_keys(row, ["id", "name", "description", "category", "gold_cost", "effects"], label)
+		var upgrade_id := String(row.get("id", "")).strip_edges().to_lower()
+		if upgrade_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(upgrade_id):
+			validation_errors.append("[%s] duplicate upgrade id '%s'" % [label, upgrade_id])
+			continue
+		seen_ids[upgrade_id] = true
+		if int(row.get("gold_cost", 0)) < 0:
+			validation_errors.append("[%s] gold_cost must be >= 0" % label)
+		if not (row.get("effects", {}) is Dictionary):
+			validation_errors.append("[%s] effects must be dictionary" % label)
+		var normalized := row.duplicate(true)
+		normalized["id"] = upgrade_id
+		restaurant_upgrades[upgrade_id] = normalized
+		restaurant_upgrade_order.append(upgrade_id)
 
 
 func _validate_upgrades() -> void:
