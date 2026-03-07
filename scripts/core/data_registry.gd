@@ -15,6 +15,7 @@ const DATA_FILES: Dictionary = {
 	"crops": "res://data/crops.json",
 	"recipes": "res://data/recipes.json",
 	"restaurant_upgrades": "res://data/restaurant_upgrades.json",
+	"shop_inventory": "res://data/shop_inventory.json",
 	"upgrades": "res://data/upgrades.json",
 	"spawn_curve": "res://data/spawn_curve.json",
 	"fog": "res://data/fog.json",
@@ -410,6 +411,7 @@ var seeds_config: Dictionary = {}
 var crops_config: Dictionary = {}
 var recipes_config: Dictionary = {}
 var restaurant_upgrades_config: Dictionary = {}
+var shop_inventory_config: Dictionary = {}
 var upgrades: Array = []
 var upgrades_by_id: Dictionary = {}
 var spawn_curve: Array = []
@@ -480,6 +482,7 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	crops_config = _load_dictionary(String(resolved_files["crops"]), "crops")
 	recipes_config = _load_dictionary(String(resolved_files["recipes"]), "recipes")
 	restaurant_upgrades_config = _load_dictionary(String(resolved_files["restaurant_upgrades"]), "restaurant_upgrades")
+	shop_inventory_config = _load_dictionary(String(resolved_files["shop_inventory"]), "shop_inventory")
 	upgrades = _load_array_of_dictionaries(String(resolved_files["upgrades"]), "upgrades")
 	spawn_curve = _load_array_of_dictionaries(String(resolved_files["spawn_curve"]), "spawn_curve")
 	fog_config = _load_dictionary(String(resolved_files["fog"]), "fog")
@@ -530,6 +533,7 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	_validate_meta_unlocks()
 	_validate_night_loot_tables()
 	_validate_restaurant_upgrades()
+	_validate_shop_inventory()
 	_validate_upgrades()
 	_validate_spawn_curve()
 	_validate_fog()
@@ -612,6 +616,8 @@ func get_data_version(key: String) -> int:
 			payload = recipes_config
 		"restaurant_upgrades":
 			payload = restaurant_upgrades_config
+		"shop_inventory":
+			payload = shop_inventory_config
 		"maps":
 			payload = maps_config
 		"hazards":
@@ -981,6 +987,61 @@ func get_restaurant_upgrade(upgrade_id: String) -> Dictionary:
 	if payload is Dictionary:
 		return _localize_dictionary_row(payload as Dictionary)
 	return {}
+
+
+func get_shop_seed_offers() -> Array[Dictionary]:
+	var output: Array[Dictionary] = []
+	var rows_variant: Variant = shop_inventory_config.get("seed_offers", [])
+	if not (rows_variant is Array):
+		return output
+	for row_variant in rows_variant:
+		if row_variant is Dictionary:
+			output.append((row_variant as Dictionary).duplicate(true))
+	return output
+
+
+func get_shop_seed_offer(seed_id: String) -> Dictionary:
+	var normalized_id := seed_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return {}
+	for row in get_shop_seed_offers():
+		if String(row.get("seed_id", "")).strip_edges().to_lower() == normalized_id:
+			return row.duplicate(true)
+	return {}
+
+
+func get_shop_sell_entries() -> Array[Dictionary]:
+	var output: Array[Dictionary] = []
+	var rows_variant: Variant = shop_inventory_config.get("sell_entries", [])
+	if not (rows_variant is Array):
+		return output
+	for row_variant in rows_variant:
+		if row_variant is Dictionary:
+			output.append((row_variant as Dictionary).duplicate(true))
+	return output
+
+
+func get_shop_sell_entry(material_id: String) -> Dictionary:
+	var normalized_id := material_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return {}
+	for row in get_shop_sell_entries():
+		if String(row.get("material_id", "")).strip_edges().to_lower() == normalized_id:
+			return row.duplicate(true)
+	return {}
+
+
+func get_shop_upgrade_ids() -> Array[String]:
+	var output: Array[String] = []
+	var rows_variant: Variant = shop_inventory_config.get("upgrade_ids", [])
+	if not (rows_variant is Array):
+		return output
+	for upgrade_id_variant in rows_variant:
+		var upgrade_id := String(upgrade_id_variant).strip_edges().to_lower()
+		if upgrade_id.is_empty() or output.has(upgrade_id):
+			continue
+		output.append(upgrade_id)
+	return output
 
 
 func normalize_contract_selection(contract_ids: Array) -> Array[String]:
@@ -2157,6 +2218,97 @@ func _validate_restaurant_upgrades() -> void:
 		normalized["id"] = upgrade_id
 		restaurant_upgrades[upgrade_id] = normalized
 		restaurant_upgrade_order.append(upgrade_id)
+
+
+func _validate_shop_inventory() -> void:
+	_validate_required_keys(shop_inventory_config, ["schema_version", "seed_offers", "sell_entries", "upgrade_ids"], "shop_inventory")
+	var normalized_seed_offers: Array[Dictionary] = []
+	var normalized_sell_entries: Array[Dictionary] = []
+	var normalized_upgrade_ids: Array[String] = []
+
+	var seed_rows_variant: Variant = shop_inventory_config.get("seed_offers", [])
+	if not (seed_rows_variant is Array):
+		validation_errors.append("[shop_inventory] seed_offers must be array")
+	else:
+		var seen_seed_ids: Dictionary = {}
+		for i in range((seed_rows_variant as Array).size()):
+			var row_variant: Variant = (seed_rows_variant as Array)[i]
+			if not (row_variant is Dictionary):
+				validation_errors.append("[shop_inventory:seed_offers:%d] entry must be dictionary" % i)
+				continue
+			var row: Dictionary = row_variant
+			var label := "shop_inventory:seed_offers:%d" % i
+			_validate_required_keys(row, ["seed_id", "gold_cost"], label)
+			var seed_id := String(row.get("seed_id", "")).strip_edges().to_lower()
+			if seed_id.is_empty():
+				validation_errors.append("[%s] seed_id must be non-empty string" % label)
+				continue
+			if seen_seed_ids.has(seed_id):
+				validation_errors.append("[%s] duplicate seed_id '%s'" % [label, seed_id])
+				continue
+			seen_seed_ids[seed_id] = true
+			if not seeds.has(seed_id):
+				validation_errors.append("[%s] references unknown seed_id '%s'" % [label, seed_id])
+			if int(row.get("gold_cost", 0)) < 0:
+				validation_errors.append("[%s] gold_cost must be >= 0" % label)
+			var normalized_seed_offer := row.duplicate(true)
+			normalized_seed_offer["seed_id"] = seed_id
+			normalized_seed_offers.append(normalized_seed_offer)
+
+	var sell_rows_variant: Variant = shop_inventory_config.get("sell_entries", [])
+	if not (sell_rows_variant is Array):
+		validation_errors.append("[shop_inventory] sell_entries must be array")
+	else:
+		var seen_material_ids: Dictionary = {}
+		for i in range((sell_rows_variant as Array).size()):
+			var row_variant: Variant = (sell_rows_variant as Array)[i]
+			if not (row_variant is Dictionary):
+				validation_errors.append("[shop_inventory:sell_entries:%d] entry must be dictionary" % i)
+				continue
+			var row: Dictionary = row_variant
+			var label := "shop_inventory:sell_entries:%d" % i
+			_validate_required_keys(row, ["material_id", "gold_value"], label)
+			var material_id := String(row.get("material_id", "")).strip_edges().to_lower()
+			if material_id.is_empty():
+				validation_errors.append("[%s] material_id must be non-empty string" % label)
+				continue
+			if seen_material_ids.has(material_id):
+				validation_errors.append("[%s] duplicate material_id '%s'" % [label, material_id])
+				continue
+			seen_material_ids[material_id] = true
+			if not has_material(material_id):
+				validation_errors.append("[%s] references unknown material_id '%s'" % [label, material_id])
+			if int(row.get("gold_value", 0)) <= 0:
+				validation_errors.append("[%s] gold_value must be > 0" % label)
+			var normalized_sell_entry := row.duplicate(true)
+			normalized_sell_entry["material_id"] = material_id
+			normalized_sell_entries.append(normalized_sell_entry)
+
+	var upgrade_ids_variant: Variant = shop_inventory_config.get("upgrade_ids", [])
+	if not (upgrade_ids_variant is Array):
+		validation_errors.append("[shop_inventory] upgrade_ids must be array")
+	else:
+		var seen_upgrade_ids: Dictionary = {}
+		for i in range((upgrade_ids_variant as Array).size()):
+			var upgrade_id := String((upgrade_ids_variant as Array)[i]).strip_edges().to_lower()
+			var label := "shop_inventory:upgrade_ids:%d" % i
+			if upgrade_id.is_empty():
+				validation_errors.append("[%s] upgrade id must be non-empty string" % label)
+				continue
+			if seen_upgrade_ids.has(upgrade_id):
+				validation_errors.append("[%s] duplicate upgrade id '%s'" % [label, upgrade_id])
+				continue
+			seen_upgrade_ids[upgrade_id] = true
+			if not restaurant_upgrades.has(upgrade_id):
+				validation_errors.append("[%s] references unknown restaurant upgrade '%s'" % [label, upgrade_id])
+			normalized_upgrade_ids.append(upgrade_id)
+
+	shop_inventory_config = {
+		"schema_version": maxi(1, int(shop_inventory_config.get("schema_version", 1))),
+		"seed_offers": normalized_seed_offers,
+		"sell_entries": normalized_sell_entries,
+		"upgrade_ids": normalized_upgrade_ids
+	}
 
 
 func _validate_upgrades() -> void:

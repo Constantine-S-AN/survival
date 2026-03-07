@@ -5,6 +5,7 @@ const STATE_MENU := "menu"
 const STATE_DAY_HUB := "day_hub"
 const STATE_FARM := "farm"
 const STATE_RESTAURANT := "restaurant"
+const STATE_SHOP := "shop"
 const STATE_NIGHT := "night"
 const STATE_RETURN_SUMMARY := "return_summary"
 
@@ -33,6 +34,7 @@ const MATERIAL_DISPLAY_NAMES: Dictionary = {
 @onready var day_hub: DayHubView = $DayHub
 @onready var farm_view: Control = $Farm
 @onready var restaurant_view: Control = $Restaurant
+@onready var shop_view: ShopController = $Shop
 @onready var return_summary_view: ReturnSummaryView = $ReturnSummary
 @onready var night_combat_root: NightCombatRoot = $NightCombatRoot
 
@@ -47,6 +49,7 @@ var _current_state: String = STATE_MENU
 var _day_hub_status_text: String = ""
 var _farm_status_text: String = ""
 var _restaurant_status_text: String = ""
+var _shop_status_text: String = ""
 
 
 func _ready() -> void:
@@ -64,6 +67,7 @@ func _connect_signals() -> void:
 	if day_hub != null:
 		day_hub.farm_requested.connect(_on_day_hub_farm_requested)
 		day_hub.restaurant_requested.connect(_on_day_hub_restaurant_requested)
+		day_hub.shop_requested.connect(_on_day_hub_shop_requested)
 		day_hub.wait_requested.connect(_on_day_hub_wait_requested)
 		day_hub.night_requested.connect(_on_day_hub_night_requested)
 		day_hub.menu_requested.connect(_on_menu_requested)
@@ -75,6 +79,11 @@ func _connect_signals() -> void:
 		restaurant_view.clear_menu_requested.connect(_on_restaurant_menu_cleared)
 		restaurant_view.service_requested.connect(_on_restaurant_service_requested)
 		restaurant_view.back_requested.connect(_on_restaurant_back_requested)
+	if shop_view != null:
+		shop_view.seed_purchase_requested.connect(_on_shop_seed_purchase_requested)
+		shop_view.sell_requested.connect(_on_shop_sell_requested)
+		shop_view.upgrade_purchase_requested.connect(_on_shop_upgrade_purchase_requested)
+		shop_view.back_requested.connect(_on_shop_back_requested)
 	if return_summary_view != null:
 		return_summary_view.continue_requested.connect(_on_return_summary_continue_requested)
 		return_summary_view.menu_requested.connect(_on_menu_requested)
@@ -249,6 +258,8 @@ func _refresh_views() -> void:
 		farm_view.call("set_view_model", _build_farm_model())
 	if restaurant_view != null and restaurant_view.has_method("set_view_model"):
 		restaurant_view.call("set_view_model", _build_restaurant_model())
+	if shop_view != null and shop_view.has_method("set_view_model"):
+		shop_view.call("set_view_model", _build_shop_model())
 	if return_summary_view != null and return_summary_view.has_method("set_summary"):
 		return_summary_view.call("set_summary", _pending_return_summary)
 
@@ -263,6 +274,8 @@ func _show_state(next_state: String) -> void:
 		farm_view.visible = next_state == STATE_FARM
 	if restaurant_view != null:
 		restaurant_view.visible = next_state == STATE_RESTAURANT
+	if shop_view != null:
+		shop_view.visible = next_state == STATE_SHOP
 	if return_summary_view != null:
 		return_summary_view.visible = next_state == STATE_RETURN_SUMMARY
 
@@ -287,6 +300,10 @@ func _on_day_hub_restaurant_requested() -> void:
 	_show_state(STATE_RESTAURANT)
 
 
+func _on_day_hub_shop_requested() -> void:
+	_show_state(STATE_SHOP)
+
+
 func _on_day_hub_wait_requested() -> void:
 	_wait_until_evening()
 
@@ -300,6 +317,10 @@ func _on_farm_back_requested() -> void:
 
 
 func _on_restaurant_back_requested() -> void:
+	_show_state(STATE_DAY_HUB)
+
+
+func _on_shop_back_requested() -> void:
 	_show_state(STATE_DAY_HUB)
 
 
@@ -319,6 +340,18 @@ func _on_restaurant_service_requested() -> void:
 	_open_restaurant_service()
 
 
+func _on_shop_seed_purchase_requested(seed_id: String) -> void:
+	_buy_shop_seed(seed_id)
+
+
+func _on_shop_sell_requested(material_id: String) -> void:
+	_sell_shop_material(material_id)
+
+
+func _on_shop_upgrade_purchase_requested(upgrade_id: String) -> void:
+	_buy_shop_upgrade(upgrade_id)
+
+
 func _wait_until_evening() -> bool:
 	if _day_state.current_phase == DayStateClass.PHASE_NIGHT:
 		return false
@@ -330,6 +363,7 @@ func _wait_until_evening() -> bool:
 	_day_hub_status_text = _t("meta.hub.status_waited", {"value": spent_actions})
 	_farm_status_text = ""
 	_restaurant_status_text = ""
+	_shop_status_text = ""
 	_save_meta_progress()
 	_refresh_views()
 	return true
@@ -358,6 +392,7 @@ func _launch_night() -> bool:
 	_day_hub_status_text = ""
 	_farm_status_text = ""
 	_restaurant_status_text = ""
+	_shop_status_text = ""
 	_save_meta_progress()
 	_refresh_views()
 	_show_state(STATE_NIGHT)
@@ -381,6 +416,7 @@ func _on_return_summary_continue_requested() -> void:
 	_day_hub_status_text = ""
 	_farm_status_text = ""
 	_restaurant_status_text = ""
+	_shop_status_text = ""
 	_save_meta_progress()
 	_refresh_views()
 	_show_state(STATE_DAY_HUB)
@@ -571,6 +607,75 @@ func _clear_restaurant_menu() -> void:
 	_refresh_views()
 
 
+func _buy_shop_seed(seed_id: String) -> bool:
+	var normalized_id := seed_id.strip_edges().to_lower()
+	var offer := DataRegistry.get_shop_seed_offer(normalized_id)
+	if normalized_id.is_empty() or offer.is_empty():
+		return false
+	if _inventory.has_seed(normalized_id):
+		_shop_status_text = _t("meta.shop.status_seed_owned", {"value": _display_seed_name(normalized_id)})
+		_refresh_views()
+		return false
+	var cost := maxi(0, int(offer.get("gold_cost", 0)))
+	if not _economy.spend_gold(cost):
+		_shop_status_text = _t("meta.shop.status_need_gold")
+		_refresh_views()
+		return false
+	_inventory.unlock_seed(normalized_id)
+	_day_hub_status_text = ""
+	_shop_status_text = _t("meta.shop.status_seed_bought", {"value": _display_seed_name(normalized_id)})
+	_save_meta_progress()
+	_refresh_views()
+	return true
+
+
+func _sell_shop_material(material_id: String) -> bool:
+	var normalized_id := material_id.strip_edges().to_lower()
+	var offer := DataRegistry.get_shop_sell_entry(normalized_id)
+	if normalized_id.is_empty() or offer.is_empty():
+		return false
+	if _inventory.get_material_amount(normalized_id) <= 0:
+		_shop_status_text = _t("meta.shop.status_sell_missing", {"value": _display_material_name(normalized_id)})
+		_refresh_views()
+		return false
+	if not _inventory.remove_material(normalized_id, 1):
+		_shop_status_text = _t("meta.shop.status_sell_missing", {"value": _display_material_name(normalized_id)})
+		_refresh_views()
+		return false
+	_economy.add_gold(maxi(0, int(offer.get("gold_value", 0))))
+	_day_hub_status_text = ""
+	_shop_status_text = _t("meta.shop.status_sell_done", {"value": _display_material_name(normalized_id)})
+	_save_meta_progress()
+	_refresh_views()
+	return true
+
+
+func _buy_shop_upgrade(upgrade_id: String) -> bool:
+	var normalized_id := upgrade_id.strip_edges().to_lower()
+	if normalized_id.is_empty() or not DataRegistry.get_shop_upgrade_ids().has(normalized_id):
+		return false
+	var owned_upgrade_ids := _get_owned_restaurant_upgrade_ids()
+	if owned_upgrade_ids.has(normalized_id):
+		_shop_status_text = _t("meta.shop.status_upgrade_owned", {"value": String(DataRegistry.get_restaurant_upgrade(normalized_id).get("name", normalized_id.capitalize()))})
+		_refresh_views()
+		return false
+	var upgrade := DataRegistry.get_restaurant_upgrade(normalized_id)
+	if upgrade.is_empty():
+		return false
+	var cost := maxi(0, int(upgrade.get("gold_cost", 0)))
+	if not _economy.spend_gold(cost):
+		_shop_status_text = _t("meta.shop.status_need_gold")
+		_refresh_views()
+		return false
+	owned_upgrade_ids.append(normalized_id)
+	_restaurant_state["owned_upgrade_ids"] = owned_upgrade_ids
+	_day_hub_status_text = ""
+	_shop_status_text = _t("meta.shop.status_upgrade_bought", {"value": String(upgrade.get("name", normalized_id.capitalize()))})
+	_save_meta_progress()
+	_refresh_views()
+	return true
+
+
 func _open_restaurant_service() -> bool:
 	if _restaurant_service_completed_today():
 		_restaurant_status_text = _t("meta.restaurant.status_closed_today")
@@ -717,6 +822,8 @@ func _build_day_hub_model() -> Dictionary:
 		"bonus_tooltip": _build_night_bonus_summary(),
 		"bridge_summary": String(bridge_info.get("summary", _t("meta.bridge.summary_none"))),
 		"bridge_tooltip": String(bridge_info.get("tooltip", "")),
+		"shop_button_text": _t("meta.hub.shop"),
+		"shop_button_tooltip": _t("meta.hub.shop_tooltip"),
 		"status_text": _build_day_hub_status_text(),
 		"wait_button_text": _t("meta.hub.wait_evening"),
 		"wait_button_tooltip": _build_wait_button_tooltip(),
@@ -805,7 +912,7 @@ func _build_farm_tools() -> Array[Dictionary]:
 				"cost": plant_cost
 			})
 		else:
-			label += "\n%s" % _t("meta.farm.action_locked")
+			label += "\n%s" % (_t("meta.farm.action_shop_unlock") if _shop_sells_seed(seed_id) else _t("meta.farm.action_locked"))
 		if not unlock_material_ids.is_empty():
 			label += "\n%s" % _t("meta.farm.tool_night_unlock", {
 				"value": _build_material_name_list(unlock_material_ids)
@@ -905,6 +1012,178 @@ func _build_restaurant_model() -> Dictionary:
 	}
 
 
+func _build_shop_model() -> Dictionary:
+	return {
+		"current_day": _day_state.current_day,
+		"phase": _day_state.current_phase,
+		"gold": _economy.gold,
+		"action_budget": _day_state.action_budget,
+		"max_action_budget": _day_state.max_action_budget,
+		"inventory_summary": _build_inventory_summary(),
+		"inventory_tooltip": _build_night_stock_tooltip(),
+		"owned_upgrades_summary": _build_shop_owned_upgrade_summary(),
+		"status_text": _shop_status_text,
+		"seed_offers": _build_shop_seed_offers(),
+		"sell_offers": _build_shop_sell_offers(),
+		"upgrade_offers": _build_shop_upgrade_offers()
+	}
+
+
+func _build_shop_seed_offers() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for offer in DataRegistry.get_shop_seed_offers():
+		var seed_id := String(offer.get("seed_id", "")).strip_edges().to_lower()
+		var seed := DataRegistry.get_seed(seed_id)
+		var crop := DataRegistry.get_crop_by_seed(seed_id)
+		if seed_id.is_empty() or seed.is_empty() or crop.is_empty():
+			continue
+		var owned := _inventory.has_seed(seed_id)
+		var cost := maxi(0, int(offer.get("gold_cost", 0)))
+		var label := _t("meta.shop.seed_owned", {
+			"name": _display_seed_name(seed_id)
+		}) if owned else _t("meta.shop.seed_action", {
+			"name": _display_seed_name(seed_id),
+			"cost": cost,
+			"yield": int(crop.get("harvest_yield", 1)),
+			"crop": _display_material_name(String(crop.get("id", ""))),
+			"value": int(crop.get("sell_value", 0))
+		})
+		var tooltip_lines: Array[String] = []
+		var offer_description := String(offer.get("description", "")).strip_edges()
+		if not offer_description.is_empty():
+			tooltip_lines.append(offer_description)
+		var seed_description := String(seed.get("description", "")).strip_edges()
+		if not seed_description.is_empty() and tooltip_lines.find(seed_description) < 0:
+			tooltip_lines.append(seed_description)
+		tooltip_lines.append(_t("meta.shop.seed_tooltip_cost", {"value": cost}))
+		tooltip_lines.append(_t("meta.shop.seed_tooltip_sell_value", {"value": int(crop.get("sell_value", 0))}))
+		var crop_uses := _collect_recipe_names_for_material(String(crop.get("id", "")))
+		if not crop_uses.is_empty():
+			tooltip_lines.append(_t("meta.shop.seed_tooltip_use", {"value": ", ".join(crop_uses)}))
+		rows.append({
+			"id": seed_id,
+			"label": label,
+			"enabled": not owned and _economy.gold >= cost,
+			"tooltip": "\n".join(tooltip_lines)
+		})
+	return rows
+
+
+func _build_shop_sell_offers() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for offer in DataRegistry.get_shop_sell_entries():
+		var material_id := String(offer.get("material_id", "")).strip_edges().to_lower()
+		if material_id.is_empty():
+			continue
+		var owned_count := _inventory.get_material_amount(material_id)
+		var value := maxi(0, int(offer.get("gold_value", 0)))
+		var tooltip_lines: Array[String] = []
+		var offer_description := String(offer.get("description", "")).strip_edges()
+		if not offer_description.is_empty():
+			tooltip_lines.append(offer_description)
+		var crop := DataRegistry.get_crop(material_id)
+		if not crop.is_empty():
+			var crop_description := String(crop.get("description", "")).strip_edges()
+			if not crop_description.is_empty() and tooltip_lines.find(crop_description) < 0:
+				tooltip_lines.append(crop_description)
+		else:
+			var ingredient := DataRegistry.get_special_ingredient(material_id)
+			if not ingredient.is_empty():
+				var ingredient_description := String(ingredient.get("description", "")).strip_edges()
+				if not ingredient_description.is_empty() and tooltip_lines.find(ingredient_description) < 0:
+					tooltip_lines.append(ingredient_description)
+		tooltip_lines.append(_t("meta.shop.sell_tooltip_value", {"value": value}))
+		var material_uses := _collect_use_names_for_material(material_id)
+		if not material_uses.is_empty():
+			tooltip_lines.append(_t("meta.shop.seed_tooltip_use", {"value": ", ".join(material_uses)}))
+		rows.append({
+			"id": material_id,
+			"label": _t("meta.shop.sell_action", {
+				"name": _display_material_name(material_id),
+				"count": owned_count,
+				"value": value
+			}),
+			"enabled": owned_count > 0,
+			"tooltip": "\n".join(tooltip_lines)
+		})
+	return rows
+
+
+func _build_shop_upgrade_offers() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var owned_upgrade_ids := _get_owned_restaurant_upgrade_ids()
+	for upgrade_id in DataRegistry.get_shop_upgrade_ids():
+		var upgrade := DataRegistry.get_restaurant_upgrade(upgrade_id)
+		if upgrade.is_empty():
+			continue
+		var cost := maxi(0, int(upgrade.get("gold_cost", 0)))
+		var effects_text := _build_restaurant_upgrade_effect_text(upgrade)
+		var owned := owned_upgrade_ids.has(upgrade_id)
+		var tooltip_lines: Array[String] = []
+		var description := String(upgrade.get("description", "")).strip_edges()
+		if not description.is_empty():
+			tooltip_lines.append(description)
+		tooltip_lines.append(_t("meta.shop.upgrade_tooltip_cost", {"value": cost}))
+		tooltip_lines.append(effects_text)
+		rows.append({
+			"id": upgrade_id,
+			"label": _t("meta.shop.upgrade_owned", {
+				"name": String(upgrade.get("name", upgrade_id.capitalize())),
+				"effects": effects_text
+			}) if owned else _t("meta.shop.upgrade_action", {
+				"name": String(upgrade.get("name", upgrade_id.capitalize())),
+				"cost": cost,
+				"effects": effects_text
+			}),
+			"enabled": not owned and _economy.gold >= cost,
+			"tooltip": "\n".join(tooltip_lines)
+		})
+	return rows
+
+
+func _build_shop_owned_upgrade_summary() -> String:
+	var parts: Array[String] = []
+	for upgrade in _get_owned_restaurant_upgrades():
+		parts.append("%s (%s)" % [
+			String(upgrade.get("name", _t("meta.common.none"))),
+			_build_restaurant_upgrade_effect_text(upgrade)
+		])
+	if parts.is_empty():
+		return _t("meta.shop.owned_none")
+	return "; ".join(parts)
+
+
+func _build_restaurant_upgrade_effect_text(upgrade: Dictionary) -> String:
+	var effects_variant: Variant = upgrade.get("effects", {})
+	if not (effects_variant is Dictionary):
+		return _t("meta.shop.effect.none")
+	var effects: Dictionary = effects_variant
+	var order: Array[String] = [
+		"demand_bonus",
+		"capacity_bonus",
+		"satisfaction_bonus",
+		"special_slots"
+	]
+	var parts: Array[String] = []
+	for effect_id in order:
+		if not effects.has(effect_id):
+			continue
+		match effect_id:
+			"demand_bonus", "satisfaction_bonus":
+				var percent_value := int(round(float(effects.get(effect_id, 0.0)) * 100.0))
+				if percent_value <= 0:
+					continue
+				parts.append(_t("meta.shop.effect.%s" % effect_id, {"value": percent_value}))
+			_:
+				var int_value := int(effects.get(effect_id, 0))
+				if int_value <= 0:
+					continue
+				parts.append(_t("meta.shop.effect.%s" % effect_id, {"value": int_value}))
+	if parts.is_empty():
+		return _t("meta.shop.effect.none")
+	return ", ".join(parts)
+
+
 func _restaurant_service_completed_today() -> bool:
 	return int(_restaurant_state.get("last_service_day", 0)) >= _day_state.current_day
 
@@ -924,13 +1203,16 @@ func _get_recipe_lookup() -> Dictionary:
 
 func _get_owned_restaurant_upgrades() -> Array:
 	var owned_upgrades: Array = []
-	var owned_upgrade_ids: Array[String] = _normalize_string_id_array(_restaurant_state.get("owned_upgrade_ids", []))
-	for upgrade_id in owned_upgrade_ids:
+	for upgrade_id in _get_owned_restaurant_upgrade_ids():
 		var upgrade := DataRegistry.get_restaurant_upgrade(upgrade_id)
 		if upgrade.is_empty():
 			continue
 		owned_upgrades.append(upgrade)
 	return owned_upgrades
+
+
+func _get_owned_restaurant_upgrade_ids() -> Array[String]:
+	return _normalize_string_id_array(_restaurant_state.get("owned_upgrade_ids", []))
 
 
 func _maybe_unlock_restaurant_recipes() -> Array[String]:
@@ -1267,6 +1549,9 @@ func _build_seed_tooltip(seed: Dictionary, crop_def: Dictionary) -> String:
 	var unlock_material_ids := _get_unlock_material_ids_for_target("seed", seed_id)
 	if not unlock_material_ids.is_empty():
 		lines.append(_t("meta.bridge.night_source", {"value": _build_material_name_list(unlock_material_ids)}))
+	elif _shop_sells_seed(seed_id) and not _inventory.has_seed(seed_id):
+		var shop_offer := DataRegistry.get_shop_seed_offer(seed_id)
+		lines.append(_t("meta.shop.seed_tooltip_buy", {"value": int(shop_offer.get("gold_cost", 0))}))
 	var unlock_row := _find_unlock_row(_build_current_unlock_rows(), "seed", seed_id)
 	if not unlock_row.is_empty() and not bool(unlock_row.get("complete", false)):
 		lines.append(_t("meta.bridge.unlock_line", {
@@ -1721,6 +2006,10 @@ func _build_recipe_bonus_text(recipe: Dictionary) -> String:
 	return ", ".join(parts)
 
 
+func _shop_sells_seed(seed_id: String) -> bool:
+	return not DataRegistry.get_shop_seed_offer(seed_id.strip_edges().to_lower()).is_empty()
+
+
 func _display_material_name(material_id: String) -> String:
 	var normalized_id := material_id.strip_edges().to_lower()
 	if normalized_id.is_empty():
@@ -1832,6 +2121,10 @@ func debug_open_restaurant() -> void:
 	_on_day_hub_restaurant_requested()
 
 
+func debug_open_shop() -> void:
+	_on_day_hub_shop_requested()
+
+
 func debug_return_to_hub() -> void:
 	_show_state(STATE_DAY_HUB)
 
@@ -1879,6 +2172,18 @@ func debug_open_restaurant_service() -> bool:
 	return _open_restaurant_service()
 
 
+func debug_shop_buy_seed(seed_id: String) -> bool:
+	return _buy_shop_seed(seed_id)
+
+
+func debug_shop_sell_material(material_id: String) -> bool:
+	return _sell_shop_material(material_id)
+
+
+func debug_shop_buy_upgrade(upgrade_id: String) -> bool:
+	return _buy_shop_upgrade(upgrade_id)
+
+
 func debug_wait_until_evening() -> bool:
 	return _wait_until_evening()
 
@@ -1900,6 +2205,7 @@ func debug_get_snapshot() -> Dictionary:
 	var day_hub_model := _build_day_hub_model()
 	var farm_model := _build_farm_model()
 	var restaurant_model := _build_restaurant_model()
+	var shop_model := _build_shop_model()
 	var farm_plots: Array[Dictionary] = []
 	for plot_variant in _get_farm_plots():
 		var plot: Dictionary = plot_variant if plot_variant is Dictionary else _build_empty_plot()
@@ -1932,6 +2238,7 @@ func debug_get_snapshot() -> Dictionary:
 		"seed_summary": _build_unlocked_seed_summary(),
 		"recipe_summary": _build_unlocked_recipe_summary(),
 		"day_hub_status_text": String(day_hub_model.get("status_text", "")),
+		"day_hub_shop_button_tooltip": String(day_hub_model.get("shop_button_tooltip", "")),
 		"night_button_disabled": bool(day_hub_model.get("night_button_disabled", false)),
 		"wait_button_disabled": bool(day_hub_model.get("wait_button_disabled", false)),
 		"day_hub_bridge_summary": String(day_hub_model.get("bridge_summary", "")),
@@ -1956,5 +2263,11 @@ func debug_get_snapshot() -> Dictionary:
 		"restaurant_result_title": String(restaurant_model.get("result_title", "")),
 		"restaurant_result_summary": String(restaurant_model.get("result_summary", "")),
 		"restaurant_feedback_text": String(restaurant_model.get("result_feedback", "")),
-		"restaurant_sold_stats_text": String(restaurant_model.get("sold_stats_text", ""))
+		"restaurant_sold_stats_text": String(restaurant_model.get("sold_stats_text", "")),
+		"owned_restaurant_upgrade_ids": _get_owned_restaurant_upgrade_ids(),
+		"shop_status_text": _shop_status_text,
+		"shop_seed_offers": (shop_model.get("seed_offers", []) as Array).duplicate(true) if shop_model.get("seed_offers", []) is Array else [],
+		"shop_sell_offers": (shop_model.get("sell_offers", []) as Array).duplicate(true) if shop_model.get("sell_offers", []) is Array else [],
+		"shop_upgrade_offers": (shop_model.get("upgrade_offers", []) as Array).duplicate(true) if shop_model.get("upgrade_offers", []) is Array else [],
+		"shop_owned_upgrades_summary": String(shop_model.get("owned_upgrades_summary", ""))
 	}

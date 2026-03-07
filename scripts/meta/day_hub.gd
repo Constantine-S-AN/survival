@@ -3,6 +3,7 @@ class_name DayHubView
 
 signal farm_requested
 signal restaurant_requested
+signal shop_requested
 signal wait_requested
 signal night_requested
 signal menu_requested
@@ -23,6 +24,7 @@ signal menu_requested
 @onready var status_label: Label = $ContentPanel/Margin/VBox/StatusLabel
 @onready var farm_button: Button = $ContentPanel/Margin/VBox/Actions/FarmButton
 @onready var restaurant_button: Button = $ContentPanel/Margin/VBox/Actions/RestaurantButton
+@onready var shop_button: Button = $ContentPanel/Margin/VBox/Actions/ShopButton
 @onready var wait_button: Button = $ContentPanel/Margin/VBox/Actions/WaitButton
 @onready var night_button: Button = $ContentPanel/Margin/VBox/Actions/NightButton
 @onready var menu_button: Button = $ContentPanel/Margin/VBox/Actions/MenuButton
@@ -37,6 +39,9 @@ func _ready() -> void:
 	)
 	restaurant_button.pressed.connect(func() -> void:
 		restaurant_requested.emit()
+	)
+	shop_button.pressed.connect(func() -> void:
+		shop_requested.emit()
 	)
 	wait_button.pressed.connect(func() -> void:
 		wait_requested.emit()
@@ -62,6 +67,8 @@ func _apply_view_model() -> void:
 	subtitle_label.text = _t("meta.hub.subtitle")
 	farm_button.text = _t("meta.hub.farm")
 	restaurant_button.text = _t("meta.hub.restaurant")
+	shop_button.text = String(_view_model.get("shop_button_text", _t("meta.hub.shop")))
+	shop_button.tooltip_text = String(_view_model.get("shop_button_tooltip", ""))
 	night_button.text = _t("meta.hub.launch_night")
 	menu_button.text = _t("meta.hub.menu")
 	day_label.text = _t("meta.hub.day", {"value": int(_view_model.get("current_day", 1))})

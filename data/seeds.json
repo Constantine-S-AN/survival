@@ -24,6 +24,22 @@
 			"crop_id": "mooncap",
 			"plant_stamina_cost": 2,
 			"starts_unlocked": false
+		},
+		{
+			"id": "kelpberry_seed",
+			"name": "Kelpberry Starts",
+			"description": "A hardy shoreline berry cultivated for steady daytime sale value.",
+			"crop_id": "kelpberry",
+			"plant_stamina_cost": 1,
+			"starts_unlocked": false
+		},
+		{
+			"id": "emberleaf_seed",
+			"name": "Emberleaf Pods",
+			"description": "A peppery leaf crop that sells well once the farm can spare the effort.",
+			"crop_id": "emberleaf",
+			"plant_stamina_cost": 2,
+			"starts_unlocked": false
 		}
 	]
 }

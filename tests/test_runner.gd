@@ -2518,7 +2518,61 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true(int((final_snapshot.get("inventory_materials", {}) as Dictionary).get("glow_kelp", 0)) >= 1, "save/load preserves Glow Kelp stock after unlock flow")
 	_assert_equal(String(final_snapshot.get("phase", "")), "evening", "save/load preserves the current day phase after daytime actions")
 	_assert_equal(int(final_snapshot.get("action_budget", 0)), 0, "save/load preserves the remaining daytime action budget after daytime actions")
+	_assert_true(String(final_snapshot.get("day_hub_shop_button_tooltip", "")).find("Buy seeds") >= 0, "day hub presents the new shop loop clearly")
+	meta_root_final.call("debug_open_shop")
+	await get_tree().process_frame
+	final_snapshot = meta_root_final.call("debug_get_snapshot")
+	_assert_equal(String(final_snapshot.get("current_screen", "")), "shop", "meta loop opens the shop screen from day hub")
+	var kelpberry_offer := _find_entry_by_id(final_snapshot.get("shop_seed_offers", []), "kelpberry_seed")
+	var emberleaf_offer := _find_entry_by_id(final_snapshot.get("shop_seed_offers", []), "emberleaf_seed")
+	var window_box_offer := _find_entry_by_id(final_snapshot.get("shop_upgrade_offers", []), "decor_window_box")
+	_assert_true(not kelpberry_offer.is_empty(), "shop exposes the first purchasable seed type")
+	_assert_true(not emberleaf_offer.is_empty(), "shop exposes the second purchasable seed type")
+	_assert_true(not window_box_offer.is_empty(), "shop exposes restaurant upgrades from the upgrade data")
+	var gold_before_shop := int(final_snapshot.get("gold", 0))
+	_assert_true(bool(meta_root_final.call("debug_shop_sell_material", "wheat")), "shop can sell harvested wheat for gold")
+	_assert_true(bool(meta_root_final.call("debug_shop_sell_material", "wheat")), "shop can repeatedly sell produce from inventory")
+	_assert_true(bool(meta_root_final.call("debug_shop_sell_material", "herb")), "shop can sell harvested herbs for gold")
+	final_snapshot = meta_root_final.call("debug_get_snapshot")
+	_assert_true(int(final_snapshot.get("gold", 0)) > gold_before_shop, "selling daytime stock increases shared gold")
+	_assert_true(bool(meta_root_final.call("debug_shop_buy_seed", "kelpberry_seed")), "shop can buy the first new seed type")
+	_assert_true(bool(meta_root_final.call("debug_shop_buy_seed", "emberleaf_seed")), "shop can buy the second new seed type")
+	_assert_true(bool(meta_root_final.call("debug_shop_buy_upgrade", "decor_window_box")), "shop can buy a restaurant upgrade")
+	final_snapshot = meta_root_final.call("debug_get_snapshot")
+	_assert_true((final_snapshot.get("unlocked_seed_ids", []) as Array).has("kelpberry_seed"), "shop purchase unlocks kelpberry seeds in shared inventory state")
+	_assert_true((final_snapshot.get("unlocked_seed_ids", []) as Array).has("emberleaf_seed"), "shop purchase unlocks emberleaf seeds in shared inventory state")
+	_assert_true((final_snapshot.get("owned_restaurant_upgrade_ids", []) as Array).has("decor_window_box"), "shop purchase persists restaurant upgrades in the shared restaurant state")
+	_assert_true(String(final_snapshot.get("shop_owned_upgrades_summary", "")).find("Window Herb Boxes") >= 0, "shop UI surfaces installed upgrade effects clearly")
+	var service_simulator := preload("res://scripts/day/restaurant/service_simulator.gd")
+	var compare_recipe := DataRegistry.get_recipe("field_stew")
+	var base_service: Dictionary = service_simulator.simulate_service({
+		"day": 4,
+		"reputation": 2,
+		"menu_recipes": [compare_recipe],
+		"inventory_materials": {"wheat": 6, "herb": 4},
+		"upgrades": []
+	})
+	var upgraded_service: Dictionary = service_simulator.simulate_service({
+		"day": 4,
+		"reputation": 2,
+		"menu_recipes": [compare_recipe],
+		"inventory_materials": {"wheat": 6, "herb": 4},
+		"upgrades": [DataRegistry.get_restaurant_upgrade("decor_window_box")]
+	})
+	_assert_true(float(upgraded_service.get("menu_attractiveness", 0.0)) > float(base_service.get("menu_attractiveness", 0.0)), "purchased restaurant upgrade changes service outcomes")
 	meta_root_final.queue_free()
+	await get_tree().process_frame
+
+	var meta_root_shop_reload: Node = meta_scene.instantiate()
+	get_tree().root.add_child(meta_root_shop_reload)
+	await get_tree().process_frame
+	meta_root_shop_reload.call("debug_press_play")
+	await get_tree().process_frame
+	var shop_reload_snapshot: Dictionary = meta_root_shop_reload.call("debug_get_snapshot")
+	_assert_true((shop_reload_snapshot.get("unlocked_seed_ids", []) as Array).has("kelpberry_seed"), "save/load preserves kelpberry shop unlock")
+	_assert_true((shop_reload_snapshot.get("unlocked_seed_ids", []) as Array).has("emberleaf_seed"), "save/load preserves emberleaf shop unlock")
+	_assert_true((shop_reload_snapshot.get("owned_restaurant_upgrade_ids", []) as Array).has("decor_window_box"), "save/load preserves purchased restaurant upgrades")
+	meta_root_shop_reload.queue_free()
 	await get_tree().process_frame
 
 

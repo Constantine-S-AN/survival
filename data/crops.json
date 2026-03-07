@@ -30,6 +30,26 @@
 			"harvest_yield": 2,
 			"sell_value": 14,
 			"ingredient_tags": ["fungus", "night", "luxury"]
+		},
+		{
+			"id": "kelpberry",
+			"seed_id": "kelpberry_seed",
+			"name": "Kelpberry",
+			"description": "A briny berry vine that gives the daytime economy a dependable cash crop.",
+			"growth_days": 2,
+			"harvest_yield": 2,
+			"sell_value": 8,
+			"ingredient_tags": ["fruit", "saline"]
+		},
+		{
+			"id": "emberleaf",
+			"seed_id": "emberleaf_seed",
+			"name": "Emberleaf",
+			"description": "A warm, peppery leaf bundle prized for quick market turnover.",
+			"growth_days": 2,
+			"harvest_yield": 2,
+			"sell_value": 10,
+			"ingredient_tags": ["leaf", "spice"]
 		}
 	]
 }

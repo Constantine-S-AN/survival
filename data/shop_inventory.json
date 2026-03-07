@@ -1,0 +1,42 @@
+{
+	"schema_version": 1,
+	"seed_offers": [
+		{
+			"seed_id": "kelpberry_seed",
+			"gold_cost": 7,
+			"description": "A low-risk berry vine suited to daytime cash flow."
+		},
+		{
+			"seed_id": "emberleaf_seed",
+			"gold_cost": 9,
+			"description": "A hotter crop that sells better once the farm is stable."
+		}
+	],
+	"sell_entries": [
+		{
+			"material_id": "wheat",
+			"gold_value": 4,
+			"description": "Move staple grain to nearby stalls for immediate cash."
+		},
+		{
+			"material_id": "herb",
+			"gold_value": 6,
+			"description": "Fresh herbs sell quickly to daytime kitchens."
+		},
+		{
+			"material_id": "mooncap",
+			"gold_value": 14,
+			"description": "A premium luminous fungus with a strong market price."
+		},
+		{
+			"material_id": "scrap",
+			"gold_value": 2,
+			"description": "Recovered salvage can always be traded for upkeep money."
+		}
+	],
+	"upgrade_ids": [
+		"decor_window_box",
+		"equipment_second_pot",
+		"staff_counter_runner"
+	]
+}
