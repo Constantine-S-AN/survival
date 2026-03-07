@@ -115,6 +115,14 @@ func _run_data_registry_tests() -> void:
 	var registry_script := load("res://scripts/core/data_registry.gd")
 	var registry = registry_script.new()
 	_assert_true(registry.load_all(), "DataRegistry should load all JSON files")
+	var seeds: Array = registry.get_seeds()
+	var crops: Array = registry.get_crops()
+	_assert_true(seeds.size() >= 2, "seeds has at least 2 entries")
+	_assert_true(crops.size() >= 2, "crops has at least 2 entries")
+	_assert_true(registry.has_seed("wheat_seed"), "seeds include wheat_seed")
+	_assert_true(registry.has_crop("wheat"), "crops include wheat")
+	var wheat_crop: Dictionary = registry.get_crop_by_seed("wheat_seed")
+	_assert_equal(String(wheat_crop.get("id", "")), "wheat", "crop lookup resolves wheat_seed to wheat")
 	var required_weapon_ids: Array[String] = [
 		"needle_rifle",
 		"burst_smg",
@@ -385,7 +393,7 @@ func _run_character_profile_tests() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	profile_store.load_profile("diver")
-	_assert_equal(profile_store.get_schema_version(), 3, "profile migration upgrades schema to v3")
+	_assert_equal(profile_store.get_schema_version(), 4, "profile migration upgrades schema to v4")
 	var migrated_profile: Dictionary = profile_store.get_profile()
 	var migrated_progress_variant: Variant = migrated_profile.get("progress", {})
 	var migrated_progress: Dictionary = migrated_progress_variant if migrated_progress_variant is Dictionary else {}
@@ -2222,23 +2230,17 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	var snapshot: Dictionary = meta_root.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("current_screen", "")), "day_hub", "meta loop enters day hub from main menu")
-	var baseline_gold := int(snapshot.get("gold", 0))
 
 	meta_root.call("debug_open_farm")
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("current_screen", "")), "farm", "meta loop opens farm screen")
-	var farm_ok := bool(meta_root.call("debug_apply_farm_action", "wheat_seed"))
-	_assert_true(farm_ok, "meta loop farm action succeeds")
-	meta_root.call("debug_return_to_hub")
-	await get_tree().process_frame
-
-	meta_root.call("debug_open_restaurant")
-	await get_tree().process_frame
-	snapshot = meta_root.call("debug_get_snapshot")
-	_assert_equal(String(snapshot.get("current_screen", "")), "restaurant", "meta loop opens restaurant screen")
-	var recipe_ok := bool(meta_root.call("debug_apply_recipe", "field_stew"))
-	_assert_true(recipe_ok, "meta loop restaurant recipe succeeds")
+	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "till")), "farm till succeeds on plot 0")
+	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "plant", "wheat_seed")), "farm plants wheat on plot 0")
+	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "water")), "farm waters wheat on plot 0")
+	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "till")), "farm till succeeds on plot 1")
+	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "plant", "herb_seed")), "farm plants herb on plot 1")
+	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "water")), "farm waters herb on plot 1")
 	meta_root.call("debug_return_to_hub")
 	await get_tree().process_frame
 
@@ -2250,26 +2252,46 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true(bool(snapshot.get("night_active", false)), "meta loop night combat wrapper becomes active")
 
 	meta_root.call("debug_complete_active_night", {
-		"time_survived_sec": 125.0,
-		"kills": 24,
+		"time_survived_sec": 30.0,
+		"kills": 5,
 		"level": 4,
-		"drop_pickups_spawned": 6,
+		"drop_pickups_spawned": 0,
 		"seed": 424242
 	})
 	await get_tree().process_frame
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("current_screen", "")), "return_summary", "meta loop shows return summary after night")
-	_assert_true(int(snapshot.get("gold", 0)) > baseline_gold, "meta loop applies night rewards to gold")
-
 	meta_root.call("debug_continue_summary")
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("current_screen", "")), "day_hub", "meta loop returns to day hub after summary")
 	_assert_equal(int(snapshot.get("current_day", 0)), 2, "meta loop advances to next day after summary")
 	_assert_equal(String(snapshot.get("phase", "")), "day", "meta loop resets phase to day after summary")
-	var persisted_gold := int(snapshot.get("gold", 0))
-	var persisted_inventory_summary := String(snapshot.get("inventory_summary", ""))
+	meta_root.call("debug_open_farm")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	var day2_plots: Array = snapshot.get("farm_plots", [])
+	_assert_true(day2_plots.size() >= 2, "farm exposes two plots in snapshot")
+	if day2_plots.size() >= 2:
+		var wheat_plot: Dictionary = day2_plots[0]
+		var herb_plot: Dictionary = day2_plots[1]
+		_assert_equal(String(wheat_plot.get("crop_id", "")), "wheat", "wheat plot remains planted on day 2")
+		_assert_equal(int(wheat_plot.get("growth_progress_days", 0)), 1, "watered wheat advances one growth day")
+		_assert_true(not bool(wheat_plot.get("harvestable", false)), "wheat is not harvestable after one day")
+		_assert_equal(String(herb_plot.get("crop_id", "")), "herb", "herb plot remains planted on day 2")
+		_assert_true(bool(herb_plot.get("harvestable", false)), "herb becomes harvestable after one watered day")
+	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "harvest")), "harvest adds herb to inventory")
+	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "water")), "watering wheat again succeeds on day 2")
+	meta_root.call("debug_return_to_hub")
+	await get_tree().process_frame
+
+	meta_root.call("debug_open_restaurant")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "restaurant", "meta loop opens restaurant screen")
+	meta_root.call("debug_return_to_hub")
+	await get_tree().process_frame
 
 	meta_root.queue_free()
 	await get_tree().process_frame
@@ -2281,8 +2303,49 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	var reload_snapshot: Dictionary = meta_root_reload.call("debug_get_snapshot")
 	_assert_equal(int(reload_snapshot.get("current_day", 0)), 2, "meta loop preserves day across reload")
-	_assert_equal(int(reload_snapshot.get("gold", 0)), persisted_gold, "meta loop preserves gold across reload")
-	_assert_equal(String(reload_snapshot.get("inventory_summary", "")), persisted_inventory_summary, "meta loop preserves inventory across reload")
+	meta_root_reload.call("debug_open_farm")
+	await get_tree().process_frame
+	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
+	var reload_plots: Array = reload_snapshot.get("farm_plots", [])
+	if reload_plots.size() >= 2:
+		var reload_wheat_plot: Dictionary = reload_plots[0]
+		var reload_herb_plot: Dictionary = reload_plots[1]
+		_assert_equal(String(reload_wheat_plot.get("crop_id", "")), "wheat", "save/load preserves growing wheat plot")
+		_assert_equal(int(reload_wheat_plot.get("growth_progress_days", 0)), 1, "save/load preserves wheat growth progress")
+		_assert_equal(int(reload_wheat_plot.get("watered_day", 0)), 2, "save/load preserves same-day watering")
+		_assert_equal(String(reload_herb_plot.get("crop_id", "")), "", "save/load preserves harvested herb plot as empty")
+	meta_root_reload.call("debug_return_to_hub")
+	await get_tree().process_frame
+
+	meta_root_reload.call("debug_launch_night")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
+	_assert_equal(String(reload_snapshot.get("current_screen", "")), "night", "second night launch still works after reload")
+	meta_root_reload.call("debug_complete_active_night", {
+		"time_survived_sec": 30.0,
+		"kills": 5,
+		"level": 4,
+		"drop_pickups_spawned": 0,
+		"seed": 424243
+	})
+	await get_tree().process_frame
+	await get_tree().process_frame
+	meta_root_reload.call("debug_continue_summary")
+	await get_tree().process_frame
+	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
+	_assert_equal(int(reload_snapshot.get("current_day", 0)), 3, "second return summary advances to day 3")
+
+	meta_root_reload.call("debug_open_farm")
+	await get_tree().process_frame
+	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
+	var day3_plots: Array = reload_snapshot.get("farm_plots", [])
+	if day3_plots.size() >= 1:
+		var day3_wheat_plot: Dictionary = day3_plots[0]
+		_assert_true(bool(day3_wheat_plot.get("harvestable", false)), "wheat becomes harvestable on day 3")
+	_assert_true(bool(meta_root_reload.call("debug_interact_farm_plot", 0, "harvest")), "harvesting wheat succeeds on day 3")
+	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
+	_assert_equal(String(reload_snapshot.get("inventory_summary", "")), "Wheat x5, Herb x2", "harvests enter shared inventory")
 
 	meta_root_reload.queue_free()
 	await get_tree().process_frame

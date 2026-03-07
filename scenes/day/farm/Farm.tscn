@@ -1,8 +1,7 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/meta/farm_view.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/day/farm/farm_controller.gd" id="1"]
 [ext_resource type="Theme" path="res://ui/theme/NeonTheme.tres" id="2"]
-[ext_resource type="Script" path="res://scripts/ui/components/neon_button.gd" id="3"]
 
 [node name="Farm" type="Control"]
 visible = false
@@ -22,19 +21,15 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.0235294, 0.0784314, 0.0666667, 1)
+color = Color(0.0627451, 0.0862745, 0.054902, 1)
 
 [node name="ContentPanel" type="Panel" parent="."]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -360.0
-offset_top = -260.0
-offset_right = 360.0
-offset_bottom = 260.0
+anchors_preset = 15
+anchor_left = 0.08
+anchor_top = 0.08
+anchor_right = 0.92
+anchor_bottom = 0.92
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"OverlayPanel"
@@ -57,12 +52,12 @@ theme_type_variation = &"HeadingLabel"
 
 [node name="Subtitle" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
-text = "Spend stamina to grow supplies."
+text = "Use tools, tend plots, and harvest by day."
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="StatsLabel" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
-text = "Day 1 · Stamina 3/3"
+text = "Day 1 · Stamina 0/0"
 
 [node name="InventoryLabel" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
@@ -75,31 +70,24 @@ autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
 text = ""
 
-[node name="Actions" type="VBoxContainer" parent="ContentPanel/Margin/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="ActionButton1" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 70)
+[node name="ToolLabel" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
-text = "Action 1"
-script = ExtResource("3")
-enable_motion = true
+text = "Selected tool: Till"
 
-[node name="ActionButton2" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 70)
+[node name="ToolButtons" type="FlowContainer" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
-autowrap_mode = 3
-text = "Action 2"
-script = ExtResource("3")
-use_primary_style = false
-enable_motion = true
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+
+[node name="PlotGrid" type="GridContainer" parent="ContentPanel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+columns = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
 
 [node name="BackButton" type="Button" parent="ContentPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 text = "Back"
-script = ExtResource("3")
-use_primary_style = false
-enable_motion = true

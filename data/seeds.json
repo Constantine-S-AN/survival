@@ -1,0 +1,21 @@
+{
+	"schema_version": 1,
+	"seeds": [
+		{
+			"id": "wheat_seed",
+			"name": "Wheat Seeds",
+			"description": "A sturdy grain that grows on a short two-day cycle.",
+			"crop_id": "wheat",
+			"plant_stamina_cost": 1,
+			"starts_unlocked": true
+		},
+		{
+			"id": "herb_seed",
+			"name": "Herb Cuttings",
+			"description": "Fast-growing greens used for light kitchen prep.",
+			"crop_id": "herb",
+			"plant_stamina_cost": 1,
+			"starts_unlocked": true
+		}
+	]
+}

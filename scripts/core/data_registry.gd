@@ -8,6 +8,8 @@ const DATA_FILES: Dictionary = {
 	"elites": "res://data/elites.json",
 	"bosses": "res://data/bosses.json",
 	"contracts": "res://data/contracts.json",
+	"seeds": "res://data/seeds.json",
+	"crops": "res://data/crops.json",
 	"upgrades": "res://data/upgrades.json",
 	"spawn_curve": "res://data/spawn_curve.json",
 	"fog": "res://data/fog.json",
@@ -374,6 +376,8 @@ var enemies: Dictionary = {}
 var elites_config: Dictionary = {}
 var bosses_config: Dictionary = {}
 var contracts_config: Dictionary = {}
+var seeds_config: Dictionary = {}
+var crops_config: Dictionary = {}
 var upgrades: Array = []
 var upgrades_by_id: Dictionary = {}
 var spawn_curve: Array = []
@@ -396,6 +400,10 @@ var bosses: Dictionary = {}
 var boss_order: Array[String] = []
 var contracts: Dictionary = {}
 var contract_order: Array[String] = []
+var seeds: Dictionary = {}
+var seed_order: Array[String] = []
+var crops: Dictionary = {}
+var crop_order: Array[String] = []
 var validation_errors: Array[String] = []
 var loaded: bool = false
 
@@ -423,6 +431,8 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	elites_config = _load_dictionary(String(resolved_files["elites"]), "elites")
 	bosses_config = _load_dictionary(String(resolved_files["bosses"]), "bosses")
 	contracts_config = _load_dictionary(String(resolved_files["contracts"]), "contracts")
+	seeds_config = _load_dictionary(String(resolved_files["seeds"]), "seeds")
+	crops_config = _load_dictionary(String(resolved_files["crops"]), "crops")
 	upgrades = _load_array_of_dictionaries(String(resolved_files["upgrades"]), "upgrades")
 	spawn_curve = _load_array_of_dictionaries(String(resolved_files["spawn_curve"]), "spawn_curve")
 	fog_config = _load_dictionary(String(resolved_files["fog"]), "fog")
@@ -444,6 +454,10 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	boss_order.clear()
 	contracts.clear()
 	contract_order.clear()
+	seeds.clear()
+	seed_order.clear()
+	crops.clear()
+	crop_order.clear()
 	upgrades_by_id.clear()
 
 	_validate_weapons()
@@ -452,6 +466,8 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	_validate_elites()
 	_validate_bosses()
 	_validate_contracts()
+	_validate_seeds()
+	_validate_crops()
 	_validate_upgrades()
 	_validate_spawn_curve()
 	_validate_fog()
@@ -520,6 +536,10 @@ func get_data_version(key: String) -> int:
 			payload = bosses_config
 		"contracts":
 			payload = contracts_config
+		"seeds":
+			payload = seeds_config
+		"crops":
+			payload = crops_config
 		"maps":
 			payload = maps_config
 		"hazards":
@@ -697,6 +717,64 @@ func get_contracts() -> Array:
 
 func get_contract_max_select() -> int:
 	return clampi(int(contracts_config.get("max_select", 0)), 0, 3)
+
+
+func get_seed(seed_id: String) -> Dictionary:
+	var payload: Variant = seeds.get(seed_id, {})
+	if payload is Dictionary:
+		return _localize_dictionary_row(payload as Dictionary)
+	return {}
+
+
+func get_seeds() -> Array:
+	var output: Array = []
+	for seed_id in seed_order:
+		var seed_variant: Variant = seeds.get(seed_id, {})
+		if seed_variant is Dictionary:
+			output.append(_localize_dictionary_row(seed_variant as Dictionary))
+	return output
+
+
+func has_seed(seed_id: String) -> bool:
+	return seeds.has(seed_id)
+
+
+func get_seed_ids_started_unlocked() -> Array[String]:
+	var output: Array[String] = []
+	for seed_id in seed_order:
+		var seed_variant: Variant = seeds.get(seed_id, {})
+		if not (seed_variant is Dictionary):
+			continue
+		if bool((seed_variant as Dictionary).get("starts_unlocked", false)):
+			output.append(seed_id)
+	return output
+
+
+func get_crop(crop_id: String) -> Dictionary:
+	var payload: Variant = crops.get(crop_id, {})
+	if payload is Dictionary:
+		return _localize_dictionary_row(payload as Dictionary)
+	return {}
+
+
+func get_crops() -> Array:
+	var output: Array = []
+	for crop_id in crop_order:
+		var crop_variant: Variant = crops.get(crop_id, {})
+		if crop_variant is Dictionary:
+			output.append(_localize_dictionary_row(crop_variant as Dictionary))
+	return output
+
+
+func has_crop(crop_id: String) -> bool:
+	return crops.has(crop_id)
+
+
+func get_crop_by_seed(seed_id: String) -> Dictionary:
+	var seed_def := get_seed(seed_id)
+	if seed_def.is_empty():
+		return {}
+	return get_crop(String(seed_def.get("crop_id", "")))
 
 
 func normalize_contract_selection(contract_ids: Array) -> Array[String]:
@@ -1434,6 +1512,113 @@ func _validate_contracts() -> void:
 		normalized["id"] = contract_id
 		contracts[contract_id] = normalized
 		contract_order.append(contract_id)
+
+
+func _validate_seeds() -> void:
+	_validate_required_keys(seeds_config, ["schema_version", "seeds"], "seeds")
+	var rows_variant: Variant = seeds_config.get("seeds", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[seeds] seeds must be array")
+		return
+	var rows: Array = rows_variant
+	if rows.size() < 2:
+		validation_errors.append("[seeds] expected at least 2 seed entries")
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[seeds:%d] entry must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		var label := "seeds:%d" % i
+		_validate_required_keys(
+			row,
+			["id", "name", "description", "crop_id", "plant_stamina_cost", "starts_unlocked"],
+			label
+		)
+		var seed_id := String(row.get("id", "")).strip_edges().to_lower()
+		if seed_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(seed_id):
+			validation_errors.append("[%s] duplicate seed id '%s'" % [label, seed_id])
+			continue
+		seen_ids[seed_id] = true
+		var crop_id := String(row.get("crop_id", "")).strip_edges().to_lower()
+		if crop_id.is_empty():
+			validation_errors.append("[%s] crop_id must be non-empty string" % label)
+		if int(row.get("plant_stamina_cost", 0)) < 0:
+			validation_errors.append("[%s] plant_stamina_cost must be >= 0" % label)
+		var normalized := row.duplicate(true)
+		normalized["id"] = seed_id
+		normalized["crop_id"] = crop_id
+		seeds[seed_id] = normalized
+		seed_order.append(seed_id)
+
+
+func _validate_crops() -> void:
+	_validate_required_keys(crops_config, ["schema_version", "crops"], "crops")
+	var rows_variant: Variant = crops_config.get("crops", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[crops] crops must be array")
+		return
+	var rows: Array = rows_variant
+	if rows.size() < 2:
+		validation_errors.append("[crops] expected at least 2 crop entries")
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[crops:%d] entry must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		var label := "crops:%d" % i
+		_validate_required_keys(
+			row,
+			["id", "seed_id", "name", "growth_days", "harvest_yield", "sell_value", "ingredient_tags"],
+			label
+		)
+		var crop_id := String(row.get("id", "")).strip_edges().to_lower()
+		if crop_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(crop_id):
+			validation_errors.append("[%s] duplicate crop id '%s'" % [label, crop_id])
+			continue
+		seen_ids[crop_id] = true
+		var seed_id := String(row.get("seed_id", "")).strip_edges().to_lower()
+		if seed_id.is_empty():
+			validation_errors.append("[%s] seed_id must be non-empty string" % label)
+		elif not seeds.has(seed_id):
+			validation_errors.append("[%s] unknown seed_id '%s'" % [label, seed_id])
+		if int(row.get("growth_days", 0)) <= 0:
+			validation_errors.append("[%s] growth_days must be > 0" % label)
+		if int(row.get("harvest_yield", 0)) <= 0:
+			validation_errors.append("[%s] harvest_yield must be > 0" % label)
+		if int(row.get("sell_value", 0)) < 0:
+			validation_errors.append("[%s] sell_value must be >= 0" % label)
+		var tags_variant: Variant = row.get("ingredient_tags", [])
+		if not (tags_variant is Array):
+			validation_errors.append("[%s] ingredient_tags must be array" % label)
+		else:
+			for tag_variant in tags_variant:
+				var tag := String(tag_variant).strip_edges().to_lower()
+				if tag.is_empty():
+					validation_errors.append("[%s] ingredient_tags cannot contain empty values" % label)
+					break
+		var normalized := row.duplicate(true)
+		normalized["id"] = crop_id
+		normalized["seed_id"] = seed_id
+		crops[crop_id] = normalized
+		crop_order.append(crop_id)
+	for seed_id in seed_order:
+		var seed_variant: Variant = seeds.get(seed_id, {})
+		if not (seed_variant is Dictionary):
+			continue
+		var crop_id := String((seed_variant as Dictionary).get("crop_id", "")).strip_edges().to_lower()
+		if crop_id.is_empty() or crops.has(crop_id):
+			continue
+		validation_errors.append("[seeds:%s] references unknown crop_id '%s'" % [seed_id, crop_id])
 
 
 func _validate_upgrades() -> void:

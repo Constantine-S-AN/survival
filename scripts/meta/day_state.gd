@@ -6,8 +6,8 @@ const PHASE_NIGHT := "night"
 
 var current_day: int = 1
 var current_phase: String = PHASE_DAY
-var stamina: int = 3
-var max_stamina: int = 3
+var stamina: int = 6
+var max_stamina: int = 6
 var pending_night_gold_bonus: int = 0
 var pending_night_material_bonus: int = 0
 
@@ -16,7 +16,7 @@ static func from_dict(source: Dictionary) -> DayState:
 	var state := DayState.new()
 	state.current_day = maxi(1, int(source.get("current_day", 1)))
 	state.current_phase = _normalize_phase(String(source.get("current_phase", PHASE_DAY)))
-	state.max_stamina = maxi(1, int(source.get("max_stamina", 3)))
+	state.max_stamina = maxi(1, int(source.get("max_stamina", 6)))
 	state.stamina = clampi(int(source.get("stamina", state.max_stamina)), 0, state.max_stamina)
 	state.pending_night_gold_bonus = maxi(0, int(source.get("pending_night_gold_bonus", 0)))
 	state.pending_night_material_bonus = maxi(0, int(source.get("pending_night_material_bonus", 0)))

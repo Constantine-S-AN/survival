@@ -4,7 +4,7 @@ signal language_code_changed(language_code: String)
 
 const PROFILE_PATH := "user://profile.json"
 const PROFILE_TMP_PATH := "user://profile.json.tmp"
-const PROFILE_SCHEMA_VERSION := 3
+const PROFILE_SCHEMA_VERSION := 4
 const TEST_SESSION_META_KEY := "profile_store_test_session_id"
 const DEFAULT_LANGUAGE_CODE := "en"
 
@@ -23,8 +23,8 @@ const DEFAULT_META_PROGRESS: Dictionary = {
 	"day_state": {
 		"current_day": 1,
 		"current_phase": "day",
-		"stamina": 3,
-		"max_stamina": 3,
+		"stamina": 6,
+		"max_stamina": 6,
 		"pending_night_gold_bonus": 0,
 		"pending_night_material_bonus": 0
 	},
@@ -36,8 +36,20 @@ const DEFAULT_META_PROGRESS: Dictionary = {
 			"wheat": 2,
 			"scrap": 0
 		},
-		"unlocked_seeds": ["wheat_seed"],
+		"unlocked_seeds": ["wheat_seed", "herb_seed"],
 		"unlocked_recipes": ["field_stew"]
+	},
+	"farm_state": {
+		"columns": 3,
+		"rows": 2,
+		"plots": [
+			{"tilled": false, "crop": {}},
+			{"tilled": false, "crop": {}},
+			{"tilled": false, "crop": {}},
+			{"tilled": false, "crop": {}},
+			{"tilled": false, "crop": {}},
+			{"tilled": false, "crop": {}}
+		]
 	},
 	"pending_return_summary": {}
 }
@@ -460,8 +472,8 @@ func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
 		var source_day_state: Dictionary = day_state_variant
 		day_state["current_day"] = maxi(1, int(source_day_state.get("current_day", day_state.get("current_day", 1))))
 		day_state["current_phase"] = _normalize_meta_phase(String(source_day_state.get("current_phase", day_state.get("current_phase", "day"))))
-		day_state["max_stamina"] = maxi(1, int(source_day_state.get("max_stamina", day_state.get("max_stamina", 3))))
-		day_state["stamina"] = clampi(int(source_day_state.get("stamina", day_state.get("stamina", 3))), 0, int(day_state.get("max_stamina", 3)))
+		day_state["max_stamina"] = maxi(1, int(source_day_state.get("max_stamina", day_state.get("max_stamina", 6))))
+		day_state["stamina"] = clampi(int(source_day_state.get("stamina", day_state.get("stamina", 6))), 0, int(day_state.get("max_stamina", 6)))
 		day_state["pending_night_gold_bonus"] = maxi(0, int(source_day_state.get("pending_night_gold_bonus", day_state.get("pending_night_gold_bonus", 0))))
 		day_state["pending_night_material_bonus"] = maxi(0, int(source_day_state.get("pending_night_material_bonus", day_state.get("pending_night_material_bonus", 0))))
 		output["day_state"] = day_state
@@ -487,13 +499,78 @@ func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
 					continue
 				materials[material_id] = maxi(0, int((materials_variant as Dictionary).get(material_key_variant, 0)))
 		inventory["materials"] = materials
-		inventory["unlocked_seeds"] = _normalize_string_array(source_inventory.get("unlocked_seeds", inventory.get("unlocked_seeds", [])))
+		var unlocked_seeds := _normalize_string_array(source_inventory.get("unlocked_seeds", inventory.get("unlocked_seeds", [])))
+		if DataRegistry != null and DataRegistry.has_method("get_seed_ids_started_unlocked"):
+			for started_seed_id in DataRegistry.call("get_seed_ids_started_unlocked"):
+				var seed_id := String(started_seed_id).strip_edges().to_lower()
+				if seed_id.is_empty() or unlocked_seeds.has(seed_id):
+					continue
+				unlocked_seeds.append(seed_id)
+		inventory["unlocked_seeds"] = unlocked_seeds
 		inventory["unlocked_recipes"] = _normalize_string_array(source_inventory.get("unlocked_recipes", inventory.get("unlocked_recipes", [])))
 		output["inventory"] = inventory
+
+	var farm_state_variant: Variant = source.get("farm_state", {})
+	output["farm_state"] = _normalize_farm_state(farm_state_variant)
 
 	var summary_variant: Variant = source.get("pending_return_summary", {})
 	output["pending_return_summary"] = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
 	return output
+
+
+func _normalize_farm_state(farm_variant: Variant) -> Dictionary:
+	var output: Dictionary = {
+		"columns": 3,
+		"rows": 2,
+		"plots": []
+	}
+	var columns := 3
+	var rows := 2
+	var source: Dictionary = farm_variant if farm_variant is Dictionary else {}
+	columns = maxi(1, int(source.get("columns", columns)))
+	rows = maxi(1, int(source.get("rows", rows)))
+	output["columns"] = columns
+	output["rows"] = rows
+	var plot_count := maxi(columns * rows, 1)
+	var plots_variant: Variant = source.get("plots", [])
+	var plots: Array = plots_variant if plots_variant is Array else []
+	var normalized_plots: Array[Dictionary] = []
+	for plot_variant in plots:
+		if normalized_plots.size() >= plot_count:
+			break
+		var plot: Dictionary = plot_variant if plot_variant is Dictionary else {}
+		var normalized_plot := {
+			"tilled": bool(plot.get("tilled", false)),
+			"crop": _normalize_farm_crop(plot.get("crop", {}))
+		}
+		if (normalized_plot["crop"] as Dictionary).is_empty():
+			normalized_plot["crop"] = {}
+		normalized_plots.append(normalized_plot)
+	while normalized_plots.size() < plot_count:
+		normalized_plots.append({
+			"tilled": false,
+			"crop": {}
+		})
+	output["plots"] = normalized_plots
+	return output
+
+
+func _normalize_farm_crop(crop_variant: Variant) -> Dictionary:
+	if not (crop_variant is Dictionary):
+		return {}
+	var crop: Dictionary = crop_variant
+	var crop_id := String(crop.get("crop_id", "")).strip_edges().to_lower()
+	var seed_id := String(crop.get("seed_id", "")).strip_edges().to_lower()
+	if crop_id.is_empty() or seed_id.is_empty():
+		return {}
+	return {
+		"crop_id": crop_id,
+		"seed_id": seed_id,
+		"planted_day": maxi(1, int(crop.get("planted_day", 1))),
+		"growth_days": maxi(1, int(crop.get("growth_days", 1))),
+		"growth_progress_days": maxi(0, int(crop.get("growth_progress_days", 0))),
+		"watered_day": maxi(0, int(crop.get("watered_day", 0)))
+	}
 
 
 func _normalize_meta_phase(phase: String) -> String:

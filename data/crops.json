@@ -1,0 +1,23 @@
+{
+	"schema_version": 1,
+	"crops": [
+		{
+			"id": "wheat",
+			"seed_id": "wheat_seed",
+			"name": "Wheat",
+			"growth_days": 2,
+			"harvest_yield": 3,
+			"sell_value": 4,
+			"ingredient_tags": ["grain", "staple"]
+		},
+		{
+			"id": "herb",
+			"seed_id": "herb_seed",
+			"name": "Herb",
+			"growth_days": 1,
+			"harvest_yield": 2,
+			"sell_value": 6,
+			"ingredient_tags": ["herb", "fresh"]
+		}
+	]
+}
