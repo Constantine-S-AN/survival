@@ -4,7 +4,7 @@ signal language_code_changed(language_code: String)
 
 const PROFILE_PATH := "user://profile.json"
 const PROFILE_TMP_PATH := "user://profile.json.tmp"
-const PROFILE_SCHEMA_VERSION := 2
+const PROFILE_SCHEMA_VERSION := 3
 const TEST_SESSION_META_KEY := "profile_store_test_session_id"
 const DEFAULT_LANGUAGE_CODE := "en"
 
@@ -16,6 +16,30 @@ const DEFAULT_PROGRESS: Dictionary = {
 	"best_max_noise_reached": 0.0,
 	"reached_noise_tiers": [],
 	"meta_currency_total": 0
+}
+
+const DEFAULT_META_PROGRESS: Dictionary = {
+	"schema_version": 1,
+	"day_state": {
+		"current_day": 1,
+		"current_phase": "day",
+		"stamina": 3,
+		"max_stamina": 3,
+		"pending_night_gold_bonus": 0,
+		"pending_night_material_bonus": 0
+	},
+	"economy": {
+		"gold": 12
+	},
+	"inventory": {
+		"materials": {
+			"wheat": 2,
+			"scrap": 0
+		},
+		"unlocked_seeds": ["wheat_seed"],
+		"unlocked_recipes": ["field_stew"]
+	},
+	"pending_return_summary": {}
 }
 
 var profile: Dictionary = {}
@@ -151,6 +175,18 @@ func get_progress_snapshot() -> Dictionary:
 func get_meta_currency_total() -> int:
 	var progress := get_progress_snapshot()
 	return maxi(0, int(progress.get("meta_currency_total", 0)))
+
+
+func get_meta_progress_state() -> Dictionary:
+	var meta_variant: Variant = profile.get("meta_progress", DEFAULT_META_PROGRESS)
+	if meta_variant is Dictionary:
+		return _normalize_meta_progress(meta_variant as Dictionary)
+	return DEFAULT_META_PROGRESS.duplicate(true)
+
+
+func set_meta_progress_state(state: Dictionary) -> void:
+	profile["meta_progress"] = _normalize_meta_progress(state)
+	save_profile()
 
 
 func update_progress_from_run(run_stats: Dictionary) -> void:
@@ -396,6 +432,7 @@ func _migrate_profile(raw_profile: Dictionary, default_character_id: String, def
 	if not migrated.has("run_count"):
 		migrated["run_count"] = 0
 	migrated["language_code"] = _normalize_language_code(String(migrated.get("language_code", DEFAULT_LANGUAGE_CODE)))
+	migrated["meta_progress"] = _normalize_meta_progress(migrated.get("meta_progress", DEFAULT_META_PROGRESS))
 
 	if schema_version < PROFILE_SCHEMA_VERSION:
 		migrated["schema_version"] = PROFILE_SCHEMA_VERSION
@@ -407,6 +444,63 @@ func _migrate_profile(raw_profile: Dictionary, default_character_id: String, def
 
 func _get_unlocked_characters() -> Array[String]:
 	return _normalize_string_array(profile.get("unlocked_characters", []))
+
+
+func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
+	var output := DEFAULT_META_PROGRESS.duplicate(true)
+	if not (meta_variant is Dictionary):
+		return output
+	var source: Dictionary = meta_variant
+	output["schema_version"] = maxi(1, int(source.get("schema_version", 1)))
+
+	var day_state_variant: Variant = source.get("day_state", {})
+	if day_state_variant is Dictionary:
+		var default_day_state_variant: Variant = output.get("day_state", {})
+		var day_state: Dictionary = (default_day_state_variant as Dictionary).duplicate(true) if default_day_state_variant is Dictionary else {}
+		var source_day_state: Dictionary = day_state_variant
+		day_state["current_day"] = maxi(1, int(source_day_state.get("current_day", day_state.get("current_day", 1))))
+		day_state["current_phase"] = _normalize_meta_phase(String(source_day_state.get("current_phase", day_state.get("current_phase", "day"))))
+		day_state["max_stamina"] = maxi(1, int(source_day_state.get("max_stamina", day_state.get("max_stamina", 3))))
+		day_state["stamina"] = clampi(int(source_day_state.get("stamina", day_state.get("stamina", 3))), 0, int(day_state.get("max_stamina", 3)))
+		day_state["pending_night_gold_bonus"] = maxi(0, int(source_day_state.get("pending_night_gold_bonus", day_state.get("pending_night_gold_bonus", 0))))
+		day_state["pending_night_material_bonus"] = maxi(0, int(source_day_state.get("pending_night_material_bonus", day_state.get("pending_night_material_bonus", 0))))
+		output["day_state"] = day_state
+
+	var economy_variant: Variant = source.get("economy", {})
+	if economy_variant is Dictionary:
+		var default_economy_variant: Variant = output.get("economy", {})
+		var economy: Dictionary = (default_economy_variant as Dictionary).duplicate(true) if default_economy_variant is Dictionary else {}
+		economy["gold"] = maxi(0, int((economy_variant as Dictionary).get("gold", economy.get("gold", 0))))
+		output["economy"] = economy
+
+	var inventory_variant: Variant = source.get("inventory", {})
+	if inventory_variant is Dictionary:
+		var default_inventory_variant: Variant = output.get("inventory", {})
+		var inventory: Dictionary = (default_inventory_variant as Dictionary).duplicate(true) if default_inventory_variant is Dictionary else {}
+		var source_inventory: Dictionary = inventory_variant
+		var materials: Dictionary = {}
+		var materials_variant: Variant = source_inventory.get("materials", {})
+		if materials_variant is Dictionary:
+			for material_key_variant in (materials_variant as Dictionary).keys():
+				var material_id := String(material_key_variant).strip_edges().to_lower()
+				if material_id.is_empty():
+					continue
+				materials[material_id] = maxi(0, int((materials_variant as Dictionary).get(material_key_variant, 0)))
+		inventory["materials"] = materials
+		inventory["unlocked_seeds"] = _normalize_string_array(source_inventory.get("unlocked_seeds", inventory.get("unlocked_seeds", [])))
+		inventory["unlocked_recipes"] = _normalize_string_array(source_inventory.get("unlocked_recipes", inventory.get("unlocked_recipes", [])))
+		output["inventory"] = inventory
+
+	var summary_variant: Variant = source.get("pending_return_summary", {})
+	output["pending_return_summary"] = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
+	return output
+
+
+func _normalize_meta_phase(phase: String) -> String:
+	var normalized := phase.strip_edges().to_lower()
+	if normalized == "night":
+		return "night"
+	return "day"
 
 
 func _normalize_string_array(source: Variant) -> Array[String]:

@@ -85,6 +85,7 @@ func _ready() -> void:
 	await _run_contract_ux_s3_tests()
 	await _run_enemy_pool_perf_tests()
 	await _run_boss_showcase_tests()
+	await _run_meta_loop_scaffold_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
 	_cleanup_profile_isolation()
@@ -384,7 +385,7 @@ func _run_character_profile_tests() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	profile_store.load_profile("diver")
-	_assert_equal(profile_store.get_schema_version(), 2, "profile migration upgrades schema to v2")
+	_assert_equal(profile_store.get_schema_version(), 3, "profile migration upgrades schema to v3")
 	var migrated_profile: Dictionary = profile_store.get_profile()
 	var migrated_progress_variant: Variant = migrated_profile.get("progress", {})
 	var migrated_progress: Dictionary = migrated_progress_variant if migrated_progress_variant is Dictionary else {}
@@ -2210,6 +2211,81 @@ func _find_active_enemy_by_id(enemy_manager: Node, enemy_id: String) -> Node:
 			continue
 		return enemy
 	return null
+
+
+func _run_meta_loop_scaffold_tests() -> void:
+	var meta_scene: PackedScene = load("res://scenes/meta/MetaLoopRoot.tscn")
+	var meta_root: Node = meta_scene.instantiate()
+	get_tree().root.add_child(meta_root)
+	await get_tree().process_frame
+	meta_root.call("debug_press_play")
+	await get_tree().process_frame
+	var snapshot: Dictionary = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "day_hub", "meta loop enters day hub from main menu")
+	var baseline_gold := int(snapshot.get("gold", 0))
+
+	meta_root.call("debug_open_farm")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "farm", "meta loop opens farm screen")
+	var farm_ok := bool(meta_root.call("debug_apply_farm_action", "wheat_seed"))
+	_assert_true(farm_ok, "meta loop farm action succeeds")
+	meta_root.call("debug_return_to_hub")
+	await get_tree().process_frame
+
+	meta_root.call("debug_open_restaurant")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "restaurant", "meta loop opens restaurant screen")
+	var recipe_ok := bool(meta_root.call("debug_apply_recipe", "field_stew"))
+	_assert_true(recipe_ok, "meta loop restaurant recipe succeeds")
+	meta_root.call("debug_return_to_hub")
+	await get_tree().process_frame
+
+	meta_root.call("debug_launch_night")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "night", "meta loop launches embedded night combat")
+	_assert_true(bool(snapshot.get("night_active", false)), "meta loop night combat wrapper becomes active")
+
+	meta_root.call("debug_complete_active_night", {
+		"time_survived_sec": 125.0,
+		"kills": 24,
+		"level": 4,
+		"drop_pickups_spawned": 6,
+		"seed": 424242
+	})
+	await get_tree().process_frame
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "return_summary", "meta loop shows return summary after night")
+	_assert_true(int(snapshot.get("gold", 0)) > baseline_gold, "meta loop applies night rewards to gold")
+
+	meta_root.call("debug_continue_summary")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "day_hub", "meta loop returns to day hub after summary")
+	_assert_equal(int(snapshot.get("current_day", 0)), 2, "meta loop advances to next day after summary")
+	_assert_equal(String(snapshot.get("phase", "")), "day", "meta loop resets phase to day after summary")
+	var persisted_gold := int(snapshot.get("gold", 0))
+	var persisted_inventory_summary := String(snapshot.get("inventory_summary", ""))
+
+	meta_root.queue_free()
+	await get_tree().process_frame
+
+	var meta_root_reload: Node = meta_scene.instantiate()
+	get_tree().root.add_child(meta_root_reload)
+	await get_tree().process_frame
+	meta_root_reload.call("debug_press_play")
+	await get_tree().process_frame
+	var reload_snapshot: Dictionary = meta_root_reload.call("debug_get_snapshot")
+	_assert_equal(int(reload_snapshot.get("current_day", 0)), 2, "meta loop preserves day across reload")
+	_assert_equal(int(reload_snapshot.get("gold", 0)), persisted_gold, "meta loop preserves gold across reload")
+	_assert_equal(String(reload_snapshot.get("inventory_summary", "")), persisted_inventory_summary, "meta loop preserves inventory across reload")
+
+	meta_root_reload.queue_free()
+	await get_tree().process_frame
 
 
 func _assert_true(condition: bool, label: String) -> void:

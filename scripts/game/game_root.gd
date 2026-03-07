@@ -1,6 +1,8 @@
 extends Node
 class_name GameRoot
 
+signal embedded_session_finished(summary: Dictionary)
+
 const STATE_PLAYING := "playing"
 const STATE_PAUSED := "paused"
 const STATE_LEVEL_UP := "level_up"
@@ -62,6 +64,35 @@ var _game_over_latched: bool = false
 var kill_streak_count: int = 0
 var kill_streak_timer: float = 0.0
 var kill_streak_reward_tier: int = 0
+var embedded_session_mode: bool = false
+var embedded_session_request: Dictionary = {}
+
+
+func set_embedded_session_request(request: Dictionary) -> void:
+	embedded_session_mode = true
+	embedded_session_request = request.duplicate(true)
+
+
+func is_embedded_session_mode() -> bool:
+	return embedded_session_mode
+
+
+func _has_embedded_session_request() -> bool:
+	return embedded_session_mode and not embedded_session_request.is_empty()
+
+
+func _boot_embedded_session() -> void:
+	if not _has_embedded_session_request():
+		return
+	var request := embedded_session_request.duplicate(true)
+	var character_id := String(request.get("character_id", selected_character_id)).strip_edges()
+	var map_id := String(request.get("map_id", selected_map_id)).strip_edges()
+	var contract_ids: Array = []
+	var contract_ids_variant: Variant = request.get("contract_ids", [])
+	if contract_ids_variant is Array:
+		contract_ids = (contract_ids_variant as Array).duplicate()
+	var seed_override := int(request.get("seed", 0))
+	_start_run(character_id, map_id, contract_ids, true, seed_override)
 
 
 func _ready() -> void:
@@ -160,7 +191,10 @@ func _ready() -> void:
 		DataRegistry.get_contract_max_select()
 	)
 
-	_set_state(STATE_MENU)
+	if _has_embedded_session_request():
+		call_deferred("_boot_embedded_session")
+	else:
+		_set_state(STATE_MENU)
 	if _can_use_scene_transition() and SceneTransition.has_method("fade_in"):
 		SceneTransition.fade_in(0.16)
 	_refresh_hud()
@@ -713,18 +747,13 @@ func _on_player_died() -> void:
 	if _game_over_latched:
 		return
 	_game_over_latched = true
-	var newly_unlocked_ids := _evaluate_character_unlocks()
-	var unlocked_names: Array[String] = []
-	for character_id in newly_unlocked_ids:
-		var character := DataRegistry.get_character(character_id)
-		unlocked_names.append(String(character.get("display_name", character_id)))
-	if not unlocked_names.is_empty():
-		ui.show_unlock_toast(unlocked_names)
-		ui.refresh_character_unlocks(ProfileStore.get_unlocked_characters())
-	var summary_state := _build_run_summary_state(newly_unlocked_ids)
+	var summary_state := _build_embedded_session_summary("completed")
 	if _can_use_scene_transition() and SceneTransition.has_method("play_pulse"):
 		SceneTransition.play_pulse(0.18)
 	_set_state(STATE_GAME_OVER)
+	if embedded_session_mode:
+		embedded_session_finished.emit(summary_state)
+		return
 	ui.show_game_over(summary_state)
 
 
@@ -773,6 +802,11 @@ func _on_pause_main_menu_requested() -> void:
 		return
 	get_tree().set_deferred("paused", false)
 	_clear_hitstop_state(true)
+	if embedded_session_mode:
+		var summary_state := _build_embedded_session_summary("abandoned")
+		_set_state(STATE_GAME_OVER)
+		embedded_session_finished.emit(summary_state)
+		return
 	if _can_use_scene_transition() and SceneTransition.has_method("transition_call"):
 		SceneTransition.transition_call(Callable(self, "_return_to_menu"), 0.16)
 		return
@@ -931,6 +965,16 @@ func _return_to_menu() -> void:
 	run_started = false
 	_game_over_latched = false
 	_set_state(STATE_MENU)
+
+
+func _build_embedded_session_summary(exit_reason: String) -> Dictionary:
+	var newly_unlocked_ids := _evaluate_character_unlocks()
+	if not newly_unlocked_ids.is_empty():
+		ui.refresh_character_unlocks(ProfileStore.get_unlocked_characters())
+	var summary_state := _build_run_summary_state(newly_unlocked_ids)
+	summary_state["exit_reason"] = exit_reason
+	summary_state["abandoned"] = exit_reason == "abandoned"
+	return summary_state
 
 
 func _build_run_summary_state(newly_unlocked_ids: Array[String]) -> Dictionary:
