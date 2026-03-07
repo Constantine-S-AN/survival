@@ -17,6 +17,7 @@ signal menu_requested
 @onready var seeds_label: Label = $ContentPanel/Margin/VBox/SeedsLabel
 @onready var recipes_label: Label = $ContentPanel/Margin/VBox/RecipesLabel
 @onready var bonus_label: Label = $ContentPanel/Margin/VBox/BonusLabel
+@onready var bridge_label: Label = $ContentPanel/Margin/VBox/BridgeLabel
 @onready var farm_button: Button = $ContentPanel/Margin/VBox/Actions/FarmButton
 @onready var restaurant_button: Button = $ContentPanel/Margin/VBox/Actions/RestaurantButton
 @onready var night_button: Button = $ContentPanel/Margin/VBox/Actions/NightButton
@@ -67,9 +68,15 @@ func _apply_view_model() -> void:
 		"value": _t("meta.phase.%s" % String(_view_model.get("phase", "day")))
 	})
 	inventory_label.text = _t("meta.hub.inventory", {"value": String(_view_model.get("inventory_summary", "-"))})
+	inventory_label.tooltip_text = String(_view_model.get("inventory_tooltip", ""))
 	seeds_label.text = _t("meta.hub.seeds", {"value": String(_view_model.get("seed_summary", "-"))})
+	seeds_label.tooltip_text = String(_view_model.get("seed_tooltip", ""))
 	recipes_label.text = _t("meta.hub.recipes", {"value": String(_view_model.get("recipe_summary", "-"))})
+	recipes_label.tooltip_text = String(_view_model.get("recipe_tooltip", ""))
 	bonus_label.text = _t("meta.hub.night_bonus", {"value": String(_view_model.get("night_bonus_summary", _t("meta.common.none")))})
+	bonus_label.tooltip_text = String(_view_model.get("bonus_tooltip", ""))
+	bridge_label.text = _t("meta.hub.bridge", {"value": String(_view_model.get("bridge_summary", _t("meta.bridge.summary_none")))})
+	bridge_label.tooltip_text = String(_view_model.get("bridge_tooltip", ""))
 	night_button.disabled = bool(_view_model.get("night_button_disabled", false))
 
 

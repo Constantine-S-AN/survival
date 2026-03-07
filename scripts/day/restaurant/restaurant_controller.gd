@@ -9,6 +9,7 @@ signal service_requested
 @onready var title_label: Label = $ContentPanel/Margin/VBox/Title
 @onready var subtitle_label: Label = $ContentPanel/Margin/VBox/Subtitle
 @onready var stats_label: Label = $ContentPanel/Margin/VBox/StatsLabel
+@onready var bridge_label: Label = $ContentPanel/Margin/VBox/BridgeLabel
 @onready var ingredients_title_label: Label = $ContentPanel/Margin/VBox/Panels/IngredientsPanel/Margin/VBox/Title
 @onready var pantry_label: Label = $ContentPanel/Margin/VBox/Panels/IngredientsPanel/Margin/VBox/Value
 @onready var recipes_title_label: Label = $ContentPanel/Margin/VBox/Panels/RecipesPanel/Margin/VBox/Title
@@ -60,7 +61,10 @@ func _apply_view_model() -> void:
 		"gold": int(_view_model.get("gold", 0)),
 		"reputation": int(_view_model.get("reputation", 0))
 	})
+	bridge_label.text = _t("meta.restaurant.bridge", {"value": String(_view_model.get("bridge_summary", _t("meta.bridge.summary_none")))})
+	bridge_label.tooltip_text = String(_view_model.get("bridge_tooltip", ""))
 	pantry_label.text = String(_view_model.get("ingredient_summary", _t("meta.common.none")))
+	pantry_label.tooltip_text = String(_view_model.get("ingredient_tooltip", ""))
 	status_label.text = String(_view_model.get("status_text", ""))
 	service_button.text = String(_view_model.get("service_button_text", _t("meta.restaurant.open_service")))
 	service_button.disabled = not bool(_view_model.get("service_button_enabled", false))
@@ -92,6 +96,7 @@ func _rebuild_recipe_buttons() -> void:
 		button.button_pressed = bool(recipe.get("selected", false))
 		button.disabled = not bool(recipe.get("enabled", false))
 		button.text = String(recipe.get("label", ""))
+		button.tooltip_text = String(recipe.get("tooltip", ""))
 		button.pressed.connect(_on_recipe_button_pressed.bind(String(recipe.get("id", ""))))
 		recipes_list.add_child(button)
 

@@ -4,15 +4,31 @@
 		{
 			"id": "abyssfin",
 			"name": "Abyssfin Fillet",
-			"description": "A rare night-catch cut prized for premium restaurant dishes.",
+			"description": "A rare night-catch cut prized for premium restaurant dishes and raw-bar specials.",
 			"category": "rare_monster_ingredients",
+			"night_only": true,
+			"usage_tags": ["restaurant"]
+		},
+		{
+			"id": "glow_kelp",
+			"name": "Glow Kelp",
+			"description": "A bright trench frond that turns into premium noodle specials and unlocks riskier kitchen experiments.",
+			"category": "rare_monster_ingredients",
+			"night_only": true,
+			"usage_tags": ["restaurant", "unlock"]
+		},
+		{
+			"id": "reef_salt",
+			"name": "Reef Salt",
+			"description": "Crystalline salt scraped from night reefs, best saved for the restaurant's highest-ticket seafood plate.",
+			"category": "common_materials",
 			"night_only": true,
 			"usage_tags": ["restaurant"]
 		},
 		{
 			"id": "moon_spore",
 			"name": "Moon Spore",
-			"description": "Bioluminescent spores that can be stabilized into a special farm line.",
+			"description": "Bioluminescent spores that stabilize into Mooncap Mycelium for a premium farm crop.",
 			"category": "special_seeds_spores",
 			"night_only": true,
 			"usage_tags": ["farm", "unlock"]
@@ -20,7 +36,7 @@
 		{
 			"id": "kitchen_blueprint_fragment",
 			"name": "Kitchen Blueprint Fragment",
-			"description": "Recovered night notes that piece together high-value recipe unlocks.",
+			"description": "Recovered night notes that piece together high-value recipe unlocks and chef progression.",
 			"category": "unlock_tokens",
 			"night_only": true,
 			"usage_tags": ["unlock"]

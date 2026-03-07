@@ -124,28 +124,38 @@ func _run_data_registry_tests() -> void:
 	var restaurant_upgrades: Array = registry.get_restaurant_upgrades()
 	_assert_true(seeds.size() >= 3, "seeds has at least 3 entries")
 	_assert_true(crops.size() >= 3, "crops has at least 3 entries")
-	_assert_true(recipes.size() >= 4, "recipes has at least 4 entries")
-	_assert_true(special_ingredients.size() >= 3, "special ingredients has at least 3 entries")
+	_assert_true(recipes.size() >= 6, "recipes has at least 6 entries")
+	_assert_true(special_ingredients.size() >= 5, "special ingredients has at least 5 entries")
 	_assert_true(night_loot_tables.size() >= 3, "night loot tables has at least 3 entries")
-	_assert_true(meta_unlocks.size() >= 2, "meta unlocks has at least 2 entries")
+	_assert_true(meta_unlocks.size() >= 3, "meta unlocks has at least 3 entries")
 	_assert_true(restaurant_upgrades.size() >= 4, "restaurant upgrades has at least 4 entries")
 	_assert_true(registry.has_seed("wheat_seed"), "seeds include wheat_seed")
 	_assert_true(registry.has_seed("mooncap_seed"), "seeds include mooncap_seed")
 	_assert_true(registry.has_crop("wheat"), "crops include wheat")
 	_assert_true(registry.has_crop("mooncap"), "crops include mooncap")
 	_assert_true(registry.has_recipe("field_stew"), "recipes include field_stew")
+	_assert_true(registry.has_recipe("kelpfire_noodles"), "recipes include kelpfire_noodles")
 	_assert_true(registry.has_recipe("mooncap_hotpot"), "recipes include mooncap_hotpot")
+	_assert_true(registry.has_recipe("abyssfin_crudo"), "recipes include abyssfin_crudo")
 	_assert_true(registry.has_special_ingredient("abyssfin"), "special ingredients include abyssfin")
+	_assert_true(registry.has_special_ingredient("glow_kelp"), "special ingredients include glow_kelp")
+	_assert_true(registry.has_special_ingredient("reef_salt"), "special ingredients include reef_salt")
 	var wheat_crop: Dictionary = registry.get_crop_by_seed("wheat_seed")
 	_assert_equal(String(wheat_crop.get("id", "")), "wheat", "crop lookup resolves wheat_seed to wheat")
 	var field_stew: Dictionary = registry.get_recipe("field_stew")
 	_assert_equal(int(field_stew.get("base_price", 0)), 13, "field_stew base price matches data")
+	var kelpfire_noodles: Dictionary = registry.get_recipe("kelpfire_noodles")
+	var kelpfire_noodles_ingredients: Dictionary = kelpfire_noodles.get("ingredients", {})
+	_assert_equal(int(kelpfire_noodles.get("base_price", 0)), 24, "kelpfire_noodles base price matches data")
+	_assert_equal(int(kelpfire_noodles_ingredients.get("glow_kelp", 0)), 1, "kelpfire_noodles requires Glow Kelp")
 	var mooncap_hotpot: Dictionary = registry.get_recipe("mooncap_hotpot")
 	var mooncap_hotpot_ingredients: Dictionary = mooncap_hotpot.get("ingredients", {})
-	_assert_equal(int(mooncap_hotpot.get("base_price", 0)), 29, "mooncap_hotpot base price matches data")
+	_assert_equal(int(mooncap_hotpot.get("base_price", 0)), 32, "mooncap_hotpot base price matches data")
 	_assert_equal(int(mooncap_hotpot_ingredients.get("abyssfin", 0)), 1, "mooncap_hotpot requires night-only abyssfin")
 	_assert_equal(String(registry.get_meta_unlock("mooncap_seed_study").get("target_id", "")), "mooncap_seed", "mooncap seed study unlock points at mooncap_seed")
+	_assert_equal(String(registry.get_meta_unlock("abyssfin_crudo_notes").get("target_id", "")), "abyssfin_crudo", "abyssfin crudo notes unlock points at abyssfin_crudo")
 	_assert_equal(String(registry.get_material_display_name("abyssfin")), "Abyssfin Fillet", "material display name resolves special ingredients")
+	_assert_equal(String(registry.get_material_display_name("glow_kelp")), "Glow Kelp", "material display name resolves new night ingredient")
 	_assert_equal(String(registry.get_restaurant_upgrade("decor_window_box").get("category", "")), "decor", "restaurant upgrade lookup resolves decor_window_box")
 	var required_weapon_ids: Array[String] = [
 		"needle_rifle",
@@ -2291,8 +2301,10 @@ func _run_meta_loop_scaffold_tests() -> void:
 	var first_material_rewards: Dictionary = first_return_payload.get("materials_reward", {})
 	var first_penalty: Dictionary = first_return_payload.get("penalty", {})
 	_assert_equal(int(first_material_rewards.get("abyssfin", 0)), 1, "first night grants abyssfin into the shared inventory flow")
+	_assert_equal(int(first_material_rewards.get("reef_salt", 0)), 0, "first abandoned night does not yet grant Reef Salt")
 	_assert_equal(int(first_material_rewards.get("moon_spore", 0)), 1, "first night grants moon spores toward farm unlocks")
 	_assert_equal(int(first_material_rewards.get("kitchen_blueprint_fragment", 0)), 1, "first night grants blueprint fragments toward recipe unlocks")
+	_assert_equal(int(first_material_rewards.get("glow_kelp", 0)), 0, "first abandoned night does not yet grant Glow Kelp")
 	_assert_equal(String(first_penalty.get("type", "")), "injury", "abandoned night applies injury penalty")
 	_assert_true(String(first_return_payload.get("unlock_progress_text", "")).find("1/2") >= 0, "return summary shows unlock progress after first night")
 	_assert_true(not String(first_return_payload.get("loot_text", "")).is_empty(), "return summary shows categorized loot text")
@@ -2305,8 +2317,10 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(int(snapshot.get("stamina", 0)), 4, "injury penalty reduces next-day stamina")
 	var day2_materials: Dictionary = snapshot.get("inventory_materials", {})
 	_assert_equal(int(day2_materials.get("abyssfin", 0)), 1, "shared inventory retains abyssfin after returning from combat")
+	_assert_equal(int(day2_materials.get("reef_salt", 0)), 0, "shared inventory does not gain Reef Salt until a successful night clear")
 	_assert_equal(int(day2_materials.get("moon_spore", 0)), 1, "shared inventory retains moon spores after returning from combat")
 	_assert_equal(int(day2_materials.get("kitchen_blueprint_fragment", 0)), 1, "shared inventory retains blueprint fragments after returning from combat")
+	_assert_true(String(snapshot.get("day_hub_bridge_summary", "")).find("Mooncap Seed Study") >= 0, "day hub summary surfaces night-drop unlock progress")
 	_assert_true(not (snapshot.get("unlocked_seed_ids", []) as Array).has("mooncap_seed"), "mooncap seed stays locked after partial progress")
 	meta_root.call("debug_open_farm")
 	await get_tree().process_frame
@@ -2321,6 +2335,9 @@ func _run_meta_loop_scaffold_tests() -> void:
 		_assert_true(not bool(wheat_plot.get("harvestable", false)), "wheat is not harvestable after one day")
 		_assert_equal(String(herb_plot.get("crop_id", "")), "herb", "herb plot remains planted on day 2")
 		_assert_true(bool(herb_plot.get("harvestable", false)), "herb becomes harvestable after one watered day")
+	var mooncap_seed_tool := _find_entry_by_id(snapshot.get("farm_tools", []), "mooncap_seed")
+	_assert_true(String(mooncap_seed_tool.get("tooltip", "")).find("Moon Spore") >= 0, "farm tooltip explains the night-drop seed path")
+	_assert_true(String(snapshot.get("farm_bridge_summary", "")).find("Mooncap Seed Study") >= 0, "farm bridge summary highlights night-driven crop progression")
 	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 1, "harvest")), "harvest adds herb to inventory")
 	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "water")), "watering wheat again succeeds on day 2")
 	meta_root.call("debug_return_to_hub")
@@ -2330,6 +2347,9 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("current_screen", "")), "restaurant", "meta loop opens restaurant screen")
+	var kelpfire_card_day2 := _find_entry_by_id(snapshot.get("restaurant_recipe_cards", []), "kelpfire_noodles")
+	_assert_true(bool(kelpfire_card_day2.get("enabled", false)), "Kelpfire Noodles is unlocked as an immediate daytime use for night loot")
+	_assert_true(String(kelpfire_card_day2.get("tooltip", "")).find("Glow Kelp") >= 0, "restaurant tooltip explains the new night ingredient connection")
 	_assert_true(bool(meta_root.call("debug_toggle_restaurant_recipe", "field_stew")), "restaurant menu can add field stew")
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
@@ -2362,6 +2382,7 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true(int(reload_snapshot.get("gold", 0)) > 15, "meta loop preserves restaurant gold after reload")
 	_assert_equal(int(reload_snapshot.get("restaurant_last_service_day", 0)), 2, "meta loop preserves restaurant service day after reload")
 	_assert_equal(int((reload_snapshot.get("inventory_materials", {}) as Dictionary).get("abyssfin", 0)), 1, "save/load preserves night-only restaurant ingredient inventory")
+	_assert_equal(int((reload_snapshot.get("inventory_materials", {}) as Dictionary).get("reef_salt", 0)), 0, "save/load preserves Reef Salt timing before the successful clear")
 	_assert_equal(int((reload_snapshot.get("inventory_materials", {}) as Dictionary).get("moon_spore", 0)), 1, "save/load preserves night-only farm unlock item inventory")
 	_assert_equal(int((reload_snapshot.get("inventory_materials", {}) as Dictionary).get("kitchen_blueprint_fragment", 0)), 1, "save/load preserves blueprint fragment inventory")
 	meta_root_reload.call("debug_open_restaurant")
@@ -2405,6 +2426,7 @@ func _run_meta_loop_scaffold_tests() -> void:
 	var second_unlock_names: Array = second_return_payload.get("unlock_names", [])
 	_assert_true(second_unlock_names.has("Mooncap Mycelium"), "second night unlocks the mooncap seed path")
 	_assert_true(second_unlock_names.has("Mooncap Hotpot"), "second night unlocks the mooncap hotpot recipe")
+	_assert_true(second_unlock_names.has("Abyssfin Crudo"), "second night unlocks the additional premium seafood recipe")
 	_assert_true(String(second_return_payload.get("penalty_text", "")).find("Fatigue") >= 0, "second summary shows fatigue penalty when applicable")
 	meta_root_reload.call("debug_continue_summary")
 	await get_tree().process_frame
@@ -2412,6 +2434,7 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(int(reload_snapshot.get("current_day", 0)), 3, "second return summary advances to day 3")
 	_assert_true((reload_snapshot.get("unlocked_seed_ids", []) as Array).has("mooncap_seed"), "mooncap seed unlock persists into daytime farm state")
 	_assert_true((reload_snapshot.get("unlocked_recipe_ids", []) as Array).has("mooncap_hotpot"), "mooncap hotpot unlock persists into daytime restaurant state")
+	_assert_true((reload_snapshot.get("unlocked_recipe_ids", []) as Array).has("abyssfin_crudo"), "additional premium recipe unlock persists into daytime restaurant state")
 
 	meta_root_reload.call("debug_open_farm")
 	await get_tree().process_frame
@@ -2429,6 +2452,9 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true(int(day3_materials.get("moon_spore", 0)) == 0, "moon spores are consumed by the unlock hook once the seed unlocks")
 	_assert_true(int(day3_materials.get("kitchen_blueprint_fragment", 0)) == 0, "blueprint fragments are consumed by the recipe unlock hook once complete")
 	_assert_true(int(day3_materials.get("abyssfin", 0)) >= 2, "night-only restaurant ingredient accumulates across runs")
+	_assert_true(int(day3_materials.get("glow_kelp", 0)) >= 1, "Glow Kelp remains available after unlocks to support daytime dishes")
+	_assert_true(int(day3_materials.get("reef_salt", 0)) >= 1, "Reef Salt stock carries into the daytime economy after a completed run")
+	_assert_true(String(reload_snapshot.get("farm_bridge_summary", "")).find("Mooncap Mycelium") >= 0, "farm summary calls out the unlocked night crop path")
 	meta_root_reload.call("debug_return_to_hub")
 	await get_tree().process_frame
 	meta_root_reload.call("debug_open_restaurant")
@@ -2436,7 +2462,13 @@ func _run_meta_loop_scaffold_tests() -> void:
 	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
 	_assert_equal(int(reload_snapshot.get("restaurant_last_service_day", 0)), 2, "restaurant summary persists across day transitions")
 	_assert_true(not String(reload_snapshot.get("restaurant_result_summary", "")).is_empty(), "restaurant summary remains visible on the next day")
+	_assert_true(String(reload_snapshot.get("restaurant_bridge_summary", "")).find("Kelpfire Noodles") >= 0 or String(reload_snapshot.get("restaurant_bridge_summary", "")).find("Abyssfin Crudo") >= 0, "restaurant summary surfaces premium daytime uses of night loot")
+	var kelpfire_card_day3 := _find_entry_by_id(reload_snapshot.get("restaurant_recipe_cards", []), "kelpfire_noodles")
+	var crudo_card_day3 := _find_entry_by_id(reload_snapshot.get("restaurant_recipe_cards", []), "abyssfin_crudo")
+	_assert_true(int(kelpfire_card_day3.get("craftable_servings", 0)) >= 1, "Kelpfire Noodles becomes craftable from night loot on day 3")
+	_assert_true(int(crudo_card_day3.get("craftable_servings", 0)) >= 1, "Abyssfin Crudo becomes craftable from night loot on day 3")
 	_assert_true(bool(meta_root_reload.call("debug_toggle_restaurant_recipe", "mooncap_hotpot")), "newly unlocked recipe can be added to the restaurant menu")
+	_assert_true(bool(meta_root_reload.call("debug_toggle_restaurant_recipe", "abyssfin_crudo")), "new premium seafood recipe can be added to the restaurant menu")
 
 	meta_root_reload.queue_free()
 	await get_tree().process_frame
@@ -2449,7 +2481,9 @@ func _run_meta_loop_scaffold_tests() -> void:
 	var final_snapshot: Dictionary = meta_root_final.call("debug_get_snapshot")
 	_assert_true((final_snapshot.get("unlocked_seed_ids", []) as Array).has("mooncap_seed"), "save/load preserves unlocked mooncap seed")
 	_assert_true((final_snapshot.get("unlocked_recipe_ids", []) as Array).has("mooncap_hotpot"), "save/load preserves unlocked mooncap hotpot recipe")
+	_assert_true((final_snapshot.get("unlocked_recipe_ids", []) as Array).has("abyssfin_crudo"), "save/load preserves unlocked abyssfin crudo recipe")
 	_assert_true(int((final_snapshot.get("inventory_materials", {}) as Dictionary).get("abyssfin", 0)) >= 2, "save/load preserves night-only ingredient stock after unlock flow")
+	_assert_true(int((final_snapshot.get("inventory_materials", {}) as Dictionary).get("glow_kelp", 0)) >= 1, "save/load preserves Glow Kelp stock after unlock flow")
 	meta_root_final.queue_free()
 	await get_tree().process_frame
 
@@ -2471,6 +2505,21 @@ func _array_contains_text(items: Array[String], pattern: String) -> bool:
 		if item.find(pattern) >= 0:
 			return true
 	return false
+
+
+func _find_entry_by_id(items_variant: Variant, item_id: String) -> Dictionary:
+	if not (items_variant is Array):
+		return {}
+	var normalized_id := item_id.strip_edges().to_lower()
+	for item_variant in (items_variant as Array):
+		if not (item_variant is Dictionary):
+			continue
+		var item: Dictionary = item_variant
+		if String(item.get("seed_id", "")).strip_edges().to_lower() == normalized_id:
+			return item.duplicate(true)
+		if String(item.get("id", "")).strip_edges().to_lower() == normalized_id:
+			return item.duplicate(true)
+	return {}
 
 
 func _make_upgrade_context(current_weapon_ids: Array, active_weapon_id: String, acquired_tags: Dictionary, noise_tier_id: String) -> Dictionary:

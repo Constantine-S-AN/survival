@@ -61,6 +61,12 @@ layout_mode = 2
 autowrap_mode = 3
 text = "Day 1 · Gold 0 · Reputation 1"
 
+[node name="BridgeLabel" type="Label" parent="ContentPanel/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = "Night Specials: -"
+
 [node name="Panels" type="HBoxContainer" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
 size_flags_vertical = 3

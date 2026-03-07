@@ -20,7 +20,7 @@
 		{
 			"id": "mooncap_seed",
 			"name": "Mooncap Mycelium",
-			"description": "Night-borne spores stabilized for a delicate farm crop.",
+			"description": "Night-borne spores stabilized for a delicate premium crop that feeds Mooncap Hotpot.",
 			"crop_id": "mooncap",
 			"plant_stamina_cost": 2,
 			"starts_unlocked": false

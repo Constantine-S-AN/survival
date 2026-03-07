@@ -57,17 +57,54 @@
 			"starts_unlocked": false
 		},
 		{
+			"id": "kelpfire_noodles",
+			"name": "Kelpfire Noodles",
+			"description": "Glow Kelp turns a basic pantry into a high-demand daytime special, making even short night hauls worth plating.",
+			"ingredients": {
+				"wheat": 2,
+				"herb": 1,
+				"glow_kelp": 1
+			},
+			"base_price": 24,
+			"prep_complexity": 3,
+			"category_tags": ["signature", "noodles", "night_market"],
+			"night_material_synergy": {
+				"material_id": "abyssfin",
+				"extra_price": 6,
+				"demand_bonus": 0.16,
+				"satisfaction_bonus": 0.07,
+				"max_bonus_servings": 1,
+				"feedback": "A shaved ribbon of abyssfin pushed one bowl into premium-special territory."
+			},
+			"starts_unlocked": true
+		},
+		{
 			"id": "mooncap_hotpot",
 			"name": "Mooncap Hotpot",
-			"description": "A premium night-market pot built around cultivated mooncaps and abyssfin.",
+			"description": "A marquee hotpot that proves Moon Spores and Abyssfin can reshape the whole daytime economy.",
 			"ingredients": {
 				"mooncap": 2,
 				"abyssfin": 1,
 				"herb": 1
 			},
-			"base_price": 29,
+			"base_price": 32,
 			"prep_complexity": 4,
 			"category_tags": ["signature", "night_market", "luxury"],
+			"night_material_synergy": {},
+			"starts_unlocked": false
+		},
+		{
+			"id": "abyssfin_crudo",
+			"name": "Abyssfin Crudo",
+			"description": "Pure night-haul cuisine: scarce ingredients, minimal prep, and the best single-plate payout in the restaurant.",
+			"ingredients": {
+				"abyssfin": 1,
+				"glow_kelp": 1,
+				"reef_salt": 1
+			},
+			"base_price": 37,
+			"prep_complexity": 4,
+			"category_tags": ["signature", "raw_bar", "luxury"],
 			"night_material_synergy": {},
 			"starts_unlocked": false
 		}

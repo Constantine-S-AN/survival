@@ -10,6 +10,7 @@ const FarmPlotClass := preload("res://scripts/day/farm/farm_plot.gd")
 @onready var subtitle_label: Label = $ContentPanel/Margin/VBox/Subtitle
 @onready var stats_label: Label = $ContentPanel/Margin/VBox/StatsLabel
 @onready var inventory_label: Label = $ContentPanel/Margin/VBox/InventoryLabel
+@onready var bridge_label: Label = $ContentPanel/Margin/VBox/BridgeLabel
 @onready var status_label: Label = $ContentPanel/Margin/VBox/StatusLabel
 @onready var tool_label: Label = $ContentPanel/Margin/VBox/ToolLabel
 @onready var tool_buttons: FlowContainer = $ContentPanel/Margin/VBox/ToolButtons
@@ -46,6 +47,9 @@ func _apply_view_model() -> void:
 		"max": int(_view_model.get("max_stamina", 0))
 	})
 	inventory_label.text = _t("meta.farm.inventory", {"value": String(_view_model.get("inventory_summary", "-"))})
+	inventory_label.tooltip_text = String(_view_model.get("inventory_tooltip", ""))
+	bridge_label.text = _t("meta.farm.bridge", {"value": String(_view_model.get("bridge_summary", _t("meta.bridge.summary_none")))})
+	bridge_label.tooltip_text = String(_view_model.get("bridge_tooltip", ""))
 	status_label.text = String(_view_model.get("status_text", ""))
 	tool_label.text = _t("meta.farm.tool_selected", {"value": _get_selected_tool_label()})
 	back_button.text = _t("meta.common.back")
@@ -87,6 +91,7 @@ func _rebuild_tool_buttons() -> void:
 		button.button_pressed = _is_selected_tool(tool)
 		button.disabled = not bool(tool.get("enabled", true))
 		button.text = String(tool.get("label", ""))
+		button.tooltip_text = String(tool.get("tooltip", ""))
 		button.pressed.connect(_on_tool_button_pressed.bind(String(tool.get("id", "")), String(tool.get("seed_id", ""))))
 		tool_buttons.add_child(button)
 

@@ -4,7 +4,7 @@
 		{
 			"id": "mooncap_seed_study",
 			"name": "Mooncap Seed Study",
-			"description": "Accumulate enough moon spores to stabilize Mooncap Mycelium for the farm.",
+			"description": "Accumulate enough Moon Spores to stabilize Mooncap Mycelium for the farm.",
 			"target_type": "seed",
 			"target_id": "mooncap_seed",
 			"requirements": {
@@ -20,6 +20,18 @@
 			"target_id": "mooncap_hotpot",
 			"requirements": {
 				"kitchen_blueprint_fragment": 2
+			},
+			"consume_requirements": true
+		},
+		{
+			"id": "abyssfin_crudo_notes",
+			"name": "Abyssfin Crudo Notes",
+			"description": "Match Glow Kelp samples to recovered kitchen notes to unlock the restaurant's highest-ticket seafood plate.",
+			"target_type": "recipe",
+			"target_id": "abyssfin_crudo",
+			"requirements": {
+				"kitchen_blueprint_fragment": 1,
+				"glow_kelp": 1
 			},
 			"consume_requirements": true
 		}

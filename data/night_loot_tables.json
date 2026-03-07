@@ -16,10 +16,22 @@
 					"quantity": 2
 				},
 				{
+					"material_id": "reef_salt",
+					"category": "common_materials",
+					"quantity": 1,
+					"min_time_survived_sec": 120.0
+				},
+				{
 					"material_id": "abyssfin",
 					"category": "rare_monster_ingredients",
 					"quantity": 1,
 					"min_kills": 4
+				},
+				{
+					"material_id": "glow_kelp",
+					"category": "rare_monster_ingredients",
+					"quantity": 1,
+					"min_kills": 6
 				},
 				{
 					"material_id": "moon_spore",
@@ -53,9 +65,19 @@
 					"quantity": 3
 				},
 				{
+					"material_id": "reef_salt",
+					"category": "common_materials",
+					"quantity": 1
+				},
+				{
 					"material_id": "abyssfin",
 					"category": "rare_monster_ingredients",
 					"quantity": 1
+				},
+				{
+					"material_id": "glow_kelp",
+					"category": "rare_monster_ingredients",
+					"quantity": 2
 				},
 				{
 					"material_id": "moon_spore",
@@ -65,7 +87,7 @@
 				{
 					"material_id": "kitchen_blueprint_fragment",
 					"category": "unlock_tokens",
-					"quantity": 1
+					"quantity": 2
 				}
 			],
 			"penalty": {
@@ -88,9 +110,19 @@
 					"quantity": 5
 				},
 				{
+					"material_id": "reef_salt",
+					"category": "common_materials",
+					"quantity": 2
+				},
+				{
 					"material_id": "abyssfin",
 					"category": "rare_monster_ingredients",
 					"quantity": 2
+				},
+				{
+					"material_id": "glow_kelp",
+					"category": "rare_monster_ingredients",
+					"quantity": 3
 				},
 				{
 					"material_id": "moon_spore",
@@ -100,7 +132,7 @@
 				{
 					"material_id": "kitchen_blueprint_fragment",
 					"category": "unlock_tokens",
-					"quantity": 2
+					"quantity": 3
 				}
 			],
 			"penalty": {}

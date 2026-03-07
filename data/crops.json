@@ -5,6 +5,7 @@
 			"id": "wheat",
 			"seed_id": "wheat_seed",
 			"name": "Wheat",
+			"description": "A staple grain that anchors the daytime kitchen.",
 			"growth_days": 2,
 			"harvest_yield": 3,
 			"sell_value": 4,
@@ -14,6 +15,7 @@
 			"id": "herb",
 			"seed_id": "herb_seed",
 			"name": "Herb",
+			"description": "Fast greens that keep simple dishes and tea service moving.",
 			"growth_days": 1,
 			"harvest_yield": 2,
 			"sell_value": 6,
@@ -23,9 +25,10 @@
 			"id": "mooncap",
 			"seed_id": "mooncap_seed",
 			"name": "Mooncap",
+			"description": "A luminous fungus grown from Moon Spores and prized by the restaurant's signature menu.",
 			"growth_days": 1,
 			"harvest_yield": 2,
-			"sell_value": 12,
+			"sell_value": 14,
 			"ingredient_tags": ["fungus", "night", "luxury"]
 		}
 	]

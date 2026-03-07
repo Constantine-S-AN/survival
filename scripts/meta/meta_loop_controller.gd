@@ -645,6 +645,7 @@ func _apply_night_rewards(summary: Dictionary) -> Dictionary:
 
 
 func _build_day_hub_model() -> Dictionary:
+	var bridge_info := _build_day_hub_bridge_info()
 	return {
 		"current_day": _day_state.current_day,
 		"gold": _economy.gold,
@@ -653,19 +654,29 @@ func _build_day_hub_model() -> Dictionary:
 		"max_stamina": _day_state.max_stamina,
 		"phase": _day_state.current_phase,
 		"inventory_summary": _build_inventory_summary(),
+		"inventory_tooltip": _build_night_stock_tooltip(),
 		"seed_summary": _build_unlocked_seed_summary(),
+		"seed_tooltip": _build_seed_bridge_tooltip(),
 		"recipe_summary": _build_unlocked_recipe_summary(),
+		"recipe_tooltip": _build_recipe_bridge_tooltip(),
 		"night_bonus_summary": _build_night_bonus_summary(),
+		"bonus_tooltip": _build_night_bonus_summary(),
+		"bridge_summary": String(bridge_info.get("summary", _t("meta.bridge.summary_none"))),
+		"bridge_tooltip": String(bridge_info.get("tooltip", "")),
 		"night_button_disabled": false
 	}
 
 
 func _build_farm_model() -> Dictionary:
+	var bridge_info := _build_farm_bridge_info()
 	return {
 		"current_day": _day_state.current_day,
 		"stamina": _day_state.stamina,
 		"max_stamina": _day_state.max_stamina,
 		"inventory_summary": _build_inventory_summary(),
+		"inventory_tooltip": _build_night_stock_tooltip(),
+		"bridge_summary": String(bridge_info.get("summary", _t("meta.bridge.summary_none"))),
+		"bridge_tooltip": String(bridge_info.get("tooltip", "")),
 		"status_text": _farm_status_text,
 		"columns": int(_farm_state.get("columns", 3)),
 		"tools": _build_farm_tools(),
@@ -704,6 +715,7 @@ func _build_farm_tools() -> Array[Dictionary]:
 		var crop_def := DataRegistry.get_crop(String(seed.get("crop_id", "")))
 		var growth_days := maxi(1, int(crop_def.get("growth_days", 1)))
 		var plant_cost := maxi(0, int(seed.get("plant_stamina_cost", 1)))
+		var unlock_material_ids := _get_unlock_material_ids_for_target("seed", seed_id)
 		var label := _display_seed_name(seed_id)
 		if _inventory.has_seed(seed_id):
 			label += "\n%s" % _t("meta.farm.tool_seed_detail", {
@@ -712,11 +724,16 @@ func _build_farm_tools() -> Array[Dictionary]:
 			})
 		else:
 			label += "\n%s" % _t("meta.farm.action_locked")
+		if not unlock_material_ids.is_empty():
+			label += "\n%s" % _t("meta.farm.tool_night_unlock", {
+				"value": _build_material_name_list(unlock_material_ids)
+			})
 		tools.append({
 			"id": "plant",
 			"seed_id": seed_id,
 			"label": label,
-			"enabled": _inventory.has_seed(seed_id) and _day_state.can_spend_stamina(plant_cost)
+			"enabled": _inventory.has_seed(seed_id) and _day_state.can_spend_stamina(plant_cost),
+			"tooltip": _build_seed_tooltip(seed, crop_def)
 		})
 	return tools
 
@@ -750,14 +767,14 @@ func _build_farm_plot_models() -> Array[Dictionary]:
 				state_id = "planted"
 				title = crop_name
 				subtitle = _t("meta.farm.plot_planted_hint", {"value": progress_text})
-		plots.append({
-			"index": plot_index,
-			"title": title,
-			"subtitle": subtitle,
-			"state_id": state_id,
-			"enabled": true,
-			"tooltip": _t("meta.farm.plot_number", {"value": plot_index + 1})
-		})
+			plots.append({
+				"index": plot_index,
+				"title": title,
+				"subtitle": subtitle,
+				"state_id": state_id,
+				"enabled": true,
+				"tooltip": _build_plot_tooltip(plot_index, plot, crop_state)
+			})
 	return plots
 
 
@@ -776,11 +793,15 @@ func _build_restaurant_model() -> Dictionary:
 		_inventory.materials.duplicate(true)
 	)
 	var last_service_summary := _get_last_restaurant_service_summary()
+	var bridge_info := _build_restaurant_bridge_info()
 	return {
 		"current_day": _day_state.current_day,
 		"gold": _economy.gold,
 		"reputation": _economy.restaurant_reputation,
 		"ingredient_summary": _build_restaurant_ingredient_summary(),
+		"ingredient_tooltip": _build_night_stock_tooltip(),
+		"bridge_summary": String(bridge_info.get("summary", _t("meta.bridge.summary_none"))),
+		"bridge_tooltip": String(bridge_info.get("tooltip", "")),
 		"status_text": _restaurant_status_text,
 		"recipe_cards": recipe_cards,
 		"selected_menu_entries": selected_menu_entries,
@@ -972,6 +993,502 @@ func _build_unlocked_recipe_summary() -> String:
 	for recipe_id in _inventory.unlocked_recipes:
 		names.append(_display_recipe_name(recipe_id))
 	return ", ".join(names)
+
+
+func _build_day_hub_bridge_info() -> Dictionary:
+	var summary_lines: Array[String] = []
+	var ready_recipe_rows := _get_ready_night_recipe_rows()
+	for row_variant in _take_items(ready_recipe_rows, 2):
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		summary_lines.append(_t("meta.bridge.recipe_ready", {
+			"name": String(row.get("name", _t("meta.common.none"))),
+			"price": int(row.get("base_price", 0)),
+			"servings": int(row.get("craftable_servings", 0))
+		}))
+	var progress_rows := _get_unlock_rows_with_progress()
+	for row in progress_rows:
+		if summary_lines.size() >= 3:
+			break
+		summary_lines.append(_t("meta.bridge.unlock_progress", {
+			"name": String(row.get("name", _t("meta.common.none"))),
+			"current": int(row.get("current", 0)),
+			"required": int(row.get("required", 0)),
+			"target": String(row.get("target_name", _t("meta.common.none")))
+		}))
+	if summary_lines.size() < 3 and _inventory.has_seed("mooncap_seed"):
+		var mooncap_recipe_names := _collect_recipe_names_for_material("mooncap")
+		var mooncap_use_text := ", ".join(mooncap_recipe_names) if not mooncap_recipe_names.is_empty() else _t("meta.common.none")
+		var mooncap_crop := DataRegistry.get_crop("mooncap")
+		summary_lines.append(_t("meta.bridge.crop_ready", {
+			"name": _display_seed_name("mooncap_seed"),
+			"value": int(mooncap_crop.get("sell_value", 0)),
+			"uses": mooncap_use_text
+		}))
+	if summary_lines.is_empty():
+		summary_lines.append(_t("meta.bridge.summary_none"))
+	return {
+		"summary": "\n".join(summary_lines),
+		"tooltip": "%s\n\n%s\n\n%s" % [
+			_build_night_stock_tooltip(),
+			_build_seed_bridge_tooltip(),
+			_build_recipe_bridge_tooltip()
+		]
+	}
+
+
+func _build_farm_bridge_info() -> Dictionary:
+	var summary_lines: Array[String] = []
+	var unlock_rows := _build_current_unlock_rows()
+	var mooncap_unlock := _find_unlock_row(unlock_rows, "seed", "mooncap_seed")
+	if not mooncap_unlock.is_empty() and not bool(mooncap_unlock.get("complete", false)):
+		summary_lines.append(_t("meta.bridge.unlock_progress", {
+			"name": String(mooncap_unlock.get("name", _t("meta.common.none"))),
+			"current": int(mooncap_unlock.get("current", 0)),
+			"required": int(mooncap_unlock.get("required", 0)),
+			"target": String(mooncap_unlock.get("target_name", _t("meta.common.none")))
+		}))
+	if _inventory.has_seed("mooncap_seed"):
+		var crop_recipe_names := _collect_recipe_names_for_material("mooncap")
+		var crop_use_text := ", ".join(crop_recipe_names) if not crop_recipe_names.is_empty() else _t("meta.common.none")
+		var mooncap_crop := DataRegistry.get_crop("mooncap")
+		summary_lines.append(_t("meta.bridge.crop_ready", {
+			"name": _display_seed_name("mooncap_seed"),
+			"value": int(mooncap_crop.get("sell_value", 0)),
+			"uses": crop_use_text
+		}))
+	if _inventory.get_material_amount("moon_spore") > 0:
+		summary_lines.append(_build_stock_line_for_material("moon_spore", _inventory.get_material_amount("moon_spore")))
+	if summary_lines.is_empty():
+		summary_lines.append(_t("meta.bridge.summary_none"))
+	return {
+		"summary": "\n".join(_take_items(summary_lines, 3)),
+		"tooltip": "%s\n\n%s" % [_build_seed_bridge_tooltip(), _build_night_stock_tooltip()]
+	}
+
+
+func _build_restaurant_bridge_info() -> Dictionary:
+	var summary_lines: Array[String] = []
+	var ready_recipe_rows := _get_ready_night_recipe_rows()
+	for row_variant in _take_items(ready_recipe_rows, 2):
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		summary_lines.append(_t("meta.bridge.recipe_ready", {
+			"name": String(row.get("name", _t("meta.common.none"))),
+			"price": int(row.get("base_price", 0)),
+			"servings": int(row.get("craftable_servings", 0))
+		}))
+	if summary_lines.is_empty():
+		for row in _get_unlock_rows_with_progress("recipe"):
+			if summary_lines.size() >= 2:
+				break
+			summary_lines.append(_t("meta.bridge.unlock_progress", {
+				"name": String(row.get("name", _t("meta.common.none"))),
+				"current": int(row.get("current", 0)),
+				"required": int(row.get("required", 0)),
+				"target": String(row.get("target_name", _t("meta.common.none")))
+			}))
+	if summary_lines.is_empty():
+		summary_lines.append(_t("meta.bridge.summary_none"))
+	return {
+		"summary": "\n".join(summary_lines),
+		"tooltip": "%s\n\n%s" % [_build_recipe_bridge_tooltip(), _build_night_stock_tooltip()]
+	}
+
+
+func _build_night_stock_tooltip() -> String:
+	var lines: Array[String] = [_t("meta.bridge.stock_title")]
+	var has_stock := false
+	for ingredient_variant in DataRegistry.get_special_ingredients():
+		if not (ingredient_variant is Dictionary):
+			continue
+		var ingredient: Dictionary = ingredient_variant
+		var material_id := String(ingredient.get("id", "")).strip_edges().to_lower()
+		if material_id.is_empty() or not bool(ingredient.get("night_only", false)):
+			continue
+		var amount := _inventory.get_material_amount(material_id)
+		if amount <= 0:
+			continue
+		has_stock = true
+		lines.append(_build_stock_line_for_material(material_id, amount))
+		var description := String(ingredient.get("description", "")).strip_edges()
+		if not description.is_empty():
+			lines.append(description)
+	if not has_stock:
+		return _t("meta.bridge.summary_none")
+	return "\n".join(lines)
+
+
+func _build_seed_bridge_tooltip() -> String:
+	var lines: Array[String] = []
+	for seed_variant in DataRegistry.get_seeds():
+		if not (seed_variant is Dictionary):
+			continue
+		var seed: Dictionary = seed_variant
+		var seed_id := String(seed.get("id", "")).strip_edges().to_lower()
+		if seed_id.is_empty():
+			continue
+		var unlock_material_ids := _get_unlock_material_ids_for_target("seed", seed_id)
+		if unlock_material_ids.is_empty():
+			continue
+		lines.append(_build_seed_tooltip(seed, DataRegistry.get_crop(String(seed.get("crop_id", "")))))
+	if lines.is_empty():
+		return _t("meta.bridge.summary_none")
+	return "\n\n".join(lines)
+
+
+func _build_recipe_bridge_tooltip() -> String:
+	var lines: Array[String] = []
+	for row in _get_night_recipe_rows():
+		var recipe_id := String(row.get("id", "")).strip_edges().to_lower()
+		if recipe_id.is_empty():
+			continue
+		if bool(row.get("locked", false)):
+			var unlock_rows := _build_current_unlock_rows()
+			var unlock_row := _find_unlock_row(unlock_rows, "recipe", recipe_id)
+			if unlock_row.is_empty():
+				continue
+			lines.append(_t("meta.bridge.unlock_progress", {
+				"name": String(unlock_row.get("name", _t("meta.common.none"))),
+				"current": int(unlock_row.get("current", 0)),
+				"required": int(unlock_row.get("required", 0)),
+				"target": String(unlock_row.get("target_name", _t("meta.common.none")))
+			}))
+			continue
+		lines.append(_t("meta.bridge.recipe_ready", {
+			"name": String(row.get("name", _t("meta.common.none"))),
+			"price": int(row.get("base_price", 0)),
+			"servings": int(row.get("craftable_servings", 0))
+		}))
+		var description := String(row.get("description", "")).strip_edges()
+		if not description.is_empty():
+			lines.append(description)
+	if lines.is_empty():
+		return _t("meta.bridge.summary_none")
+	return "\n".join(lines)
+
+
+func _build_seed_tooltip(seed: Dictionary, crop_def: Dictionary) -> String:
+	var seed_id := String(seed.get("id", "")).strip_edges().to_lower()
+	var lines: Array[String] = []
+	var description := String(seed.get("description", "")).strip_edges()
+	if not description.is_empty():
+		lines.append(description)
+	var unlock_material_ids := _get_unlock_material_ids_for_target("seed", seed_id)
+	if not unlock_material_ids.is_empty():
+		lines.append(_t("meta.bridge.night_source", {"value": _build_material_name_list(unlock_material_ids)}))
+	var unlock_row := _find_unlock_row(_build_current_unlock_rows(), "seed", seed_id)
+	if not unlock_row.is_empty() and not bool(unlock_row.get("complete", false)):
+		lines.append(_t("meta.bridge.unlock_line", {
+			"value": "%s · %d/%d" % [
+				String(unlock_row.get("name", _t("meta.common.none"))),
+				int(unlock_row.get("current", 0)),
+				int(unlock_row.get("required", 0))
+			]
+		}))
+	var crop_id := String(crop_def.get("id", "")).strip_edges().to_lower()
+	var crop_name := String(crop_def.get("name", _display_material_name(crop_id)))
+	lines.append(_t("meta.farm.tooltip.harvest", {
+		"crop": crop_name,
+		"yield": int(crop_def.get("harvest_yield", 1)),
+		"days": int(crop_def.get("growth_days", 1)),
+		"value": int(crop_def.get("sell_value", 0))
+	}))
+	var crop_use_names := _collect_recipe_names_for_material(crop_id)
+	if not crop_use_names.is_empty():
+		lines.append(_t("meta.farm.tooltip.use", {"value": ", ".join(crop_use_names)}))
+	return "\n".join(lines)
+
+
+func _build_plot_tooltip(plot_index: int, plot: Dictionary, crop_state: Dictionary) -> String:
+	var lines: Array[String] = [_t("meta.farm.plot_number", {"value": plot_index + 1})]
+	if bool(plot.get("tilled", false)) and _crop_is_empty(crop_state):
+		lines.append(_t("meta.farm.plot_tilled_hint"))
+	elif not _crop_is_empty(crop_state):
+		var crop_def := DataRegistry.get_crop(String(crop_state.get("crop_id", "")))
+		if not crop_def.is_empty():
+			var crop_description := String(crop_def.get("description", "")).strip_edges()
+			if not crop_description.is_empty():
+				lines.append(crop_description)
+			lines.append(_t("meta.farm.tooltip.harvest", {
+				"crop": _display_material_name(String(crop_state.get("crop_id", ""))),
+				"yield": int(crop_def.get("harvest_yield", 1)),
+				"days": int(crop_def.get("growth_days", 1)),
+				"value": int(crop_def.get("sell_value", 0))
+			}))
+			var crop_use_names := _collect_recipe_names_for_material(String(crop_state.get("crop_id", "")))
+			if not crop_use_names.is_empty():
+				lines.append(_t("meta.farm.tooltip.use", {"value": ", ".join(crop_use_names)}))
+		var unlock_material_ids := _get_unlock_material_ids_for_target("seed", String(crop_state.get("seed_id", "")))
+		if not unlock_material_ids.is_empty():
+			lines.append(_t("meta.bridge.night_source", {"value": _build_material_name_list(unlock_material_ids)}))
+	return "\n".join(lines)
+
+
+func _build_current_unlock_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for unlock_variant in DataRegistry.get_meta_unlocks():
+		if not (unlock_variant is Dictionary):
+			continue
+		var unlock_def: Dictionary = unlock_variant
+		var target_type := String(unlock_def.get("target_type", "")).strip_edges().to_lower()
+		var target_id := String(unlock_def.get("target_id", "")).strip_edges().to_lower()
+		var requirements := _normalize_material_bundle(unlock_def.get("requirements", {}))
+		if target_type.is_empty() or target_id.is_empty() or requirements.is_empty():
+			continue
+		var required := _required_requirement_total(requirements)
+		rows.append({
+			"id": String(unlock_def.get("id", "")).strip_edges().to_lower(),
+			"name": String(unlock_def.get("name", "")),
+			"description": String(unlock_def.get("description", "")),
+			"target_type": target_type,
+			"target_id": target_id,
+			"target_name": _resolve_meta_target_name(target_type, target_id),
+			"current": mini(required, _current_requirement_progress(requirements)),
+			"required": required,
+			"requirements": requirements.duplicate(true),
+			"complete": _is_meta_target_unlocked(target_type, target_id)
+		})
+	return rows
+
+
+func _get_unlock_rows_with_progress(target_type: String = "") -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var normalized_target_type := target_type.strip_edges().to_lower()
+	for row in _build_current_unlock_rows():
+		if normalized_target_type != "" and String(row.get("target_type", "")) != normalized_target_type:
+			continue
+		if bool(row.get("complete", false)):
+			continue
+		if int(row.get("current", 0)) <= 0:
+			continue
+		rows.append(row)
+	return rows
+
+
+func _find_unlock_row(rows: Array, target_type: String, target_id: String) -> Dictionary:
+	var normalized_target_type := target_type.strip_edges().to_lower()
+	var normalized_target_id := target_id.strip_edges().to_lower()
+	for row_variant in rows:
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		if String(row.get("target_type", "")) != normalized_target_type:
+			continue
+		if String(row.get("target_id", "")) != normalized_target_id:
+			continue
+		return row.duplicate(true)
+	return {}
+
+
+func _get_unlock_material_ids_for_target(target_type: String, target_id: String) -> Array[String]:
+	var unlock_row := _find_unlock_row(_build_current_unlock_rows(), target_type, target_id)
+	var output: Array[String] = []
+	if unlock_row.is_empty():
+		return output
+	for material_id_variant in (unlock_row.get("requirements", {}) as Dictionary).keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		if material_id.is_empty() or output.has(material_id):
+			continue
+		output.append(material_id)
+	return output
+
+
+func _build_stock_line_for_material(material_id: String, amount: int) -> String:
+	var uses := _collect_use_names_for_material(material_id)
+	if uses.is_empty():
+		return _t("meta.bridge.stock_line_simple", {
+			"name": _display_material_name(material_id),
+			"amount": amount
+		})
+	return _t("meta.bridge.stock_line", {
+		"name": _display_material_name(material_id),
+		"amount": amount,
+		"uses": ", ".join(uses)
+	})
+
+
+func _collect_use_names_for_material(material_id: String) -> Array[String]:
+	var normalized_id := material_id.strip_edges().to_lower()
+	var uses := _collect_recipe_names_for_material(normalized_id)
+	for row in _build_current_unlock_rows():
+		var requirements: Dictionary = row.get("requirements", {})
+		if not (requirements is Dictionary):
+			continue
+		if not requirements.has(normalized_id):
+			continue
+		var unlock_use := _t("meta.bridge.use_unlock", {
+			"name": String(row.get("target_name", _t("meta.common.none")))
+		})
+		if not uses.has(unlock_use):
+			uses.append(unlock_use)
+	return uses
+
+
+func _collect_recipe_names_for_material(material_id: String) -> Array[String]:
+	var output: Array[String] = []
+	var normalized_id := material_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return output
+	for recipe_variant in DataRegistry.get_recipes():
+		if not (recipe_variant is Dictionary):
+			continue
+		var recipe: Dictionary = recipe_variant
+		if not _recipe_requires_material(recipe, normalized_id):
+			continue
+		var recipe_name := String(recipe.get("name", normalized_id.capitalize()))
+		if output.has(recipe_name):
+			continue
+		output.append(recipe_name)
+	return output
+
+
+func _recipe_requires_material(recipe: Dictionary, material_id: String) -> bool:
+	var normalized_id := material_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return false
+	var ingredients_variant: Variant = recipe.get("ingredients", {})
+	if ingredients_variant is Dictionary:
+		var ingredients: Dictionary = ingredients_variant
+		if ingredients.has(normalized_id):
+			return true
+	var synergy_variant: Variant = recipe.get("night_material_synergy", {})
+	if synergy_variant is Dictionary and String((synergy_variant as Dictionary).get("material_id", "")).strip_edges().to_lower() == normalized_id:
+		return true
+	return false
+
+
+func _get_night_recipe_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for recipe_variant in DataRegistry.get_recipes():
+		if not (recipe_variant is Dictionary):
+			continue
+		var recipe: Dictionary = recipe_variant
+		var recipe_id := String(recipe.get("id", "")).strip_edges().to_lower()
+		if recipe_id.is_empty():
+			continue
+		var night_material_ids := _get_recipe_night_material_ids(recipe)
+		if night_material_ids.is_empty():
+			continue
+		rows.append({
+			"id": recipe_id,
+			"name": String(recipe.get("name", recipe_id.capitalize())),
+			"description": String(recipe.get("description", "")),
+			"base_price": int(recipe.get("base_price", 0)),
+			"craftable_servings": MenuPlannerClass.max_servings(recipe, _inventory.materials),
+			"locked": not _inventory.has_recipe(recipe_id),
+			"night_material_ids": night_material_ids.duplicate(),
+			"night_material_text": _build_material_name_list(night_material_ids)
+		})
+	return rows
+
+
+func _get_ready_night_recipe_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for row in _get_night_recipe_rows():
+		if bool(row.get("locked", false)):
+			continue
+		if int(row.get("craftable_servings", 0)) <= 0:
+			continue
+		rows.append(row)
+	return rows
+
+
+func _get_recipe_night_material_ids(recipe: Dictionary) -> Array[String]:
+	var output: Array[String] = []
+	var ingredients_variant: Variant = recipe.get("ingredients", {})
+	if ingredients_variant is Dictionary:
+		for material_id_variant in (ingredients_variant as Dictionary).keys():
+			var material_id := String(material_id_variant).strip_edges().to_lower()
+			if material_id.is_empty() or output.has(material_id) or not _material_is_night_only(material_id):
+				continue
+			output.append(material_id)
+	var synergy_variant: Variant = recipe.get("night_material_synergy", {})
+	if synergy_variant is Dictionary:
+		var synergy_material_id := String((synergy_variant as Dictionary).get("material_id", "")).strip_edges().to_lower()
+		if not synergy_material_id.is_empty() and not output.has(synergy_material_id) and _material_is_night_only(synergy_material_id):
+			output.append(synergy_material_id)
+	return output
+
+
+func _material_is_night_only(material_id: String) -> bool:
+	var ingredient := DataRegistry.get_special_ingredient(material_id.strip_edges().to_lower())
+	return not ingredient.is_empty() and bool(ingredient.get("night_only", false))
+
+
+func _build_material_name_list(material_ids: Array[String]) -> String:
+	var names: Array[String] = []
+	for material_id in material_ids:
+		var normalized_id := material_id.strip_edges().to_lower()
+		if normalized_id.is_empty():
+			continue
+		var display_name := _display_material_name(normalized_id)
+		if display_name.is_empty() or names.has(display_name):
+			continue
+		names.append(display_name)
+	return ", ".join(names)
+
+
+func _normalize_material_bundle(value: Variant) -> Dictionary:
+	var output: Dictionary = {}
+	if not (value is Dictionary):
+		return output
+	for material_id_variant in (value as Dictionary).keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		var amount := maxi(0, int((value as Dictionary).get(material_id_variant, 0)))
+		if material_id.is_empty() or amount <= 0:
+			continue
+		output[material_id] = amount
+	return output
+
+
+func _current_requirement_progress(requirements: Dictionary) -> int:
+	var total := 0
+	for material_id_variant in requirements.keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		var required_amount := maxi(0, int(requirements.get(material_id_variant, 0)))
+		if material_id.is_empty() or required_amount <= 0:
+			continue
+		total += mini(required_amount, _inventory.get_material_amount(material_id))
+	return total
+
+
+func _required_requirement_total(requirements: Dictionary) -> int:
+	var total := 0
+	for amount_variant in requirements.values():
+		total += maxi(0, int(amount_variant))
+	return total
+
+
+func _is_meta_target_unlocked(target_type: String, target_id: String) -> bool:
+	match target_type.strip_edges().to_lower():
+		"recipe":
+			return _inventory.has_recipe(target_id)
+		"seed":
+			return _inventory.has_seed(target_id)
+		_:
+			return false
+
+
+func _resolve_meta_target_name(target_type: String, target_id: String) -> String:
+	match target_type.strip_edges().to_lower():
+		"recipe":
+			return _display_recipe_name(target_id)
+		"seed":
+			return _display_seed_name(target_id)
+		_:
+			return target_id.capitalize()
+
+
+func _take_items(items: Array, max_items: int) -> Array:
+	if max_items <= 0 or items.size() <= max_items:
+		return items.duplicate()
+	var output: Array = []
+	for index in range(mini(items.size(), max_items)):
+		output.append(items[index])
+	return output
 
 
 func _build_night_bonus_summary() -> String:
@@ -1288,6 +1805,8 @@ func debug_continue_summary() -> void:
 
 
 func debug_get_snapshot() -> Dictionary:
+	var day_hub_model := _build_day_hub_model()
+	var farm_model := _build_farm_model()
 	var restaurant_model := _build_restaurant_model()
 	var farm_plots: Array[Dictionary] = []
 	for plot_variant in _get_farm_plots():
@@ -1318,13 +1837,21 @@ func debug_get_snapshot() -> Dictionary:
 		"unlocked_recipe_ids": _inventory.unlocked_recipes.duplicate(),
 		"seed_summary": _build_unlocked_seed_summary(),
 		"recipe_summary": _build_unlocked_recipe_summary(),
+		"day_hub_bridge_summary": String(day_hub_model.get("bridge_summary", "")),
+		"day_hub_bridge_tooltip": String(day_hub_model.get("bridge_tooltip", "")),
 		"pending_summary": not _pending_return_summary.is_empty(),
 		"return_summary_payload": _pending_return_summary.duplicate(true),
 		"night_active": night_combat_root.is_session_active() if night_combat_root != null else false,
 		"farm_status_text": _farm_status_text,
+		"farm_bridge_summary": String(farm_model.get("bridge_summary", "")),
+		"farm_bridge_tooltip": String(farm_model.get("bridge_tooltip", "")),
+		"farm_tools": (farm_model.get("tools", []) as Array).duplicate(true) if farm_model.get("tools", []) is Array else [],
 		"farm_plots": farm_plots,
 		"sold_dishes_stats": _economy.sold_dishes_stats.duplicate(true),
 		"restaurant_status_text": _restaurant_status_text,
+		"restaurant_bridge_summary": String(restaurant_model.get("bridge_summary", "")),
+		"restaurant_bridge_tooltip": String(restaurant_model.get("bridge_tooltip", "")),
+		"restaurant_recipe_cards": (restaurant_model.get("recipe_cards", []) as Array).duplicate(true) if restaurant_model.get("recipe_cards", []) is Array else [],
 		"restaurant_menu_ids": _normalize_string_id_array(_restaurant_state.get("selected_menu_recipe_ids", [])),
 		"restaurant_last_service_day": int(_restaurant_state.get("last_service_day", 0)),
 		"restaurant_last_service_summary": _get_last_restaurant_service_summary(),

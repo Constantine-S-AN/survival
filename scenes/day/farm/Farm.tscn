@@ -64,6 +64,12 @@ layout_mode = 2
 autowrap_mode = 3
 text = "Inventory: -"
 
+[node name="BridgeLabel" type="Label" parent="ContentPanel/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = "Night Path: -"
+
 [node name="StatusLabel" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3

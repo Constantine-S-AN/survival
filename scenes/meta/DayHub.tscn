@@ -104,6 +104,12 @@ layout_mode = 2
 autowrap_mode = 3
 text = "Night Bonus: -"
 
+[node name="BridgeLabel" type="Label" parent="ContentPanel/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "Night Bridge: -"
+theme_type_variation = &"BodyMutedLabel"
+
 [node name="Actions" type="VBoxContainer" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 12
