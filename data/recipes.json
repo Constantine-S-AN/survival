@@ -55,6 +55,21 @@
 				"feedback": "The night-forged glaze turned heads at the counter."
 			},
 			"starts_unlocked": false
+		},
+		{
+			"id": "mooncap_hotpot",
+			"name": "Mooncap Hotpot",
+			"description": "A premium night-market pot built around cultivated mooncaps and abyssfin.",
+			"ingredients": {
+				"mooncap": 2,
+				"abyssfin": 1,
+				"herb": 1
+			},
+			"base_price": 29,
+			"prep_complexity": 4,
+			"category_tags": ["signature", "night_market", "luxury"],
+			"night_material_synergy": {},
+			"starts_unlocked": false
 		}
 	]
 }

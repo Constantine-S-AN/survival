@@ -10,6 +10,7 @@ var stamina: int = 6
 var max_stamina: int = 6
 var pending_night_gold_bonus: int = 0
 var pending_night_material_bonus: int = 0
+var pending_next_day_stamina_penalty: int = 0
 
 
 static func from_dict(source: Dictionary) -> DayState:
@@ -20,6 +21,7 @@ static func from_dict(source: Dictionary) -> DayState:
 	state.stamina = clampi(int(source.get("stamina", state.max_stamina)), 0, state.max_stamina)
 	state.pending_night_gold_bonus = maxi(0, int(source.get("pending_night_gold_bonus", 0)))
 	state.pending_night_material_bonus = maxi(0, int(source.get("pending_night_material_bonus", 0)))
+	state.pending_next_day_stamina_penalty = maxi(0, int(source.get("pending_next_day_stamina_penalty", 0)))
 	return state
 
 
@@ -30,7 +32,8 @@ func to_dict() -> Dictionary:
 		"stamina": clampi(stamina, 0, max_stamina),
 		"max_stamina": max_stamina,
 		"pending_night_gold_bonus": maxi(0, pending_night_gold_bonus),
-		"pending_night_material_bonus": maxi(0, pending_night_material_bonus)
+		"pending_night_material_bonus": maxi(0, pending_night_material_bonus),
+		"pending_next_day_stamina_penalty": maxi(0, pending_next_day_stamina_penalty)
 	}
 
 
@@ -53,6 +56,14 @@ func add_night_material_bonus(amount: int) -> void:
 	pending_night_material_bonus = maxi(0, pending_night_material_bonus + amount)
 
 
+func set_pending_next_day_stamina_penalty(amount: int) -> void:
+	pending_next_day_stamina_penalty = clampi(amount, 0, max_stamina)
+
+
+func preview_next_day_stamina() -> int:
+	return clampi(max_stamina - pending_next_day_stamina_penalty, 0, max_stamina)
+
+
 func begin_night() -> void:
 	current_phase = PHASE_NIGHT
 
@@ -60,9 +71,10 @@ func begin_night() -> void:
 func begin_next_day() -> void:
 	current_day += 1
 	current_phase = PHASE_DAY
-	stamina = max_stamina
+	stamina = preview_next_day_stamina()
 	pending_night_gold_bonus = 0
 	pending_night_material_bonus = 0
+	pending_next_day_stamina_penalty = 0
 
 
 static func _normalize_phase(value: String) -> String:

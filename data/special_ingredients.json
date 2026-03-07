@@ -1,0 +1,29 @@
+{
+	"schema_version": 1,
+	"ingredients": [
+		{
+			"id": "abyssfin",
+			"name": "Abyssfin Fillet",
+			"description": "A rare night-catch cut prized for premium restaurant dishes.",
+			"category": "rare_monster_ingredients",
+			"night_only": true,
+			"usage_tags": ["restaurant"]
+		},
+		{
+			"id": "moon_spore",
+			"name": "Moon Spore",
+			"description": "Bioluminescent spores that can be stabilized into a special farm line.",
+			"category": "special_seeds_spores",
+			"night_only": true,
+			"usage_tags": ["farm", "unlock"]
+		},
+		{
+			"id": "kitchen_blueprint_fragment",
+			"name": "Kitchen Blueprint Fragment",
+			"description": "Recovered night notes that piece together high-value recipe unlocks.",
+			"category": "unlock_tokens",
+			"night_only": true,
+			"usage_tags": ["unlock"]
+		}
+	]
+}

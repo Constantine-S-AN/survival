@@ -26,7 +26,8 @@ const DEFAULT_META_PROGRESS: Dictionary = {
 		"stamina": 6,
 		"max_stamina": 6,
 		"pending_night_gold_bonus": 0,
-		"pending_night_material_bonus": 0
+		"pending_night_material_bonus": 0,
+		"pending_next_day_stamina_penalty": 0
 	},
 	"economy": {
 		"gold": 12,
@@ -485,6 +486,11 @@ func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
 		day_state["stamina"] = clampi(int(source_day_state.get("stamina", day_state.get("stamina", 6))), 0, int(day_state.get("max_stamina", 6)))
 		day_state["pending_night_gold_bonus"] = maxi(0, int(source_day_state.get("pending_night_gold_bonus", day_state.get("pending_night_gold_bonus", 0))))
 		day_state["pending_night_material_bonus"] = maxi(0, int(source_day_state.get("pending_night_material_bonus", day_state.get("pending_night_material_bonus", 0))))
+		day_state["pending_next_day_stamina_penalty"] = clampi(
+			int(source_day_state.get("pending_next_day_stamina_penalty", day_state.get("pending_next_day_stamina_penalty", 0))),
+			0,
+			int(day_state.get("max_stamina", 6))
+		)
 		output["day_state"] = day_state
 
 	var economy_variant: Variant = source.get("economy", {})

@@ -128,7 +128,7 @@ static func build_ingredient_summary(materials_variant: Variant) -> String:
 	var parts: Array[String] = []
 	for material_id in ordered_ids:
 		var amount := maxi(0, int(materials.get(material_id, 0)))
-		parts.append("%s x%d" % [material_id.capitalize(), amount])
+		parts.append("%s x%d" % [_material_name(material_id), amount])
 	return ", ".join(parts)
 
 
@@ -145,7 +145,7 @@ static func _build_material_bundle_text(bundle_variant: Variant) -> String:
 		var material_id := String(material_id_variant).strip_edges().to_lower()
 		if material_id.is_empty():
 			continue
-		parts.append("%s x%d" % [material_id.capitalize(), int(bundle.get(material_id_variant, 0))])
+		parts.append("%s x%d" % [_material_name(material_id), int(bundle.get(material_id_variant, 0))])
 	return ", ".join(parts)
 
 
@@ -171,11 +171,22 @@ static func _build_synergy_text(recipe: Dictionary) -> String:
 	var material_id := String(synergy.get("material_id", "")).strip_edges().to_lower()
 	if material_id.is_empty():
 		return ""
-	return "Night synergy: %s" % material_id.capitalize()
+	return "Night synergy: %s" % _material_name(material_id)
 
 
 static func _build_servings_text(craftable_servings: int) -> String:
 	return "Ready for %d servings" % maxi(0, craftable_servings)
+
+
+static func _material_name(material_id: String) -> String:
+	var normalized_id := material_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return ""
+	if DataRegistry != null and DataRegistry.has_method("get_material_display_name"):
+		var display_name := String(DataRegistry.call("get_material_display_name", normalized_id))
+		if not display_name.is_empty():
+			return display_name
+	return normalized_id.capitalize()
 
 
 static func _normalize_string_array(source: Variant) -> Array[String]:

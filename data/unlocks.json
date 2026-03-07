@@ -1,0 +1,27 @@
+{
+	"schema_version": 1,
+	"unlocks": [
+		{
+			"id": "mooncap_seed_study",
+			"name": "Mooncap Seed Study",
+			"description": "Accumulate enough moon spores to stabilize Mooncap Mycelium for the farm.",
+			"target_type": "seed",
+			"target_id": "mooncap_seed",
+			"requirements": {
+				"moon_spore": 2
+			},
+			"consume_requirements": true
+		},
+		{
+			"id": "mooncap_hotpot_blueprint",
+			"name": "Mooncap Hotpot Blueprint",
+			"description": "Assemble blueprint fragments into a signature night-market recipe.",
+			"target_type": "recipe",
+			"target_id": "mooncap_hotpot",
+			"requirements": {
+				"kitchen_blueprint_fragment": 2
+			},
+			"consume_requirements": true
+		}
+	]
+}

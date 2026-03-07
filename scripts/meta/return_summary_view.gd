@@ -10,6 +10,8 @@ signal menu_requested
 @onready var run_label: Label = $ContentPanel/Margin/VBox/RunLabel
 @onready var rewards_label: Label = $ContentPanel/Margin/VBox/RewardsLabel
 @onready var unlocks_label: Label = $ContentPanel/Margin/VBox/UnlocksLabel
+@onready var progress_label: Label = $ContentPanel/Margin/VBox/ProgressLabel
+@onready var penalty_label: Label = $ContentPanel/Margin/VBox/PenaltyLabel
 @onready var inventory_label: Label = $ContentPanel/Margin/VBox/InventoryLabel
 @onready var continue_button: Button = $ContentPanel/Margin/VBox/Actions/ContinueButton
 @onready var menu_button: Button = $ContentPanel/Margin/VBox/Actions/MenuButton
@@ -53,13 +55,18 @@ func _apply_summary() -> void:
 		"kills": int(_summary.get("kills", 0)),
 		"seed": int(_summary.get("seed", 0))
 	})
-	rewards_label.text = _t("meta.summary.rewards", {
-		"gold": int(_summary.get("gold_reward", 0)),
-		"materials": String(_summary.get("materials_reward_text", "-")),
+	rewards_label.text = _t("meta.summary.loot", {
+		"value": String(_summary.get("loot_text", _t("meta.common.none"))),
 		"bonus": String(_summary.get("night_bonus_text", _t("meta.common.none")))
 	})
 	var unlocks_text := String(_summary.get("unlock_text", _t("meta.common.none")))
 	unlocks_label.text = _t("meta.summary.unlocks", {"value": unlocks_text})
+	progress_label.text = _t("meta.summary.progress", {
+		"value": String(_summary.get("unlock_progress_text", _t("meta.common.none")))
+	})
+	penalty_label.text = _t("meta.summary.condition", {
+		"value": String(_summary.get("penalty_text", _t("meta.summary.condition_none")))
+	})
 	inventory_label.text = _t("meta.summary.inventory", {"value": String(_summary.get("inventory_summary", "-"))})
 
 

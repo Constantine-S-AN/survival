@@ -8,6 +8,9 @@ const DATA_FILES: Dictionary = {
 	"elites": "res://data/elites.json",
 	"bosses": "res://data/bosses.json",
 	"contracts": "res://data/contracts.json",
+	"night_loot_tables": "res://data/night_loot_tables.json",
+	"special_ingredients": "res://data/special_ingredients.json",
+	"unlocks": "res://data/unlocks.json",
 	"seeds": "res://data/seeds.json",
 	"crops": "res://data/crops.json",
 	"recipes": "res://data/recipes.json",
@@ -65,6 +68,28 @@ const CHARACTER_UNLOCK_TYPES: Dictionary = {
 	"total_kills": true,
 	"pickups_collected": true,
 	"elite_or_pursuer_kills": true
+}
+
+const SPECIAL_INGREDIENT_CATEGORIES: Dictionary = {
+	"common_materials": true,
+	"rare_monster_ingredients": true,
+	"special_seeds_spores": true,
+	"unlock_tokens": true
+}
+
+const META_UNLOCK_TARGET_TYPES: Dictionary = {
+	"recipe": true,
+	"seed": true
+}
+
+const BUILTIN_MATERIALS: Dictionary = {
+	"scrap": {
+		"id": "scrap",
+		"name": "Scrap",
+		"description": "Recovered salvage from a night run.",
+		"category": "common_materials",
+		"builtin": true
+	}
 }
 
 const WEAPON_REQUIRED_KEYS: Array[String] = [
@@ -378,6 +403,9 @@ var enemies: Dictionary = {}
 var elites_config: Dictionary = {}
 var bosses_config: Dictionary = {}
 var contracts_config: Dictionary = {}
+var night_loot_tables_config: Dictionary = {}
+var special_ingredients_config: Dictionary = {}
+var unlocks_config: Dictionary = {}
 var seeds_config: Dictionary = {}
 var crops_config: Dictionary = {}
 var recipes_config: Dictionary = {}
@@ -404,6 +432,12 @@ var bosses: Dictionary = {}
 var boss_order: Array[String] = []
 var contracts: Dictionary = {}
 var contract_order: Array[String] = []
+var night_loot_tables: Dictionary = {}
+var night_loot_table_order: Array[String] = []
+var special_ingredients: Dictionary = {}
+var special_ingredient_order: Array[String] = []
+var meta_unlocks: Dictionary = {}
+var meta_unlock_order: Array[String] = []
 var seeds: Dictionary = {}
 var seed_order: Array[String] = []
 var crops: Dictionary = {}
@@ -439,6 +473,9 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	elites_config = _load_dictionary(String(resolved_files["elites"]), "elites")
 	bosses_config = _load_dictionary(String(resolved_files["bosses"]), "bosses")
 	contracts_config = _load_dictionary(String(resolved_files["contracts"]), "contracts")
+	night_loot_tables_config = _load_dictionary(String(resolved_files["night_loot_tables"]), "night_loot_tables")
+	special_ingredients_config = _load_dictionary(String(resolved_files["special_ingredients"]), "special_ingredients")
+	unlocks_config = _load_dictionary(String(resolved_files["unlocks"]), "unlocks")
 	seeds_config = _load_dictionary(String(resolved_files["seeds"]), "seeds")
 	crops_config = _load_dictionary(String(resolved_files["crops"]), "crops")
 	recipes_config = _load_dictionary(String(resolved_files["recipes"]), "recipes")
@@ -464,6 +501,12 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	boss_order.clear()
 	contracts.clear()
 	contract_order.clear()
+	night_loot_tables.clear()
+	night_loot_table_order.clear()
+	special_ingredients.clear()
+	special_ingredient_order.clear()
+	meta_unlocks.clear()
+	meta_unlock_order.clear()
 	seeds.clear()
 	seed_order.clear()
 	crops.clear()
@@ -480,9 +523,12 @@ func load_all(log_errors: bool = true, path_overrides: Dictionary = {}) -> bool:
 	_validate_elites()
 	_validate_bosses()
 	_validate_contracts()
+	_validate_special_ingredients()
 	_validate_seeds()
 	_validate_crops()
 	_validate_recipes()
+	_validate_meta_unlocks()
+	_validate_night_loot_tables()
 	_validate_restaurant_upgrades()
 	_validate_upgrades()
 	_validate_spawn_curve()
@@ -552,6 +598,12 @@ func get_data_version(key: String) -> int:
 			payload = bosses_config
 		"contracts":
 			payload = contracts_config
+		"night_loot_tables":
+			payload = night_loot_tables_config
+		"special_ingredients":
+			payload = special_ingredients_config
+		"unlocks":
+			payload = unlocks_config
 		"seeds":
 			payload = seeds_config
 		"crops":
@@ -737,6 +789,93 @@ func get_contracts() -> Array:
 
 func get_contract_max_select() -> int:
 	return clampi(int(contracts_config.get("max_select", 0)), 0, 3)
+
+
+func get_night_loot_table(table_id: String) -> Dictionary:
+	var payload: Variant = night_loot_tables.get(table_id, {})
+	if payload is Dictionary:
+		return _localize_dictionary_row(payload as Dictionary)
+	return {}
+
+
+func get_night_loot_tables() -> Array:
+	var output: Array = []
+	for table_id in night_loot_table_order:
+		var table_variant: Variant = night_loot_tables.get(table_id, {})
+		if table_variant is Dictionary:
+			output.append(_localize_dictionary_row(table_variant as Dictionary))
+	return output
+
+
+func get_special_ingredient(ingredient_id: String) -> Dictionary:
+	var payload: Variant = special_ingredients.get(ingredient_id, {})
+	if payload is Dictionary:
+		return _localize_dictionary_row(payload as Dictionary)
+	return {}
+
+
+func get_special_ingredients() -> Array:
+	var output: Array = []
+	for ingredient_id in special_ingredient_order:
+		var ingredient_variant: Variant = special_ingredients.get(ingredient_id, {})
+		if ingredient_variant is Dictionary:
+			output.append(_localize_dictionary_row(ingredient_variant as Dictionary))
+	return output
+
+
+func has_special_ingredient(ingredient_id: String) -> bool:
+	return special_ingredients.has(ingredient_id)
+
+
+func get_meta_unlock(unlock_id: String) -> Dictionary:
+	var payload: Variant = meta_unlocks.get(unlock_id, {})
+	if payload is Dictionary:
+		return _localize_dictionary_row(payload as Dictionary)
+	return {}
+
+
+func get_meta_unlocks() -> Array:
+	var output: Array = []
+	for unlock_id in meta_unlock_order:
+		var unlock_variant: Variant = meta_unlocks.get(unlock_id, {})
+		if unlock_variant is Dictionary:
+			output.append(_localize_dictionary_row(unlock_variant as Dictionary))
+	return output
+
+
+func has_material(material_id: String) -> bool:
+	var normalized_id := material_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return false
+	return BUILTIN_MATERIALS.has(normalized_id) or crops.has(normalized_id) or special_ingredients.has(normalized_id)
+
+
+func get_material_category(material_id: String) -> String:
+	var normalized_id := material_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return ""
+	if crops.has(normalized_id):
+		return "crop"
+	if special_ingredients.has(normalized_id):
+		return String((special_ingredients[normalized_id] as Dictionary).get("category", ""))
+	if BUILTIN_MATERIALS.has(normalized_id):
+		return String((BUILTIN_MATERIALS[normalized_id] as Dictionary).get("category", ""))
+	return ""
+
+
+func get_material_display_name(material_id: String) -> String:
+	var normalized_id := material_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return ""
+	var crop := get_crop(normalized_id)
+	if not crop.is_empty():
+		return String(crop.get("name", normalized_id.capitalize()))
+	var ingredient := get_special_ingredient(normalized_id)
+	if not ingredient.is_empty():
+		return String(ingredient.get("name", normalized_id.capitalize()))
+	if BUILTIN_MATERIALS.has(normalized_id):
+		return String((BUILTIN_MATERIALS[normalized_id] as Dictionary).get("name", normalized_id.capitalize()))
+	return normalized_id.capitalize()
 
 
 func get_seed(seed_id: String) -> Dictionary:
@@ -1581,6 +1720,52 @@ func _validate_contracts() -> void:
 		contract_order.append(contract_id)
 
 
+func _validate_special_ingredients() -> void:
+	_validate_required_keys(special_ingredients_config, ["schema_version", "ingredients"], "special_ingredients")
+	var rows_variant: Variant = special_ingredients_config.get("ingredients", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[special_ingredients] ingredients must be array")
+		return
+	var rows: Array = rows_variant
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[special_ingredients:%d] entry must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		var label := "special_ingredients:%d" % i
+		_validate_required_keys(
+			row,
+			["id", "name", "description", "category", "night_only", "usage_tags"],
+			label
+		)
+		var ingredient_id := String(row.get("id", "")).strip_edges().to_lower()
+		if ingredient_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(ingredient_id):
+			validation_errors.append("[%s] duplicate ingredient id '%s'" % [label, ingredient_id])
+			continue
+		seen_ids[ingredient_id] = true
+		var category := String(row.get("category", "")).strip_edges().to_lower()
+		if not SPECIAL_INGREDIENT_CATEGORIES.has(category):
+			validation_errors.append("[%s] category must be one of %s" % [label, ", ".join(SPECIAL_INGREDIENT_CATEGORIES.keys())])
+		var usage_tags_variant: Variant = row.get("usage_tags", [])
+		if not (usage_tags_variant is Array):
+			validation_errors.append("[%s] usage_tags must be array" % label)
+		else:
+			for tag_variant in usage_tags_variant:
+				if String(tag_variant).strip_edges().to_lower().is_empty():
+					validation_errors.append("[%s] usage_tags cannot contain empty values" % label)
+					break
+		var normalized := row.duplicate(true)
+		normalized["id"] = ingredient_id
+		normalized["category"] = category
+		special_ingredients[ingredient_id] = normalized
+		special_ingredient_order.append(ingredient_id)
+
+
 func _validate_seeds() -> void:
 	_validate_required_keys(seeds_config, ["schema_version", "seeds"], "seeds")
 	var rows_variant: Variant = seeds_config.get("seeds", [])
@@ -1741,6 +1926,8 @@ func _validate_recipes() -> void:
 				if material_id.is_empty():
 					validation_errors.append("[%s] ingredients cannot contain empty keys" % label)
 					continue
+				if not has_material(material_id):
+					validation_errors.append("[%s] ingredients reference unknown material '%s'" % [label, material_id])
 				if int(ingredients.get(material_id_variant, 0)) <= 0:
 					validation_errors.append("[%s] ingredient '%s' must require > 0 units" % [label, material_id])
 
@@ -1776,6 +1963,8 @@ func _validate_recipes() -> void:
 				var material_id := String(synergy.get("material_id", "")).strip_edges().to_lower()
 				if material_id.is_empty():
 					validation_errors.append("[%s] night_material_synergy.material_id must be non-empty" % label)
+				elif not has_material(material_id):
+					validation_errors.append("[%s] night_material_synergy.material_id references unknown material '%s'" % [label, material_id])
 				if int(synergy.get("extra_price", 0)) < 0:
 					validation_errors.append("[%s] night_material_synergy.extra_price must be >= 0" % label)
 				if float(synergy.get("demand_bonus", 0.0)) < 0.0:
@@ -1789,6 +1978,151 @@ func _validate_recipes() -> void:
 		normalized["id"] = recipe_id
 		recipes[recipe_id] = normalized
 		recipe_order.append(recipe_id)
+
+
+func _validate_meta_unlocks() -> void:
+	_validate_required_keys(unlocks_config, ["schema_version", "unlocks"], "unlocks")
+	var rows_variant: Variant = unlocks_config.get("unlocks", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[unlocks] unlocks must be array")
+		return
+	var rows: Array = rows_variant
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[unlocks:%d] entry must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		var label := "unlocks:%d" % i
+		_validate_required_keys(
+			row,
+			["id", "name", "description", "target_type", "target_id", "requirements", "consume_requirements"],
+			label
+		)
+		var unlock_id := String(row.get("id", "")).strip_edges().to_lower()
+		if unlock_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(unlock_id):
+			validation_errors.append("[%s] duplicate unlock id '%s'" % [label, unlock_id])
+			continue
+		seen_ids[unlock_id] = true
+		var target_type := String(row.get("target_type", "")).strip_edges().to_lower()
+		if not META_UNLOCK_TARGET_TYPES.has(target_type):
+			validation_errors.append("[%s] target_type must be one of %s" % [label, ", ".join(META_UNLOCK_TARGET_TYPES.keys())])
+		var target_id := String(row.get("target_id", "")).strip_edges().to_lower()
+		if target_id.is_empty():
+			validation_errors.append("[%s] target_id must be non-empty string" % label)
+		elif target_type == "recipe" and not recipes.has(target_id):
+			validation_errors.append("[%s] unknown recipe target_id '%s'" % [label, target_id])
+		elif target_type == "seed" and not seeds.has(target_id):
+			validation_errors.append("[%s] unknown seed target_id '%s'" % [label, target_id])
+		var requirements_variant: Variant = row.get("requirements", {})
+		if not (requirements_variant is Dictionary):
+			validation_errors.append("[%s] requirements must be dictionary" % label)
+		else:
+			var requirements: Dictionary = requirements_variant
+			if requirements.is_empty():
+				validation_errors.append("[%s] requirements must not be empty" % label)
+			for material_id_variant in requirements.keys():
+				var material_id := String(material_id_variant).strip_edges().to_lower()
+				if material_id.is_empty():
+					validation_errors.append("[%s] requirements cannot contain empty keys" % label)
+					continue
+				if not has_material(material_id):
+					validation_errors.append("[%s] requirements reference unknown material '%s'" % [label, material_id])
+				if int(requirements.get(material_id_variant, 0)) <= 0:
+					validation_errors.append("[%s] requirement '%s' must be > 0" % [label, material_id])
+		var normalized := row.duplicate(true)
+		normalized["id"] = unlock_id
+		normalized["target_type"] = target_type
+		normalized["target_id"] = target_id
+		meta_unlocks[unlock_id] = normalized
+		meta_unlock_order.append(unlock_id)
+
+
+func _validate_night_loot_tables() -> void:
+	_validate_required_keys(night_loot_tables_config, ["schema_version", "tables"], "night_loot_tables")
+	var rows_variant: Variant = night_loot_tables_config.get("tables", [])
+	if not (rows_variant is Array):
+		validation_errors.append("[night_loot_tables] tables must be array")
+		return
+	var rows: Array = rows_variant
+	if rows.is_empty():
+		validation_errors.append("[night_loot_tables] expected at least 1 table entry")
+		return
+	var seen_ids: Dictionary = {}
+	for i in range(rows.size()):
+		var row_variant: Variant = rows[i]
+		if not (row_variant is Dictionary):
+			validation_errors.append("[night_loot_tables:%d] entry must be dictionary" % i)
+			continue
+		var row: Dictionary = row_variant
+		var label := "night_loot_tables:%d" % i
+		_validate_required_keys(
+			row,
+			["id", "name", "abandoned_only", "completed_only", "min_score", "max_score", "gold_multiplier", "rewards", "penalty"],
+			label
+		)
+		var table_id := String(row.get("id", "")).strip_edges().to_lower()
+		if table_id.is_empty():
+			validation_errors.append("[%s] id must be non-empty string" % label)
+			continue
+		if seen_ids.has(table_id):
+			validation_errors.append("[%s] duplicate table id '%s'" % [label, table_id])
+			continue
+		seen_ids[table_id] = true
+		if int(row.get("min_score", 0)) < 0:
+			validation_errors.append("[%s] min_score must be >= 0" % label)
+		if int(row.get("max_score", -1)) < int(row.get("min_score", 0)):
+			validation_errors.append("[%s] max_score must be >= min_score" % label)
+		if float(row.get("gold_multiplier", 0.0)) < 0.0:
+			validation_errors.append("[%s] gold_multiplier must be >= 0" % label)
+		var rewards_variant: Variant = row.get("rewards", [])
+		if not (rewards_variant is Array):
+			validation_errors.append("[%s] rewards must be array" % label)
+		else:
+			var rewards: Array = rewards_variant
+			if rewards.is_empty():
+				validation_errors.append("[%s] rewards must not be empty" % label)
+			for reward_index in range(rewards.size()):
+				var reward_variant: Variant = rewards[reward_index]
+				if not (reward_variant is Dictionary):
+					validation_errors.append("[%s:rewards:%d] reward must be dictionary" % [label, reward_index])
+					continue
+				var reward: Dictionary = reward_variant
+				var reward_label := "%s:rewards:%d" % [label, reward_index]
+				_validate_required_keys(reward, ["material_id", "category", "quantity"], reward_label)
+				var material_id := String(reward.get("material_id", "")).strip_edges().to_lower()
+				if material_id.is_empty():
+					validation_errors.append("[%s] material_id must be non-empty string" % reward_label)
+				elif not has_material(material_id):
+					validation_errors.append("[%s] unknown material_id '%s'" % [reward_label, material_id])
+				var category := String(reward.get("category", "")).strip_edges().to_lower()
+				if not SPECIAL_INGREDIENT_CATEGORIES.has(category):
+					validation_errors.append("[%s] category must be one of %s" % [reward_label, ", ".join(SPECIAL_INGREDIENT_CATEGORIES.keys())])
+				if int(reward.get("quantity", 0)) <= 0:
+					validation_errors.append("[%s] quantity must be > 0" % reward_label)
+				if int(reward.get("min_kills", 0)) < 0:
+					validation_errors.append("[%s] min_kills must be >= 0" % reward_label)
+				if float(reward.get("min_time_survived_sec", 0.0)) < 0.0:
+					validation_errors.append("[%s] min_time_survived_sec must be >= 0" % reward_label)
+		var penalty_variant: Variant = row.get("penalty", {})
+		if not (penalty_variant is Dictionary):
+			validation_errors.append("[%s] penalty must be dictionary" % label)
+		else:
+			var penalty: Dictionary = penalty_variant
+			if not penalty.is_empty():
+				var penalty_type := String(penalty.get("type", "")).strip_edges().to_lower()
+				if penalty_type != "fatigue" and penalty_type != "injury":
+					validation_errors.append("[%s] penalty.type must be 'fatigue' or 'injury'" % label)
+				if int(penalty.get("stamina_loss", 0)) <= 0:
+					validation_errors.append("[%s] penalty.stamina_loss must be > 0" % label)
+		var normalized := row.duplicate(true)
+		normalized["id"] = table_id
+		night_loot_tables[table_id] = normalized
+		night_loot_table_order.append(table_id)
 
 
 func _validate_restaurant_upgrades() -> void:

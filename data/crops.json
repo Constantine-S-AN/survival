@@ -18,6 +18,15 @@
 			"harvest_yield": 2,
 			"sell_value": 6,
 			"ingredient_tags": ["herb", "fresh"]
+		},
+		{
+			"id": "mooncap",
+			"seed_id": "mooncap_seed",
+			"name": "Mooncap",
+			"growth_days": 1,
+			"harvest_yield": 2,
+			"sell_value": 12,
+			"ingredient_tags": ["fungus", "night", "luxury"]
 		}
 	]
 }

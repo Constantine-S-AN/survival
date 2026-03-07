@@ -18,6 +18,7 @@ const RESTAURANT_MAX_MENU_SIZE := 3
 const DayStateClass := preload("res://scripts/meta/day_state.gd")
 const InventoryStateClass := preload("res://scripts/meta/inventory.gd")
 const EconomyStateClass := preload("res://scripts/meta/economy_state.gd")
+const RewardPipelineClass := preload("res://scripts/meta/reward_pipeline.gd")
 const MenuPlannerClass := preload("res://scripts/day/restaurant/menu_planner.gd")
 const ServiceSimulatorClass := preload("res://scripts/day/restaurant/service_simulator.gd")
 
@@ -35,6 +36,7 @@ const MATERIAL_DISPLAY_NAMES: Dictionary = {
 var _day_state = DayStateClass.new()
 var _inventory = InventoryStateClass.new()
 var _economy = EconomyStateClass.new()
+var _reward_pipeline = RewardPipelineClass.new()
 var _farm_state: Dictionary = {}
 var _restaurant_state: Dictionary = {}
 var _pending_return_summary: Dictionary = {}
@@ -591,58 +593,55 @@ func _open_restaurant_service() -> bool:
 
 
 func _apply_night_rewards(summary: Dictionary) -> Dictionary:
-	var exit_reason := String(summary.get("exit_reason", "completed")).strip_edges().to_lower()
-	if exit_reason != "abandoned":
-		exit_reason = "completed"
-	var kills := maxi(0, int(summary.get("kills", 0)))
-	var time_survived := maxf(0.0, float(summary.get("time_survived_sec", 0.0)))
-	var drop_pickups := maxi(0, int(summary.get("drop_pickups_spawned", 0)))
-	var base_gold: int = maxi(2, int(floor(time_survived / 45.0)) + int(floor(float(kills) / 6.0)) + _day_state.current_day)
-	if exit_reason == "abandoned":
-		base_gold = maxi(1, int(floor(float(base_gold) * 0.5)))
-	var material_bundle: Dictionary = {
-		"scrap": maxi(0, int(floor(time_survived / 60.0)) + int(floor(float(drop_pickups) / 2.0)) + _day_state.pending_night_material_bonus)
-	}
-	if exit_reason != "abandoned" and kills >= 18:
-		material_bundle["wheat"] = 1
-	var gold_reward: int = base_gold + _day_state.pending_night_gold_bonus
-	_economy.add_gold(gold_reward)
-	_apply_material_bundle(material_bundle)
+	var reward_result: Dictionary = _reward_pipeline.resolve_night_return(summary, _day_state, _economy, _inventory)
+	var session_variant: Variant = reward_result.get("session", {})
+	var session: Dictionary = session_variant if session_variant is Dictionary else {}
+	var material_bundle: Dictionary = (reward_result.get("material_rewards", {}) as Dictionary).duplicate(true) if reward_result.get("material_rewards", {}) is Dictionary else {}
+	var loot_categories: Array = (reward_result.get("loot_categories", []) as Array).duplicate(true) if reward_result.get("loot_categories", []) is Array else []
+	var gold_reward := maxi(0, int(reward_result.get("gold_reward", 0)))
 
-	var unlocks: Array[String] = []
-	if _economy.gold >= 24 and _inventory.unlock_recipe("sweet_bread"):
-		unlocks.append(_display_recipe_name("sweet_bread"))
+	if _day_state.pending_night_gold_bonus > 0:
+		gold_reward += _day_state.pending_night_gold_bonus
+		_economy.add_gold(_day_state.pending_night_gold_bonus)
+	if _day_state.pending_night_material_bonus > 0:
+		material_bundle["scrap"] = maxi(0, int(material_bundle.get("scrap", 0))) + _day_state.pending_night_material_bonus
+		_inventory.add_material("scrap", _day_state.pending_night_material_bonus)
+		_add_loot_category_amount(loot_categories, "common_materials", "scrap", _day_state.pending_night_material_bonus)
+
+	var unlock_names := _extract_unlock_names(reward_result.get("new_unlocks", []))
+	var restaurant_unlocks := _maybe_unlock_restaurant_recipes()
+	for unlock_name in restaurant_unlocks:
+		if unlock_names.has(unlock_name):
+			continue
+		unlock_names.append(unlock_name)
+
+	var penalty_variant: Variant = reward_result.get("penalty", {})
+	var penalty: Dictionary = penalty_variant if penalty_variant is Dictionary else {}
+	var unlock_progress_variant: Variant = reward_result.get("unlock_progress", [])
+	var unlock_progress: Array = unlock_progress_variant if unlock_progress_variant is Array else []
 
 	return {
 		"current_day": _day_state.current_day,
 		"next_day": _day_state.current_day + 1,
-		"exit_reason": exit_reason,
-		"time_text": _format_time(time_survived),
-		"kills": kills,
+		"exit_reason": String(session.get("exit_reason", "completed")),
+		"time_text": _format_time(float(session.get("time_survived_sec", 0.0))),
+		"kills": int(session.get("kills", 0)),
 		"seed": int(summary.get("seed", 0)),
 		"gold_reward": gold_reward,
 		"materials_reward": material_bundle.duplicate(true),
 		"materials_reward_text": _build_material_bundle_text(material_bundle),
+		"loot_categories": loot_categories.duplicate(true),
+		"loot_text": _build_loot_summary_text(gold_reward, loot_categories),
 		"night_bonus_text": _build_night_bonus_summary(),
 		"inventory_summary": _build_inventory_summary(),
-		"unlock_text": ", ".join(unlocks) if not unlocks.is_empty() else _t("meta.common.none"),
+		"unlock_names": unlock_names.duplicate(),
+		"unlock_text": ", ".join(unlock_names) if not unlock_names.is_empty() else _t("meta.common.none"),
+		"unlock_progress": unlock_progress.duplicate(true),
+		"unlock_progress_text": _build_unlock_progress_text(unlock_progress),
+		"penalty": penalty.duplicate(true),
+		"penalty_text": _build_penalty_text(penalty),
 		"raw_summary": summary.duplicate(true)
 	}
-
-
-func _apply_material_bundle(bundle: Dictionary) -> void:
-	for material_id_variant in bundle.keys():
-		var amount := int(bundle.get(material_id_variant, 0))
-		if amount <= 0:
-			continue
-		_inventory.add_material(String(material_id_variant), amount)
-
-
-func _has_material_bundle(bundle: Dictionary) -> bool:
-	for material_id_variant in bundle.keys():
-		if _inventory.get_material_amount(String(material_id_variant)) < int(bundle.get(material_id_variant, 0)):
-			return false
-	return true
 
 
 func _build_day_hub_model() -> Dictionary:
@@ -986,6 +985,105 @@ func _build_night_bonus_summary() -> String:
 	return ", ".join(parts)
 
 
+func _build_loot_summary_text(gold_reward: int, loot_categories: Array) -> String:
+	var lines: Array[String] = []
+	lines.append(_t("meta.summary.gold_line", {"value": gold_reward}))
+	for row_variant in loot_categories:
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		var category_id := String(row.get("category", "")).strip_edges().to_lower()
+		var items_variant: Variant = row.get("items", {})
+		var items: Dictionary = items_variant if items_variant is Dictionary else {}
+		var item_text := _build_material_bundle_text(items)
+		if category_id.is_empty() or item_text == _t("meta.common.none"):
+			continue
+		lines.append(_t("meta.summary.loot_line", {
+			"category": _t("meta.summary.category.%s" % category_id),
+			"value": item_text
+		}))
+	return "\n".join(lines)
+
+
+func _build_unlock_progress_text(rows: Array) -> String:
+	if rows.is_empty():
+		return _t("meta.common.none")
+	var lines: Array[String] = []
+	for row_variant in rows:
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		var progress_text := _t("meta.summary.progress_partial", {
+			"name": String(row.get("name", _t("meta.common.none"))),
+			"current": int(row.get("current", 0)),
+			"required": int(row.get("required", 0)),
+			"requirements": _build_unlock_requirement_text(row.get("requirements", {}))
+		})
+		if bool(row.get("complete", false)):
+			progress_text = _t("meta.summary.progress_complete", {
+				"name": String(row.get("name", _t("meta.common.none"))),
+				"target": String(row.get("target_name", _t("meta.common.none")))
+			})
+		lines.append(progress_text)
+	return "\n".join(lines)
+
+
+func _build_unlock_requirement_text(requirements_variant: Variant) -> String:
+	if not (requirements_variant is Dictionary):
+		return _t("meta.common.none")
+	return _build_material_bundle_text(requirements_variant as Dictionary)
+
+
+func _build_penalty_text(penalty: Dictionary) -> String:
+	if not bool(penalty.get("applied", false)):
+		return _t("meta.summary.condition_none")
+	var penalty_type := String(penalty.get("type", "")).strip_edges().to_lower()
+	return _t("meta.summary.condition_%s" % penalty_type, {
+		"value": int(penalty.get("stamina_loss", 0)),
+		"next": int(penalty.get("next_day_stamina", _day_state.preview_next_day_stamina()))
+	})
+
+
+func _extract_unlock_names(unlocks_variant: Variant) -> Array[String]:
+	var names: Array[String] = []
+	if not (unlocks_variant is Array):
+		return names
+	for unlock_variant in unlocks_variant:
+		if not (unlock_variant is Dictionary):
+			continue
+		var unlock_name := String((unlock_variant as Dictionary).get("name", "")).strip_edges()
+		if unlock_name.is_empty() or names.has(unlock_name):
+			continue
+		names.append(unlock_name)
+	return names
+
+
+func _add_loot_category_amount(loot_categories: Array, category_id: String, material_id: String, amount: int) -> void:
+	if amount <= 0:
+		return
+	var normalized_category := category_id.strip_edges().to_lower()
+	var normalized_material := material_id.strip_edges().to_lower()
+	for index in range(loot_categories.size()):
+		var row_variant: Variant = loot_categories[index]
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		if String(row.get("category", "")).strip_edges().to_lower() != normalized_category:
+			continue
+		var items_variant: Variant = row.get("items", {})
+		var items: Dictionary = items_variant if items_variant is Dictionary else {}
+		items[normalized_material] = maxi(0, int(items.get(normalized_material, 0))) + amount
+		row["items"] = items
+		loot_categories[index] = row
+		return
+	loot_categories.append({
+		"category": normalized_category,
+		"items": {
+			normalized_material: amount
+		}
+	})
+
+
 func _build_material_bundle_text(bundle: Dictionary) -> String:
 	var ordered_keys: Array[String] = []
 	for material_id_variant in bundle.keys():
@@ -1020,6 +1118,12 @@ func _build_recipe_bonus_text(recipe: Dictionary) -> String:
 
 func _display_material_name(material_id: String) -> String:
 	var normalized_id := material_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return ""
+	if DataRegistry != null and DataRegistry.has_method("get_material_display_name"):
+		var material_name := String(DataRegistry.call("get_material_display_name", normalized_id))
+		if not material_name.is_empty():
+			return material_name
 	var crop_def := DataRegistry.get_crop(normalized_id)
 	if not crop_def.is_empty():
 		return String(crop_def.get("name", normalized_id.capitalize()))
@@ -1206,10 +1310,16 @@ func debug_get_snapshot() -> Dictionary:
 		"reputation": _economy.restaurant_reputation,
 		"stamina": _day_state.stamina,
 		"max_stamina": _day_state.max_stamina,
+		"pending_next_day_stamina_penalty": _day_state.pending_next_day_stamina_penalty,
+		"next_day_stamina_preview": _day_state.preview_next_day_stamina(),
 		"inventory_summary": _build_inventory_summary(),
+		"inventory_materials": _inventory.materials.duplicate(true),
+		"unlocked_seed_ids": _inventory.unlocked_seeds.duplicate(),
+		"unlocked_recipe_ids": _inventory.unlocked_recipes.duplicate(),
 		"seed_summary": _build_unlocked_seed_summary(),
 		"recipe_summary": _build_unlocked_recipe_summary(),
 		"pending_summary": not _pending_return_summary.is_empty(),
+		"return_summary_payload": _pending_return_summary.duplicate(true),
 		"night_active": night_combat_root.is_session_active() if night_combat_root != null else false,
 		"farm_status_text": _farm_status_text,
 		"farm_plots": farm_plots,

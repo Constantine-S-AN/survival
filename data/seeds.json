@@ -16,6 +16,14 @@
 			"crop_id": "herb",
 			"plant_stamina_cost": 1,
 			"starts_unlocked": true
+		},
+		{
+			"id": "mooncap_seed",
+			"name": "Mooncap Mycelium",
+			"description": "Night-borne spores stabilized for a delicate farm crop.",
+			"crop_id": "mooncap",
+			"plant_stamina_cost": 2,
+			"starts_unlocked": false
 		}
 	]
 }
