@@ -442,6 +442,87 @@ func _run_character_profile_tests() -> void:
 	await get_tree().process_frame
 	profile_store_reloaded.load_profile("diver")
 	_assert_equal(profile_store_reloaded.get_selected_character_id("diver"), "scavenger", "selected character persists after reload")
+	profile_store_reloaded.set_meta_progress_state({
+		"schema_version": 5,
+		"day_state": {
+			"current_day": 5,
+			"current_phase": "day",
+			"stamina": 99,
+			"max_stamina": 6,
+			"action_budget": 4,
+			"max_action_budget": 5
+		},
+		"inventory": {
+			"materials": {
+				"wheat": 4
+			},
+			"unlocked_seeds": ["kelpberry_seed"],
+			"unlocked_recipes": ["field_stew"]
+		},
+		"farm_state": {
+			"columns": 3,
+			"rows": 2,
+			"plots": [
+				{
+					"tilled": true,
+					"crop": {
+						"crop_id": "herb",
+						"seed_id": "wheat_seed",
+						"planted_day": 4,
+						"growth_days": 2,
+						"growth_progress_days": 3,
+						"watered_day": 4
+					}
+				},
+				{
+					"tilled": true,
+					"crop": {
+						"crop_id": "wheat",
+						"seed_id": "wheat_seed",
+						"planted_day": 4,
+						"growth_days": 2,
+						"growth_progress_days": 1,
+						"watered_day": 4
+					}
+				}
+			]
+		},
+		"restaurant_state": {
+			"selected_menu_recipe_ids": ["field_stew", "missing_recipe"],
+			"last_service_day": 4,
+			"last_service_summary": {
+				"revenue": 23,
+				"ingredients_consumed": {"wheat": 2}
+			},
+			"owned_upgrade_ids": ["decor_window_box", "missing_upgrade"]
+		},
+		"pending_return_summary": {
+			"gold_reward": 8
+		}
+	})
+	var normalized_meta: Dictionary = profile_store_reloaded.get_meta_progress_state()
+	var normalized_day_state: Dictionary = normalized_meta.get("day_state", {})
+	var normalized_inventory: Dictionary = normalized_meta.get("inventory", {})
+	var normalized_farm_state: Dictionary = normalized_meta.get("farm_state", {})
+	var normalized_restaurant_state: Dictionary = normalized_meta.get("restaurant_state", {})
+	_assert_equal(int(normalized_day_state.get("current_day", 0)), 5, "meta progress normalization preserves current day")
+	_assert_equal(String(normalized_day_state.get("current_phase", "")), "noon", "meta progress normalization derives phase from restored action budget")
+	_assert_equal(int(normalized_day_state.get("stamina", 0)), 6, "meta progress normalization clamps restored stamina to max")
+	_assert_equal(int(normalized_day_state.get("action_budget", 0)), 4, "meta progress normalization preserves valid action budget")
+	_assert_true((normalized_inventory.get("unlocked_seeds", []) as Array).has("wheat_seed"), "meta progress normalization restores default unlocked seeds")
+	_assert_true((normalized_inventory.get("unlocked_seeds", []) as Array).has("herb_seed"), "meta progress normalization keeps starter farm seeds")
+	_assert_true((normalized_inventory.get("unlocked_seeds", []) as Array).has("kelpberry_seed"), "meta progress normalization preserves purchased seeds")
+	var normalized_plots: Array = normalized_farm_state.get("plots", [])
+	if normalized_plots.size() >= 2:
+		var invalid_plot: Dictionary = normalized_plots[0]
+		var valid_plot: Dictionary = normalized_plots[1]
+		_assert_true((invalid_plot.get("crop", {}) as Dictionary).is_empty(), "meta progress normalization drops invalid crop/seed pairings")
+		_assert_equal(int((valid_plot.get("crop", {}) as Dictionary).get("growth_progress_days", 0)), 1, "meta progress normalization preserves valid crop progression")
+	_assert_equal((normalized_restaurant_state.get("selected_menu_recipe_ids", []) as Array).size(), 1, "meta progress normalization filters invalid saved menu recipe ids")
+	_assert_true((normalized_restaurant_state.get("owned_upgrade_ids", []) as Array).has("decor_window_box"), "meta progress normalization preserves valid owned upgrades")
+	_assert_equal((normalized_restaurant_state.get("owned_upgrade_ids", []) as Array).size(), 1, "meta progress normalization filters invalid owned upgrades")
+	_assert_equal(int(((normalized_restaurant_state.get("last_service_summary", {}) as Dictionary).get("ingredients_consumed", {}) as Dictionary).get("wheat", 0)), 2, "meta progress normalization preserves last service summary when present")
+	_assert_equal(int((normalized_meta.get("pending_return_summary", {}) as Dictionary).get("gold_reward", 0)), 8, "meta progress normalization preserves pending combat return summaries")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(profile_path))
 	var backup_only_profile := {
 		"unlocked_characters": ["diver", "scavenger"],
@@ -2316,6 +2397,25 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(String(first_penalty.get("type", "")), "injury", "abandoned night applies injury penalty")
 	_assert_true(String(first_return_payload.get("unlock_progress_text", "")).find("1/2") >= 0, "return summary shows unlock progress after first night")
 	_assert_true(not String(first_return_payload.get("loot_text", "")).is_empty(), "return summary shows categorized loot text")
+
+	meta_root.queue_free()
+	await get_tree().process_frame
+
+	meta_root = meta_scene.instantiate()
+	get_tree().root.add_child(meta_root)
+	await get_tree().process_frame
+	meta_root.call("debug_press_play")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "return_summary", "save/load restores the pending return summary after combat")
+	_assert_equal(int(snapshot.get("current_day", 0)), 1, "reload before summary continue preserves the current combat day")
+	_assert_equal(String(snapshot.get("phase", "")), "night", "reload before summary continue preserves the night phase")
+	_assert_true(bool(snapshot.get("pending_summary", false)), "reload before summary continue preserves the pending combat summary flag")
+	var reloaded_first_return_payload: Dictionary = snapshot.get("return_summary_payload", {})
+	_assert_equal(int((reloaded_first_return_payload.get("materials_reward", {}) as Dictionary).get("abyssfin", 0)), 1, "save/load preserves combat reward payload contents before summary continue")
+	_assert_equal(int((snapshot.get("inventory_materials", {}) as Dictionary).get("moon_spore", 0)), 1, "combat rewards already transfer into shared inventory before the next day starts")
+	_assert_equal(int((snapshot.get("inventory_materials", {}) as Dictionary).get("kitchen_blueprint_fragment", 0)), 1, "reload preserves post-combat unlock materials before day advancement")
+
 	meta_root.call("debug_continue_summary")
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
@@ -2368,7 +2468,42 @@ func _run_meta_loop_scaffold_tests() -> void:
 	snapshot = meta_root.call("debug_get_snapshot")
 	var selected_menu_ids: Array = snapshot.get("restaurant_menu_ids", [])
 	_assert_true(selected_menu_ids.has("field_stew"), "restaurant keeps selected menu recipe")
+	var day2_midloop_materials_before_service: Dictionary = (snapshot.get("inventory_materials", {}) as Dictionary).duplicate(true)
+	var day2_midloop_plots: Array = (snapshot.get("farm_plots", []) as Array).duplicate(true)
+	var day2_midloop_menu_ids: Array = selected_menu_ids.duplicate(true)
+	var day2_midloop_day := int(snapshot.get("current_day", 0))
+	var day2_midloop_phase := String(snapshot.get("phase", ""))
+	var day2_midloop_action_budget := int(snapshot.get("action_budget", 0))
 	var gold_before_service := int(snapshot.get("gold", 0))
+
+	meta_root.queue_free()
+	await get_tree().process_frame
+
+	meta_root = meta_scene.instantiate()
+	get_tree().root.add_child(meta_root)
+	await get_tree().process_frame
+	meta_root.call("debug_press_play")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(int(snapshot.get("current_day", 0)), day2_midloop_day, "mid-loop save/load preserves the current day before restaurant service")
+	_assert_equal(String(snapshot.get("phase", "")), day2_midloop_phase, "mid-loop save/load preserves the daytime phase before restaurant service")
+	_assert_equal(int(snapshot.get("action_budget", 0)), day2_midloop_action_budget, "mid-loop save/load preserves the remaining daytime action budget before restaurant service")
+	_assert_equal(snapshot.get("inventory_materials", {}), day2_midloop_materials_before_service, "mid-loop save/load preserves inventory before restaurant service")
+	_assert_equal(snapshot.get("restaurant_menu_ids", []), day2_midloop_menu_ids, "mid-loop save/load preserves selected restaurant menu items")
+	var reloaded_day2_midloop_plots: Array = snapshot.get("farm_plots", [])
+	if day2_midloop_plots.size() >= 2 and reloaded_day2_midloop_plots.size() >= 2:
+		var expected_midloop_wheat_plot: Dictionary = day2_midloop_plots[0]
+		var expected_midloop_herb_plot: Dictionary = day2_midloop_plots[1]
+		var reloaded_midloop_wheat_plot: Dictionary = reloaded_day2_midloop_plots[0]
+		var reloaded_midloop_herb_plot: Dictionary = reloaded_day2_midloop_plots[1]
+		_assert_equal(int(reloaded_midloop_wheat_plot.get("watered_day", 0)), int(expected_midloop_wheat_plot.get("watered_day", 0)), "mid-loop save/load preserves watered state on the wheat plot")
+		_assert_equal(int(reloaded_midloop_herb_plot.get("watered_day", 0)), int(expected_midloop_herb_plot.get("watered_day", 0)), "mid-loop save/load preserves watered state on the herb plot")
+		_assert_equal(int(reloaded_midloop_wheat_plot.get("growth_progress_days", 0)), int(expected_midloop_wheat_plot.get("growth_progress_days", 0)), "mid-loop save/load preserves wheat growth progress before service")
+		_assert_equal(int(reloaded_midloop_herb_plot.get("growth_progress_days", 0)), int(expected_midloop_herb_plot.get("growth_progress_days", 0)), "mid-loop save/load preserves herb growth progress before service")
+
+	meta_root.call("debug_open_restaurant")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
 	_assert_true(bool(meta_root.call("debug_open_restaurant_service")), "restaurant service opens with stocked ingredients")
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
@@ -2381,6 +2516,14 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true(not bool(snapshot.get("restaurant_service_button_enabled", true)), "restaurant closes service for the rest of the day")
 	_assert_true(not String(snapshot.get("restaurant_result_summary", "")).is_empty(), "restaurant result summary is populated")
 	_assert_true(not String(snapshot.get("restaurant_feedback_text", "")).is_empty(), "restaurant feedback explains the outcome")
+	var day2_service_summary: Dictionary = snapshot.get("restaurant_last_service_summary", {})
+	var day2_service_ingredients_consumed: Dictionary = day2_service_summary.get("ingredients_consumed", {})
+	var day2_materials_after_service: Dictionary = (snapshot.get("inventory_materials", {}) as Dictionary).duplicate(true)
+	_assert_equal(int(day2_service_summary.get("served_day", 0)), 2, "restaurant service summary stores the served day")
+	_assert_equal(int((day2_service_summary.get("sold_dishes", {}) as Dictionary).get("field_stew", 0)), 1, "restaurant service summary stores sold dish counts")
+	_assert_equal(int(day2_service_ingredients_consumed.get("wheat", 0)), 2, "restaurant service summary records wheat consumption")
+	_assert_equal(int(day2_service_ingredients_consumed.get("herb", 0)), 1, "restaurant service summary records herb consumption")
+	_assert_material_consumption_applied(day2_midloop_materials_before_service, day2_materials_after_service, day2_service_ingredients_consumed, "restaurant service ")
 	meta_root.call("debug_return_to_hub")
 	await get_tree().process_frame
 
@@ -2398,6 +2541,7 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(int(reload_snapshot.get("action_budget", 0)), 0, "save/load preserves an exhausted daytime action budget")
 	_assert_true(int(reload_snapshot.get("gold", 0)) > 15, "meta loop preserves restaurant gold after reload")
 	_assert_equal(int(reload_snapshot.get("restaurant_last_service_day", 0)), 2, "meta loop preserves restaurant service day after reload")
+	_assert_equal(reload_snapshot.get("inventory_materials", {}), day2_materials_after_service, "save/load preserves post-service inventory without duplication or loss")
 	_assert_equal(int((reload_snapshot.get("inventory_materials", {}) as Dictionary).get("abyssfin", 0)), 1, "save/load preserves night-only restaurant ingredient inventory")
 	_assert_equal(int((reload_snapshot.get("inventory_materials", {}) as Dictionary).get("reef_salt", 0)), 0, "save/load preserves Reef Salt timing before the successful clear")
 	_assert_equal(int((reload_snapshot.get("inventory_materials", {}) as Dictionary).get("moon_spore", 0)), 1, "save/load preserves night-only farm unlock item inventory")
@@ -2407,7 +2551,11 @@ func _run_meta_loop_scaffold_tests() -> void:
 	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
 	_assert_true(not bool(reload_snapshot.get("restaurant_service_button_enabled", true)), "save/load preserves closed service state for the same day")
 	_assert_true(not String(reload_snapshot.get("restaurant_result_title", "")).is_empty(), "save/load preserves restaurant result title")
+	_assert_true((reload_snapshot.get("restaurant_menu_ids", []) as Array).has("field_stew"), "save/load preserves the selected menu plan after service")
 	_assert_true(int((reload_snapshot.get("sold_dishes_stats", {}) as Dictionary).get("field_stew", 0)) >= 1, "save/load preserves sold dish statistics")
+	_assert_equal(int(((reload_snapshot.get("restaurant_last_service_summary", {}) as Dictionary).get("served_day", 0))), 2, "save/load preserves the last service summary day")
+	_assert_equal(int((((reload_snapshot.get("restaurant_last_service_summary", {}) as Dictionary).get("ingredients_consumed", {}) as Dictionary).get("wheat", 0))), int(day2_service_ingredients_consumed.get("wheat", 0)), "save/load preserves wheat consumption in the last service summary")
+	_assert_equal(int((((reload_snapshot.get("restaurant_last_service_summary", {}) as Dictionary).get("ingredients_consumed", {}) as Dictionary).get("herb", 0))), int(day2_service_ingredients_consumed.get("herb", 0)), "save/load preserves herb consumption in the last service summary")
 	meta_root_reload.call("debug_return_to_hub")
 	await get_tree().process_frame
 	meta_root_reload.call("debug_open_farm")
@@ -2586,6 +2734,28 @@ func _assert_true(condition: bool, label: String) -> void:
 
 func _assert_equal(actual: Variant, expected: Variant, label: String) -> void:
 	_assert_true(actual == expected, "%s (actual=%s expected=%s)" % [label, actual, expected])
+
+
+func _assert_material_consumption_applied(before_variant: Variant, after_variant: Variant, consumed_variant: Variant, label_prefix: String) -> void:
+	var before: Dictionary = before_variant if before_variant is Dictionary else {}
+	var after: Dictionary = after_variant if after_variant is Dictionary else {}
+	var consumed_source: Dictionary = consumed_variant if consumed_variant is Dictionary else {}
+	var normalized_consumed: Dictionary = {}
+	for material_id_variant in consumed_source.keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		if material_id.is_empty():
+			continue
+		normalized_consumed[material_id] = maxi(0, int(consumed_source.get(material_id_variant, 0)))
+	for material_id_variant in normalized_consumed.keys():
+		var material_id := String(material_id_variant)
+		var consumed_amount := int(normalized_consumed.get(material_id, 0))
+		var expected_after := maxi(0, int(before.get(material_id, 0)) - consumed_amount)
+		_assert_equal(int(after.get(material_id, 0)), expected_after, "%sinventory applies consumed %s exactly" % [label_prefix, material_id])
+	for material_id_variant in after.keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		if material_id.is_empty() or normalized_consumed.has(material_id):
+			continue
+		_assert_equal(int(after.get(material_id, 0)), int(before.get(material_id, 0)), "%sinventory leaves %s unchanged when it was not consumed" % [label_prefix, material_id])
 
 
 func _array_contains_text(items: Array[String], pattern: String) -> bool:

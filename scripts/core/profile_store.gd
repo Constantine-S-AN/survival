@@ -617,12 +617,23 @@ func _normalize_farm_crop(crop_variant: Variant) -> Dictionary:
 	var seed_id := String(crop.get("seed_id", "")).strip_edges().to_lower()
 	if crop_id.is_empty() or seed_id.is_empty():
 		return {}
+	if DataRegistry != null and DataRegistry.has_method("has_crop") and not bool(DataRegistry.call("has_crop", crop_id)):
+		return {}
+	if DataRegistry != null and DataRegistry.has_method("has_seed") and not bool(DataRegistry.call("has_seed", seed_id)):
+		return {}
+	if DataRegistry != null and DataRegistry.has_method("get_crop_by_seed"):
+		var crop_by_seed_variant: Variant = DataRegistry.call("get_crop_by_seed", seed_id)
+		if crop_by_seed_variant is Dictionary:
+			var crop_by_seed: Dictionary = crop_by_seed_variant
+			if String(crop_by_seed.get("id", "")).strip_edges().to_lower() != crop_id:
+				return {}
+	var growth_days := maxi(1, int(crop.get("growth_days", 1)))
 	return {
 		"crop_id": crop_id,
 		"seed_id": seed_id,
 		"planted_day": maxi(1, int(crop.get("planted_day", 1))),
-		"growth_days": maxi(1, int(crop.get("growth_days", 1))),
-		"growth_progress_days": maxi(0, int(crop.get("growth_progress_days", 0))),
+		"growth_days": growth_days,
+		"growth_progress_days": clampi(int(crop.get("growth_progress_days", 0)), 0, growth_days),
 		"watered_day": maxi(0, int(crop.get("watered_day", 0)))
 	}
 
@@ -637,11 +648,28 @@ func _normalize_restaurant_state(restaurant_variant: Variant) -> Dictionary:
 	if not (restaurant_variant is Dictionary):
 		return output
 	var source: Dictionary = restaurant_variant
-	output["selected_menu_recipe_ids"] = _normalize_string_array(source.get("selected_menu_recipe_ids", []))
+	var selected_menu_ids := _normalize_string_array(source.get("selected_menu_recipe_ids", []))
+	if DataRegistry != null and DataRegistry.has_method("has_recipe"):
+		var filtered_menu_ids: Array[String] = []
+		for recipe_id in selected_menu_ids:
+			if not bool(DataRegistry.call("has_recipe", recipe_id)):
+				continue
+			filtered_menu_ids.append(recipe_id)
+		selected_menu_ids = filtered_menu_ids
+	output["selected_menu_recipe_ids"] = selected_menu_ids
 	output["last_service_day"] = maxi(0, int(source.get("last_service_day", 0)))
 	var summary_variant: Variant = source.get("last_service_summary", {})
 	output["last_service_summary"] = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
-	output["owned_upgrade_ids"] = _normalize_string_array(source.get("owned_upgrade_ids", []))
+	var owned_upgrade_ids := _normalize_string_array(source.get("owned_upgrade_ids", []))
+	if DataRegistry != null and DataRegistry.has_method("get_restaurant_upgrade"):
+		var filtered_upgrade_ids: Array[String] = []
+		for upgrade_id in owned_upgrade_ids:
+			var upgrade_variant: Variant = DataRegistry.call("get_restaurant_upgrade", upgrade_id)
+			if not (upgrade_variant is Dictionary) or (upgrade_variant as Dictionary).is_empty():
+				continue
+			filtered_upgrade_ids.append(upgrade_id)
+		owned_upgrade_ids = filtered_upgrade_ids
+	output["owned_upgrade_ids"] = owned_upgrade_ids
 	return output
 
 
