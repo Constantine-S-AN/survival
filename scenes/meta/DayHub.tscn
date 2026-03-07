@@ -32,9 +32,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -360.0
-offset_top = -356.0
+offset_top = -396.0
 offset_right = 360.0
-offset_bottom = 356.0
+offset_bottom = 396.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"OverlayPanel"
@@ -58,6 +58,33 @@ theme_type_variation = &"HeadingLabel"
 [node name="Subtitle" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
 text = "Plan the next descent."
+theme_type_variation = &"BodyMutedLabel"
+
+[node name="GuidePanel" type="Panel" parent="ContentPanel/Margin/VBox"]
+visible = false
+custom_minimum_size = Vector2(0, 112)
+layout_mode = 2
+theme_type_variation = &"OverlayPanel"
+
+[node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/GuidePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/GuidePanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="GuideTitle" type="Label" parent="ContentPanel/Margin/VBox/GuidePanel/Margin/VBox"]
+layout_mode = 2
+text = "Day 1 Guide"
+
+[node name="GuideBody" type="Label" parent="ContentPanel/Margin/VBox/GuidePanel/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "- Farm now if you want harvests on Day 3."
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="Stats" type="VBoxContainer" parent="ContentPanel/Margin/VBox"]

@@ -10,6 +10,18 @@ This project now has a first playable day-side farm slice wired into the meta lo
 - Data: `res://data/seeds.json`, `res://data/crops.json`
 - Save owner: `ProfileStore.meta_progress.farm_state`
 
+## Current Crop Catalog
+
+The current starter slice ships with five crops:
+
+- `wheat`
+- `herb`
+- `kelpberry`
+- `emberleaf`
+- `mooncap`
+
+`wheat` and `herb` are the starter staples. `kelpberry` and `emberleaf` come from the day shop and create meaningful early economy choices because they can be sold safely or routed into dedicated restaurant dishes. `mooncap` is the combat-driven premium crop path.
+
 ## Runtime Flow
 
 1. Enter the farm from the Day Hub.
@@ -77,9 +89,18 @@ This keeps plot persistence independent from the farm UI and lets the meta loop 
 - Till costs `1` stamina.
 - Plant cost comes from `seeds.json`.
 - Water costs `1` stamina.
-- Harvest is free.
+- Harvest costs `1` action and no stamina.
 - A crop advances only if it was watered on the previous day.
 - Harvest resets the plot to empty.
+
+## Balance Role
+
+Farm output is intentionally useful but not dominant.
+
+- raw crop sales are a safe fallback when the player needs gold fast
+- the better payoff usually comes from feeding crops into restaurant service
+- shop-only crops exist to widen planning, not to replace the core night-combat progression path
+- the farm is strongest when the player spends early actions setting up later days rather than trying to brute-force same-day profit
 
 ## Test Coverage
 

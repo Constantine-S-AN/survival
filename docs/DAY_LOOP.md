@@ -10,6 +10,16 @@ This vertical slice is a hybrid management/combat loop:
 6. Show the return summary.
 7. Continue into the next day, which advances crop growth and resets daytime pacing.
 
+## First-Run Onboarding
+
+The Day Hub carries the tutorial callouts for the first three in-game days.
+
+- Day 1 explains the full loop: farm sets up later harvests, restaurant gives immediate gold, night combat provides the scarce progression materials, and the return summary converts the run into tomorrow's plan.
+- Day 2 reframes the choice around opportunity cost: a restaurant shift is a major action commitment, while shop seeds and upgrades are long-term investments.
+- Day 3 reminds the player to harvest watered crops first, then choose between selling produce, cooking it, or saving rare materials for premium dishes and unlock progress.
+
+This keeps the onboarding management-first and avoids extra NPC/tutorial scene work.
+
 ## Daytime Pacing
 
 The day clock is segmented into:
@@ -29,6 +39,17 @@ The day clock is segmented into:
 - night combat cannot launch before the player reaches the evening/night threshold
 
 The intent is explicit opportunity cost: the player should not be able to fully farm, fully serve, and still launch combat without paying time/stamina costs.
+
+## Early-Game Balance
+
+The opening balance is tuned around three distinct values:
+
+- farming is future-facing:
+  raw crop sales are safe cash, but farming mostly exists to set up later restaurant stock and crop-specific recipes.
+- restaurant is the best planned daytime economy:
+  selling ingredients one by one is a fallback; converting the right stock into dishes should usually pay better.
+- night combat is special-value progression:
+  rare materials, crop unlocks, recipe unlocks, and premium dish paths are the main reason to dive, not just direct gold.
 
 ## Shared State
 

@@ -1,34 +1,47 @@
 # Survive: Neon Sonar
 
-A fast, readability-first roguelite built in Godot 4.x.
+A hybrid day-night roguelite built in Godot 4.x.
 
-You survive in a fog-heavy battlefield where information is temporary and costly: sonar reveals threats, but every aggressive action raises Noise, and Noise escalates danger.
+By day, you plan a small farm, menu, and shop economy. By night, you run a fog-heavy combat dive where information is temporary and costly: sonar reveals threats, but every aggressive action raises Noise, and Noise escalates danger.
 
 ## Project Snapshot
 - Engine: Godot 4.6.x
-- Genre: Top-down action roguelite
-- Core loop: Menu -> Run Setup -> Combat -> Upgrade Draft -> Death Summary -> Retry
-- Focus: production-grade UI/UX polish, deterministic data-driven tuning, stable headless testing + CI
+- Genre: Hybrid action roguelite + management planner
+- Core loop: Day Hub -> Farm / Restaurant / Shop -> Night Combat -> Return Summary -> Next Day
+- Focus: readable systems, data-driven tuning, stable persistence, and headless regression coverage
 
 ## Core Gameplay Pillars
+- Hybrid opportunity-cost planning:
+  Farm work, restaurant service, shopping, and resting all consume shared daytime budget.
+- Daytime economy with meaningful tradeoffs:
+  Crops can be sold safely, cooked for better margins, or saved for unlock paths and premium dishes.
 - Fog + sonar information economy:
   Vision is constrained by design. Sonar reveals space and targets, but only for limited windows.
 - Noise-risk combat pacing:
   Attack, dash, and active skill usage increase Noise; higher tiers intensify spawn pressure.
+- Night-only progression materials:
+  Combat runs feed rare ingredients, crop unlocks, recipe unlocks, and premium daytime menu paths.
 - Build direction from constrained choices:
-  Three-card upgrade drafts, tag synergies, rarity rules, prerequisites, and exclusivity branches.
-- Run-level risk/reward contracts:
-  Pre-run contract picks modify XP, rarity, drop, and meta-currency multipliers.
+  Combat still uses three-card upgrade drafts, tag synergies, rarity rules, prerequisites, and exclusivity branches.
 
 ## Showcase Features (Current)
-- Unified neon UI system:
-  Main Menu, Run Setup Wizard, in-run HUD, upgrade draft, summary/progress screens.
-- Scene transition + motion baseline:
-  Global transition controller, reusable micro-motion utilities, reduced-motion-ready architecture.
-- Runtime contract modifier closure:
-  Preview multipliers in setup and actual runtime effect on roll/drop/meta summary output.
+- Unified neon day-night UI:
+  Main Menu, Day Hub, Farm, Restaurant, Shop, return summary, run setup, combat HUD, and upgrade draft.
+- Shared persistence across the hybrid loop:
+  Day, phase, stamina, action budget, inventory, farm plots, menu state, upgrades, and combat return payload all save/load through the same profile model.
+- Expanded starter content:
+  5 crops, 8 recipes, 5 night-only materials, and multiple shop upgrades/unlock paths in the opening slice.
+- Lightweight onboarding:
+  First-three-day guidance, loop callouts, and clearer action/tooltips for new players.
 - Stable automated verification:
-  Headless test runner watchdog/exit discipline and CI workflow for import + tests.
+  Headless tests cover crop progression, menu ingredient consumption, combat reward transfer, save/load restoration, and shop/upgrade flows.
+
+## Current Vertical Slice
+- Daytime actions are segmented into Morning, Noon, Afternoon, Evening, and Night.
+- Farm work sets up future harvests rather than same-day profit.
+- Restaurant service is the best daytime gold when ingredients are planned well.
+- Night combat supplies scarce materials and unlock progress that the daytime economy cannot replace.
+- The first three in-game days are tuned around meaningful choices instead of a single dominant route.
 
 ## Quick Start
 ### Run Latest in One Command
@@ -76,6 +89,7 @@ godot --headless --path . res://tests/TestRunner.tscn --quit-after 3600
 
 ## Data-Driven Tuning
 All major runtime behavior is JSON-driven under `/data`:
+- Day-night crop / recipe loop: `data/seeds.json`, `data/crops.json`, `data/recipes.json`, `data/shop_inventory.json`, `data/special_ingredients.json`, `data/restaurant_upgrades.json`, `data/unlocks.json`, `data/night_loot_tables.json`
 - Characters: `data/characters.json`
 - Weapons: `data/weapons.json`
 - Upgrades: `data/upgrades.json`
@@ -106,6 +120,10 @@ godot --headless --path . --export-release "Windows Desktop" exports/NeonSonar.e
 ```
 
 ## Documentation
+- Day loop: `docs/DAY_LOOP.md`
+- Farm system: `docs/FARM_SYSTEM.md`
+- Restaurant system: `docs/RESTAURANT_SYSTEM.md`
+- Save model: `docs/SAVE_MODEL.md`
 - UI style guide: `docs/UI_STYLE_GUIDE.md`
 - Design notes: `docs/DESIGN_NOTES.md`
 - Trailer / capture references: `media/TRAILER_CAPTURE.md`, `media/SHOTLIST.md`

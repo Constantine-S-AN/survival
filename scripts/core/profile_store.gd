@@ -44,7 +44,13 @@ const DEFAULT_META_PROGRESS: Dictionary = {
 			"scrap": 0
 		},
 		"unlocked_seeds": ["wheat_seed", "herb_seed"],
-		"unlocked_recipes": ["field_stew", "herb_tea"]
+		"unlocked_recipes": [
+			"field_stew",
+			"herb_tea",
+			"kelpfire_noodles",
+			"kelpberry_tart",
+			"emberleaf_flatbread"
+		]
 	},
 	"farm_state": {
 		"columns": 3,

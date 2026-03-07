@@ -3,29 +3,39 @@
 	"seed_offers": [
 		{
 			"seed_id": "kelpberry_seed",
-			"gold_cost": 7,
-			"description": "A low-risk berry vine suited to daytime cash flow."
+			"gold_cost": 6,
+			"description": "A flexible berry vine that can be sold raw or baked into Kelpberry Tart."
 		},
 		{
 			"seed_id": "emberleaf_seed",
-			"gold_cost": 9,
-			"description": "A hotter crop that sells better once the farm is stable."
+			"gold_cost": 8,
+			"description": "A spiced leaf crop for sharper daytime specials or a dependable cash fallback."
 		}
 	],
 	"sell_entries": [
 		{
 			"material_id": "wheat",
-			"gold_value": 4,
-			"description": "Move staple grain to nearby stalls for immediate cash."
+			"gold_value": 3,
+			"description": "Move staple grain to nearby stalls for safe but modest cash."
 		},
 		{
 			"material_id": "herb",
-			"gold_value": 6,
-			"description": "Fresh herbs sell quickly to daytime kitchens."
+			"gold_value": 4,
+			"description": "Fresh herbs sell quickly, though the restaurant usually gets more from them."
+		},
+		{
+			"material_id": "kelpberry",
+			"gold_value": 7,
+			"description": "Reliable berry cash flow when you need gold more than menu planning."
+		},
+		{
+			"material_id": "emberleaf",
+			"gold_value": 8,
+			"description": "A good emergency sale, but flatbreads make better use of it."
 		},
 		{
 			"material_id": "mooncap",
-			"gold_value": 14,
+			"gold_value": 13,
 			"description": "A premium luminous fungus with a strong market price."
 		},
 		{

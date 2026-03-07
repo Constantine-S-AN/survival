@@ -8,7 +8,7 @@
 			"description": "A staple grain that anchors the daytime kitchen.",
 			"growth_days": 2,
 			"harvest_yield": 3,
-			"sell_value": 4,
+			"sell_value": 3,
 			"ingredient_tags": ["grain", "staple"]
 		},
 		{
@@ -18,7 +18,7 @@
 			"description": "Fast greens that keep simple dishes and tea service moving.",
 			"growth_days": 1,
 			"harvest_yield": 2,
-			"sell_value": 6,
+			"sell_value": 4,
 			"ingredient_tags": ["herb", "fresh"]
 		},
 		{
@@ -28,27 +28,27 @@
 			"description": "A luminous fungus grown from Moon Spores and prized by the restaurant's signature menu.",
 			"growth_days": 1,
 			"harvest_yield": 2,
-			"sell_value": 14,
+			"sell_value": 13,
 			"ingredient_tags": ["fungus", "night", "luxury"]
 		},
 		{
 			"id": "kelpberry",
 			"seed_id": "kelpberry_seed",
 			"name": "Kelpberry",
-			"description": "A briny berry vine that gives the daytime economy a dependable cash crop.",
+			"description": "A briny berry vine that can either smooth out the cash flow or feed profitable daytime baking.",
 			"growth_days": 2,
 			"harvest_yield": 2,
-			"sell_value": 8,
+			"sell_value": 7,
 			"ingredient_tags": ["fruit", "saline"]
 		},
 		{
 			"id": "emberleaf",
 			"seed_id": "emberleaf_seed",
 			"name": "Emberleaf",
-			"description": "A warm, peppery leaf bundle prized for quick market turnover.",
+			"description": "A warm, peppery leaf bundle that sells well but becomes more valuable in planned lunch specials.",
 			"growth_days": 2,
 			"harvest_yield": 2,
-			"sell_value": 10,
+			"sell_value": 8,
 			"ingredient_tags": ["leaf", "spice"]
 		}
 	]

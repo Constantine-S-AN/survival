@@ -122,9 +122,9 @@ func _run_data_registry_tests() -> void:
 	var night_loot_tables: Array = registry.get_night_loot_tables()
 	var meta_unlocks: Array = registry.get_meta_unlocks()
 	var restaurant_upgrades: Array = registry.get_restaurant_upgrades()
-	_assert_true(seeds.size() >= 3, "seeds has at least 3 entries")
-	_assert_true(crops.size() >= 3, "crops has at least 3 entries")
-	_assert_true(recipes.size() >= 6, "recipes has at least 6 entries")
+	_assert_true(seeds.size() >= 5, "seeds has at least 5 entries")
+	_assert_true(crops.size() >= 5, "crops has at least 5 entries")
+	_assert_true(recipes.size() >= 8, "recipes has at least 8 entries")
 	_assert_true(special_ingredients.size() >= 5, "special ingredients has at least 5 entries")
 	_assert_true(night_loot_tables.size() >= 3, "night loot tables has at least 3 entries")
 	_assert_true(meta_unlocks.size() >= 3, "meta unlocks has at least 3 entries")
@@ -135,6 +135,8 @@ func _run_data_registry_tests() -> void:
 	_assert_true(registry.has_crop("mooncap"), "crops include mooncap")
 	_assert_true(registry.has_recipe("field_stew"), "recipes include field_stew")
 	_assert_true(registry.has_recipe("kelpfire_noodles"), "recipes include kelpfire_noodles")
+	_assert_true(registry.has_recipe("kelpberry_tart"), "recipes include kelpberry_tart")
+	_assert_true(registry.has_recipe("emberleaf_flatbread"), "recipes include emberleaf_flatbread")
 	_assert_true(registry.has_recipe("mooncap_hotpot"), "recipes include mooncap_hotpot")
 	_assert_true(registry.has_recipe("abyssfin_crudo"), "recipes include abyssfin_crudo")
 	_assert_true(registry.has_special_ingredient("abyssfin"), "special ingredients include abyssfin")
@@ -148,10 +150,20 @@ func _run_data_registry_tests() -> void:
 	var kelpfire_noodles_ingredients: Dictionary = kelpfire_noodles.get("ingredients", {})
 	_assert_equal(int(kelpfire_noodles.get("base_price", 0)), 24, "kelpfire_noodles base price matches data")
 	_assert_equal(int(kelpfire_noodles_ingredients.get("glow_kelp", 0)), 1, "kelpfire_noodles requires Glow Kelp")
+	var kelpberry_tart: Dictionary = registry.get_recipe("kelpberry_tart")
+	_assert_equal(int((kelpberry_tart.get("ingredients", {}) as Dictionary).get("kelpberry", 0)), 1, "kelpberry_tart uses kelpberry crops")
+	var emberleaf_flatbread: Dictionary = registry.get_recipe("emberleaf_flatbread")
+	_assert_equal(int((emberleaf_flatbread.get("ingredients", {}) as Dictionary).get("emberleaf", 0)), 1, "emberleaf_flatbread uses emberleaf crops")
 	var mooncap_hotpot: Dictionary = registry.get_recipe("mooncap_hotpot")
 	var mooncap_hotpot_ingredients: Dictionary = mooncap_hotpot.get("ingredients", {})
 	_assert_equal(int(mooncap_hotpot.get("base_price", 0)), 32, "mooncap_hotpot base price matches data")
 	_assert_equal(int(mooncap_hotpot_ingredients.get("abyssfin", 0)), 1, "mooncap_hotpot requires night-only abyssfin")
+	var starter_recipe_ids: Array[String] = registry.get_recipe_ids_started_unlocked()
+	_assert_true(starter_recipe_ids.has("kelpberry_tart"), "starter recipe list includes kelpberry_tart")
+	_assert_true(starter_recipe_ids.has("emberleaf_flatbread"), "starter recipe list includes emberleaf_flatbread")
+	_assert_true(not registry.get_shop_sell_entry("kelpberry").is_empty(), "shop can sell kelpberry crops")
+	_assert_true(not registry.get_shop_sell_entry("emberleaf").is_empty(), "shop can sell emberleaf crops")
+	_assert_true(registry.get_shop_sell_entry("abyssfin").is_empty(), "night-only premium ingredients are reserved for unlocks and dishes instead of raw shop sales")
 	_assert_equal(String(registry.get_meta_unlock("mooncap_seed_study").get("target_id", "")), "mooncap_seed", "mooncap seed study unlock points at mooncap_seed")
 	_assert_equal(String(registry.get_meta_unlock("abyssfin_crudo_notes").get("target_id", "")), "abyssfin_crudo", "abyssfin crudo notes unlock points at abyssfin_crudo")
 	_assert_equal(String(registry.get_material_display_name("abyssfin")), "Abyssfin Fillet", "material display name resolves special ingredients")
@@ -512,6 +524,8 @@ func _run_character_profile_tests() -> void:
 	_assert_true((normalized_inventory.get("unlocked_seeds", []) as Array).has("wheat_seed"), "meta progress normalization restores default unlocked seeds")
 	_assert_true((normalized_inventory.get("unlocked_seeds", []) as Array).has("herb_seed"), "meta progress normalization keeps starter farm seeds")
 	_assert_true((normalized_inventory.get("unlocked_seeds", []) as Array).has("kelpberry_seed"), "meta progress normalization preserves purchased seeds")
+	_assert_true((normalized_inventory.get("unlocked_recipes", []) as Array).has("kelpberry_tart"), "meta progress normalization restores new starter recipe unlocks")
+	_assert_true((normalized_inventory.get("unlocked_recipes", []) as Array).has("emberleaf_flatbread"), "meta progress normalization restores crop-driven starter recipes")
 	var normalized_plots: Array = normalized_farm_state.get("plots", [])
 	if normalized_plots.size() >= 2:
 		var invalid_plot: Dictionary = normalized_plots[0]
@@ -2347,8 +2361,15 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(String(snapshot.get("current_screen", "")), "day_hub", "meta loop enters day hub from main menu")
 	_assert_equal(String(snapshot.get("phase", "")), "morning", "meta loop starts each daytime loop in the morning")
 	_assert_equal(int(snapshot.get("action_budget", 0)), 5, "meta loop starts with a full daytime action budget")
+	_assert_true(not String(snapshot.get("day_hub_guide_title", "")).is_empty(), "day hub shows an early-day onboarding title")
+	_assert_true(String(snapshot.get("day_hub_guide_text", "")).to_lower().find("night combat") >= 0, "day hub onboarding explains the hybrid loop")
+	_assert_true(String(snapshot.get("day_hub_restaurant_button_tooltip", "")).find("3") >= 0, "day hub restaurant tooltip explains the major action cost")
 	_assert_true(bool(snapshot.get("night_button_disabled", false)), "night combat stays locked before evening")
 	_assert_true(not bool(meta_root.call("debug_launch_night")), "night combat cannot launch before the evening phase")
+	var starter_kelpberry_card := _find_entry_by_id(snapshot.get("restaurant_recipe_cards", []), "kelpberry_tart")
+	var starter_emberleaf_card := _find_entry_by_id(snapshot.get("restaurant_recipe_cards", []), "emberleaf_flatbread")
+	_assert_true(not starter_kelpberry_card.is_empty(), "starter restaurant content includes kelpberry_tart")
+	_assert_true(not starter_emberleaf_card.is_empty(), "starter restaurant content includes emberleaf_flatbread")
 
 	meta_root.call("debug_open_farm")
 	await get_tree().process_frame
@@ -2425,6 +2446,7 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(int(snapshot.get("stamina", 0)), 4, "injury penalty reduces next-day stamina")
 	_assert_equal(int(snapshot.get("action_budget", 0)), 5, "next day restores the daytime action budget")
 	_assert_true(bool(snapshot.get("night_button_disabled", false)), "night combat locks again at the start of the next day")
+	_assert_equal(String(snapshot.get("day_hub_guide_title", "")), "Day 2 Guide", "day hub onboarding advances to the second-day guidance")
 	var day2_materials: Dictionary = snapshot.get("inventory_materials", {})
 	_assert_equal(int(day2_materials.get("abyssfin", 0)), 1, "shared inventory retains abyssfin after returning from combat")
 	_assert_equal(int(day2_materials.get("reef_salt", 0)), 0, "shared inventory does not gain Reef Salt until a successful night clear")
@@ -2606,6 +2628,7 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(int(reload_snapshot.get("current_day", 0)), 3, "second return summary advances to day 3")
 	_assert_equal(String(reload_snapshot.get("phase", "")), "morning", "day 3 starts back at the morning phase")
 	_assert_equal(int(reload_snapshot.get("action_budget", 0)), 5, "day 3 restores the daytime budget after night combat")
+	_assert_equal(String(reload_snapshot.get("day_hub_guide_title", "")), "Day 3 Guide", "day hub onboarding advances to the third-day guidance")
 	_assert_true((reload_snapshot.get("unlocked_seed_ids", []) as Array).has("mooncap_seed"), "mooncap seed unlock persists into daytime farm state")
 	_assert_true((reload_snapshot.get("unlocked_recipe_ids", []) as Array).has("mooncap_hotpot"), "mooncap hotpot unlock persists into daytime restaurant state")
 	_assert_true((reload_snapshot.get("unlocked_recipe_ids", []) as Array).has("abyssfin_crudo"), "additional premium recipe unlock persists into daytime restaurant state")
@@ -2673,9 +2696,13 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(String(final_snapshot.get("current_screen", "")), "shop", "meta loop opens the shop screen from day hub")
 	var kelpberry_offer := _find_entry_by_id(final_snapshot.get("shop_seed_offers", []), "kelpberry_seed")
 	var emberleaf_offer := _find_entry_by_id(final_snapshot.get("shop_seed_offers", []), "emberleaf_seed")
+	var kelpberry_sell_offer := _find_entry_by_id(final_snapshot.get("shop_sell_offers", []), "kelpberry")
+	var emberleaf_sell_offer := _find_entry_by_id(final_snapshot.get("shop_sell_offers", []), "emberleaf")
 	var window_box_offer := _find_entry_by_id(final_snapshot.get("shop_upgrade_offers", []), "decor_window_box")
 	_assert_true(not kelpberry_offer.is_empty(), "shop exposes the first purchasable seed type")
 	_assert_true(not emberleaf_offer.is_empty(), "shop exposes the second purchasable seed type")
+	_assert_true(not kelpberry_sell_offer.is_empty(), "shop exposes kelpberry as a sellable crop")
+	_assert_true(not emberleaf_sell_offer.is_empty(), "shop exposes emberleaf as a sellable crop")
 	_assert_true(not window_box_offer.is_empty(), "shop exposes restaurant upgrades from the upgrade data")
 	var gold_before_shop := int(final_snapshot.get("gold", 0))
 	_assert_true(bool(meta_root_final.call("debug_shop_sell_material", "wheat")), "shop can sell harvested wheat for gold")
@@ -2693,6 +2720,26 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true(String(final_snapshot.get("shop_owned_upgrades_summary", "")).find("Window Herb Boxes") >= 0, "shop UI surfaces installed upgrade effects clearly")
 	var service_simulator := preload("res://scripts/day/restaurant/service_simulator.gd")
 	var compare_recipe := DataRegistry.get_recipe("field_stew")
+	var starter_service: Dictionary = service_simulator.simulate_service({
+		"day": 1,
+		"reputation": 1,
+		"menu_recipes": [compare_recipe],
+		"inventory_materials": {"wheat": 2, "herb": 1},
+		"upgrades": []
+	})
+	var starter_raw_sale_value := int(DataRegistry.get_shop_sell_entry("wheat").get("gold_value", 0)) * 2 + int(DataRegistry.get_shop_sell_entry("herb").get("gold_value", 0))
+	_assert_true(bool(starter_service.get("ok", false)), "starter field_stew service simulation succeeds")
+	_assert_true(int(starter_service.get("revenue", 0)) > starter_raw_sale_value, "planned starter cooking beats raw produce sales")
+	var kelpberry_service: Dictionary = service_simulator.simulate_service({
+		"day": 2,
+		"reputation": 1,
+		"menu_recipes": [DataRegistry.get_recipe("kelpberry_tart")],
+		"inventory_materials": {"wheat": 1, "kelpberry": 1},
+		"upgrades": []
+	})
+	var kelpberry_raw_sale_value := int(DataRegistry.get_shop_sell_entry("wheat").get("gold_value", 0)) + int(DataRegistry.get_shop_sell_entry("kelpberry").get("gold_value", 0))
+	_assert_true(bool(kelpberry_service.get("ok", false)), "kelpberry_tart service simulation succeeds")
+	_assert_true(int(kelpberry_service.get("revenue", 0)) > kelpberry_raw_sale_value, "shop crop recipes outperform raw kelpberry sales when planned")
 	var base_service: Dictionary = service_simulator.simulate_service({
 		"day": 4,
 		"reputation": 2,

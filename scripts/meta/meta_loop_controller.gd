@@ -802,6 +802,7 @@ func _apply_night_rewards(summary: Dictionary) -> Dictionary:
 
 func _build_day_hub_model() -> Dictionary:
 	var bridge_info := _build_day_hub_bridge_info()
+	var onboarding_info := _build_day_hub_onboarding_info()
 	var night_ready := _day_state.can_launch_night()
 	return {
 		"current_day": _day_state.current_day,
@@ -822,8 +823,12 @@ func _build_day_hub_model() -> Dictionary:
 		"bonus_tooltip": _build_night_bonus_summary(),
 		"bridge_summary": String(bridge_info.get("summary", _t("meta.bridge.summary_none"))),
 		"bridge_tooltip": String(bridge_info.get("tooltip", "")),
+		"guide_title": String(onboarding_info.get("title", "")),
+		"guide_text": String(onboarding_info.get("text", "")),
+		"farm_button_tooltip": _build_day_hub_farm_tooltip(),
+		"restaurant_button_tooltip": _build_day_hub_restaurant_tooltip(),
 		"shop_button_text": _t("meta.hub.shop"),
-		"shop_button_tooltip": _t("meta.hub.shop_tooltip"),
+		"shop_button_tooltip": _build_day_hub_shop_tooltip(),
 		"status_text": _build_day_hub_status_text(),
 		"wait_button_text": _t("meta.hub.wait_evening"),
 		"wait_button_tooltip": _build_wait_button_tooltip(),
@@ -851,6 +856,39 @@ func _build_night_button_tooltip() -> String:
 	if _day_state.can_launch_night():
 		return _t("meta.hub.night_tooltip_ready")
 	return _t("meta.hub.night_tooltip_locked", {"value": _day_state.actions_until_evening()})
+
+
+func _build_day_hub_onboarding_info() -> Dictionary:
+	if _day_state.current_day <= 1:
+		return {
+			"title": _t("meta.hub.guide_title_day1"),
+			"text": _t("meta.hub.guide_body_day1")
+		}
+	if _day_state.current_day == 2:
+		return {
+			"title": _t("meta.hub.guide_title_day2"),
+			"text": _t("meta.hub.guide_body_day2", {"value": RESTAURANT_SERVICE_ACTION_COST})
+		}
+	if _day_state.current_day == 3:
+		return {
+			"title": _t("meta.hub.guide_title_day3"),
+			"text": _t("meta.hub.guide_body_day3")
+		}
+	return {}
+
+
+func _build_day_hub_farm_tooltip() -> String:
+	return _t("meta.hub.farm_tooltip")
+
+
+func _build_day_hub_restaurant_tooltip() -> String:
+	return _t("meta.hub.restaurant_tooltip", {"value": RESTAURANT_SERVICE_ACTION_COST})
+
+
+func _build_day_hub_shop_tooltip() -> String:
+	if _day_state.current_day <= 3:
+		return _t("meta.hub.shop_tooltip_early")
+	return _t("meta.hub.shop_tooltip")
 
 
 func _build_farm_model() -> Dictionary:
@@ -2238,6 +2276,10 @@ func debug_get_snapshot() -> Dictionary:
 		"seed_summary": _build_unlocked_seed_summary(),
 		"recipe_summary": _build_unlocked_recipe_summary(),
 		"day_hub_status_text": String(day_hub_model.get("status_text", "")),
+		"day_hub_guide_title": String(day_hub_model.get("guide_title", "")),
+		"day_hub_guide_text": String(day_hub_model.get("guide_text", "")),
+		"day_hub_farm_button_tooltip": String(day_hub_model.get("farm_button_tooltip", "")),
+		"day_hub_restaurant_button_tooltip": String(day_hub_model.get("restaurant_button_tooltip", "")),
 		"day_hub_shop_button_tooltip": String(day_hub_model.get("shop_button_tooltip", "")),
 		"night_button_disabled": bool(day_hub_model.get("night_button_disabled", false)),
 		"wait_button_disabled": bool(day_hub_model.get("wait_button_disabled", false)),

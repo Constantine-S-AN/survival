@@ -10,6 +10,9 @@ signal menu_requested
 
 @onready var title_label: Label = $ContentPanel/Margin/VBox/Title
 @onready var subtitle_label: Label = $ContentPanel/Margin/VBox/Subtitle
+@onready var guide_panel: Panel = $ContentPanel/Margin/VBox/GuidePanel
+@onready var guide_title_label: Label = $ContentPanel/Margin/VBox/GuidePanel/Margin/VBox/GuideTitle
+@onready var guide_body_label: Label = $ContentPanel/Margin/VBox/GuidePanel/Margin/VBox/GuideBody
 @onready var day_label: Label = $ContentPanel/Margin/VBox/Stats/DayLabel
 @onready var gold_label: Label = $ContentPanel/Margin/VBox/Stats/GoldLabel
 @onready var reputation_label: Label = $ContentPanel/Margin/VBox/Stats/ReputationLabel
@@ -66,11 +69,18 @@ func _apply_view_model() -> void:
 	title_label.text = _t("meta.hub.title")
 	subtitle_label.text = _t("meta.hub.subtitle")
 	farm_button.text = _t("meta.hub.farm")
+	farm_button.tooltip_text = String(_view_model.get("farm_button_tooltip", ""))
 	restaurant_button.text = _t("meta.hub.restaurant")
+	restaurant_button.tooltip_text = String(_view_model.get("restaurant_button_tooltip", ""))
 	shop_button.text = String(_view_model.get("shop_button_text", _t("meta.hub.shop")))
 	shop_button.tooltip_text = String(_view_model.get("shop_button_tooltip", ""))
 	night_button.text = _t("meta.hub.launch_night")
 	menu_button.text = _t("meta.hub.menu")
+	var guide_title := String(_view_model.get("guide_title", "")).strip_edges()
+	var guide_text := String(_view_model.get("guide_text", "")).strip_edges()
+	guide_panel.visible = not guide_title.is_empty() or not guide_text.is_empty()
+	guide_title_label.text = guide_title
+	guide_body_label.text = guide_text
 	day_label.text = _t("meta.hub.day", {"value": int(_view_model.get("current_day", 1))})
 	gold_label.text = _t("meta.hub.gold", {"value": int(_view_model.get("gold", 0))})
 	reputation_label.text = _t("meta.hub.reputation", {"value": int(_view_model.get("reputation", 1))})
