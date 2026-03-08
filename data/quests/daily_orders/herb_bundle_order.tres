@@ -13,3 +13,5 @@ pillar = "farm"
 target_id = "herb"
 target_amount = 2
 reward_gold = 4
+reward_material_id = "herb"
+reward_material_amount = 1

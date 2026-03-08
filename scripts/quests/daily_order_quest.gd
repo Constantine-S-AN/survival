@@ -12,6 +12,10 @@ const PILLAR_NIGHT := "night"
 @export var target_id: String = ""
 @export var target_amount: int = 1
 @export var reward_gold: int = 0
+@export var reward_reputation: int = 0
+@export var reward_material_id: String = ""
+@export var reward_material_amount: int = 0
+@export var reward_seed_id: String = ""
 
 var current_amount: int = 0
 var assigned_day: int = 0
@@ -50,6 +54,24 @@ func get_pillar_title() -> String:
 		PILLAR_NIGHT:
 			return "Night Run"
 	return "Orders"
+
+
+func get_reward_config() -> Dictionary:
+	var reward := {
+		"gold": maxi(0, reward_gold),
+		"reputation": maxi(0, reward_reputation),
+		"materials": {},
+		"seed_ids": []
+	}
+	var material_id := reward_material_id.strip_edges().to_lower()
+	if not material_id.is_empty() and reward_material_amount > 0:
+		reward["materials"] = {
+			material_id: maxi(0, reward_material_amount)
+		}
+	var seed_id := reward_seed_id.strip_edges().to_lower()
+	if not seed_id.is_empty():
+		reward["seed_ids"] = [seed_id]
+	return reward
 
 
 func _get_safe_target_amount() -> int:

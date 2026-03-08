@@ -62,7 +62,7 @@ func get_order_cards() -> Array[Dictionary]:
 			"description": quest.quest_description,
 			"objective": quest.quest_objective,
 			"progress_text": quest.get_progress_text(),
-			"reward_text": "+%d gold" % maxi(0, quest.reward_gold),
+			"reward_text": describe_reward(_get_reward_config(quest)),
 			"completed": completed,
 			"can_claim": ready_to_claim,
 			"status_text": _build_status_text(completed, ready_to_claim)
@@ -81,6 +81,13 @@ func get_ready_to_claim_count() -> int:
 		if QuestSystem.is_quest_active(quest) and quest.objective_completed:
 			count += 1
 	return count
+
+
+func describe_reward(reward: Dictionary) -> String:
+	var parts := _build_reward_parts(reward)
+	if parts.is_empty():
+		return "No reward"
+	return " · ".join(parts)
 
 
 func claim_order(order_id: int) -> Dictionary:
@@ -221,33 +228,198 @@ func _persist_state() -> void:
 	})
 
 
-func _apply_gold_reward(amount: int) -> void:
-	var reward_amount := maxi(0, amount)
-	if reward_amount <= 0:
-		return
+func _grant_reward(quest: DailyOrderQuest) -> Dictionary:
+	var reward := _get_reward_config(quest)
 	var current_scene := get_tree().current_scene
-	if current_scene != null:
-		var economy_variant: Variant = current_scene.get("_economy")
-		if economy_variant != null and economy_variant.has_method("add_gold"):
-			economy_variant.call("add_gold", reward_amount)
-			if current_scene.has_method("_save_meta_progress"):
-				current_scene.call("_save_meta_progress")
-			if current_scene.has_method("_refresh_views"):
-				current_scene.call("_refresh_views")
-			return
+	var economy_target: Variant = current_scene.get("_economy") if current_scene != null else null
+	var inventory_target: Variant = current_scene.get("_inventory") if current_scene != null else null
+	var applied_reward := (
+		_apply_reward_to_runtime(reward, economy_target, inventory_target)
+		if economy_target != null or inventory_target != null
+		else _apply_reward_to_profile(reward)
+	)
+	if current_scene != null and _reward_has_content(reward):
+		if current_scene.has_method("_save_meta_progress"):
+			current_scene.call("_save_meta_progress")
+		if current_scene.has_method("_refresh_views"):
+			current_scene.call("_refresh_views")
+	QuestSystem.complete_quest(quest)
+	return applied_reward
+
+
+func _get_reward_config(quest: DailyOrderQuest) -> Dictionary:
+	if quest == null:
+		return _build_empty_reward()
+	if quest.has_method("get_reward_config"):
+		var reward_variant: Variant = quest.call("get_reward_config")
+		if reward_variant is Dictionary:
+			return _normalize_reward_dictionary(reward_variant)
+	return _normalize_reward_dictionary({"gold": maxi(0, quest.reward_gold)})
+
+
+func _apply_reward_to_runtime(reward: Dictionary, economy_target: Variant, inventory_target: Variant) -> Dictionary:
+	var applied := _build_empty_reward()
+	var gold_amount := maxi(0, int(reward.get("gold", 0)))
+	if gold_amount > 0 and economy_target != null and economy_target.has_method("add_gold"):
+		var gold_before := maxi(0, int(economy_target.get("gold")))
+		economy_target.call("add_gold", gold_amount)
+		applied["gold"] = maxi(0, int(economy_target.get("gold")) - gold_before)
+	var reputation_amount := maxi(0, int(reward.get("reputation", 0)))
+	if reputation_amount > 0 and economy_target != null and economy_target.has_method("add_reputation"):
+		var reputation_before := clampi(int(economy_target.get("restaurant_reputation")), 0, 20)
+		economy_target.call("add_reputation", reputation_amount)
+		applied["reputation"] = maxi(0, int(economy_target.get("restaurant_reputation")) - reputation_before)
+	var materials_variant: Variant = reward.get("materials", {})
+	var materials: Dictionary = materials_variant if materials_variant is Dictionary else {}
+	var applied_materials: Dictionary = {}
+	if inventory_target != null and inventory_target.has_method("add_material") and inventory_target.has_method("get_material_amount"):
+		for material_id_variant in materials.keys():
+			var material_id := String(material_id_variant).strip_edges().to_lower()
+			var amount := maxi(0, int(materials.get(material_id_variant, 0)))
+			if material_id.is_empty() or amount <= 0:
+				continue
+			var before := maxi(0, int(inventory_target.call("get_material_amount", material_id)))
+			inventory_target.call("add_material", material_id, amount)
+			var after := maxi(0, int(inventory_target.call("get_material_amount", material_id)))
+			var applied_amount := maxi(0, after - before)
+			if applied_amount > 0:
+				applied_materials[material_id] = applied_amount
+	if not applied_materials.is_empty():
+		applied["materials"] = applied_materials
+	var seed_ids := _normalize_string_id_array(reward.get("seed_ids", []))
+	var applied_seed_ids: Array[String] = []
+	if inventory_target != null and inventory_target.has_method("unlock_seed"):
+		for seed_id in seed_ids:
+			if bool(inventory_target.call("unlock_seed", seed_id)):
+				applied_seed_ids.append(seed_id)
+	if not applied_seed_ids.is_empty():
+		applied["seed_ids"] = applied_seed_ids
+	return applied
+
+
+func _apply_reward_to_profile(reward: Dictionary) -> Dictionary:
+	var applied := _build_empty_reward()
 	var meta_progress := ProfileStore.get_meta_progress_state()
 	var economy_variant: Variant = meta_progress.get("economy", {})
 	var economy: Dictionary = economy_variant if economy_variant is Dictionary else {}
-	economy["gold"] = maxi(0, int(economy.get("gold", 0)) + reward_amount)
+	var inventory_variant: Variant = meta_progress.get("inventory", {})
+	var inventory: Dictionary = inventory_variant if inventory_variant is Dictionary else {}
+	var gold_before := maxi(0, int(economy.get("gold", 0)))
+	var gold_amount := maxi(0, int(reward.get("gold", 0)))
+	economy["gold"] = gold_before + gold_amount
+	applied["gold"] = maxi(0, int(economy.get("gold", 0)) - gold_before)
+	var reputation_before := clampi(int(economy.get("restaurant_reputation", 1)), 0, 20)
+	var reputation_amount := maxi(0, int(reward.get("reputation", 0)))
+	economy["restaurant_reputation"] = clampi(reputation_before + reputation_amount, 0, 20)
+	applied["reputation"] = maxi(0, int(economy.get("restaurant_reputation", 1)) - reputation_before)
+	var materials_variant: Variant = inventory.get("materials", {})
+	var materials: Dictionary = materials_variant if materials_variant is Dictionary else {}
+	var reward_materials_variant: Variant = reward.get("materials", {})
+	var reward_materials: Dictionary = reward_materials_variant if reward_materials_variant is Dictionary else {}
+	var applied_materials: Dictionary = {}
+	for material_id_variant in reward_materials.keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		var amount := maxi(0, int(reward_materials.get(material_id_variant, 0)))
+		if material_id.is_empty() or amount <= 0:
+			continue
+		var before := maxi(0, int(materials.get(material_id, 0)))
+		materials[material_id] = before + amount
+		applied_materials[material_id] = maxi(0, int(materials.get(material_id, 0)) - before)
+	if not applied_materials.is_empty():
+		applied["materials"] = applied_materials
+	inventory["materials"] = materials
+	var unlocked_seed_ids := _normalize_string_id_array(inventory.get("unlocked_seeds", []))
+	var applied_seed_ids: Array[String] = []
+	for seed_id in _normalize_string_id_array(reward.get("seed_ids", [])):
+		if unlocked_seed_ids.has(seed_id):
+			continue
+		unlocked_seed_ids.append(seed_id)
+		applied_seed_ids.append(seed_id)
+	if not applied_seed_ids.is_empty():
+		applied["seed_ids"] = applied_seed_ids
+	inventory["unlocked_seeds"] = unlocked_seed_ids
 	meta_progress["economy"] = economy
+	meta_progress["inventory"] = inventory
 	ProfileStore.set_meta_progress_state(meta_progress)
+	return applied
 
 
-func _grant_reward(quest: DailyOrderQuest) -> Dictionary:
-	var reward := {"gold": maxi(0, quest.reward_gold)}
-	_apply_gold_reward(int(reward.get("gold", 0)))
-	QuestSystem.complete_quest(quest)
-	return reward
+func _build_empty_reward() -> Dictionary:
+	return {
+		"gold": 0,
+		"reputation": 0,
+		"materials": {},
+		"seed_ids": []
+	}
+
+
+func _normalize_reward_dictionary(reward_variant: Variant) -> Dictionary:
+	var reward: Dictionary = reward_variant if reward_variant is Dictionary else {}
+	var normalized := _build_empty_reward()
+	normalized["gold"] = maxi(0, int(reward.get("gold", 0)))
+	normalized["reputation"] = maxi(0, int(reward.get("reputation", 0)))
+	normalized["materials"] = _normalize_snapshot(reward.get("materials", {}))
+	normalized["seed_ids"] = _normalize_string_id_array(reward.get("seed_ids", []))
+	return normalized
+
+
+func _build_reward_parts(reward: Dictionary) -> Array[String]:
+	var normalized_reward := _normalize_reward_dictionary(reward)
+	var parts: Array[String] = []
+	var gold_amount := int(normalized_reward.get("gold", 0))
+	if gold_amount > 0:
+		parts.append("+%d gold" % gold_amount)
+	var reputation_amount := int(normalized_reward.get("reputation", 0))
+	if reputation_amount > 0:
+		parts.append("+%d reputation" % reputation_amount)
+	var materials_variant: Variant = normalized_reward.get("materials", {})
+	var materials: Dictionary = materials_variant if materials_variant is Dictionary else {}
+	var material_ids: Array[String] = []
+	for material_id_variant in materials.keys():
+		material_ids.append(String(material_id_variant))
+	material_ids.sort()
+	for material_id in material_ids:
+		parts.append("+%d %s" % [int(materials.get(material_id, 0)), _get_material_display_name(material_id)])
+	for seed_id in _normalize_string_id_array(normalized_reward.get("seed_ids", [])):
+		parts.append("Unlock %s" % _get_seed_display_name(seed_id))
+	return parts
+
+
+func _get_material_display_name(material_id: String) -> String:
+	var normalized_id := material_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return "Material"
+	if DataRegistry != null and DataRegistry.has_method("get_material_display_name"):
+		var display_name := String(DataRegistry.call("get_material_display_name", normalized_id)).strip_edges()
+		if not display_name.is_empty():
+			return display_name
+	return normalized_id.capitalize()
+
+
+func _get_seed_display_name(seed_id: String) -> String:
+	var normalized_id := seed_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return "Seed Pack"
+	if DataRegistry != null and DataRegistry.has_method("get_seed"):
+		var seed_variant: Variant = DataRegistry.call("get_seed", normalized_id)
+		if seed_variant is Dictionary:
+			var seed: Dictionary = seed_variant
+			var display_name := String(seed.get("name", "")).strip_edges()
+			if not display_name.is_empty():
+				return display_name
+	return normalized_id.capitalize()
+
+
+func _reward_has_content(reward: Dictionary) -> bool:
+	var normalized_reward := _normalize_reward_dictionary(reward)
+	if int(normalized_reward.get("gold", 0)) > 0:
+		return true
+	if int(normalized_reward.get("reputation", 0)) > 0:
+		return true
+	var materials_variant: Variant = normalized_reward.get("materials", {})
+	if materials_variant is Dictionary and not (materials_variant as Dictionary).is_empty():
+		return true
+	return not _normalize_string_id_array(normalized_reward.get("seed_ids", [])).is_empty()
 
 
 func _auto_claim_ready_orders() -> int:
@@ -334,6 +506,18 @@ func _normalize_snapshot(source_variant: Variant) -> Dictionary:
 			continue
 		normalized[key] = maxi(0, int(source.get(key_variant, 0)))
 	return normalized
+
+
+func _normalize_string_id_array(source_variant: Variant) -> Array[String]:
+	var output: Array[String] = []
+	if not (source_variant is Array):
+		return output
+	for item in source_variant:
+		var text := String(item).strip_edges().to_lower()
+		if text.is_empty() or output.has(text):
+			continue
+		output.append(text)
+	return output
 
 
 func _positive_delta(current: Dictionary, previous: Dictionary, key: String) -> int:

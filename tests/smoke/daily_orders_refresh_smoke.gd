@@ -23,6 +23,7 @@ func _ready() -> void:
 		return
 	var meta_progress := ProfileStore.get_meta_progress_state()
 	var gold_before := int((meta_progress.get("economy", {}) as Dictionary).get("gold", 0))
+	var reputation_before := int((meta_progress.get("economy", {}) as Dictionary).get("restaurant_reputation", 0))
 	var economy: Dictionary = (meta_progress.get("economy", {}) as Dictionary).duplicate(true)
 	var sold_dishes: Dictionary = (economy.get("sold_dishes_stats", {}) as Dictionary).duplicate(true)
 	sold_dishes["field_stew"] = maxi(0, int(sold_dishes.get("field_stew", 0))) + 1
@@ -60,6 +61,11 @@ func _ready() -> void:
 		push_error("Completed previous-day orders did not auto-claim exactly once on rollover")
 		_cleanup(daily_orders)
 		return
+	var reputation_after_refresh := int((ProfileStore.get_meta_progress_state().get("economy", {}) as Dictionary).get("restaurant_reputation", 0))
+	if reputation_after_refresh != reputation_before + 1:
+		push_error("Previous-day non-gold rewards did not auto-claim exactly once on rollover")
+		_cleanup(daily_orders)
+		return
 	if bool(stew_card.get("completed", false)) or bool(stew_card.get("can_claim", false)):
 		push_error("Previous-day completion state leaked into the refreshed board")
 		_cleanup(daily_orders)
@@ -82,6 +88,11 @@ func _ready() -> void:
 	var gold_after_reload := int((ProfileStore.get_meta_progress_state().get("economy", {}) as Dictionary).get("gold", 0))
 	if gold_after_reload != gold_after_refresh:
 		push_error("Reload duplicated an auto-claimed rollover reward")
+		_cleanup(daily_orders)
+		return
+	var reputation_after_reload := int((ProfileStore.get_meta_progress_state().get("economy", {}) as Dictionary).get("restaurant_reputation", 0))
+	if reputation_after_reload != reputation_after_refresh:
+		push_error("Reload duplicated or lost a rollover non-gold reward")
 		_cleanup(daily_orders)
 		return
 	if bool(stew_card.get("completed", false)) or bool(stew_card.get("can_claim", false)):

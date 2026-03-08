@@ -13,3 +13,5 @@ order_type = "material_gain"
 target_id = "wheat"
 target_amount = 2
 reward_gold = 5
+reward_material_id = "wheat"
+reward_material_amount = 1

@@ -13,3 +13,4 @@ pillar = "restaurant"
 target_id = "kelpfire_noodles"
 target_amount = 1
 reward_gold = 10
+reward_reputation = 1

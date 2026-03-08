@@ -120,6 +120,7 @@ func _build_order_card(card: Dictionary) -> Control:
 	var reward_label := Label.new()
 	reward_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	reward_label.text = String(card.get("reward_text", ""))
+	reward_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	reward_label.theme_type_variation = &"BodyMutedLabel"
 	footer.add_child(reward_label)
 
@@ -139,7 +140,8 @@ func _build_order_card(card: Dictionary) -> Control:
 			else:
 				var reward_variant: Variant = result.get("reward", {})
 				var reward: Dictionary = reward_variant if reward_variant is Dictionary else {}
-				_status_text = "Claimed %s for +%d gold." % [order_name, int(reward.get("gold", 0))]
+				var reward_text := DailyOrders.describe_reward(reward) if DailyOrders != null and DailyOrders.has_method("describe_reward") else ""
+				_status_text = "Claimed %s for %s." % [order_name, reward_text] if not reward_text.is_empty() else "Claimed %s." % order_name
 			_refresh()
 		)
 		footer.add_child(claim_button)

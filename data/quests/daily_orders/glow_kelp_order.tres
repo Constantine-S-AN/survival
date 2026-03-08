@@ -13,3 +13,4 @@ pillar = "night"
 target_id = "glow_kelp"
 target_amount = 1
 reward_gold = 10
+reward_seed_id = "emberleaf_seed"

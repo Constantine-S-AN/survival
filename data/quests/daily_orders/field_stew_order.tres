@@ -13,3 +13,4 @@ order_type = "dish_sales"
 target_id = "field_stew"
 target_amount = 1
 reward_gold = 6
+reward_reputation = 1

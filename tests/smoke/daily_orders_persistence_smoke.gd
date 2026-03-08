@@ -23,6 +23,12 @@ func _ready() -> void:
 		return
 	var meta_progress: Dictionary = ProfileStore.get_meta_progress_state()
 	var gold_before := int((meta_progress.get("economy", {}) as Dictionary).get("gold", 0))
+	var reputation_before := int((meta_progress.get("economy", {}) as Dictionary).get("restaurant_reputation", 0))
+	var inventory_before: Dictionary = (meta_progress.get("inventory", {}) as Dictionary).duplicate(true)
+	var materials_before: Dictionary = (inventory_before.get("materials", {}) as Dictionary).duplicate(true)
+	var wheat_before := int(materials_before.get("wheat", 0))
+	var reef_salt_before := int(materials_before.get("reef_salt", 0))
+	var unlocked_seeds_before: Array = (inventory_before.get("unlocked_seeds", []) as Array).duplicate()
 	var economy: Dictionary = (meta_progress.get("economy", {}) as Dictionary).duplicate(true)
 	var sold_dishes: Dictionary = (economy.get("sold_dishes_stats", {}) as Dictionary).duplicate(true)
 	sold_dishes["field_stew"] = maxi(0, int(sold_dishes.get("field_stew", 0))) + 1
@@ -37,6 +43,18 @@ func _ready() -> void:
 	ProfileStore.set_meta_progress_state(meta_progress)
 	daily_orders.call("_sync_progress")
 	cards = _get_cards(daily_orders)
+	if not String(_get_card(cards, 101).get("reward_text", "")).contains("reputation"):
+		push_error("Restaurant order reward text did not expose reputation reward details")
+		_cleanup(daily_orders)
+		return
+	if not String(_get_card(cards, 102).get("reward_text", "")).contains("Wheat"):
+		push_error("Farm order reward text did not expose material reward details")
+		_cleanup(daily_orders)
+		return
+	if not String(_get_card(cards, 103).get("reward_text", "")).contains("Unlock"):
+		push_error("Night order reward text did not expose seed unlock reward details")
+		_cleanup(daily_orders)
+		return
 	if not bool(_get_card(cards, 101).get("can_claim", false)):
 		push_error("Field Stew order did not become claimable after simulated sales")
 		_cleanup(daily_orders)
@@ -58,14 +76,35 @@ func _ready() -> void:
 			return
 		var reward: Dictionary = result.get("reward", {})
 		total_reward += int(reward.get("gold", 0))
+	var updated_meta_progress := ProfileStore.get_meta_progress_state()
+	var updated_economy: Dictionary = updated_meta_progress.get("economy", {}) as Dictionary
+	var updated_inventory: Dictionary = updated_meta_progress.get("inventory", {}) as Dictionary
+	var updated_materials: Dictionary = updated_inventory.get("materials", {}) as Dictionary
+	var updated_seeds: Array = (updated_inventory.get("unlocked_seeds", []) as Array).duplicate()
 	var second_claim_result: Dictionary = daily_orders.call("claim_order", 101)
 	if bool(second_claim_result.get("ok", false)):
 		push_error("Claimed the same order twice")
 		_cleanup(daily_orders)
 		return
-	var updated_gold := int((ProfileStore.get_meta_progress_state().get("economy", {}) as Dictionary).get("gold", 0))
+	var updated_gold := int(updated_economy.get("gold", 0))
 	if updated_gold != gold_before + total_reward:
 		push_error("Daily order rewards did not persist to the shared gold economy")
+		_cleanup(daily_orders)
+		return
+	if int(updated_economy.get("restaurant_reputation", 0)) != reputation_before + 1:
+		push_error("Daily order reputation rewards did not persist to the shared economy state")
+		_cleanup(daily_orders)
+		return
+	if int(updated_materials.get("wheat", 0)) != wheat_before + 3:
+		push_error("Daily order material rewards did not persist to the shared inventory state")
+		_cleanup(daily_orders)
+		return
+	if int(updated_materials.get("reef_salt", 0)) != reef_salt_before + 1:
+		push_error("Claim setup unexpectedly altered baseline night loot accounting")
+		_cleanup(daily_orders)
+		return
+	if updated_seeds.find("kelpberry_seed") == -1 or unlocked_seeds_before.find("kelpberry_seed") != -1:
+		push_error("Daily order seed unlock rewards did not persist to the shared inventory state")
 		_cleanup(daily_orders)
 		return
 	daily_orders.call("_reset_runtime_state")
@@ -81,6 +120,22 @@ func _ready() -> void:
 	var persisted_gold := int((ProfileStore.get_meta_progress_state().get("economy", {}) as Dictionary).get("gold", 0))
 	if persisted_gold != gold_before + total_reward:
 		push_error("Gold reward did not survive reload")
+		_cleanup(daily_orders)
+		return
+	var persisted_economy: Dictionary = ProfileStore.get_meta_progress_state().get("economy", {}) as Dictionary
+	var persisted_inventory: Dictionary = ProfileStore.get_meta_progress_state().get("inventory", {}) as Dictionary
+	var persisted_materials: Dictionary = persisted_inventory.get("materials", {}) as Dictionary
+	var persisted_seeds: Array = (persisted_inventory.get("unlocked_seeds", []) as Array).duplicate()
+	if int(persisted_economy.get("restaurant_reputation", 0)) != reputation_before + 1:
+		push_error("Reputation reward did not survive reload")
+		_cleanup(daily_orders)
+		return
+	if int(persisted_materials.get("wheat", 0)) != wheat_before + 3:
+		push_error("Material reward did not survive reload")
+		_cleanup(daily_orders)
+		return
+	if persisted_seeds.find("kelpberry_seed") == -1:
+		push_error("Seed unlock reward did not survive reload")
 		_cleanup(daily_orders)
 		return
 	print("Daily orders persistence smoke PASS")

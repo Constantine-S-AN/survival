@@ -13,3 +13,4 @@ order_type = "material_gain"
 target_id = "reef_salt"
 target_amount = 1
 reward_gold = 9
+reward_seed_id = "kelpberry_seed"
