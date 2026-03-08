@@ -5,8 +5,11 @@ signal daily_orders_requested
 signal legacy_requested
 
 const PHASE_ORDER := ["morning", "noon", "afternoon", "evening"]
+const HUD_FONT := preload("res://assets/fonts/google/Exo2-Variable.ttf")
 
+@onready var info_panel: Panel = $InfoPanel
 @onready var title_label: Label = $InfoPanel/Margin/VBox/Title
+@onready var subtitle_label: Label = $InfoPanel/Margin/VBox/Subtitle
 @onready var clock_status_label: Label = $InfoPanel/Margin/VBox/ClockStatus
 @onready var phase_segments: Array[ColorRect] = [
 	$InfoPanel/Margin/VBox/PhaseTrack/Morning,
@@ -28,6 +31,7 @@ const PHASE_ORDER := ["morning", "noon", "afternoon", "evening"]
 @onready var guide_panel: Panel = $ActionsColumn/GuidePanel
 @onready var guide_title_label: Label = $ActionsColumn/GuidePanel/Margin/VBox/GuideTitle
 @onready var guide_body_label: Label = $ActionsColumn/GuidePanel/Margin/VBox/GuideBody
+@onready var prompt_panel: Panel = $PromptPanel
 @onready var hint_label: Label = $PromptPanel/Margin/VBox/Hint
 @onready var prompt_label: Label = $PromptPanel/Margin/VBox/Prompt
 
@@ -70,6 +74,7 @@ func _apply_hud_model() -> void:
 	var actions_until_evening := maxi(0, int(_hud_model.get("actions_until_evening", 0)))
 	var night_ready := bool(_hud_model.get("night_ready", false))
 	title_label.text = _t("meta.hub.day", {"value": int(_hud_model.get("current_day", 1))})
+	subtitle_label.text = _t("meta.world.title")
 	clock_status_label.text = (
 		_t("meta.day_hud.clock_phase_ready", {
 			"phase": _t("meta.phase.%s" % phase)
@@ -118,6 +123,7 @@ func _apply_hud_model() -> void:
 	guide_body_label.text = guide_text
 	hint_label.text = String(_hud_model.get("move_hint", _t("meta.world.move_hint")))
 	prompt_label.text = String(_hud_model.get("prompt_text", _t("meta.world.prompt_idle")))
+	_apply_visual_theme(phase, night_ready)
 
 
 func _rebuild_hotbar_slots(slots: Array, selected_key: String) -> void:
@@ -132,8 +138,7 @@ func _rebuild_hotbar_slots(slots: Array, selected_key: String) -> void:
 		var slot_key := String(slot.get("key", ""))
 		var panel := Panel.new()
 		panel.custom_minimum_size = Vector2(58.0, 56.0)
-		panel.theme_type_variation = &"OverlayPanel"
-		panel.modulate = _hotbar_slot_modulate(slot, slot_key == selected_key)
+		panel.add_theme_stylebox_override("panel", _make_hotbar_slot_style(slot, slot_key == selected_key))
 		farm_tool_slots.add_child(panel)
 
 		var margin := MarginContainer.new()
@@ -172,6 +177,190 @@ func _hotbar_slot_modulate(slot: Dictionary, selected: bool) -> Color:
 	if bool(slot.get("enabled", true)):
 		return Color(1.0, 1.0, 1.0, 0.92)
 	return Color(0.78, 0.82, 0.88, 0.62)
+
+
+func _apply_visual_theme(phase: String, night_ready: bool) -> void:
+	var palette := _hud_palette(phase, night_ready)
+	info_panel.add_theme_stylebox_override("panel", _make_panel_style(palette["panel_fill"], palette["panel_border"], 18.0, 16.0))
+	status_panel.add_theme_stylebox_override("panel", _make_panel_style(palette["subpanel_fill"], palette["subpanel_border"], 14.0, 12.0))
+	farm_tool_panel.add_theme_stylebox_override("panel", _make_panel_style(palette["subpanel_fill"], palette["subpanel_border"], 14.0, 12.0))
+	guide_panel.add_theme_stylebox_override("panel", _make_panel_style(palette["subpanel_fill"], palette["subpanel_border"], 14.0, 12.0))
+	prompt_panel.add_theme_stylebox_override("panel", _make_panel_style(palette["prompt_fill"], palette["prompt_border"], 18.0, 14.0))
+	_apply_button_theme(orders_button, palette["primary_button_fill"], palette["primary_button_border"], palette["button_text"])
+	_apply_button_theme(legacy_button, palette["secondary_button_fill"], palette["secondary_button_border"], palette["button_text"])
+
+	for text_control in [title_label, resources_label, prompt_label, farm_tool_title_label, farm_tool_body_label, guide_title_label]:
+		if text_control == null:
+			continue
+		text_control.add_theme_color_override("font_color", palette["title_text"])
+		text_control.add_theme_font_override("font", HUD_FONT)
+	for text_control in [subtitle_label, clock_status_label, departure_label, status_label, farm_tool_hint_label, guide_body_label, hint_label]:
+		if text_control == null:
+			continue
+		text_control.add_theme_color_override("font_color", palette["muted_text"])
+		text_control.add_theme_font_override("font", HUD_FONT)
+	title_label.add_theme_font_size_override("font_size", 24)
+	subtitle_label.add_theme_font_size_override("font_size", 14)
+	prompt_label.add_theme_font_size_override("font_size", 17)
+	hint_label.add_theme_font_size_override("font_size", 13)
+	orders_button.add_theme_font_override("font", HUD_FONT)
+	legacy_button.add_theme_font_override("font", HUD_FONT)
+
+
+func _hud_palette(phase: String, night_ready: bool) -> Dictionary:
+	match phase:
+		"noon":
+			return {
+				"panel_fill": Color(0.11, 0.12, 0.09, 0.80),
+				"panel_border": Color(0.71, 0.59, 0.34, 0.95),
+				"subpanel_fill": Color(0.14, 0.14, 0.10, 0.78),
+				"subpanel_border": Color(0.55, 0.46, 0.28, 0.84),
+				"prompt_fill": Color(0.14, 0.12, 0.09, 0.88),
+				"prompt_border": Color(0.79, 0.66, 0.38, 0.96),
+				"primary_button_fill": Color(0.59, 0.41, 0.21, 0.96),
+				"primary_button_border": Color(0.87, 0.72, 0.41, 1.0),
+				"secondary_button_fill": Color(0.24, 0.21, 0.15, 0.94),
+				"secondary_button_border": Color(0.56, 0.48, 0.33, 0.92),
+				"title_text": Color(0.98, 0.95, 0.85, 1.0),
+				"muted_text": Color(0.87, 0.82, 0.70, 1.0),
+				"button_text": Color(0.99, 0.96, 0.88, 1.0)
+			}
+		"afternoon":
+			return {
+				"panel_fill": Color(0.12, 0.11, 0.10, 0.82),
+				"panel_border": Color(0.76, 0.52, 0.30, 0.96),
+				"subpanel_fill": Color(0.15, 0.13, 0.11, 0.80),
+				"subpanel_border": Color(0.60, 0.43, 0.28, 0.84),
+				"prompt_fill": Color(0.15, 0.11, 0.10, 0.90),
+				"prompt_border": Color(0.82, 0.58, 0.34, 0.96),
+				"primary_button_fill": Color(0.62, 0.34, 0.20, 0.96),
+				"primary_button_border": Color(0.90, 0.63, 0.39, 1.0),
+				"secondary_button_fill": Color(0.25, 0.19, 0.15, 0.94),
+				"secondary_button_border": Color(0.59, 0.42, 0.30, 0.92),
+				"title_text": Color(0.98, 0.94, 0.87, 1.0),
+				"muted_text": Color(0.89, 0.80, 0.72, 1.0),
+				"button_text": Color(1.0, 0.96, 0.90, 1.0)
+			}
+		"evening":
+			return {
+				"panel_fill": Color(0.11, 0.12, 0.16, 0.84),
+				"panel_border": Color(0.88, 0.60, 0.40, 0.98),
+				"subpanel_fill": Color(0.14, 0.14, 0.18, 0.82),
+				"subpanel_border": Color(0.66, 0.49, 0.36, 0.90),
+				"prompt_fill": Color(0.12, 0.10, 0.15, 0.92),
+				"prompt_border": Color(0.95, 0.67, 0.44, 0.98),
+				"primary_button_fill": Color(0.69, 0.36, 0.23, 0.98),
+				"primary_button_border": Color(0.97, 0.72, 0.48, 1.0),
+				"secondary_button_fill": Color(0.22, 0.20, 0.25, 0.94),
+				"secondary_button_border": Color(0.60, 0.50, 0.43, 0.94),
+				"title_text": Color(1.0, 0.95, 0.90, 1.0),
+				"muted_text": Color(0.89, 0.84, 0.79, 1.0),
+				"button_text": Color(1.0, 0.97, 0.92, 1.0)
+			}
+		"night":
+			return {
+				"panel_fill": Color(0.07, 0.10, 0.16, 0.86),
+				"panel_border": Color(0.49, 0.68, 0.88, 0.96),
+				"subpanel_fill": Color(0.09, 0.12, 0.18, 0.84),
+				"subpanel_border": Color(0.36, 0.53, 0.74, 0.90),
+				"prompt_fill": Color(0.07, 0.10, 0.18, 0.92),
+				"prompt_border": Color(0.56, 0.77, 0.98, 0.98),
+				"primary_button_fill": Color(0.22, 0.38, 0.56, 0.98),
+				"primary_button_border": Color(0.67, 0.87, 1.0, 1.0),
+				"secondary_button_fill": Color(0.15, 0.20, 0.29, 0.94),
+				"secondary_button_border": Color(0.38, 0.56, 0.77, 0.94),
+				"title_text": Color(0.94, 0.97, 1.0, 1.0),
+				"muted_text": Color(0.78, 0.87, 0.96, 1.0),
+				"button_text": Color(0.96, 0.98, 1.0, 1.0)
+			}
+		_:
+			return {
+				"panel_fill": Color(0.12, 0.13, 0.10, 0.80),
+				"panel_border": Color(0.68, 0.56, 0.34, 0.95),
+				"subpanel_fill": Color(0.15, 0.15, 0.11, 0.78),
+				"subpanel_border": Color(0.52, 0.44, 0.28, 0.84),
+				"prompt_fill": Color(0.14, 0.12, 0.10, 0.88),
+				"prompt_border": Color(0.78, 0.66, 0.40, 0.96),
+				"primary_button_fill": Color(0.56, 0.38, 0.21, 0.96),
+				"primary_button_border": Color(0.84, 0.69, 0.42, 1.0),
+				"secondary_button_fill": Color(0.24, 0.21, 0.15, 0.94),
+				"secondary_button_border": Color(0.56, 0.48, 0.33, 0.92),
+				"title_text": Color(0.98, 0.95, 0.86, 1.0),
+				"muted_text": Color(0.86, 0.82, 0.72, 1.0),
+				"button_text": Color(0.99, 0.96, 0.88, 1.0)
+			}
+
+
+func _make_panel_style(fill: Color, border: Color, margin_x: float, margin_y: float) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = border
+	style.content_margin_left = margin_x
+	style.content_margin_top = margin_y
+	style.content_margin_right = margin_x
+	style.content_margin_bottom = margin_y
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.22)
+	style.shadow_size = 8
+	return style
+
+
+func _apply_button_theme(button: Button, fill: Color, border: Color, text_color: Color) -> void:
+	if button == null:
+		return
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = fill
+	normal.border_width_left = 1
+	normal.border_width_top = 1
+	normal.border_width_right = 1
+	normal.border_width_bottom = 1
+	normal.border_color = border
+	normal.content_margin_left = 14.0
+	normal.content_margin_top = 10.0
+	normal.content_margin_right = 14.0
+	normal.content_margin_bottom = 10.0
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = fill.lightened(0.08)
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = fill.darkened(0.10)
+	var focus := normal.duplicate() as StyleBoxFlat
+	focus.border_width_left = 2
+	focus.border_width_top = 2
+	focus.border_width_right = 2
+	focus.border_width_bottom = 2
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("focus", focus)
+	button.add_theme_color_override("font_color", text_color)
+	button.add_theme_color_override("font_hover_color", text_color)
+	button.add_theme_color_override("font_pressed_color", text_color)
+	button.add_theme_color_override("font_focus_color", text_color)
+
+
+func _make_hotbar_slot_style(slot: Dictionary, selected: bool) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.content_margin_left = 6.0
+	style.content_margin_top = 6.0
+	style.content_margin_right = 6.0
+	style.content_margin_bottom = 6.0
+	if selected:
+		style.bg_color = Color(0.30, 0.23, 0.16, 0.96)
+		style.border_color = Color(0.90, 0.73, 0.46, 1.0)
+	elif bool(slot.get("enabled", true)):
+		style.bg_color = Color(0.16, 0.14, 0.10, 0.88)
+		style.border_color = Color(0.58, 0.48, 0.32, 0.92)
+	else:
+		style.bg_color = Color(0.13, 0.12, 0.11, 0.68)
+		style.border_color = Color(0.39, 0.36, 0.31, 0.72)
+	return style
 
 
 func _apply_phase_track(phase: String, night_ready: bool) -> void:
