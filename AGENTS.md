@@ -19,6 +19,7 @@ This is a Godot hybrid loop game: daytime planning and progression through farm 
 
 - Open project: `godot --editor --path .`
 - Headless import: `godot --headless --path . --import`
+- Plugin-focused tests: `./scripts/ci/run_plugin_focused_tests.sh`
 - Headless tests: `./scripts/ci/run_headless_tests.sh`
 - Plugin sync: `./scripts/plugins/sync_plugins.sh`
 - Plugin validation: `./scripts/ci/validate_plugins.sh`

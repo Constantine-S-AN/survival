@@ -36,13 +36,24 @@ No extra editor activation step is required for either enabled plugin.
 
 ## Validation
 
+Use `./scripts/ci/run_plugin_focused_tests.sh` for the stable plugin-backed gameplay coverage. It runs only the focused Dialogue Manager and QuestSystem scenes:
+
+- `DialogueManagerSmoke`
+- `DayHubIntroDialogueSmoke`
+- `ReturnSummaryDialogueSmoke`
+- `RestaurantDialogueSmoke`
+- `QuestSystemDailyOrdersSmoke`
+- `DailyOrdersProgressSmoke`
+- `DailyOrdersPersistenceSmoke`
+- `DailyOrdersRefreshSmoke`
+
 Use `./scripts/ci/validate_plugins.sh` to verify:
 
 - pinned plugin files exist where expected
 - the project still imports headlessly
 - the existing headless test suite still passes
 
-Use `godot --headless --path . res://tests/smoke/QuestSystemDailyOrdersSmoke.tscn --quit-after 10` for a focused QuestSystem + daily-orders autoload smoke test.
+Use `./scripts/ci/run_headless_tests.sh` for the broader project suite. That command exercises systems beyond the plugin-backed flows and may fail for unrelated worktree changes.
 
 ## Dialogue Content
 

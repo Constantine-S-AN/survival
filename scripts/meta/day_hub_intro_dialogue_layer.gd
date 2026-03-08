@@ -200,18 +200,7 @@ func _should_show_day_hub_intro_dialogue() -> bool:
 	if ProfileStore == null or not bool(ProfileStore.loaded):
 		return false
 	var meta_progress := ProfileStore.get_meta_progress_state()
-	var day_state_variant: Variant = meta_progress.get("day_state", {})
-	if not (day_state_variant is Dictionary):
-		return false
-	var day_state: Dictionary = day_state_variant
-	if int(day_state.get("current_day", 1)) != 1:
-		return false
-	if String(day_state.get("current_phase", "")).strip_edges().to_lower() != MORNING_PHASE:
-		return false
-	var pending_summary_variant: Variant = meta_progress.get("pending_return_summary", {})
-	if pending_summary_variant is Dictionary and not (pending_summary_variant as Dictionary).is_empty():
-		return false
-	return not _has_seen_dialogue(DAY_HUB_INTRO_DIALOGUE_ID)
+	return _should_show_day_hub_intro_for_state(meta_progress, _get_seen_dialogue_ids())
 
 
 func _should_show_restaurant_dialogue() -> bool:
@@ -312,6 +301,24 @@ func _get_pending_return_summary() -> Dictionary:
 	if pending_summary_variant is Dictionary:
 		return (pending_summary_variant as Dictionary).duplicate(true)
 	return {}
+
+
+func _should_show_day_hub_intro_for_state(meta_progress_variant: Variant, seen_dialogue_ids: Array) -> bool:
+	if not (meta_progress_variant is Dictionary):
+		return false
+	var meta_progress: Dictionary = meta_progress_variant
+	var day_state_variant: Variant = meta_progress.get("day_state", {})
+	if not (day_state_variant is Dictionary):
+		return false
+	var day_state: Dictionary = day_state_variant
+	if int(day_state.get("current_day", 1)) != 1:
+		return false
+	if String(day_state.get("current_phase", "")).strip_edges().to_lower() != MORNING_PHASE:
+		return false
+	var pending_summary_variant: Variant = meta_progress.get("pending_return_summary", {})
+	if pending_summary_variant is Dictionary and not (pending_summary_variant as Dictionary).is_empty():
+		return false
+	return not _normalize_string_id_array(seen_dialogue_ids).has(DAY_HUB_INTRO_DIALOGUE_ID)
 
 
 func _get_restaurant_service_snapshot() -> Dictionary:
