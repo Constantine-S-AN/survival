@@ -27,10 +27,12 @@ signal menu_requested
 @onready var status_label: Label = $ContentPanel/Margin/VBox/StatusLabel
 @onready var farm_button: Button = $ContentPanel/Margin/VBox/Actions/FarmButton
 @onready var restaurant_button: Button = $ContentPanel/Margin/VBox/Actions/RestaurantButton
+@onready var orders_button: Button = $ContentPanel/Margin/VBox/Actions/OrdersButton
 @onready var shop_button: Button = $ContentPanel/Margin/VBox/Actions/ShopButton
 @onready var wait_button: Button = $ContentPanel/Margin/VBox/Actions/WaitButton
 @onready var night_button: Button = $ContentPanel/Margin/VBox/Actions/NightButton
 @onready var menu_button: Button = $ContentPanel/Margin/VBox/Actions/MenuButton
+@onready var daily_orders_board: DailyOrdersBoardView = $DailyOrdersBoard
 
 var _view_model: Dictionary = {}
 
@@ -43,6 +45,7 @@ func _ready() -> void:
 	restaurant_button.pressed.connect(func() -> void:
 		restaurant_requested.emit()
 	)
+	orders_button.pressed.connect(_on_orders_button_pressed)
 	shop_button.pressed.connect(func() -> void:
 		shop_requested.emit()
 	)
@@ -55,8 +58,14 @@ func _ready() -> void:
 	menu_button.pressed.connect(func() -> void:
 		menu_requested.emit()
 	)
+	if daily_orders_board != null:
+		daily_orders_board.closed.connect(_on_daily_orders_board_closed)
 	if Localization != null and Localization.has_signal("language_changed"):
 		Localization.language_changed.connect(_on_language_changed)
+	if DailyOrders != null and DailyOrders.has_signal("state_changed"):
+		DailyOrders.state_changed.connect(_on_daily_orders_state_changed)
+	if DailyOrders != null and DailyOrders.has_signal("reward_claimed"):
+		DailyOrders.reward_claimed.connect(_on_daily_order_reward_claimed)
 	_apply_view_model()
 
 
@@ -72,6 +81,11 @@ func _apply_view_model() -> void:
 	farm_button.tooltip_text = String(_view_model.get("farm_button_tooltip", ""))
 	restaurant_button.text = _t("meta.hub.restaurant")
 	restaurant_button.tooltip_text = String(_view_model.get("restaurant_button_tooltip", ""))
+	var ready_to_claim := 0
+	if DailyOrders != null and DailyOrders.has_method("get_ready_to_claim_count"):
+		ready_to_claim = int(DailyOrders.call("get_ready_to_claim_count"))
+	orders_button.text = "Daily Orders (%d)" % ready_to_claim if ready_to_claim > 0 else "Daily Orders"
+	orders_button.tooltip_text = "View and claim today's side orders."
 	shop_button.text = String(_view_model.get("shop_button_text", _t("meta.hub.shop")))
 	shop_button.tooltip_text = String(_view_model.get("shop_button_tooltip", ""))
 	night_button.text = _t("meta.hub.launch_night")
@@ -114,6 +128,31 @@ func _apply_view_model() -> void:
 
 
 func _on_language_changed(_language_code: String) -> void:
+	_apply_view_model()
+
+
+func _on_orders_button_pressed() -> void:
+	if daily_orders_board == null:
+		return
+	if bool(daily_orders_board.visible):
+		daily_orders_board.call("close_board")
+	else:
+		daily_orders_board.call("open_board")
+
+
+func _on_daily_orders_board_closed() -> void:
+	orders_button.grab_focus()
+
+
+func _on_daily_orders_state_changed() -> void:
+	_apply_view_model()
+
+
+func _on_daily_order_reward_claimed(_order_id: int, _reward: Dictionary) -> void:
+	var meta_progress: Dictionary = ProfileStore.get_meta_progress_state()
+	var economy_variant: Variant = meta_progress.get("economy", {})
+	var economy: Dictionary = economy_variant if economy_variant is Dictionary else {}
+	_view_model["gold"] = int(economy.get("gold", _view_model.get("gold", 0)))
 	_apply_view_model()
 
 

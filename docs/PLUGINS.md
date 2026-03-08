@@ -30,13 +30,9 @@
 
 `Dialogue Manager` is now enabled in `project.godot`, and its `DialogueManager` autoload is committed so dialogue can run in normal gameplay without an editor-side activation step.
 
-`QuestSystem` is still intentionally disabled. This project already has a custom save model, shared inventory, and meta loop, so keeping QuestSystem off avoids adding a second runtime singleton before there is a defined quest integration point.
+`QuestSystem` is now enabled in `project.godot`, and its `QuestSystem` autoload is committed for runtime use. Its startup update check is also pinned off in `project.godot` so editor opens stay quiet and offline-friendly.
 
-If you want to work with `QuestSystem` in-editor later:
-
-1. Open the project in Godot.
-2. Enable `QuestSystem` in the Plugins section of Project Settings.
-3. Consider turning off its startup update check in Project Settings if you want fully offline editor opens.
+No extra editor activation step is required for either enabled plugin.
 
 ## Validation
 
@@ -46,12 +42,21 @@ Use `./scripts/ci/validate_plugins.sh` to verify:
 - the project still imports headlessly
 - the existing headless test suite still passes
 
+Use `godot --headless --path . res://tests/smoke/QuestSystemDailyOrdersSmoke.tscn --quit-after 10` for a focused QuestSystem + daily-orders autoload smoke test.
+
 ## Dialogue Content
 
 - Gameplay dialogue source lives in `data/dialogue/`.
 - The first integrated flow is `data/dialogue/day_hub_intro.dialogue`.
 - The runtime hook for that first use lives in `scripts/meta/day_hub_intro_dialogue_layer.gd`, mounted from `scenes/meta/MetaLoopRoot.tscn`.
 - Its one-shot guard persists in the profile save as `dialogue_state.seen_dialogue_ids`.
+
+## Quest Content
+
+- Daily order definitions live in `data/quests/daily_orders/` as QuestSystem `Quest` resources.
+- The runtime bridge that keeps those quests in sync with the existing hybrid loop lives in `scripts/meta/daily_orders.gd`.
+- The Day Hub entry point is `scenes/meta/DailyOrdersBoard.tscn`, mounted inside `scenes/meta/DayHub.tscn`.
+- Quest persistence stays in the existing profile save under `daily_orders_state`; rewards still route through the existing meta economy save.
 
 ## Evaluated But Not Integrated
 

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="DailyOrderQuest" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/quests/daily_order_quest.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = 102
+quest_name = "Pantry Restock"
+quest_description = "A nearby stall is short on grain and will pay for a small fresh restock."
+quest_objective = "Gain 2 Wheat during the day."
+order_type = "material_gain"
+target_id = "wheat"
+target_amount = 2
+reward_gold = 5

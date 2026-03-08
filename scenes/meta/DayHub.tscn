@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/meta/day_hub.gd" id="1"]
 [ext_resource type="Theme" path="res://ui/theme/NeonTheme.tres" id="2"]
 [ext_resource type="Script" path="res://scripts/ui/components/neon_button.gd" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/meta/DailyOrdersBoard.tscn" id="4"]
 
 [node name="DayHub" type="Control"]
 visible = false
@@ -174,6 +175,14 @@ script = ExtResource("3")
 use_primary_style = false
 enable_motion = true
 
+[node name="OrdersButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Daily Orders"
+script = ExtResource("3")
+use_primary_style = false
+enable_motion = true
+
 [node name="WaitButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
@@ -196,3 +205,5 @@ text = "Main Menu"
 script = ExtResource("3")
 use_primary_style = false
 enable_motion = true
+
+[node name="DailyOrdersBoard" parent="." instance=ExtResource("4")]

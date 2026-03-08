@@ -4,7 +4,7 @@ signal language_code_changed(language_code: String)
 
 const PROFILE_PATH := "user://profile.json"
 const PROFILE_TMP_PATH := "user://profile.json.tmp"
-const PROFILE_SCHEMA_VERSION := 6
+const PROFILE_SCHEMA_VERSION := 7
 const TEST_SESSION_META_KEY := "profile_store_test_session_id"
 const DEFAULT_LANGUAGE_CODE := "en"
 const DayClockClass := preload("res://scripts/meta/day_clock.gd")
@@ -21,6 +21,18 @@ const DEFAULT_PROGRESS: Dictionary = {
 
 const DEFAULT_DIALOGUE_STATE: Dictionary = {
 	"seen_dialogue_ids": []
+}
+
+const DEFAULT_DAILY_ORDERS_STATE: Dictionary = {
+	"current_day": 0,
+	"pool_state": {
+		"available": [],
+		"active": [],
+		"completed": []
+	},
+	"serialized_quests": {},
+	"tracked_dish_sales": {},
+	"tracked_materials": {}
 }
 
 const DEFAULT_META_PROGRESS: Dictionary = {
@@ -233,6 +245,18 @@ func get_dialogue_state() -> Dictionary:
 
 func set_dialogue_state(state: Dictionary) -> void:
 	profile["dialogue_state"] = _normalize_dialogue_state(state)
+	save_profile()
+
+
+func get_daily_orders_state() -> Dictionary:
+	var orders_variant: Variant = profile.get("daily_orders_state", DEFAULT_DAILY_ORDERS_STATE)
+	if orders_variant is Dictionary:
+		return _normalize_daily_orders_state(orders_variant)
+	return DEFAULT_DAILY_ORDERS_STATE.duplicate(true)
+
+
+func set_daily_orders_state(state: Dictionary) -> void:
+	profile["daily_orders_state"] = _normalize_daily_orders_state(state)
 	save_profile()
 
 
@@ -480,6 +504,7 @@ func _migrate_profile(raw_profile: Dictionary, default_character_id: String, def
 		migrated["run_count"] = 0
 	migrated["language_code"] = _normalize_language_code(String(migrated.get("language_code", DEFAULT_LANGUAGE_CODE)))
 	migrated["dialogue_state"] = _normalize_dialogue_state(migrated.get("dialogue_state", DEFAULT_DIALOGUE_STATE))
+	migrated["daily_orders_state"] = _normalize_daily_orders_state(migrated.get("daily_orders_state", DEFAULT_DAILY_ORDERS_STATE))
 	migrated["meta_progress"] = _normalize_meta_progress(migrated.get("meta_progress", DEFAULT_META_PROGRESS))
 
 	if schema_version < PROFILE_SCHEMA_VERSION:
@@ -703,6 +728,39 @@ func _normalize_dialogue_state(dialogue_variant: Variant) -> Dictionary:
 	}
 
 
+func _normalize_daily_orders_state(orders_variant: Variant) -> Dictionary:
+	var source: Dictionary = orders_variant if orders_variant is Dictionary else {}
+	var pool_state_variant: Variant = source.get("pool_state", {})
+	var serialized_variant: Variant = source.get("serialized_quests", {})
+	return {
+		"current_day": maxi(0, int(source.get("current_day", 0))),
+		"pool_state": _normalize_daily_orders_pool_state(pool_state_variant),
+		"serialized_quests": _normalize_daily_orders_serialized(serialized_variant),
+		"tracked_dish_sales": _normalize_string_int_dictionary(source.get("tracked_dish_sales", {})),
+		"tracked_materials": _normalize_string_int_dictionary(source.get("tracked_materials", {}))
+	}
+
+
+func _normalize_daily_orders_pool_state(pool_state_variant: Variant) -> Dictionary:
+	var source: Dictionary = pool_state_variant if pool_state_variant is Dictionary else {}
+	return {
+		"available": _normalize_int_array(source.get("available", [])),
+		"active": _normalize_int_array(source.get("active", [])),
+		"completed": _normalize_int_array(source.get("completed", []))
+	}
+
+
+func _normalize_daily_orders_serialized(serialized_variant: Variant) -> Dictionary:
+	var source: Dictionary = serialized_variant if serialized_variant is Dictionary else {}
+	var normalized: Dictionary = {}
+	for quest_id_variant in source.keys():
+		var quest_data_variant: Variant = source.get(quest_id_variant, {})
+		if not (quest_data_variant is Dictionary):
+			continue
+		normalized[str(quest_id_variant)] = (quest_data_variant as Dictionary).duplicate(true)
+	return normalized
+
+
 func _normalize_meta_phase(phase: String) -> String:
 	return DayClockClass.normalize_phase(phase)
 
@@ -719,6 +777,29 @@ func _normalize_string_array(source: Variant) -> Array[String]:
 		if output.has(text):
 			continue
 		output.append(text)
+	return output
+
+
+func _normalize_int_array(source: Variant) -> Array[int]:
+	var output: Array[int] = []
+	if not (source is Array):
+		return output
+	for item in (source as Array):
+		var value := int(item)
+		if output.has(value):
+			continue
+		output.append(value)
+	return output
+
+
+func _normalize_string_int_dictionary(source_variant: Variant) -> Dictionary:
+	var source: Dictionary = source_variant if source_variant is Dictionary else {}
+	var output: Dictionary = {}
+	for key_variant in source.keys():
+		var key := String(key_variant).strip_edges().to_lower()
+		if key.is_empty():
+			continue
+		output[key] = maxi(0, int(source.get(key_variant, 0)))
 	return output
 
 

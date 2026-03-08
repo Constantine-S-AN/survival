@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="DailyOrderQuest" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/quests/daily_order_quest.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = 101
+quest_name = "Lunch Rush"
+quest_description = "The board wants proof that the restaurant can serve a dependable hot lunch."
+quest_objective = "Sell 1 Field Stew."
+order_type = "dish_sales"
+target_id = "field_stew"
+target_amount = 1
+reward_gold = 6
