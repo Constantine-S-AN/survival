@@ -140,17 +140,17 @@ theme_type_variation = &"BodyMutedLabel"
 text = ""
 
 [node name="PromptPanel" type="Panel" parent="HUDLayer"]
-custom_minimum_size = Vector2(560, 0)
+custom_minimum_size = Vector2(460, 0)
 layout_mode = 1
 anchors_preset = 10
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -280.0
-offset_top = -104.0
-offset_right = 280.0
-offset_bottom = -24.0
+offset_left = -230.0
+offset_top = -92.0
+offset_right = 230.0
+offset_bottom = -18.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_type_variation = &"CardPanel"

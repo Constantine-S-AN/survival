@@ -121,8 +121,11 @@ func _apply_hud_model() -> void:
 	guide_panel.visible = not guide_title.is_empty() or not guide_text.is_empty()
 	guide_title_label.text = guide_title
 	guide_body_label.text = guide_text
-	hint_label.text = String(_hud_model.get("move_hint", _t("meta.world.move_hint")))
 	prompt_label.text = String(_hud_model.get("prompt_text", _t("meta.world.prompt_idle")))
+	hint_label.text = String(_hud_model.get("move_hint", _t("meta.world.move_hint")))
+	var prompt_visible := bool(_hud_model.get("prompt_visible", true))
+	prompt_panel.visible = prompt_visible and (not prompt_label.text.strip_edges().is_empty() or not hint_label.text.strip_edges().is_empty())
+	hint_label.visible = prompt_panel.visible
 	_apply_visual_theme(phase, night_ready)
 
 
@@ -201,8 +204,8 @@ func _apply_visual_theme(phase: String, night_ready: bool) -> void:
 		text_control.add_theme_font_override("font", HUD_FONT)
 	title_label.add_theme_font_size_override("font_size", 24)
 	subtitle_label.add_theme_font_size_override("font_size", 14)
-	prompt_label.add_theme_font_size_override("font_size", 17)
-	hint_label.add_theme_font_size_override("font_size", 13)
+	prompt_label.add_theme_font_size_override("font_size", 16)
+	hint_label.add_theme_font_size_override("font_size", 12)
 	orders_button.add_theme_font_override("font", HUD_FONT)
 	legacy_button.add_theme_font_override("font", HUD_FONT)
 
@@ -215,8 +218,8 @@ func _hud_palette(phase: String, night_ready: bool) -> Dictionary:
 				"panel_border": Color(0.71, 0.59, 0.34, 0.95),
 				"subpanel_fill": Color(0.14, 0.14, 0.10, 0.78),
 				"subpanel_border": Color(0.55, 0.46, 0.28, 0.84),
-				"prompt_fill": Color(0.14, 0.12, 0.09, 0.88),
-				"prompt_border": Color(0.79, 0.66, 0.38, 0.96),
+				"prompt_fill": Color(0.14, 0.12, 0.09, 0.78),
+				"prompt_border": Color(0.79, 0.66, 0.38, 0.78),
 				"primary_button_fill": Color(0.59, 0.41, 0.21, 0.96),
 				"primary_button_border": Color(0.87, 0.72, 0.41, 1.0),
 				"secondary_button_fill": Color(0.24, 0.21, 0.15, 0.94),
@@ -231,8 +234,8 @@ func _hud_palette(phase: String, night_ready: bool) -> Dictionary:
 				"panel_border": Color(0.76, 0.52, 0.30, 0.96),
 				"subpanel_fill": Color(0.15, 0.13, 0.11, 0.80),
 				"subpanel_border": Color(0.60, 0.43, 0.28, 0.84),
-				"prompt_fill": Color(0.15, 0.11, 0.10, 0.90),
-				"prompt_border": Color(0.82, 0.58, 0.34, 0.96),
+				"prompt_fill": Color(0.15, 0.11, 0.10, 0.80),
+				"prompt_border": Color(0.82, 0.58, 0.34, 0.82),
 				"primary_button_fill": Color(0.62, 0.34, 0.20, 0.96),
 				"primary_button_border": Color(0.90, 0.63, 0.39, 1.0),
 				"secondary_button_fill": Color(0.25, 0.19, 0.15, 0.94),
@@ -247,8 +250,8 @@ func _hud_palette(phase: String, night_ready: bool) -> Dictionary:
 				"panel_border": Color(0.88, 0.60, 0.40, 0.98),
 				"subpanel_fill": Color(0.14, 0.14, 0.18, 0.82),
 				"subpanel_border": Color(0.66, 0.49, 0.36, 0.90),
-				"prompt_fill": Color(0.12, 0.10, 0.15, 0.92),
-				"prompt_border": Color(0.95, 0.67, 0.44, 0.98),
+				"prompt_fill": Color(0.12, 0.10, 0.15, 0.82),
+				"prompt_border": Color(0.95, 0.67, 0.44, 0.84),
 				"primary_button_fill": Color(0.69, 0.36, 0.23, 0.98),
 				"primary_button_border": Color(0.97, 0.72, 0.48, 1.0),
 				"secondary_button_fill": Color(0.22, 0.20, 0.25, 0.94),
@@ -263,8 +266,8 @@ func _hud_palette(phase: String, night_ready: bool) -> Dictionary:
 				"panel_border": Color(0.49, 0.68, 0.88, 0.96),
 				"subpanel_fill": Color(0.09, 0.12, 0.18, 0.84),
 				"subpanel_border": Color(0.36, 0.53, 0.74, 0.90),
-				"prompt_fill": Color(0.07, 0.10, 0.18, 0.92),
-				"prompt_border": Color(0.56, 0.77, 0.98, 0.98),
+				"prompt_fill": Color(0.07, 0.10, 0.18, 0.84),
+				"prompt_border": Color(0.56, 0.77, 0.98, 0.84),
 				"primary_button_fill": Color(0.22, 0.38, 0.56, 0.98),
 				"primary_button_border": Color(0.67, 0.87, 1.0, 1.0),
 				"secondary_button_fill": Color(0.15, 0.20, 0.29, 0.94),
@@ -279,8 +282,8 @@ func _hud_palette(phase: String, night_ready: bool) -> Dictionary:
 				"panel_border": Color(0.68, 0.56, 0.34, 0.95),
 				"subpanel_fill": Color(0.15, 0.15, 0.11, 0.78),
 				"subpanel_border": Color(0.52, 0.44, 0.28, 0.84),
-				"prompt_fill": Color(0.14, 0.12, 0.10, 0.88),
-				"prompt_border": Color(0.78, 0.66, 0.40, 0.96),
+				"prompt_fill": Color(0.14, 0.12, 0.10, 0.78),
+				"prompt_border": Color(0.78, 0.66, 0.40, 0.80),
 				"primary_button_fill": Color(0.56, 0.38, 0.21, 0.96),
 				"primary_button_border": Color(0.84, 0.69, 0.42, 1.0),
 				"secondary_button_fill": Color(0.24, 0.21, 0.15, 0.94),

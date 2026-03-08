@@ -16,6 +16,8 @@ const FARM_SHED_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/
 const RESTAURANT_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Buildings/Red Buildings/Barracks.png")
 const SHOP_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Buildings/Blue Buildings/Archery.png")
 const NIGHT_TOWER_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Buildings/Black Buildings/Tower.png")
+const ZED_VILLAGE_SHEET_PATH := "res://assets/external/dayworld_visual_pass_2/unpacked/village/Pixel 16 v2 village free/Pixel 16 v2 village free.png"
+const ZED_FOREST_SHEET_PATH := "res://assets/external/dayworld_visual_pass_2/unpacked/forest/pixel_16_woods v2 free/free_pixel_16_woods.png"
 const TREE_SHEETS := [
 	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png"),
 	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree2.png"),
@@ -41,6 +43,34 @@ const WATER_ROCK_SHEETS := [
 	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Rocks in the Water/Water Rocks_03.png"),
 	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Rocks in the Water/Water Rocks_04.png")
 ]
+const ZED_VILLAGE_STALL_REGION := Rect2i(19, 120, 43, 40)
+const ZED_VILLAGE_RESTAURANT_REGION := Rect2i(68, 123, 72, 101)
+const ZED_VILLAGE_FARMHOUSE_REGION := Rect2i(148, 155, 115, 69)
+const ZED_VILLAGE_LAMP_REGION := Rect2i(160, 16, 40, 64)
+const ZED_VILLAGE_BENCH_REGION := Rect2i(208, 24, 32, 24)
+const ZED_VILLAGE_PLANTER_WOOD_REGION := Rect2i(104, 48, 32, 16)
+const ZED_VILLAGE_PLANTER_STONE_REGION := Rect2i(102, 80, 36, 16)
+const ZED_VILLAGE_POT_BLUE_REGION := Rect2i(192, 64, 16, 16)
+const ZED_VILLAGE_POT_ORANGE_REGION := Rect2i(192, 80, 16, 16)
+const ZED_VILLAGE_POT_YELLOW_REGION := Rect2i(208, 80, 16, 16)
+const ZED_VILLAGE_POT_SKY_REGION := Rect2i(224, 80, 16, 16)
+const ZED_VILLAGE_CRATE_REGIONS := [
+	Rect2i(208, 64, 16, 16),
+	Rect2i(224, 64, 16, 16),
+	Rect2i(240, 64, 16, 16)
+]
+const ZED_FOREST_TREE_LIGHT_REGION := Rect2i(275, 10, 59, 70)
+const ZED_FOREST_TREE_DARK_REGION := Rect2i(17, 100, 78, 75)
+const ZED_FOREST_TREE_ROUND_REGION := Rect2i(23, 24, 66, 65)
+const ZED_FOREST_TREE_SMALL_REGION := Rect2i(275, 92, 28, 36)
+const ZED_FOREST_TREE_PINE_REGION := Rect2i(308, 97, 25, 31)
+const ZED_FOREST_PATCH_LIGHT_REGION := Rect2i(23, 24, 66, 65)
+const ZED_FOREST_PATCH_DARK_REGION := Rect2i(151, 23, 66, 66)
+const ZED_FOREST_POND_REGION := Rect2i(144, 96, 80, 80)
+const ZED_FOREST_CLIFF_REGION := Rect2i(80, 112, 48, 64)
+const ZED_FOREST_ROCK_LARGE_REGION := Rect2i(224, 36, 16, 16)
+const ZED_FOREST_ROCK_SMALL_REGION := Rect2i(240, 128, 16, 16)
+const ZED_FOREST_WATER_PLANTS_REGION := Rect2i(224, 128, 48, 16)
 const PHASE_ORDER := ["morning", "noon", "afternoon", "evening"]
 
 const WORLD_BOUNDS := Rect2(Vector2(56.0, 144.0), Vector2(1488.0, 748.0))
@@ -98,6 +128,8 @@ var _detail_tiles: TileMapLayer = null
 var _scenery_root: Node2D = null
 var _ambient_root: Node2D = null
 var _world_tile_set: TileSet = null
+var _zed_village_sheet: Texture2D = null
+var _zed_forest_sheet: Texture2D = null
 var _sky_rect: Polygon2D = null
 var _cloud_band: Polygon2D = null
 var _horizon_glow: Polygon2D = null
@@ -107,6 +139,10 @@ var _harbor_glow: Polygon2D = null
 var _shop_sign: Polygon2D = null
 var _restaurant_sign: Polygon2D = null
 var _night_beacon_glow: Polygon2D = null
+var _shop_open_glows: Array[Polygon2D] = []
+var _shop_open_props: Array[CanvasItem] = []
+var _dock_ready_glows: Array[Polygon2D] = []
+var _dock_ready_props: Array[CanvasItem] = []
 var _farm_window_glows: Array[Polygon2D] = []
 var _restaurant_window_glows: Array[Polygon2D] = []
 var _shop_window_glows: Array[Polygon2D] = []
@@ -507,16 +543,16 @@ func _build_world_tileset() -> TileSet:
 		return _world_tile_set
 	var tile_count := 11
 	var atlas_image := Image.create(TILE_SIZE * tile_count, TILE_SIZE, false, Image.FORMAT_RGBA8)
-	_draw_grass_tile(atlas_image, 0, Color(0.52, 0.69, 0.35, 1.0), Color(0.60, 0.77, 0.43, 1.0), Color(0.34, 0.49, 0.25, 1.0))
-	_draw_grass_tile(atlas_image, 1, Color(0.58, 0.73, 0.41, 1.0), Color(0.69, 0.83, 0.52, 1.0), Color(0.41, 0.57, 0.30, 1.0))
-	_draw_path_tile(atlas_image, 2, Color(0.70, 0.59, 0.41, 1.0), Color(0.81, 0.69, 0.51, 1.0), Color(0.49, 0.39, 0.27, 1.0))
-	_draw_stone_tile(atlas_image, 3, Color(0.70, 0.69, 0.60, 1.0), Color(0.82, 0.80, 0.72, 1.0), Color(0.53, 0.52, 0.45, 1.0))
+	_draw_grass_tile(atlas_image, 0, Color(0.41, 0.73, 0.22, 1.0), Color(0.55, 0.84, 0.34, 1.0), Color(0.26, 0.54, 0.15, 1.0))
+	_draw_grass_tile(atlas_image, 1, Color(0.50, 0.76, 0.30, 1.0), Color(0.63, 0.87, 0.43, 1.0), Color(0.34, 0.57, 0.20, 1.0))
+	_draw_path_tile(atlas_image, 2, Color(0.84, 0.65, 0.40, 1.0), Color(0.92, 0.75, 0.50, 1.0), Color(0.66, 0.49, 0.28, 1.0))
+	_draw_stone_tile(atlas_image, 3, Color(0.73, 0.70, 0.60, 1.0), Color(0.85, 0.82, 0.72, 1.0), Color(0.53, 0.50, 0.42, 1.0))
 	_draw_soil_tile(atlas_image, 4, Color(0.50, 0.33, 0.18, 1.0), Color(0.64, 0.44, 0.26, 1.0), Color(0.34, 0.21, 0.12, 1.0))
-	_draw_water_tile(atlas_image, 5, Color(0.28, 0.62, 0.66, 1.0), Color(0.50, 0.82, 0.85, 1.0), Color(0.18, 0.40, 0.46, 1.0))
+	_draw_water_tile(atlas_image, 5, Color(0.47, 0.72, 0.90, 1.0), Color(0.70, 0.88, 0.98, 1.0), Color(0.30, 0.55, 0.72, 1.0))
 	_draw_dock_tile(atlas_image, 6, Color(0.55, 0.39, 0.24, 1.0), Color(0.71, 0.53, 0.31, 1.0), Color(0.36, 0.25, 0.16, 1.0))
-	_draw_grass_tile(atlas_image, 7, Color(0.42, 0.58, 0.31, 1.0), Color(0.52, 0.67, 0.40, 1.0), Color(0.28, 0.42, 0.22, 1.0))
+	_draw_grass_tile(atlas_image, 7, Color(0.28, 0.54, 0.16, 1.0), Color(0.39, 0.66, 0.22, 1.0), Color(0.18, 0.39, 0.10, 1.0))
 	_draw_flower_tile(atlas_image, 8)
-	_draw_path_tile(atlas_image, 9, Color(0.80, 0.73, 0.56, 1.0), Color(0.90, 0.84, 0.66, 1.0), Color(0.63, 0.55, 0.40, 1.0))
+	_draw_path_tile(atlas_image, 9, Color(0.88, 0.76, 0.50, 1.0), Color(0.95, 0.84, 0.60, 1.0), Color(0.74, 0.62, 0.38, 1.0))
 	_draw_foam_tile(atlas_image, 10)
 	var atlas_texture := ImageTexture.create_from_image(atlas_image)
 	var tile_set := TileSet.new()
@@ -529,6 +565,18 @@ func _build_world_tileset() -> TileSet:
 	tile_set.add_source(source, 0)
 	_world_tile_set = tile_set
 	return _world_tile_set
+
+
+func _get_zed_village_sheet() -> Texture2D:
+	if _zed_village_sheet == null:
+		_zed_village_sheet = load(ZED_VILLAGE_SHEET_PATH) as Texture2D
+	return _zed_village_sheet
+
+
+func _get_zed_forest_sheet() -> Texture2D:
+	if _zed_forest_sheet == null:
+		_zed_forest_sheet = load(ZED_FOREST_SHEET_PATH) as Texture2D
+	return _zed_forest_sheet
 
 
 func _draw_grass_tile(image: Image, tile_index: int, base: Color, light: Color, dark: Color) -> void:
@@ -673,77 +721,112 @@ func _paint_world_tiles() -> void:
 			if tile == TILE_GRASS and int((x * 11 + y * 19) % 17) == 0:
 				_detail_tiles.set_cell(cell, 0, TILE_FLOWERS)
 
-	# Farm quarter
-	_fill_tile_rect(_ground_tiles, Rect2i(1, 8, 10, 9), TILE_DARK_GRASS)
-	_fill_tile_rect(_ground_tiles, Rect2i(2, 9, 7, 6), TILE_MEADOW)
+	# Farm district and service lane
+	_fill_tile_rect(_ground_tiles, Rect2i(0, 8, 11, 10), TILE_DARK_GRASS)
+	_fill_tile_rect(_ground_tiles, Rect2i(1, 8, 8, 8), TILE_MEADOW)
 	_fill_tile_rect(_ground_tiles, Rect2i(3, 10, 4, 4), TILE_SOIL)
-	_fill_tile_rect(_ground_tiles, Rect2i(7, 9, 2, 7), TILE_PATH)
+	_fill_tile_rect(_ground_tiles, Rect2i(3, 8, 3, 2), TILE_SAND)
+	_fill_tile_rect(_ground_tiles, Rect2i(6, 8, 3, 7), TILE_PATH)
 
-	# Main town route and square
-	_fill_tile_rect(_ground_tiles, Rect2i(6, 7, 19, 2), TILE_PATH)
-	_fill_tile_rect(_ground_tiles, Rect2i(15, 4, 2, 10), TILE_PATH)
-	_fill_tile_rect(_ground_tiles, Rect2i(17, 12, 7, 2), TILE_PATH)
-	_fill_tile_rect(_ground_tiles, Rect2i(18, 4, 11, 7), TILE_STONE)
-	_fill_tile_rect(_ground_tiles, Rect2i(21, 9, 5, 3), TILE_STONE)
-	_fill_tile_rect(_ground_tiles, Rect2i(13, 13, 5, 3), TILE_PATH)
+	# Main town route, square, and harbor promenade
+	_fill_tile_rect(_ground_tiles, Rect2i(4, 7, 12, 2), TILE_PATH)
+	_fill_tile_rect(_ground_tiles, Rect2i(14, 5, 2, 5), TILE_PATH)
+	_fill_tile_rect(_ground_tiles, Rect2i(17, 4, 11, 8), TILE_STONE)
+	_fill_tile_rect(_ground_tiles, Rect2i(20, 9, 7, 3), TILE_STONE)
+	_fill_tile_rect(_ground_tiles, Rect2i(13, 13, 4, 2), TILE_PATH)
+	_fill_tile_rect(_ground_tiles, Rect2i(17, 12, 8, 3), TILE_PATH)
 
 	# Harbor edge and pier
-	_fill_tile_rect(_ground_tiles, Rect2i(22, 10, 3, 8), TILE_SAND)
+	_fill_tile_rect(_ground_tiles, Rect2i(22, 10, 4, 8), TILE_SAND)
 	_fill_tile_rect(_ground_tiles, Rect2i(25, 10, 9, 8), TILE_WATER)
 	_fill_tile_rect(_ground_tiles, Rect2i(24, 12, 6, 2), TILE_DOCK)
 	_fill_tile_rect(_ground_tiles, Rect2i(27, 12, 3, 5), TILE_DOCK)
-	_fill_tile_rect(_ground_tiles, Rect2i(23, 13, 2, 2), TILE_DOCK)
+	_fill_tile_rect(_ground_tiles, Rect2i(23, 13, 3, 2), TILE_DOCK)
 
-	for shoreline_cell in [
-		Vector2i(24, 10),
-		Vector2i(24, 11),
-		Vector2i(24, 15),
-		Vector2i(24, 16),
-		Vector2i(24, 17),
-		Vector2i(25, 17),
-		Vector2i(26, 17)
-	]:
-		_ground_tiles.set_cell(shoreline_cell, 0, TILE_SAND)
+	# Break up the big shapes so routes read as deliberately composed rather than perfectly blocked.
+	_paint_cells(_ground_tiles, [
+		Vector2i(0, 7), Vector2i(1, 7), Vector2i(2, 7), Vector2i(3, 7),
+		Vector2i(2, 8), Vector2i(3, 8),
+		Vector2i(5, 9), Vector2i(5, 10), Vector2i(5, 11), Vector2i(5, 12),
+		Vector2i(7, 15), Vector2i(8, 15), Vector2i(9, 15), Vector2i(7, 16),
+		Vector2i(15, 4), Vector2i(16, 4), Vector2i(16, 5),
+		Vector2i(15, 10), Vector2i(15, 11), Vector2i(16, 11),
+		Vector2i(12, 13), Vector2i(12, 14), Vector2i(13, 15), Vector2i(14, 15),
+		Vector2i(25, 11), Vector2i(25, 12), Vector2i(24, 15), Vector2i(24, 16)
+	], TILE_PATH)
+	_paint_cells(_ground_tiles, [
+		Vector2i(2, 9), Vector2i(2, 10), Vector2i(3, 9), Vector2i(4, 9),
+		Vector2i(9, 7), Vector2i(10, 7), Vector2i(11, 7),
+		Vector2i(13, 6), Vector2i(16, 6), Vector2i(16, 7),
+		Vector2i(17, 3), Vector2i(18, 3), Vector2i(19, 3), Vector2i(20, 3),
+		Vector2i(28, 5), Vector2i(28, 6), Vector2i(28, 7),
+		Vector2i(19, 12), Vector2i(20, 12), Vector2i(21, 12), Vector2i(22, 12),
+		Vector2i(14, 12), Vector2i(15, 12), Vector2i(16, 12),
+		Vector2i(23, 10), Vector2i(24, 10), Vector2i(24, 11)
+	], TILE_SAND)
+	_paint_cells(_ground_tiles, [
+		Vector2i(0, 6), Vector2i(1, 6), Vector2i(2, 6), Vector2i(3, 6),
+		Vector2i(4, 6), Vector2i(7, 8), Vector2i(8, 8), Vector2i(9, 8),
+		Vector2i(10, 8), Vector2i(9, 9), Vector2i(9, 10),
+		Vector2i(6, 15), Vector2i(8, 16), Vector2i(9, 16), Vector2i(10, 15),
+		Vector2i(16, 2), Vector2i(17, 2), Vector2i(18, 2), Vector2i(21, 2),
+		Vector2i(22, 2), Vector2i(23, 2), Vector2i(24, 2), Vector2i(25, 2),
+		Vector2i(27, 3), Vector2i(29, 4), Vector2i(29, 5),
+		Vector2i(18, 11), Vector2i(27, 11), Vector2i(28, 11),
+		Vector2i(11, 13), Vector2i(11, 14), Vector2i(12, 15), Vector2i(17, 15)
+	], TILE_MEADOW)
+	_paint_cells(_ground_tiles, [
+		Vector2i(0, 8), Vector2i(1, 8), Vector2i(0, 9), Vector2i(10, 9),
+		Vector2i(0, 10), Vector2i(10, 10), Vector2i(0, 11), Vector2i(10, 11),
+		Vector2i(0, 12), Vector2i(10, 12), Vector2i(0, 13), Vector2i(10, 13),
+		Vector2i(1, 15), Vector2i(2, 15), Vector2i(3, 15), Vector2i(4, 16), Vector2i(5, 16),
+		Vector2i(26, 16), Vector2i(27, 16), Vector2i(28, 16), Vector2i(29, 16),
+		Vector2i(30, 16), Vector2i(31, 16), Vector2i(32, 15)
+	], TILE_DARK_GRASS)
 
-	for flower_cell in [
-		Vector2i(1, 9),
-		Vector2i(2, 9),
-		Vector2i(3, 9),
-		Vector2i(9, 8),
-		Vector2i(10, 8),
-		Vector2i(11, 8),
-		Vector2i(12, 14),
-		Vector2i(12, 15),
-		Vector2i(13, 15),
-		Vector2i(17, 15),
-		Vector2i(18, 15),
-		Vector2i(20, 12)
-	]:
-		_detail_tiles.set_cell(flower_cell, 0, TILE_FLOWERS)
+	# Carve corners back out of the market plaza and shoreline blocks.
+	_paint_cells(_ground_tiles, [
+		Vector2i(17, 4), Vector2i(28, 4), Vector2i(28, 8), Vector2i(17, 11),
+		Vector2i(18, 11), Vector2i(19, 11), Vector2i(27, 10), Vector2i(28, 10),
+		Vector2i(24, 12), Vector2i(24, 14), Vector2i(22, 15), Vector2i(23, 16)
+	], TILE_GRASS)
+	_paint_cells(_ground_tiles, [
+		Vector2i(24, 10), Vector2i(24, 11), Vector2i(24, 15), Vector2i(24, 16),
+		Vector2i(24, 17), Vector2i(25, 17), Vector2i(26, 17), Vector2i(27, 17),
+		Vector2i(28, 17)
+	], TILE_SAND)
 
-	for meadow_cell in [
-		Vector2i(0, 6),
-		Vector2i(1, 6),
-		Vector2i(2, 6),
-		Vector2i(4, 16),
-		Vector2i(5, 16),
-		Vector2i(8, 15),
-		Vector2i(9, 15)
-	]:
-		_ground_tiles.set_cell(meadow_cell, 0, TILE_MEADOW)
+	# Flower borders help frame approaches and make the map feel hand-dressed.
+	_paint_cells(_detail_tiles, [
+		Vector2i(1, 9), Vector2i(2, 9), Vector2i(3, 9), Vector2i(9, 8),
+		Vector2i(10, 8), Vector2i(11, 8), Vector2i(12, 6), Vector2i(16, 3),
+		Vector2i(17, 3), Vector2i(21, 3), Vector2i(24, 3), Vector2i(27, 4),
+		Vector2i(20, 12), Vector2i(21, 12), Vector2i(12, 14), Vector2i(12, 15),
+		Vector2i(13, 15), Vector2i(17, 15), Vector2i(18, 15), Vector2i(20, 12),
+		Vector2i(22, 9), Vector2i(23, 9), Vector2i(25, 9)
+	], TILE_FLOWERS)
 
 	for foam_x in range(25, 34):
 		_detail_tiles.set_cell(Vector2i(foam_x, 10), 0, TILE_FOAM)
 	for foam_y in range(10, 18):
 		_detail_tiles.set_cell(Vector2i(25, foam_y), 0, TILE_FOAM)
-	for dock_foam_cell in [Vector2i(30, 12), Vector2i(30, 13), Vector2i(30, 14), Vector2i(30, 15), Vector2i(29, 16)]:
-		_detail_tiles.set_cell(dock_foam_cell, 0, TILE_FOAM)
+	_paint_cells(_detail_tiles, [
+		Vector2i(30, 12), Vector2i(30, 13), Vector2i(30, 14), Vector2i(30, 15),
+		Vector2i(29, 16), Vector2i(31, 14), Vector2i(32, 15)
+	], TILE_FOAM)
 
 
 func _fill_tile_rect(layer: TileMapLayer, rect: Rect2i, atlas_coords: Vector2i) -> void:
 	for y in range(rect.position.y, rect.position.y + rect.size.y):
 		for x in range(rect.position.x, rect.position.x + rect.size.x):
 			layer.set_cell(Vector2i(x, y), 0, atlas_coords)
+
+
+func _paint_cells(layer: TileMapLayer, cells: Array, atlas_coords: Vector2i) -> void:
+	for cell_variant in cells:
+		if not (cell_variant is Vector2i):
+			continue
+		layer.set_cell(cell_variant, 0, atlas_coords)
 
 
 func _build_world_landmarks() -> void:
@@ -763,13 +846,18 @@ func _build_world_landmarks() -> void:
 	_shop_sign = null
 	_restaurant_sign = null
 	_night_beacon_glow = null
+	_shop_open_glows.clear()
+	_shop_open_props.clear()
+	_dock_ready_glows.clear()
+	_dock_ready_props.clear()
 	_dock_gate_root = null
 
 	# Farm frontage and working yard
-	_add_shadow(_scenery_root, "FarmHouseShadow", Vector2(254.0, 564.0), Vector2(130.0, 40.0), Color(0.10, 0.13, 0.12, 0.20), -1)
-	_add_sprite(_scenery_root, "FarmHouse", FARM_BUILDING_TEXTURE, Vector2(254.0, 458.0), Vector2(0.86, 0.86), Color.WHITE, 0)
-	_add_shadow(_scenery_root, "FarmShedShadow", Vector2(438.0, 588.0), Vector2(100.0, 28.0), Color(0.10, 0.13, 0.12, 0.18), -1)
-	_add_sprite(_scenery_root, "FarmShed", FARM_SHED_TEXTURE, Vector2(438.0, 522.0), Vector2(0.58, 0.58), Color(1.0, 0.98, 0.94, 1.0), 0)
+	_add_sprite(_scenery_root, "FarmMeadowPatch", _make_region_texture(_get_zed_forest_sheet(), ZED_FOREST_PATCH_DARK_REGION), Vector2(240.0, 662.0), Vector2(1.55, 1.55), Color(1.0, 1.0, 1.0, 0.52), -2)
+	_add_shadow(_scenery_root, "FarmHouseShadow", Vector2(272.0, 566.0), Vector2(116.0, 32.0), Color(0.10, 0.13, 0.12, 0.18), -1)
+	_add_sprite(_scenery_root, "FarmHouse", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_FARMHOUSE_REGION), Vector2(272.0, 520.0), Vector2(1.42, 1.42), Color(1.0, 0.98, 0.96, 1.0), 0)
+	_add_shadow(_scenery_root, "FarmShedShadow", Vector2(428.0, 606.0), Vector2(84.0, 24.0), Color(0.10, 0.13, 0.12, 0.14), -1)
+	_add_sprite(_scenery_root, "FarmStand", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_STALL_REGION), Vector2(430.0, 576.0), Vector2(1.45, 1.45), Color(0.98, 0.94, 0.88, 1.0), 0)
 	_add_rect(_scenery_root, "FarmPorch", Rect2(220.0, 554.0, 72.0, 24.0), Color(0.79, 0.67, 0.47, 1.0), -1)
 	_add_rect(_scenery_root, "FarmShedStep", Rect2(402.0, 592.0, 66.0, 18.0), Color(0.73, 0.60, 0.40, 1.0), -1)
 	_farm_window_glows.append(_add_window_glow(_ambient_root, "FarmWindowGlow", Vector2(256.0, 522.0), Vector2(44.0, 24.0), Color(1.0, 0.86, 0.54, 0.0)))
@@ -782,10 +870,13 @@ func _build_world_landmarks() -> void:
 	_add_barrel_prop("FarmBarrel", Vector2(444.0, 620.0), Color(0.58, 0.40, 0.24, 1.0))
 	_add_planter_box("FarmHerbPatch", Vector2(454.0, 704.0), Color(0.50, 0.82, 0.42, 1.0))
 	_add_planter_box("FarmFlowerBox", Vector2(302.0, 588.0), Color(0.96, 0.76, 0.48, 1.0))
+	_add_supply_cart("FarmSupplyCart", Vector2(344.0, 688.0), Color(0.73, 0.55, 0.34, 1.0))
+	_add_scarecrow("FarmScarecrow", Vector2(236.0, 724.0))
 
 	# Restaurant frontage
-	_add_shadow(_scenery_root, "RestaurantShadow", Vector2(990.0, 430.0), Vector2(184.0, 46.0), Color(0.10, 0.13, 0.12, 0.22), -1)
-	_add_sprite(_scenery_root, "RestaurantHall", RESTAURANT_TEXTURE, Vector2(990.0, 308.0), Vector2(0.70, 0.70), Color.WHITE, 0)
+	_add_sprite(_scenery_root, "RestaurantGardenPatch", _make_region_texture(_get_zed_forest_sheet(), ZED_FOREST_PATCH_LIGHT_REGION), Vector2(980.0, 458.0), Vector2(1.35, 1.35), Color(1.0, 1.0, 1.0, 0.28), -2)
+	_add_shadow(_scenery_root, "RestaurantShadow", Vector2(990.0, 446.0), Vector2(144.0, 36.0), Color(0.10, 0.13, 0.12, 0.18), -1)
+	_add_sprite(_scenery_root, "RestaurantHall", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_RESTAURANT_REGION), Vector2(990.0, 394.0), Vector2(1.56, 1.56), Color(1.0, 0.98, 0.95, 1.0), 0)
 	_add_rect(_scenery_root, "RestaurantPatio", Rect2(934.0, 420.0, 122.0, 30.0), Color(0.84, 0.66, 0.44, 1.0), -1)
 	_add_market_canopy("RestaurantAwning", Vector2(994.0, 430.0), Vector2(124.0, 24.0), Color(0.81, 0.38, 0.24, 1.0), Color(0.53, 0.27, 0.17, 1.0))
 	_restaurant_window_glows.append(_add_window_glow(_ambient_root, "RestaurantGlowLeft", Vector2(950.0, 414.0), Vector2(46.0, 24.0), Color(1.0, 0.78, 0.45, 0.0)))
@@ -793,17 +884,36 @@ func _build_world_landmarks() -> void:
 	_add_crate_cluster("RestaurantCrates", Vector2(1072.0, 470.0), 2, Color(0.80, 0.58, 0.34, 1.0))
 	_add_barrel_prop("RestaurantBarrel", Vector2(924.0, 476.0), Color(0.58, 0.38, 0.23, 1.0))
 	_add_planter_box("RestaurantPlanter", Vector2(1070.0, 436.0), Color(0.95, 0.62, 0.38, 1.0))
+	_add_a_frame_sign("RestaurantMenuStand", Vector2(896.0, 468.0), Color(0.66, 0.46, 0.27, 1.0), Color(0.96, 0.68, 0.40, 1.0))
 
 	# Market stall
-	_add_shadow(_scenery_root, "ShopShadow", Vector2(1292.0, 480.0), Vector2(160.0, 40.0), Color(0.10, 0.13, 0.12, 0.20), -1)
-	_add_sprite(_scenery_root, "ShopStall", SHOP_TEXTURE, Vector2(1292.0, 352.0), Vector2(0.66, 0.66), Color.WHITE, 0)
+	_add_sprite(_scenery_root, "ShopGardenPatch", _make_region_texture(_get_zed_forest_sheet(), ZED_FOREST_PATCH_LIGHT_REGION), Vector2(1294.0, 520.0), Vector2(1.08, 1.08), Color(1.0, 1.0, 1.0, 0.24), -2)
+	_add_shadow(_scenery_root, "ShopShadow", Vector2(1292.0, 492.0), Vector2(116.0, 32.0), Color(0.10, 0.13, 0.12, 0.16), -1)
+	_add_sprite(_scenery_root, "ShopStoreRoom", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_FARMHOUSE_REGION), Vector2(1300.0, 430.0), Vector2(1.10, 1.10), Color(0.94, 0.98, 1.0, 0.92), -1)
+	_add_sprite(_scenery_root, "ShopStall", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_STALL_REGION), Vector2(1292.0, 466.0), Vector2(2.10, 2.10), Color.WHITE, 0)
 	_add_rect(_scenery_root, "ShopPad", Rect2(1244.0, 466.0, 100.0, 24.0), Color(0.80, 0.70, 0.47, 1.0), -1)
-	_add_market_canopy("ShopCanopy", Vector2(1290.0, 478.0), Vector2(110.0, 24.0), Color(0.35, 0.58, 0.84, 1.0), Color(0.24, 0.38, 0.56, 1.0))
 	_shop_window_glows.append(_add_window_glow(_ambient_root, "ShopGlowLeft", Vector2(1258.0, 454.0), Vector2(34.0, 18.0), Color(1.0, 0.84, 0.55, 0.0)))
 	_shop_window_glows.append(_add_window_glow(_ambient_root, "ShopGlowRight", Vector2(1318.0, 454.0), Vector2(34.0, 18.0), Color(1.0, 0.84, 0.55, 0.0)))
 	_add_crate_cluster("ShopCrates", Vector2(1362.0, 520.0), 3, Color(0.77, 0.61, 0.39, 1.0))
 	_add_barrel_prop("ShopBarrel", Vector2(1240.0, 522.0), Color(0.55, 0.38, 0.24, 1.0))
 	_add_planter_box("ShopPlanter", Vector2(1188.0, 512.0), Color(0.84, 0.89, 0.54, 1.0))
+	_add_sack_stack("ShopSeedSacks", Vector2(1198.0, 536.0), Color(0.82, 0.72, 0.44, 1.0), Color(0.29, 0.51, 0.28, 1.0), 3)
+	_add_tool_rack("ShopToolRack", Vector2(1376.0, 502.0), Color(0.44, 0.61, 0.82, 1.0))
+	_add_market_display("ShopSeedDisplay", Vector2(1320.0, 520.0), [
+		Color(0.84, 0.91, 0.50, 1.0),
+		Color(0.99, 0.78, 0.40, 1.0),
+		Color(0.76, 0.89, 0.54, 1.0)
+	])
+	var shop_open_board := _add_a_frame_sign("ShopOpenBoard", Vector2(1216.0, 522.0), Color(0.63, 0.45, 0.24, 1.0), Color(0.97, 0.83, 0.44, 1.0))
+	_shop_open_props.append(shop_open_board)
+	var shop_pennants := _add_pennant_string("ShopPennants", Vector2(1228.0, 432.0), 136.0, [
+		Color(0.37, 0.58, 0.84, 1.0),
+		Color(0.96, 0.80, 0.42, 1.0),
+		Color(0.76, 0.91, 0.52, 1.0),
+		Color(0.91, 0.59, 0.32, 1.0)
+	])
+	_shop_open_props.append(shop_pennants)
+	_shop_open_glows.append(_add_ellipse(_ambient_root, "ShopEntryGlow", Vector2(1288.0, 510.0), Vector2(174.0, 72.0), Color(1.0, 0.84, 0.56, 0.0), -1))
 
 	# Central board and overlook
 	_add_notice_board(Vector2(1078.0, 598.0))
@@ -813,10 +923,17 @@ func _build_world_landmarks() -> void:
 	_add_fence_line("LookoutRail", Vector2(620.0, 754.0), 4, true)
 	_add_planter_box("LookoutFlowersLeft", Vector2(650.0, 804.0), Color(0.95, 0.74, 0.62, 1.0))
 	_add_planter_box("LookoutFlowersRight", Vector2(756.0, 804.0), Color(0.90, 0.82, 0.50, 1.0))
+	_add_direction_post("TownGuidepost", Vector2(836.0, 630.0), [
+		{"direction": "left", "color": Color(0.58, 0.82, 0.42, 1.0)},
+		{"direction": "right", "color": Color(0.96, 0.68, 0.40, 1.0)},
+		{"direction": "right", "color": Color(0.96, 0.82, 0.44, 1.0)},
+		{"direction": "right", "color": Color(0.50, 0.80, 1.0, 1.0)}
+	])
 
 	# Harbor and departure point
-	_add_shadow(_scenery_root, "NightShadow", Vector2(1240.0, 736.0), Vector2(116.0, 32.0), Color(0.10, 0.13, 0.12, 0.22), -1)
-	_add_sprite(_scenery_root, "NightTower", NIGHT_TOWER_TEXTURE, Vector2(1240.0, 636.0), Vector2(0.78, 0.78), Color.WHITE, 0)
+	_add_sprite(_scenery_root, "HarborPatch", _make_region_texture(_get_zed_forest_sheet(), ZED_FOREST_POND_REGION), Vector2(1310.0, 776.0), Vector2(1.04, 1.04), Color(1.0, 1.0, 1.0, 0.70), -2)
+	_add_shadow(_scenery_root, "NightShadow", Vector2(1240.0, 736.0), Vector2(94.0, 26.0), Color(0.10, 0.13, 0.12, 0.18), -1)
+	_add_sprite(_scenery_root, "DockBeaconPost", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_LAMP_REGION), Vector2(1240.0, 694.0), Vector2(2.20, 2.20), Color(0.96, 0.94, 0.90, 1.0), 0)
 	_add_rect(_scenery_root, "DockBeaconStep", Rect2(1206.0, 722.0, 74.0, 22.0), Color(0.72, 0.54, 0.31, 1.0), -1)
 	_add_post_rope_span("DockRail", Vector2(1138.0, 790.0), 4, true)
 	_add_post_rope_span("PierRail", Vector2(1312.0, 724.0), 3, false)
@@ -835,12 +952,24 @@ func _build_world_landmarks() -> void:
 	_restaurant_sign = _add_hanging_sign("RestaurantSign", Vector2(996.0, 420.0), Color(0.95, 0.68, 0.40, 1.0), Color(0.48, 0.25, 0.13, 1.0))
 	_shop_sign = _add_hanging_sign("ShopSign", Vector2(1292.0, 470.0), Color(0.96, 0.82, 0.43, 1.0), Color(0.49, 0.33, 0.18, 1.0))
 	_night_beacon_glow = _add_ellipse(_ambient_root, "NightBeaconGlow", Vector2(1240.0, 614.0), Vector2(206.0, 138.0), Color(0.49, 0.79, 1.0, 0.0), -1)
+	var dock_signal_flags := _add_pennant_string("DockSignalFlags", Vector2(1188.0, 692.0), 132.0, [
+		Color(0.62, 0.86, 1.0, 1.0),
+		Color(0.96, 0.82, 0.44, 1.0),
+		Color(0.81, 0.93, 0.58, 1.0),
+		Color(0.95, 0.63, 0.38, 1.0)
+	])
+	_dock_ready_props.append(dock_signal_flags)
+	_dock_ready_glows.append(_add_ellipse(_ambient_root, "DockRunwayGlow", Vector2(1208.0, 792.0), Vector2(232.0, 84.0), Color(0.54, 0.82, 1.0, 0.0), -1))
+	_dock_ready_props.append(_add_a_frame_sign("DockDepartureStand", Vector2(1128.0, 778.0), Color(0.44, 0.33, 0.20, 1.0), Color(0.58, 0.84, 1.0, 1.0)))
 	_dock_gate_root = _build_dock_gate(Vector2(1178.0, 786.0))
 
 	for tree_data in [
 		{"name": "TreeNorthWestA", "position": Vector2(92.0, 338.0), "sheet": 0, "scale": Vector2(0.58, 0.58)},
 		{"name": "TreeNorthWestB", "position": Vector2(166.0, 304.0), "sheet": 1, "scale": Vector2(0.56, 0.56)},
+		{"name": "TreeNorthMeadow", "position": Vector2(684.0, 300.0), "sheet": 3, "scale": Vector2(0.52, 0.52)},
+		{"name": "TreeTownNorth", "position": Vector2(878.0, 286.0), "sheet": 2, "scale": Vector2(0.50, 0.50)},
 		{"name": "TreeFarmEdge", "position": Vector2(544.0, 340.0), "sheet": 2, "scale": Vector2(0.54, 0.54)},
+		{"name": "TreeShopNorth", "position": Vector2(1184.0, 318.0), "sheet": 0, "scale": Vector2(0.50, 0.50)},
 		{"name": "TreeHarborNorth", "position": Vector2(1480.0, 324.0), "sheet": 3, "scale": Vector2(0.56, 0.56)},
 		{"name": "TreeHarborEast", "position": Vector2(1506.0, 610.0), "sheet": 0, "scale": Vector2(0.54, 0.54)},
 		{"name": "TreeHarborSouth", "position": Vector2(1438.0, 804.0), "sheet": 1, "scale": Vector2(0.54, 0.54)}
@@ -854,7 +983,10 @@ func _build_world_landmarks() -> void:
 	for bush_data in [
 		{"name": "BushFarmLane", "position": Vector2(542.0, 330.0), "sheet": 0},
 		{"name": "BushFarmYard", "position": Vector2(562.0, 366.0), "sheet": 2},
+		{"name": "BushTownGuide", "position": Vector2(778.0, 612.0), "sheet": 0},
+		{"name": "BushRestaurantWalk", "position": Vector2(878.0, 452.0), "sheet": 1},
 		{"name": "BushBoard", "position": Vector2(1184.0, 514.0), "sheet": 1},
+		{"name": "BushShopEdge", "position": Vector2(1424.0, 520.0), "sheet": 2},
 		{"name": "BushLookout", "position": Vector2(1102.0, 792.0), "sheet": 3},
 		{"name": "BushFarmSouth", "position": Vector2(154.0, 818.0), "sheet": 2}
 	]:
@@ -880,30 +1012,48 @@ func _make_sheet_frame(texture_sheet: Texture2D, frame_size: Vector2i, frame_ind
 	return atlas
 
 
+func _make_region_texture(texture_sheet: Texture2D, region: Rect2i) -> AtlasTexture:
+	var atlas := AtlasTexture.new()
+	atlas.atlas = texture_sheet
+	atlas.region = Rect2(region.position, region.size)
+	return atlas
+
+
 func _add_tree_prop(name: String, base_position: Vector2, sheet_index: int, scale_value: Vector2 = Vector2(0.56, 0.56)) -> void:
 	var scale_factor := (scale_value.x + scale_value.y) * 0.5
-	var texture_sheet: Texture2D = TREE_SHEETS[posmod(sheet_index, TREE_SHEETS.size())]
-	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 10.0), Vector2(108.0, 34.0) * scale_factor, Color(0.10, 0.13, 0.12, 0.18), -1)
-	_add_sprite(_scenery_root, name, _make_sheet_frame(texture_sheet, Vector2i(256, 256)), base_position - Vector2(0.0, 106.0 * scale_value.y), scale_value, Color.WHITE, 0)
+	var region := ZED_FOREST_TREE_LIGHT_REGION
+	match posmod(sheet_index, 5):
+		1:
+			region = ZED_FOREST_TREE_DARK_REGION
+		2:
+			region = ZED_FOREST_TREE_ROUND_REGION
+		3:
+			region = ZED_FOREST_TREE_SMALL_REGION
+		4:
+			region = ZED_FOREST_TREE_PINE_REGION
+	var texture := _make_region_texture(_get_zed_forest_sheet(), region)
+	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 12.0), Vector2(84.0, 26.0) * scale_factor, Color(0.10, 0.13, 0.12, 0.14), -1)
+	_add_sprite(_scenery_root, name, texture, base_position - Vector2(0.0, float(region.size.y) * scale_value.y * 0.46), scale_value * 1.9, Color.WHITE, 0)
 
 
 func _add_bush_prop(name: String, base_position: Vector2, sheet_index: int, scale_value: Vector2 = Vector2(0.92, 0.92)) -> void:
 	var scale_factor := (scale_value.x + scale_value.y) * 0.5
-	var texture_sheet: Texture2D = BUSH_SHEETS[posmod(sheet_index, BUSH_SHEETS.size())]
-	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 6.0), Vector2(42.0, 14.0) * scale_factor, Color(0.10, 0.13, 0.12, 0.12), -1)
-	_add_sprite(_scenery_root, name, _make_sheet_frame(texture_sheet, Vector2i(128, 128)), base_position - Vector2(0.0, 18.0 * scale_value.y), scale_value, Color.WHITE, 0)
+	var region := ZED_FOREST_PATCH_LIGHT_REGION if posmod(sheet_index, 2) == 0 else ZED_FOREST_PATCH_DARK_REGION
+	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 6.0), Vector2(50.0, 16.0) * scale_factor, Color(0.10, 0.13, 0.12, 0.10), -1)
+	_add_sprite(_scenery_root, name, _make_region_texture(_get_zed_forest_sheet(), region), base_position - Vector2(0.0, 18.0 * scale_value.y), scale_value * 0.72, Color(1.0, 1.0, 1.0, 0.92), 0)
 
 
 func _add_rock_prop(name: String, base_position: Vector2, texture_index: int, scale_value: Vector2 = Vector2.ONE) -> void:
 	var scale_factor := (scale_value.x + scale_value.y) * 0.5
-	var texture: Texture2D = ROCK_TEXTURES[posmod(texture_index, ROCK_TEXTURES.size())]
+	var region := ZED_FOREST_ROCK_LARGE_REGION if posmod(texture_index, 2) == 0 else ZED_FOREST_ROCK_SMALL_REGION
 	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 5.0), Vector2(24.0, 8.0) * scale_factor, Color(0.10, 0.13, 0.12, 0.12), -1)
-	_add_sprite(_scenery_root, name, texture, base_position, scale_value, Color.WHITE, 0)
+	_add_sprite(_scenery_root, name, _make_region_texture(_get_zed_forest_sheet(), region), base_position, scale_value * 1.5, Color.WHITE, 0)
 
 
 func _add_water_rock_prop(name: String, base_position: Vector2, sheet_index: int) -> void:
-	var texture_sheet: Texture2D = WATER_ROCK_SHEETS[posmod(sheet_index, WATER_ROCK_SHEETS.size())]
-	_add_sprite(_ambient_root, name, _make_sheet_frame(texture_sheet, Vector2i(64, 64)), base_position, Vector2.ONE, Color.WHITE, 0)
+	var region := ZED_FOREST_WATER_PLANTS_REGION if posmod(sheet_index, 2) == 0 else ZED_FOREST_ROCK_SMALL_REGION
+	var scale_value := Vector2(1.2, 1.2) if region == ZED_FOREST_WATER_PLANTS_REGION else Vector2.ONE
+	_add_sprite(_ambient_root, name, _make_region_texture(_get_zed_forest_sheet(), region), base_position, scale_value, Color.WHITE, 0)
 
 
 func _add_fence_line(name: String, start_position: Vector2, segments: int, horizontal: bool) -> Node2D:
@@ -936,26 +1086,9 @@ func _add_crate_cluster(name: String, position: Vector2, crate_count: int, wood_
 	_scenery_root.add_child(root)
 	for crate_index in range(crate_count):
 		var offset := Vector2(crate_index * 20.0, float(crate_index % 2) * 12.0)
-		var shadow := Polygon2D.new()
-		shadow.polygon = _ellipse_polygon(Vector2(24.0, 10.0), 10)
-		shadow.position = offset + Vector2(0.0, 10.0)
-		shadow.color = Color(0.08, 0.09, 0.08, 0.12)
-		root.add_child(shadow)
-		var box := Polygon2D.new()
-		box.polygon = _rect_polygon(Vector2(22.0, 20.0))
-		box.position = offset
-		box.color = wood_color
-		root.add_child(box)
-		var slat := Polygon2D.new()
-		slat.polygon = _rect_polygon(Vector2(16.0, 4.0))
-		slat.position = offset + Vector2(0.0, -4.0)
-		slat.color = Color(wood_color.r * 0.72, wood_color.g * 0.68, wood_color.b * 0.62, 1.0)
-		root.add_child(slat)
-		var trim := Polygon2D.new()
-		trim.polygon = _rect_polygon(Vector2(20.0, 4.0))
-		trim.position = offset + Vector2(0.0, 6.0)
-		trim.color = Color(wood_color.r * 1.12, minf(1.0, wood_color.g * 1.08), minf(1.0, wood_color.b * 1.08), 1.0)
-		root.add_child(trim)
+		_add_shadow(root, "Shadow%d" % crate_index, offset + Vector2(0.0, 8.0), Vector2(24.0, 10.0), Color(0.08, 0.09, 0.08, 0.12), -2)
+		var region: Rect2i = ZED_VILLAGE_CRATE_REGIONS[posmod(crate_index, ZED_VILLAGE_CRATE_REGIONS.size())]
+		_add_sprite(root, "Crate%d" % crate_index, _make_region_texture(_get_zed_village_sheet(), region), offset, Vector2(1.3, 1.3), Color.WHITE, 0)
 	return root
 
 
@@ -990,28 +1123,11 @@ func _add_planter_box(name: String, position: Vector2, flower_color: Color) -> N
 	root.name = name
 	root.position = position
 	_scenery_root.add_child(root)
-	var shadow := Polygon2D.new()
-	shadow.polygon = _ellipse_polygon(Vector2(34.0, 10.0), 10)
-	shadow.position = Vector2(0.0, 8.0)
-	shadow.color = Color(0.08, 0.09, 0.08, 0.10)
-	root.add_child(shadow)
-	var planter := Polygon2D.new()
-	planter.polygon = _rect_polygon(Vector2(34.0, 14.0))
-	planter.position = Vector2(0.0, 0.0)
-	planter.color = Color(0.54, 0.35, 0.20, 1.0)
-	root.add_child(planter)
-	for leaf_offset in [Vector2(-8.0, -10.0), Vector2(0.0, -14.0), Vector2(8.0, -10.0)]:
-		var leaf := Polygon2D.new()
-		leaf.polygon = _ellipse_polygon(Vector2(12.0, 10.0), 10)
-		leaf.position = leaf_offset
-		leaf.color = Color(0.44, 0.72, 0.34, 1.0)
-		root.add_child(leaf)
-	for bloom_offset in [Vector2(-10.0, -16.0), Vector2(2.0, -18.0), Vector2(12.0, -15.0)]:
-		var bloom := Polygon2D.new()
-		bloom.polygon = _ellipse_polygon(Vector2(8.0, 8.0), 10)
-		bloom.position = bloom_offset
-		bloom.color = flower_color
-		root.add_child(bloom)
+	_add_shadow(root, "Shadow", Vector2(0.0, 8.0), Vector2(34.0, 10.0), Color(0.08, 0.09, 0.08, 0.10), -2)
+	var planter_region := ZED_VILLAGE_PLANTER_WOOD_REGION if flower_color.r > flower_color.g else ZED_VILLAGE_PLANTER_STONE_REGION
+	_add_sprite(root, "Planter", _make_region_texture(_get_zed_village_sheet(), planter_region), Vector2.ZERO, Vector2(1.5, 1.5), Color.WHITE, 0)
+	var pot_region := ZED_VILLAGE_POT_ORANGE_REGION if flower_color.r > flower_color.b else (ZED_VILLAGE_POT_SKY_REGION if flower_color.b > flower_color.g else ZED_VILLAGE_POT_YELLOW_REGION)
+	_add_sprite(root, "Bloom", _make_region_texture(_get_zed_village_sheet(), pot_region), Vector2(0.0, -18.0), Vector2(1.2, 1.2), Color.WHITE, 1)
 	return root
 
 
@@ -1154,27 +1270,250 @@ func _add_bench(base_position: Vector2) -> void:
 	root.name = "WatchBenchProp"
 	root.position = base_position
 	_scenery_root.add_child(root)
-	var bench_shadow := Polygon2D.new()
-	bench_shadow.polygon = _ellipse_polygon(Vector2(78.0, 18.0), 10)
-	bench_shadow.position = Vector2(0.0, 8.0)
-	bench_shadow.color = Color(0.10, 0.13, 0.12, 0.14)
-	root.add_child(bench_shadow)
-	var seat := Polygon2D.new()
-	seat.polygon = _rect_polygon(Vector2(68.0, 12.0))
-	seat.position = Vector2(0.0, -8.0)
-	seat.color = Color(0.56, 0.38, 0.23, 1.0)
-	root.add_child(seat)
-	var back := Polygon2D.new()
-	back.polygon = _rect_polygon(Vector2(72.0, 10.0))
-	back.position = Vector2(0.0, -24.0)
-	back.color = Color(0.67, 0.46, 0.29, 1.0)
-	root.add_child(back)
-	for leg_x in [-22.0, 22.0]:
+	_add_shadow(root, "Shadow", Vector2(0.0, 10.0), Vector2(66.0, 16.0), Color(0.10, 0.13, 0.12, 0.14), -2)
+	_add_sprite(root, "Bench", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_BENCH_REGION), Vector2.ZERO, Vector2(1.8, 1.8), Color.WHITE, 0)
+
+
+func _add_supply_cart(name: String, position: Vector2, wood_color: Color) -> Node2D:
+	var root := Node2D.new()
+	root.name = name
+	root.position = position
+	_scenery_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 18.0), Vector2(118.0, 24.0), Color(0.10, 0.13, 0.12, 0.16), -2)
+	var tray := Polygon2D.new()
+	tray.polygon = _rect_polygon(Vector2(92.0, 24.0))
+	tray.position = Vector2(0.0, -6.0)
+	tray.color = wood_color
+	root.add_child(tray)
+	var lip := Polygon2D.new()
+	lip.polygon = _rect_polygon(Vector2(98.0, 8.0))
+	lip.position = Vector2(0.0, -16.0)
+	lip.color = Color(wood_color.r * 1.08, wood_color.g * 1.06, wood_color.b * 1.02, 1.0)
+	root.add_child(lip)
+	for wheel_x in [-28.0, 28.0]:
+		var wheel := Polygon2D.new()
+		wheel.polygon = _ellipse_polygon(Vector2(22.0, 22.0), 12)
+		wheel.position = Vector2(wheel_x, 12.0)
+		wheel.color = Color(0.30, 0.22, 0.16, 1.0)
+		root.add_child(wheel)
+	for crate_offset in [Vector2(-18.0, -18.0), Vector2(18.0, -18.0)]:
+		var crate := Polygon2D.new()
+		crate.polygon = _rect_polygon(Vector2(28.0, 20.0))
+		crate.position = crate_offset
+		crate.color = Color(0.77, 0.60, 0.38, 1.0)
+		root.add_child(crate)
+	return root
+
+
+func _add_scarecrow(name: String, position: Vector2) -> Node2D:
+	var root := Node2D.new()
+	root.name = name
+	root.position = position
+	_ambient_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 16.0), Vector2(36.0, 12.0), Color(0.06, 0.04, 0.03, 0.18), -2)
+	var pole := Polygon2D.new()
+	pole.polygon = _rect_polygon(Vector2(8.0, 64.0))
+	pole.position = Vector2(0.0, -18.0)
+	pole.color = Color(0.54, 0.37, 0.23, 1.0)
+	root.add_child(pole)
+	var arm := Polygon2D.new()
+	arm.polygon = _rect_polygon(Vector2(46.0, 6.0))
+	arm.position = Vector2(0.0, -46.0)
+	arm.color = Color(0.62, 0.44, 0.27, 1.0)
+	root.add_child(arm)
+	var shirt := Polygon2D.new()
+	shirt.polygon = PackedVector2Array([
+		Vector2(-18.0, -40.0),
+		Vector2(18.0, -40.0),
+		Vector2(24.0, -14.0),
+		Vector2(-24.0, -14.0)
+	])
+	shirt.color = Color(0.74, 0.53, 0.29, 1.0)
+	root.add_child(shirt)
+	var head := Polygon2D.new()
+	head.polygon = _ellipse_polygon(Vector2(16.0, 16.0), 10)
+	head.position = Vector2(0.0, -56.0)
+	head.color = Color(0.93, 0.80, 0.54, 1.0)
+	root.add_child(head)
+	var hat := Polygon2D.new()
+	hat.polygon = PackedVector2Array([
+		Vector2(-14.0, -64.0),
+		Vector2(14.0, -64.0),
+		Vector2(8.0, -76.0),
+		Vector2(-8.0, -76.0)
+	])
+	hat.color = Color(0.45, 0.31, 0.18, 1.0)
+	root.add_child(hat)
+	return root
+
+
+func _add_sack_stack(name: String, position: Vector2, sack_color: Color, tie_color: Color, sack_count: int) -> Node2D:
+	var root := Node2D.new()
+	root.name = name
+	root.position = position
+	_scenery_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 12.0), Vector2(74.0, 18.0), Color(0.08, 0.09, 0.08, 0.14), -2)
+	for sack_index in range(sack_count):
+		var x_offset := -20.0 + float(sack_index * 20)
+		var y_offset := -6.0 + float(sack_index % 2) * -8.0
+		var sack := Polygon2D.new()
+		sack.polygon = _ellipse_polygon(Vector2(28.0, 30.0), 12)
+		sack.position = Vector2(x_offset, y_offset)
+		sack.color = sack_color
+		root.add_child(sack)
+		var tie := Polygon2D.new()
+		tie.polygon = _rect_polygon(Vector2(8.0, 10.0))
+		tie.position = Vector2(x_offset, y_offset - 10.0)
+		tie.color = tie_color
+		root.add_child(tie)
+	return root
+
+
+func _add_tool_rack(name: String, position: Vector2, accent_color: Color) -> Node2D:
+	var root := Node2D.new()
+	root.name = name
+	root.position = position
+	_scenery_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 12.0), Vector2(56.0, 16.0), Color(0.08, 0.09, 0.08, 0.12), -2)
+	for post_x in [-18.0, 18.0]:
+		var post := Polygon2D.new()
+		post.polygon = _rect_polygon(Vector2(8.0, 58.0))
+		post.position = Vector2(post_x, -18.0)
+		post.color = Color(0.55, 0.38, 0.22, 1.0)
+		root.add_child(post)
+	var rail := Polygon2D.new()
+	rail.polygon = _rect_polygon(Vector2(44.0, 8.0))
+	rail.position = Vector2(0.0, -42.0)
+	rail.color = Color(0.66, 0.49, 0.28, 1.0)
+	root.add_child(rail)
+	for tool_x in [-14.0, 0.0, 14.0]:
+		var handle := Polygon2D.new()
+		handle.polygon = _rect_polygon(Vector2(4.0, 28.0))
+		handle.position = Vector2(tool_x, -22.0)
+		handle.color = Color(0.44, 0.31, 0.19, 1.0)
+		root.add_child(handle)
+		var head := Polygon2D.new()
+		head.polygon = _rect_polygon(Vector2(12.0, 8.0))
+		head.position = Vector2(tool_x + 2.0, -10.0)
+		head.color = accent_color
+		root.add_child(head)
+	return root
+
+
+func _add_market_display(name: String, position: Vector2, item_colors: Array) -> Node2D:
+	var root := Node2D.new()
+	root.name = name
+	root.position = position
+	_scenery_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 10.0), Vector2(64.0, 16.0), Color(0.08, 0.09, 0.08, 0.12), -2)
+	var table := Polygon2D.new()
+	table.polygon = _rect_polygon(Vector2(58.0, 14.0))
+	table.position = Vector2(0.0, 0.0)
+	table.color = Color(0.66, 0.47, 0.27, 1.0)
+	root.add_child(table)
+	for item_index in range(item_colors.size()):
+		var color_variant: Variant = item_colors[item_index]
+		var color: Color = color_variant if color_variant is Color else Color(0.84, 0.88, 0.50, 1.0)
+		var item := Polygon2D.new()
+		item.polygon = _ellipse_polygon(Vector2(18.0, 14.0), 10)
+		item.position = Vector2(-16.0 + float(item_index * 16), -10.0)
+		item.color = color
+		root.add_child(item)
+	return root
+
+
+func _add_a_frame_sign(name: String, position: Vector2, board_color: Color, accent_color: Color) -> Node2D:
+	var root := Node2D.new()
+	root.name = name
+	root.position = position
+	_scenery_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 10.0), Vector2(42.0, 12.0), Color(0.08, 0.09, 0.08, 0.12), -2)
+	for leg_x in [-10.0, 10.0]:
 		var leg := Polygon2D.new()
-		leg.polygon = _rect_polygon(Vector2(8.0, 20.0))
-		leg.position = Vector2(leg_x, 4.0)
-		leg.color = Color(0.42, 0.28, 0.18, 1.0)
+		leg.polygon = _rect_polygon(Vector2(4.0, 28.0))
+		leg.position = Vector2(leg_x, 0.0)
+		leg.color = Color(0.42, 0.29, 0.18, 1.0)
 		root.add_child(leg)
+	var board := Polygon2D.new()
+	board.polygon = _rect_polygon(Vector2(30.0, 24.0))
+	board.position = Vector2(0.0, -10.0)
+	board.color = board_color
+	root.add_child(board)
+	var stripe := Polygon2D.new()
+	stripe.polygon = _rect_polygon(Vector2(20.0, 6.0))
+	stripe.position = Vector2(0.0, -14.0)
+	stripe.color = accent_color
+	root.add_child(stripe)
+	var pin := Polygon2D.new()
+	pin.polygon = _ellipse_polygon(Vector2(8.0, 8.0), 8)
+	pin.position = Vector2(0.0, -4.0)
+	pin.color = Color(0.97, 0.92, 0.78, 1.0)
+	root.add_child(pin)
+	return root
+
+
+func _add_direction_post(name: String, position: Vector2, signs: Array) -> Node2D:
+	var root := Node2D.new()
+	root.name = name
+	root.position = position
+	_ambient_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 14.0), Vector2(48.0, 14.0), Color(0.06, 0.04, 0.03, 0.14), -2)
+	var post := Polygon2D.new()
+	post.polygon = _rect_polygon(Vector2(10.0, 86.0))
+	post.position = Vector2(0.0, -34.0)
+	post.color = Color(0.49, 0.33, 0.19, 1.0)
+	root.add_child(post)
+	for sign_index in range(signs.size()):
+		var sign_variant: Variant = signs[sign_index]
+		if not (sign_variant is Dictionary):
+			continue
+		var sign: Dictionary = sign_variant
+		var direction := String(sign.get("direction", "right")).strip_edges().to_lower()
+		var side := -1.0 if direction == "left" else 1.0
+		var color_variant: Variant = sign.get("color", Color(0.82, 0.72, 0.44, 1.0))
+		var sign_color: Color = color_variant if color_variant is Color else Color(0.82, 0.72, 0.44, 1.0)
+		var y_offset := -58.0 + float(sign_index * 18)
+		var plank := Polygon2D.new()
+		plank.polygon = _rect_polygon(Vector2(46.0, 12.0))
+		plank.position = Vector2(20.0 * side, y_offset)
+		plank.color = sign_color
+		root.add_child(plank)
+		var pointer := Polygon2D.new()
+		pointer.polygon = PackedVector2Array([
+			Vector2(10.0 * side, -6.0),
+			Vector2(22.0 * side, 0.0),
+			Vector2(10.0 * side, 6.0)
+		])
+		pointer.position = Vector2(41.0 * side, y_offset)
+		pointer.color = sign_color
+		root.add_child(pointer)
+	return root
+
+
+func _add_pennant_string(name: String, position: Vector2, span: float, pennant_colors: Array) -> Node2D:
+	var root := Node2D.new()
+	root.name = name
+	root.position = position
+	_ambient_root.add_child(root)
+	var rope := Polygon2D.new()
+	rope.polygon = _rect_polygon(Vector2(span, 4.0))
+	rope.position = Vector2(span * 0.5, 0.0)
+	rope.color = Color(0.39, 0.28, 0.18, 1.0)
+	root.add_child(rope)
+	var count := maxi(1, pennant_colors.size())
+	for pennant_index in range(count):
+		var color_variant: Variant = pennant_colors[pennant_index]
+		var pennant_color: Color = color_variant if color_variant is Color else Color(0.92, 0.80, 0.42, 1.0)
+		var pennant := Polygon2D.new()
+		pennant.polygon = PackedVector2Array([
+			Vector2(-8.0, 0.0),
+			Vector2(8.0, 0.0),
+			Vector2(0.0, 18.0)
+		])
+		pennant.position = Vector2((float(pennant_index) + 0.5) * (span / float(count)), 1.0 + float(pennant_index % 2) * 3.0)
+		pennant.color = pennant_color
+		root.add_child(pennant)
+	return root
 
 
 func _add_hanging_sign(name: String, position: Vector2, sign_color: Color, trim_color: Color) -> Polygon2D:
@@ -1210,27 +1549,14 @@ func _add_lamp_post(name: String, position: Vector2, glow_color: Color) -> void:
 	root.name = name
 	root.position = position
 	_ambient_root.add_child(root)
-	var pole := Polygon2D.new()
-	pole.polygon = _rect_polygon(Vector2(8.0, 88.0))
-	pole.position = Vector2(0.0, -42.0)
-	pole.color = Color(0.39, 0.29, 0.20, 1.0)
-	root.add_child(pole)
-	var base := Polygon2D.new()
-	base.polygon = _rect_polygon(Vector2(16.0, 10.0))
-	base.position = Vector2(0.0, 2.0)
-	base.color = Color(0.44, 0.31, 0.20, 1.0)
-	root.add_child(base)
-	var arm := Polygon2D.new()
-	arm.polygon = _rect_polygon(Vector2(28.0, 6.0))
-	arm.position = Vector2(12.0, -78.0)
-	arm.color = Color(0.44, 0.32, 0.21, 1.0)
-	root.add_child(arm)
-	var glow := _add_ellipse(root, "Glow", Vector2(24.0, -64.0), Vector2(94.0, 64.0), glow_color, -1)
+	_add_shadow(root, "Shadow", Vector2(0.0, 10.0), Vector2(40.0, 12.0), Color(0.10, 0.13, 0.12, 0.12), -2)
+	_add_sprite(root, "Lamp", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_LAMP_REGION), Vector2.ZERO, Vector2(1.7, 1.7), Color.WHITE, 0)
+	var glow := _add_ellipse(root, "Glow", Vector2(10.0, -26.0), Vector2(90.0, 60.0), glow_color, -1)
 	var lantern := Polygon2D.new()
 	lantern.name = "Lantern"
-	lantern.position = Vector2(24.0, -62.0)
-	lantern.polygon = _rect_polygon(Vector2(16.0, 20.0))
-	lantern.color = Color(0.91, 0.72, 0.38, 1.0)
+	lantern.position = Vector2(8.0, -26.0)
+	lantern.polygon = _rect_polygon(Vector2(14.0, 18.0))
+	lantern.color = Color(0.95, 0.80, 0.46, 0.82)
 	root.add_child(lantern)
 	_lamp_glows.append(glow)
 	_lamp_lanterns.append(lantern)
@@ -1809,6 +2135,7 @@ func _apply_view_model() -> void:
 		"guide_text": String(_view_model.get("guide_text", "")),
 		"move_hint": _t("meta.world.move_hint"),
 		"prompt_text": _build_prompt_text(),
+		"prompt_visible": _should_show_context_prompt(),
 		"ready_orders": ready_to_claim,
 		"farm_tool_visible": not _get_hotbar_slots().is_empty(),
 		"hotbar_slots": _get_hotbar_slots(),
@@ -1937,11 +2264,50 @@ func _apply_phase_presentation() -> void:
 		if glow == null:
 			continue
 		glow.color.a = float(palette["shop_window_alpha"])
+	var shop_open_alpha := 0.0
+	var shop_open_glow_alpha := 0.0
+	match phase:
+		"morning":
+			shop_open_alpha = 0.70
+			shop_open_glow_alpha = 0.08
+		"noon":
+			shop_open_alpha = 0.82
+			shop_open_glow_alpha = 0.12
+		"afternoon":
+			shop_open_alpha = 0.92
+			shop_open_glow_alpha = 0.18
+		"evening":
+			shop_open_alpha = 1.0
+			shop_open_glow_alpha = 0.30
+	for cue in _shop_open_props:
+		if cue == null:
+			continue
+		cue.modulate = Color(1.0, 1.0, 1.0, shop_open_alpha)
+	for glow in _shop_open_glows:
+		if glow == null:
+			continue
+		glow.color.a = shop_open_glow_alpha
 	if _night_beacon_glow != null:
 		var beacon_alpha := 0.18 if not night_ready else 0.58
 		if phase == "night":
 			beacon_alpha += 0.08
 		_night_beacon_glow.color = Color(0.50, 0.82, 1.0, beacon_alpha)
+	var dock_ready_alpha := 0.18
+	var dock_ready_glow_alpha := 0.04
+	if night_ready:
+		dock_ready_alpha = 1.0
+		dock_ready_glow_alpha = 0.26 if phase != "night" else 0.34
+	elif phase == "afternoon":
+		dock_ready_alpha = 0.34
+		dock_ready_glow_alpha = 0.08
+	for cue in _dock_ready_props:
+		if cue == null:
+			continue
+		cue.modulate = Color(1.0, 1.0, 1.0, dock_ready_alpha)
+	for glow in _dock_ready_glows:
+		if glow == null:
+			continue
+		glow.color.a = dock_ready_glow_alpha
 	if _dock_gate_root != null:
 		_dock_gate_root.visible = not night_ready
 	for gate_item in _dock_gate_items:
@@ -2192,6 +2558,14 @@ func _build_prompt_text() -> String:
 	]
 
 
+func _should_show_context_prompt() -> bool:
+	if daily_orders_board != null and daily_orders_board.visible:
+		return false
+	if _transition_active or _night_popup_open or _overlay_blocked:
+		return false
+	return not _focused_zone_id.is_empty()
+
+
 func _refresh_zone_visuals() -> void:
 	for zone_id_variant in _zones.keys():
 		var zone_id := String(zone_id_variant)
@@ -2209,12 +2583,17 @@ func _apply_zone_visual(zone_id: String, zone: Dictionary, enabled: bool, focuse
 	var pulse := zone.get("pulse", null) as Polygon2D
 	var accent_variant: Variant = zone.get("accent", Color.WHITE)
 	var accent: Color = _zone_accent_for_state(zone_id, accent_variant if accent_variant is Color else Color.WHITE, enabled)
+	var subtle_marker_alpha := 0.12 if not _is_farm_plot_zone(zone_id) and not _is_pickup_zone(zone_id) else 0.0
+	var subtle_pulse_alpha := 0.06 if not _is_farm_plot_zone(zone_id) and not _is_pickup_zone(zone_id) else 0.0
+	if not enabled:
+		subtle_marker_alpha *= 0.45
+		subtle_pulse_alpha *= 0.45
 	if marker != null:
-		marker.scale = Vector2.ONE * (1.14 if focused else 0.96)
-		marker.color = Color(accent.r, accent.g, accent.b, 0.90 if focused else (0.40 if enabled else 0.16))
+		marker.scale = Vector2.ONE * (1.10 if focused else 0.92)
+		marker.color = Color(accent.r, accent.g, accent.b, 0.88 if focused else subtle_marker_alpha)
 	if pulse != null:
-		pulse.scale = Vector2.ONE * (1.28 if focused else 1.0)
-		pulse.color = Color(accent.r, accent.g, accent.b, 0.22 if focused else (0.12 if enabled else 0.04))
+		pulse.scale = Vector2.ONE * (1.22 if focused else 1.0)
+		pulse.color = Color(accent.r, accent.g, accent.b, 0.16 if focused else subtle_pulse_alpha)
 
 
 func _zone_accent_for_state(zone_id: String, base_accent: Color, enabled: bool) -> Color:

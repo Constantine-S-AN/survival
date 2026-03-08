@@ -217,17 +217,17 @@ theme_type_variation = &"BodyMutedLabel"
 text = "1-6 select | Q / Tab cycle | E use"
 
 [node name="PromptPanel" type="Panel" parent="."]
-custom_minimum_size = Vector2(500, 0)
+custom_minimum_size = Vector2(420, 0)
 layout_mode = 1
 anchors_preset = 10
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -250.0
-offset_top = -100.0
-offset_right = 250.0
-offset_bottom = -24.0
+offset_left = -210.0
+offset_top = -88.0
+offset_right = 210.0
+offset_bottom = -18.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_type_variation = &"CardPanel"

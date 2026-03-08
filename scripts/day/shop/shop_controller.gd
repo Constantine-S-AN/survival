@@ -16,6 +16,22 @@ const TILE_WOOD_DARK := Vector2i(1, 0)
 const TILE_STONE := Vector2i(2, 0)
 const TILE_RUG := Vector2i(3, 0)
 const TILE_MAT := Vector2i(4, 0)
+const ZED_VILLAGE_SHEET_PATH := "res://assets/external/dayworld_visual_pass_2/unpacked/village/Pixel 16 v2 village free/Pixel 16 v2 village free.png"
+const ZED_INTERIOR_SHEET_PATH := "res://assets/external/dayworld_visual_pass_2/unpacked/interior/Pixel_16_interiors_v2_free/tiles and items.png"
+const ZED_VILLAGE_CRATE_REGIONS := [
+	Rect2i(208, 64, 16, 16),
+	Rect2i(224, 64, 16, 16),
+	Rect2i(240, 64, 16, 16)
+]
+const ZED_INTERIOR_RUG_GREEN_REGION := Rect2i(144, 96, 16, 16)
+const ZED_INTERIOR_WALL_REGION := Rect2i(96, 32, 48, 16)
+const ZED_INTERIOR_WINDOW_REGION := Rect2i(144, 32, 16, 16)
+const ZED_INTERIOR_TABLE_REGION := Rect2i(49, 107, 30, 21)
+const ZED_INTERIOR_SOFA_REGION := Rect2i(82, 131, 44, 29)
+const ZED_INTERIOR_PLANT_REGION := Rect2i(49, 140, 12, 20)
+const ZED_INTERIOR_STOOL_REGION := Rect2i(99, 115, 12, 13)
+const ZED_INTERIOR_CHAIR_LEFT_REGION := Rect2i(145, 142, 14, 18)
+const ZED_INTERIOR_CHAIR_RIGHT_REGION := Rect2i(161, 141, 13, 19)
 
 @onready var world_root: Node2D = $WorldRoot
 @onready var backdrop: Node2D = $WorldRoot/Backdrop
@@ -29,6 +45,7 @@ const TILE_MAT := Vector2i(4, 0)
 @onready var leave_button: Button = $HUDLayer/LeaveButton
 @onready var status_panel: Panel = $HUDLayer/StatusPanel
 @onready var status_label: Label = $HUDLayer/StatusPanel/Margin/Status
+@onready var prompt_panel: Panel = $HUDLayer/PromptPanel
 @onready var hint_label: Label = $HUDLayer/PromptPanel/Margin/VBox/Hint
 @onready var prompt_label: Label = $HUDLayer/PromptPanel/Margin/VBox/Prompt
 @onready var popup_shade: ColorRect = $HUDLayer/PopupShade
@@ -69,9 +86,12 @@ var _tile_root: Node2D = null
 var _ground_tiles: TileMapLayer = null
 var _detail_tiles: TileMapLayer = null
 var _world_tile_set: TileSet = null
+var _zed_village_sheet: Texture2D = null
+var _zed_interior_sheet: Texture2D = null
 var _props_root: Node2D = null
 var _npc_root: Node2D = null
 var _ambient_root: Node2D = null
+var _ambient_glows: Array[Polygon2D] = []
 var _popup_panels: Dictionary = {}
 var _was_visible: bool = false
 
@@ -227,8 +247,8 @@ func _build_world_tileset() -> TileSet:
 		return _world_tile_set
 	var tile_count := 5
 	var atlas_image := Image.create(TILE_SIZE * tile_count, TILE_SIZE, false, Image.FORMAT_RGBA8)
-	_draw_wood_tile(atlas_image, 0, Color(0.42, 0.28, 0.16, 1.0), Color(0.52, 0.36, 0.22, 1.0), Color(0.28, 0.18, 0.10, 1.0))
-	_draw_wood_tile(atlas_image, 1, Color(0.36, 0.24, 0.14, 1.0), Color(0.46, 0.31, 0.19, 1.0), Color(0.24, 0.15, 0.09, 1.0))
+	_draw_wood_tile(atlas_image, 0, Color(0.60, 0.41, 0.24, 1.0), Color(0.76, 0.56, 0.35, 1.0), Color(0.42, 0.28, 0.16, 1.0))
+	_draw_wood_tile(atlas_image, 1, Color(0.52, 0.35, 0.20, 1.0), Color(0.67, 0.49, 0.29, 1.0), Color(0.35, 0.22, 0.12, 1.0))
 	_draw_stone_tile(atlas_image, 2)
 	_draw_rug_tile(atlas_image, 3)
 	_draw_mat_tile(atlas_image, 4)
@@ -243,6 +263,25 @@ func _build_world_tileset() -> TileSet:
 	tile_set.add_source(source, 0)
 	_world_tile_set = tile_set
 	return _world_tile_set
+
+
+func _get_zed_village_sheet() -> Texture2D:
+	if _zed_village_sheet == null:
+		_zed_village_sheet = load(ZED_VILLAGE_SHEET_PATH) as Texture2D
+	return _zed_village_sheet
+
+
+func _get_zed_interior_sheet() -> Texture2D:
+	if _zed_interior_sheet == null:
+		_zed_interior_sheet = load(ZED_INTERIOR_SHEET_PATH) as Texture2D
+	return _zed_interior_sheet
+
+
+func _make_region_texture(texture_sheet: Texture2D, region: Rect2i) -> AtlasTexture:
+	var atlas := AtlasTexture.new()
+	atlas.atlas = texture_sheet
+	atlas.region = Rect2(region.position, region.size)
+	return atlas
 
 
 func _draw_wood_tile(image: Image, tile_index: int, base: Color, light: Color, dark: Color) -> void:
@@ -307,8 +346,17 @@ func _paint_floor_tiles() -> void:
 			var tile := TILE_WOOD_LIGHT if int((x + y) % 2) == 0 else TILE_WOOD_DARK
 			_ground_tiles.set_cell(Vector2i(x, y), 0, tile)
 	_fill_tile_rect(_ground_tiles, Rect2i(0, 0, FLOOR_COLUMNS, 2), TILE_STONE)
-	_fill_tile_rect(_ground_tiles, Rect2i(12, 13, 4, 3), TILE_MAT)
+	_fill_tile_rect(_ground_tiles, Rect2i(11, 12, 8, 4), TILE_MAT)
 	_fill_tile_rect(_ground_tiles, Rect2i(3, 4, 10, 6), TILE_RUG)
+	_fill_tile_rect(_ground_tiles, Rect2i(20, 4, 7, 6), TILE_RUG)
+	_fill_tile_rect(_ground_tiles, Rect2i(12, 3, 6, 3), TILE_MAT)
+	_fill_tile_rect(_ground_tiles, Rect2i(2, 10, 5, 2), TILE_MAT)
+	for threshold_cell in [
+		Vector2i(10, 12), Vector2i(11, 12), Vector2i(18, 12), Vector2i(19, 12),
+		Vector2i(13, 11), Vector2i(14, 11), Vector2i(15, 11), Vector2i(16, 11),
+		Vector2i(6, 10), Vector2i(7, 10), Vector2i(20, 10), Vector2i(21, 10)
+	]:
+		_ground_tiles.set_cell(threshold_cell, 0, TILE_STONE)
 
 
 func _fill_tile_rect(layer: TileMapLayer, rect: Rect2i, atlas_coords: Vector2i) -> void:
@@ -326,19 +374,61 @@ func _build_static_props() -> void:
 		child.free()
 	for child in _ambient_root.get_children():
 		child.free()
+	_ambient_glows.clear()
 	_add_rect(_props_root, "TopWall", Rect2(130.0, 164.0, 1340.0, 46.0), Color(0.59, 0.43, 0.25, 1.0), -1)
 	_add_rect(_props_root, "LeftWall", Rect2(130.0, 208.0, 40.0, 592.0), Color(0.33, 0.24, 0.15, 1.0), -1)
 	_add_rect(_props_root, "RightWall", Rect2(1430.0, 208.0, 40.0, 592.0), Color(0.33, 0.24, 0.15, 1.0), -1)
+	_add_back_wall_textures()
 	_add_counter(Vector2(1038.0, 308.0))
 	_add_seed_shelves(Vector2(268.0, 276.0))
 	_add_upgrade_shelves(Vector2(1286.0, 276.0))
 	_add_parcel_stack(Vector2(470.0, 592.0))
 	_add_display_table(Vector2(782.0, 566.0))
 	_add_entry_door(Vector2(798.0, 778.0))
+	_add_seed_bins(Vector2(278.0, 462.0))
+	_add_request_board(Vector2(470.0, 468.0))
+	_add_upgrade_display(Vector2(1284.0, 462.0))
+	_add_waiting_nook(Vector2(630.0, 624.0))
 	_add_shopkeeper_npc(Vector2(1040.0, 286.0))
 	_add_regular_npc(Vector2(478.0, 590.0))
 	for glow_position in [Vector2(320.0, 246.0), Vector2(1040.0, 246.0), Vector2(1286.0, 246.0)]:
-		_add_glow(_ambient_root, glow_position, Vector2(144.0, 74.0), Color(1.0, 0.78, 0.42, 0.12))
+		_ambient_glows.append(_add_glow(_ambient_root, glow_position, Vector2(144.0, 74.0), Color(1.0, 0.78, 0.42, 0.10)))
+	_ambient_glows.append(_add_glow(_ambient_root, Vector2(1038.0, 394.0), Vector2(238.0, 84.0), Color(1.0, 0.82, 0.48, 0.0)))
+
+
+func _add_back_wall_textures() -> void:
+	var wall_texture := _make_region_texture(_get_zed_interior_sheet(), ZED_INTERIOR_WALL_REGION)
+	for offset_x in [244.0, 430.0, 616.0, 802.0, 988.0, 1174.0]:
+		var wall_strip := Sprite2D.new()
+		wall_strip.texture = wall_texture
+		wall_strip.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		wall_strip.position = Vector2(offset_x, 188.0)
+		wall_strip.scale = Vector2(2.8, 2.0)
+		wall_strip.z_index = -1
+		_props_root.add_child(wall_strip)
+	var window_texture := _make_region_texture(_get_zed_interior_sheet(), ZED_INTERIOR_WINDOW_REGION)
+	for window_x in [420.0, 1038.0, 1288.0]:
+		var window_sprite := Sprite2D.new()
+		window_sprite.texture = window_texture
+		window_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		window_sprite.position = Vector2(window_x, 196.0)
+		window_sprite.scale = Vector2(2.4, 2.4)
+		window_sprite.z_index = 0
+		_props_root.add_child(window_sprite)
+
+
+func _add_waiting_nook(position: Vector2) -> void:
+	var root := Node2D.new()
+	root.name = "WaitingNook"
+	root.position = position
+	_props_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 28.0), Vector2(168.0, 34.0), Color(0.04, 0.02, 0.01, 0.14), -2)
+	_add_sprite(root, "Sofa", _make_region_texture(_get_zed_interior_sheet(), ZED_INTERIOR_SOFA_REGION), Vector2(0.0, 0.0), Vector2(2.1, 2.1), Color.WHITE, 0)
+	_add_sprite(root, "Plant", _make_region_texture(_get_zed_interior_sheet(), ZED_INTERIOR_PLANT_REGION), Vector2(-104.0, 8.0), Vector2(2.2, 2.2), Color.WHITE, 0)
+	_add_sprite(root, "Table", _make_region_texture(_get_zed_interior_sheet(), ZED_INTERIOR_TABLE_REGION), Vector2(104.0, -6.0), Vector2(2.0, 2.0), Color.WHITE, 0)
+	_add_sprite(root, "ChairLeft", _make_region_texture(_get_zed_interior_sheet(), ZED_INTERIOR_CHAIR_LEFT_REGION), Vector2(84.0, 24.0), Vector2(2.0, 2.0), Color.WHITE, 0)
+	_add_sprite(root, "ChairRight", _make_region_texture(_get_zed_interior_sheet(), ZED_INTERIOR_CHAIR_RIGHT_REGION), Vector2(126.0, 22.0), Vector2(2.0, 2.0), Color.WHITE, 0)
+	_add_sprite(root, "Rug", _make_region_texture(_get_zed_interior_sheet(), ZED_INTERIOR_RUG_GREEN_REGION), Vector2(-4.0, 54.0), Vector2(3.0, 2.6), Color.WHITE, -1)
 
 
 func _add_counter(position: Vector2) -> void:
@@ -363,6 +453,27 @@ func _add_counter(position: Vector2) -> void:
 		jar.polygon = _rect_polygon(Vector2(20.0, 30.0))
 		jar.color = Color(0.72, 0.83, 0.88, 1.0)
 		root.add_child(jar)
+	var scale_stand := Polygon2D.new()
+	scale_stand.polygon = _rect_polygon(Vector2(10.0, 30.0))
+	scale_stand.position = Vector2(-6.0, -18.0)
+	scale_stand.color = Color(0.40, 0.29, 0.18, 1.0)
+	root.add_child(scale_stand)
+	var scale_beam := Polygon2D.new()
+	scale_beam.polygon = _rect_polygon(Vector2(42.0, 4.0))
+	scale_beam.position = Vector2(-6.0, -30.0)
+	scale_beam.color = Color(0.56, 0.40, 0.25, 1.0)
+	root.add_child(scale_beam)
+	for tray_x in [-22.0, 10.0]:
+		var tray := Polygon2D.new()
+		tray.polygon = _ellipse_polygon(Vector2(18.0, 10.0), 10)
+		tray.position = Vector2(tray_x, -22.0)
+		tray.color = Color(0.86, 0.74, 0.52, 1.0)
+		root.add_child(tray)
+	var ledger := Polygon2D.new()
+	ledger.polygon = _rect_polygon(Vector2(28.0, 18.0))
+	ledger.position = Vector2(118.0, -24.0)
+	ledger.color = Color(0.30, 0.47, 0.29, 1.0)
+	root.add_child(ledger)
 
 
 func _add_seed_shelves(position: Vector2) -> void:
@@ -382,6 +493,17 @@ func _add_seed_shelves(position: Vector2) -> void:
 			jar.polygon = _rect_polygon(Vector2(18.0, 22.0))
 			jar.color = Color(0.62 + (0.05 * shelf_index), 0.74 + (0.04 * jar_index), 0.44, 1.0)
 			root.add_child(jar)
+	var banner := Polygon2D.new()
+	banner.polygon = _rect_polygon(Vector2(92.0, 16.0))
+	banner.position = Vector2(0.0, -30.0)
+	banner.color = Color(0.47, 0.68, 0.31, 1.0)
+	root.add_child(banner)
+	for sack_x in [-52.0, 52.0]:
+		var sack := Polygon2D.new()
+		sack.polygon = _ellipse_polygon(Vector2(24.0, 28.0), 12)
+		sack.position = Vector2(sack_x, 94.0)
+		sack.color = Color(0.82, 0.72, 0.44, 1.0)
+		root.add_child(sack)
 
 
 func _add_upgrade_shelves(position: Vector2) -> void:
@@ -401,6 +523,22 @@ func _add_upgrade_shelves(position: Vector2) -> void:
 			crate.polygon = _rect_polygon(Vector2(26.0, 24.0))
 			crate.color = Color(0.68, 0.63, 0.53, 1.0)
 			root.add_child(crate)
+	var banner := Polygon2D.new()
+	banner.polygon = _rect_polygon(Vector2(96.0, 16.0))
+	banner.position = Vector2(0.0, -30.0)
+	banner.color = Color(0.58, 0.67, 0.82, 1.0)
+	root.add_child(banner)
+	for hook_x in [-44.0, 0.0, 44.0]:
+		var hook := Polygon2D.new()
+		hook.polygon = _rect_polygon(Vector2(6.0, 26.0))
+		hook.position = Vector2(hook_x, 92.0)
+		hook.color = Color(0.36, 0.28, 0.20, 1.0)
+		root.add_child(hook)
+		var tool := Polygon2D.new()
+		tool.polygon = _rect_polygon(Vector2(16.0, 8.0))
+		tool.position = Vector2(hook_x + 2.0, 104.0)
+		tool.color = Color(0.74, 0.78, 0.82, 1.0)
+		root.add_child(tool)
 
 
 func _add_parcel_stack(position: Vector2) -> void:
@@ -409,12 +547,11 @@ func _add_parcel_stack(position: Vector2) -> void:
 	root.position = position
 	_props_root.add_child(root)
 	_add_shadow(root, "Shadow", Vector2(0.0, 24.0), Vector2(122.0, 26.0), Color(0.04, 0.02, 0.01, 0.18), -2)
-	for parcel_offset in [Vector2(-24.0, 0.0), Vector2(18.0, -8.0), Vector2(0.0, -28.0)]:
-		var parcel := Polygon2D.new()
-		parcel.position = parcel_offset
-		parcel.polygon = _rect_polygon(Vector2(44.0, 28.0))
-		parcel.color = Color(0.78, 0.67, 0.48, 1.0)
-		root.add_child(parcel)
+	var parcel_offsets: Array[Vector2] = [Vector2(-24.0, 0.0), Vector2(18.0, -8.0), Vector2(0.0, -28.0)]
+	for parcel_index in range(3):
+		var parcel_offset: Vector2 = parcel_offsets[parcel_index]
+		var crate_region: Rect2i = ZED_VILLAGE_CRATE_REGIONS[posmod(parcel_index, ZED_VILLAGE_CRATE_REGIONS.size())]
+		_add_sprite(root, "Crate%d" % parcel_index, _make_region_texture(_get_zed_village_sheet(), crate_region), parcel_offset, Vector2(2.1, 2.1), Color.WHITE, 0)
 
 
 func _add_display_table(position: Vector2) -> void:
@@ -428,12 +565,88 @@ func _add_display_table(position: Vector2) -> void:
 	tabletop.polygon = _rect_polygon(Vector2(138.0, 38.0))
 	tabletop.color = Color(0.71, 0.51, 0.28, 1.0)
 	root.add_child(tabletop)
-	for produce_offset in [Vector2(-40.0, -8.0), Vector2(0.0, -10.0), Vector2(38.0, -6.0)]:
+	var produce_colors := [
+		Color(0.72, 0.84, 0.52, 1.0),
+		Color(0.96, 0.76, 0.42, 1.0),
+		Color(0.81, 0.92, 0.56, 1.0)
+	]
+	var produce_offsets: Array[Vector2] = [Vector2(-40.0, -8.0), Vector2(0.0, -10.0), Vector2(38.0, -6.0)]
+	for produce_index in range(3):
+		var produce_offset: Vector2 = produce_offsets[produce_index]
 		var produce := Polygon2D.new()
 		produce.position = produce_offset
 		produce.polygon = _ellipse_polygon(Vector2(24.0, 16.0), 10)
-		produce.color = Color(0.72, 0.84, 0.52, 1.0)
+		produce.color = produce_colors[produce_index]
 		root.add_child(produce)
+
+
+func _add_seed_bins(position: Vector2) -> void:
+	var root := Node2D.new()
+	root.name = "SeedBins"
+	root.position = position
+	_props_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 16.0), Vector2(98.0, 20.0), Color(0.04, 0.02, 0.01, 0.16), -2)
+	for bin_index in range(3):
+		var bin := Polygon2D.new()
+		bin.polygon = _rect_polygon(Vector2(26.0, 20.0))
+		bin.position = Vector2(-28.0 + float(bin_index * 28), -6.0)
+		bin.color = Color(0.72, 0.54, 0.30, 1.0)
+		root.add_child(bin)
+		var fill := Polygon2D.new()
+		fill.polygon = _ellipse_polygon(Vector2(18.0, 10.0), 10)
+		fill.position = Vector2(-28.0 + float(bin_index * 28), -12.0)
+		fill.color = Color(0.84 - float(bin_index) * 0.06, 0.88, 0.52, 1.0)
+		root.add_child(fill)
+
+
+func _add_request_board(position: Vector2) -> void:
+	var root := Node2D.new()
+	root.name = "RequestBoard"
+	root.position = position
+	_props_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 18.0), Vector2(72.0, 18.0), Color(0.04, 0.02, 0.01, 0.16), -2)
+	for post_x in [-18.0, 18.0]:
+		var post := Polygon2D.new()
+		post.polygon = _rect_polygon(Vector2(8.0, 48.0))
+		post.position = Vector2(post_x, -10.0)
+		post.color = Color(0.49, 0.34, 0.18, 1.0)
+		root.add_child(post)
+	var board := Polygon2D.new()
+	board.polygon = _rect_polygon(Vector2(58.0, 34.0))
+	board.position = Vector2(0.0, -34.0)
+	board.color = Color(0.82, 0.71, 0.48, 1.0)
+	root.add_child(board)
+	for note_offset in [Vector2(-12.0, -40.0), Vector2(10.0, -34.0), Vector2(0.0, -26.0)]:
+		var note := Polygon2D.new()
+		note.polygon = _rect_polygon(Vector2(14.0, 10.0))
+		note.position = note_offset
+		note.color = Color(0.97, 0.93, 0.84, 1.0)
+		root.add_child(note)
+
+
+func _add_upgrade_display(position: Vector2) -> void:
+	var root := Node2D.new()
+	root.name = "UpgradeDisplay"
+	root.position = position
+	_props_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 14.0), Vector2(92.0, 20.0), Color(0.04, 0.02, 0.01, 0.16), -2)
+	var stand := Polygon2D.new()
+	stand.polygon = _rect_polygon(Vector2(76.0, 18.0))
+	stand.position = Vector2(0.0, -2.0)
+	stand.color = Color(0.64, 0.47, 0.27, 1.0)
+	root.add_child(stand)
+	for display_index in range(3):
+		var base_x := -24.0 + float(display_index * 24)
+		var base := Polygon2D.new()
+		base.polygon = _rect_polygon(Vector2(14.0, 18.0))
+		base.position = Vector2(base_x, -14.0)
+		base.color = Color(0.74, 0.78, 0.82, 1.0)
+		root.add_child(base)
+		var cap := Polygon2D.new()
+		cap.polygon = _ellipse_polygon(Vector2(18.0, 10.0), 10)
+		cap.position = Vector2(base_x, -24.0)
+		cap.color = Color(0.58, 0.70, 0.86, 1.0)
+		root.add_child(cap)
 
 
 func _add_entry_door(position: Vector2) -> void:
@@ -505,12 +718,13 @@ func _add_regular_npc(position: Vector2) -> void:
 	root.add_child(head)
 
 
-func _add_glow(parent: Node2D, position: Vector2, size: Vector2, color: Color) -> void:
+func _add_glow(parent: Node2D, position: Vector2, size: Vector2, color: Color) -> Polygon2D:
 	var glow := Polygon2D.new()
 	glow.position = position
 	glow.polygon = _ellipse_polygon(size, 16)
 	glow.color = color
 	parent.add_child(glow)
+	return glow
 
 
 func _add_shadow(parent: Node2D, name: String, position: Vector2, size: Vector2, color: Color, z_index: int) -> void:
@@ -556,6 +770,27 @@ func _add_rect(parent: Node, name: String, rect: Rect2, color: Color, z_index: i
 	polygon.z_index = z_index
 	parent.add_child(polygon)
 	return polygon
+
+
+func _add_sprite(
+	parent: Node,
+	name: String,
+	texture: Texture2D,
+	position: Vector2,
+	scale_value: Vector2,
+	modulate_color: Color,
+	z_index: int
+) -> Sprite2D:
+	var sprite := Sprite2D.new()
+	sprite.name = name
+	sprite.texture = texture
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.position = position
+	sprite.scale = scale_value
+	sprite.modulate = modulate_color
+	sprite.z_index = z_index
+	parent.add_child(sprite)
+	return sprite
 
 
 func _register_zones() -> void:
@@ -622,6 +857,7 @@ func _create_zone(zone_id: String, label_key: String, position: Vector2, size: V
 
 
 func _apply_view_model() -> void:
+	_apply_phase_ambience(String(_view_model.get("phase", "morning")))
 	info_title_label.text = _t("meta.shop.world_title")
 	info_stats_label.text = _t("meta.shop.stats", {
 		"day": int(_view_model.get("current_day", 1)),
@@ -639,6 +875,7 @@ func _apply_view_model() -> void:
 	status_panel.visible = not status_label.text.strip_edges().is_empty()
 	hint_label.text = _t("meta.shop.world_move_hint")
 	prompt_label.text = _build_prompt_text()
+	prompt_panel.visible = _should_show_prompt_panel()
 
 	merchant_title_label.text = _t("meta.shop.popup_merchant_title")
 	merchant_subtitle_label.text = _t("meta.shop.subtitle")
@@ -677,6 +914,27 @@ func _apply_view_model() -> void:
 	_sync_scroll_content_widths()
 	_refresh_zone_visuals()
 	_update_popup_visibility()
+
+
+func _apply_phase_ambience(phase: String) -> void:
+	var glow_alpha := 0.10
+	match phase.strip_edges().to_lower():
+		"noon":
+			glow_alpha = 0.14
+		"afternoon":
+			glow_alpha = 0.18
+		"evening":
+			glow_alpha = 0.28
+		"night":
+			glow_alpha = 0.0
+	for glow in _ambient_glows:
+		if glow == null:
+			continue
+		glow.color.a = glow_alpha
+
+
+func _should_show_prompt_panel() -> bool:
+	return _active_popup_id.is_empty() and not _focused_zone_id.is_empty()
 
 
 func _rebuild_seed_buttons() -> void:
@@ -773,11 +1031,11 @@ func _apply_zone_visual(zone_id: String, zone: Dictionary, focused: bool) -> voi
 	if zone_id == "regular" and not String(_view_model.get("request_title", "")).strip_edges().is_empty():
 		accent = Color(0.58, 0.86, 0.70, 1.0)
 	if marker != null:
-		marker.scale = Vector2.ONE * (1.18 if focused else 1.0)
-		marker.color = Color(accent.r, accent.g, accent.b, 0.92 if focused else 0.34)
+		marker.scale = Vector2.ONE * (1.14 if focused else 0.92)
+		marker.color = Color(accent.r, accent.g, accent.b, 0.92 if focused else 0.08)
 	if pulse != null:
-		pulse.scale = Vector2.ONE * (1.30 if focused else 1.0)
-		pulse.color = Color(accent.r, accent.g, accent.b, 0.24 if focused else 0.10)
+		pulse.scale = Vector2.ONE * (1.24 if focused else 1.0)
+		pulse.color = Color(accent.r, accent.g, accent.b, 0.22 if focused else 0.04)
 
 
 func _activate_zone(zone_id: String) -> bool:
