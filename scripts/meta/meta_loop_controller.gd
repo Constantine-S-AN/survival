@@ -1219,6 +1219,8 @@ func _build_restaurant_model() -> Dictionary:
 
 
 func _build_shop_model() -> Dictionary:
+	var request_info := _build_shop_request_info()
+	var ready_order_count := _get_ready_daily_order_count()
 	return {
 		"current_day": _day_state.current_day,
 		"phase": _day_state.current_phase,
@@ -1229,10 +1231,91 @@ func _build_shop_model() -> Dictionary:
 		"inventory_tooltip": _build_night_stock_tooltip(),
 		"owned_upgrades_summary": _build_shop_owned_upgrade_summary(),
 		"status_text": _shop_status_text,
+		"shopkeeper_line": _build_shopkeeper_line(ready_order_count),
+		"customer_line": _build_shop_customer_line(request_info),
+		"request_title": String(request_info.get("title", "")),
+		"request_body": String(request_info.get("body", "")),
+		"request_reward": String(request_info.get("reward", "")),
+		"request_status": String(request_info.get("status", "")),
 		"seed_offers": _build_shop_seed_offers(),
 		"sell_offers": _build_shop_sell_offers(),
 		"upgrade_offers": _build_shop_upgrade_offers()
 	}
+
+
+func _build_shop_request_info() -> Dictionary:
+	var cards := _get_daily_order_cards()
+	var selected_card: Dictionary = {}
+	for card_variant in cards:
+		if not (card_variant is Dictionary):
+			continue
+		var card := (card_variant as Dictionary).duplicate(true)
+		if bool(card.get("can_claim", false)):
+			selected_card = card
+			break
+		if selected_card.is_empty() and not bool(card.get("completed", false)):
+			selected_card = card
+	if selected_card.is_empty() and not cards.is_empty() and cards[0] is Dictionary:
+		selected_card = (cards[0] as Dictionary).duplicate(true)
+	if selected_card.is_empty():
+		return {
+			"title": "",
+			"body": "",
+			"reward": "",
+			"status": "",
+			"has_request": false
+		}
+	var body_parts: Array[String] = []
+	var description := String(selected_card.get("description", "")).strip_edges()
+	var objective := String(selected_card.get("objective", "")).strip_edges()
+	var progress_text := String(selected_card.get("progress_text", "")).strip_edges()
+	if not description.is_empty():
+		body_parts.append(description)
+	if not objective.is_empty():
+		body_parts.append(_t("meta.shop.request_objective", {"value": objective}))
+	if not progress_text.is_empty() and progress_text != objective:
+		body_parts.append(_t("meta.shop.request_progress", {"value": progress_text}))
+	var status_text := String(selected_card.get("status_text", "")).strip_edges()
+	var pillar_title := String(selected_card.get("pillar_title", "")).strip_edges()
+	if not pillar_title.is_empty():
+		status_text = "%s · %s" % [
+			pillar_title,
+			status_text if not status_text.is_empty() else _t("meta.shop.request_none_status")
+		]
+	return {
+		"title": String(selected_card.get("name", "")),
+		"body": "\n".join(body_parts),
+		"reward": String(selected_card.get("reward_text", "")),
+		"status": status_text,
+		"has_request": true
+	}
+
+
+func _build_shopkeeper_line(ready_order_count: int) -> String:
+	if ready_order_count > 0:
+		return _t("meta.shop.shopkeeper_line_ready", {"value": ready_order_count})
+	return _t("meta.shop.shopkeeper_line")
+
+
+func _build_shop_customer_line(request_info: Dictionary) -> String:
+	if bool(request_info.get("has_request", false)):
+		return _t("meta.shop.customer_line_request", {
+			"value": String(request_info.get("title", _t("meta.shop.request_none_title")))
+		})
+	return _t("meta.shop.customer_line_idle")
+
+
+func _get_daily_order_cards() -> Array:
+	if DailyOrders == null or not DailyOrders.has_method("get_order_cards"):
+		return []
+	var cards_variant: Variant = DailyOrders.call("get_order_cards")
+	return cards_variant if cards_variant is Array else []
+
+
+func _get_ready_daily_order_count() -> int:
+	if DailyOrders == null or not DailyOrders.has_method("get_ready_to_claim_count"):
+		return 0
+	return maxi(0, int(DailyOrders.call("get_ready_to_claim_count")))
 
 
 func _build_shop_seed_offers() -> Array[Dictionary]:
@@ -2435,6 +2518,30 @@ func debug_restaurant_request_service() -> bool:
 	return false
 
 
+func debug_shop_interact(zone_id: String) -> bool:
+	if shop_view != null and shop_view.has_method("debug_activate_zone"):
+		return bool(shop_view.call("debug_activate_zone", zone_id))
+	return false
+
+
+func debug_shop_popup_buy_seed(seed_id: String) -> bool:
+	if shop_view != null and shop_view.has_method("debug_purchase_seed"):
+		return bool(shop_view.call("debug_purchase_seed", seed_id))
+	return false
+
+
+func debug_shop_popup_sell_material(material_id: String) -> bool:
+	if shop_view != null and shop_view.has_method("debug_sell_material"):
+		return bool(shop_view.call("debug_sell_material", material_id))
+	return false
+
+
+func debug_shop_popup_buy_upgrade(upgrade_id: String) -> bool:
+	if shop_view != null and shop_view.has_method("debug_buy_upgrade"):
+		return bool(shop_view.call("debug_buy_upgrade", upgrade_id))
+	return false
+
+
 func debug_shop_buy_seed(seed_id: String) -> bool:
 	return _buy_shop_seed(seed_id)
 
@@ -2471,12 +2578,16 @@ func debug_get_snapshot() -> Dictionary:
 	var shop_model := _build_shop_model()
 	var day_world_snapshot: Dictionary = {}
 	var restaurant_view_snapshot: Dictionary = {}
+	var shop_view_snapshot: Dictionary = {}
 	if day_world != null and day_world.has_method("debug_get_snapshot"):
 		var day_world_variant: Variant = day_world.call("debug_get_snapshot")
 		day_world_snapshot = day_world_variant if day_world_variant is Dictionary else {}
 	if restaurant_view != null and restaurant_view.has_method("debug_get_snapshot"):
 		var restaurant_view_variant: Variant = restaurant_view.call("debug_get_snapshot")
 		restaurant_view_snapshot = restaurant_view_variant if restaurant_view_variant is Dictionary else {}
+	if shop_view != null and shop_view.has_method("debug_get_snapshot"):
+		var shop_view_variant: Variant = shop_view.call("debug_get_snapshot")
+		shop_view_snapshot = shop_view_variant if shop_view_variant is Dictionary else {}
 	var farm_plots: Array[Dictionary] = []
 	for plot_variant in _get_farm_plots():
 		var plot: Dictionary = plot_variant if plot_variant is Dictionary else _build_empty_plot()
@@ -2554,8 +2665,15 @@ func debug_get_snapshot() -> Dictionary:
 		"restaurant_world_lights_on": bool(restaurant_view_snapshot.get("lights_on", false)),
 		"owned_restaurant_upgrade_ids": _get_owned_restaurant_upgrade_ids(),
 		"shop_status_text": _shop_status_text,
-			"shop_seed_offers": (shop_model.get("seed_offers", []) as Array).duplicate(true) if shop_model.get("seed_offers", []) is Array else [],
-			"shop_sell_offers": (shop_model.get("sell_offers", []) as Array).duplicate(true) if shop_model.get("sell_offers", []) is Array else [],
-			"shop_upgrade_offers": (shop_model.get("upgrade_offers", []) as Array).duplicate(true) if shop_model.get("upgrade_offers", []) is Array else [],
-			"shop_owned_upgrades_summary": String(shop_model.get("owned_upgrades_summary", ""))
+		"shop_seed_offers": (shop_model.get("seed_offers", []) as Array).duplicate(true) if shop_model.get("seed_offers", []) is Array else [],
+		"shop_sell_offers": (shop_model.get("sell_offers", []) as Array).duplicate(true) if shop_model.get("sell_offers", []) is Array else [],
+		"shop_upgrade_offers": (shop_model.get("upgrade_offers", []) as Array).duplicate(true) if shop_model.get("upgrade_offers", []) is Array else [],
+		"shop_owned_upgrades_summary": String(shop_model.get("owned_upgrades_summary", "")),
+		"shopkeeper_line": String(shop_model.get("shopkeeper_line", "")),
+		"shop_customer_line": String(shop_model.get("customer_line", "")),
+		"shop_request_title": String(shop_model.get("request_title", "")),
+		"shop_request_status": String(shop_model.get("request_status", "")),
+		"shop_world_focus_id": String(shop_view_snapshot.get("focused_zone_id", "")),
+		"shop_world_popup": String(shop_view_snapshot.get("active_popup_id", "")),
+		"shop_world_prompt_text": String(shop_view_snapshot.get("prompt_text", ""))
 	}

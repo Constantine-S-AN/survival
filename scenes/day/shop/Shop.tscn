@@ -1,8 +1,15 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/day/shop/shop_controller.gd" id="1"]
 [ext_resource type="Theme" path="res://ui/theme/NeonTheme.tres" id="2"]
-[ext_resource type="Script" path="res://scripts/ui/components/neon_button.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/player/day_player_controller.gd" id="3"]
+[ext_resource type="Texture2D" path="res://assets/textures/pixel/characters/diver.png" id="4"]
+
+[sub_resource type="CircleShape2D" id="1"]
+radius = 18.0
+
+[sub_resource type="CircleShape2D" id="2"]
+radius = 58.0
 
 [node name="Shop" type="Control"]
 visible = false
@@ -12,246 +19,448 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 theme = ExtResource("2")
 script = ExtResource("1")
 
-[node name="Background" type="ColorRect" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.0509804, 0.0862745, 0.109804, 1)
+[node name="WorldRoot" type="Node2D" parent="."]
 
-[node name="ContentPanel" type="Panel" parent="."]
+[node name="Backdrop" type="Node2D" parent="WorldRoot"]
+z_index = -20
+
+[node name="Environment" type="Node2D" parent="WorldRoot"]
+y_sort_enabled = true
+
+[node name="Zones" type="Node2D" parent="WorldRoot"]
+z_index = 7
+
+[node name="SpawnPoint" type="Marker2D" parent="WorldRoot"]
+position = Vector2(824, 772)
+
+[node name="ShopPlayer" type="CharacterBody2D" parent="WorldRoot"]
+position = Vector2(824, 772)
+script = ExtResource("3")
+
+[node name="Sprite2D" type="Sprite2D" parent="WorldRoot/ShopPlayer"]
+texture = ExtResource("4")
+texture_filter = 0
+scale = Vector2(1.4, 1.4)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WorldRoot/ShopPlayer"]
+shape = SubResource("1")
+
+[node name="InteractionSensor" type="Area2D" parent="WorldRoot/ShopPlayer"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WorldRoot/ShopPlayer/InteractionSensor"]
+shape = SubResource("2")
+
+[node name="Camera2D" type="Camera2D" parent="WorldRoot/ShopPlayer"]
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
+zoom = Vector2(1.08, 1.08)
+
+[node name="HUDLayer" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="InfoPanel" type="Panel" parent="HUDLayer"]
+custom_minimum_size = Vector2(412, 0)
 layout_mode = 1
-anchors_preset = 15
-anchor_left = 0.05
-anchor_top = 0.06
-anchor_right = 0.95
-anchor_bottom = 0.94
-grow_horizontal = 2
-grow_vertical = 2
+offset_left = 24.0
+offset_top = 20.0
+offset_right = 436.0
+offset_bottom = 148.0
 theme_type_variation = &"OverlayPanel"
 
-[node name="Margin" type="MarginContainer" parent="ContentPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 22
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 22
-theme_override_constants/margin_bottom = 20
-
-[node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 14
-
-[node name="Title" type="Label" parent="ContentPanel/Margin/VBox"]
+[node name="Margin" type="MarginContainer" parent="HUDLayer/InfoPanel"]
 layout_mode = 2
-text = "Shop"
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/InfoPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="HUDLayer/InfoPanel/Margin/VBox"]
+layout_mode = 2
 theme_type_variation = &"HeadingLabel"
+text = "Supply House"
 
-[node name="Subtitle" type="Label" parent="ContentPanel/Margin/VBox"]
-layout_mode = 2
-text = "Buy seeds, sell stock, and invest in the lunch rush."
-theme_type_variation = &"BodyMutedLabel"
-
-[node name="StatsLabel" type="Label" parent="ContentPanel/Margin/VBox"]
+[node name="Stats" type="Label" parent="HUDLayer/InfoPanel/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
-text = "Day 1 · Morning · Gold 0"
+text = "Day 1 · Morning · Gold 0 · Actions 0/0"
 
-[node name="InventoryLabel" type="Label" parent="ContentPanel/Margin/VBox"]
-layout_mode = 2
-autowrap_mode = 3
-text = "Inventory: -"
-
-[node name="OwnedUpgradesLabel" type="Label" parent="ContentPanel/Margin/VBox"]
+[node name="Inventory" type="Label" parent="HUDLayer/InfoPanel/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
-text = "Installed upgrades: -"
+text = "Inventory: None"
 
-[node name="StatusLabel" type="Label" parent="ContentPanel/Margin/VBox"]
+[node name="LeaveButton" type="Button" parent="HUDLayer"]
+custom_minimum_size = Vector2(136, 40)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -160.0
+offset_top = 20.0
+offset_right = -24.0
+offset_bottom = 60.0
+grow_horizontal = 0
+theme_type_variation = &"SecondaryButton"
+text = "Step Outside"
+
+[node name="StatusPanel" type="Panel" parent="HUDLayer"]
+visible = false
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 1
+anchors_preset = 3
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -176.0
+offset_right = 384.0
+offset_bottom = -96.0
+grow_vertical = 0
+theme_type_variation = &"OverlayPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/StatusPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="Status" type="Label" parent="HUDLayer/StatusPanel/Margin"]
 layout_mode = 2
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
 text = ""
 
-[node name="Panels" type="HBoxContainer" parent="ContentPanel/Margin/VBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_constants/separation = 14
+[node name="PromptPanel" type="Panel" parent="HUDLayer"]
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -280.0
+offset_top = -104.0
+offset_right = 280.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_type_variation = &"CardPanel"
 
-[node name="SeedPanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
-custom_minimum_size = Vector2(320, 0)
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PromptPanel"]
 layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-size_flags_stretch_ratio = 1.05
-theme_type_variation = &"OverlayPanel"
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 14
 
-[node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/SeedPanel"]
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PromptPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Hint" type="Label" parent="HUDLayer/PromptPanel/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"BodyMutedLabel"
+text = "WASD / Arrows move"
+
+[node name="Prompt" type="Label" parent="HUDLayer/PromptPanel/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "Walk to a station and press E."
+
+[node name="PopupShade" type="ColorRect" parent="HUDLayer"]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 1
+color = Color(0, 0, 0, 0.34)
+
+[node name="PopupHost" type="Control" parent="HUDLayer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MerchantPopup" type="Panel" parent="HUDLayer/PopupHost"]
+visible = false
+custom_minimum_size = Vector2(1180, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -590.0
+offset_top = -280.0
+offset_right = 590.0
+offset_bottom = 280.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"OverlayPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/MerchantPopup"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+text = "Shop Counter"
+
+[node name="Subtitle" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = ""
+
+[node name="Dialogue" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = ""
+
+[node name="Inventory" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = ""
+
+[node name="Upgrades" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = ""
+
+[node name="Columns" type="HBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox"]
+custom_minimum_size = Vector2(0, 324)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="SeedCard" type="Panel" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns"]
+custom_minimum_size = Vector2(0, 324)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_type_variation = &"CardPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SeedCard"]
+layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
-[node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/SeedPanel/Margin"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 10
-
-[node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/SeedPanel/Margin/VBox"]
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SeedCard/Margin"]
 layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SeedCard/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
 text = "Seed Catalog"
-theme_type_variation = &"SubheadingLabel"
 
-[node name="Hint" type="Label" parent="ContentPanel/Margin/VBox/Panels/SeedPanel/Margin/VBox"]
+[node name="Hint" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SeedCard/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
-text = "Permanent farm access."
+text = ""
 
-[node name="Scroll" type="ScrollContainer" parent="ContentPanel/Margin/VBox/Panels/SeedPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 260)
+[node name="Scroll" type="ScrollContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SeedCard/Margin/VBox"]
+custom_minimum_size = Vector2(0, 236)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="List" type="VBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SeedCard/Margin/VBox/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="SellCard" type="Panel" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns"]
+custom_minimum_size = Vector2(0, 324)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+theme_type_variation = &"CardPanel"
 
-[node name="List" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/SeedPanel/Margin/VBox/Scroll"]
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SellCard"]
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 10
-
-[node name="SellPanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
-custom_minimum_size = Vector2(320, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-size_flags_stretch_ratio = 1.05
-theme_type_variation = &"OverlayPanel"
-
-[node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/SellPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
-[node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/SellPanel/Margin"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 10
-
-[node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/SellPanel/Margin/VBox"]
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SellCard/Margin"]
 layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SellCard/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
 text = "Sell Stock"
-theme_type_variation = &"SubheadingLabel"
 
-[node name="Hint" type="Label" parent="ContentPanel/Margin/VBox/Panels/SellPanel/Margin/VBox"]
+[node name="Hint" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SellCard/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
-text = "Convert inventory into gold."
+text = ""
 
-[node name="Scroll" type="ScrollContainer" parent="ContentPanel/Margin/VBox/Panels/SellPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 260)
+[node name="Scroll" type="ScrollContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SellCard/Margin/VBox"]
+custom_minimum_size = Vector2(0, 236)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="List" type="VBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SellCard/Margin/VBox/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="UpgradeCard" type="Panel" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns"]
+custom_minimum_size = Vector2(0, 324)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+theme_type_variation = &"CardPanel"
 
-[node name="List" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/SellPanel/Margin/VBox/Scroll"]
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/UpgradeCard"]
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 10
-
-[node name="UpgradePanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
-custom_minimum_size = Vector2(340, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-size_flags_stretch_ratio = 1.15
-theme_type_variation = &"OverlayPanel"
-
-[node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/UpgradePanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
-[node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/UpgradePanel/Margin"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 10
-
-[node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/UpgradePanel/Margin/VBox"]
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/UpgradeCard/Margin"]
 layout_mode = 2
-text = "Restaurant Upgrades"
-theme_type_variation = &"SubheadingLabel"
+theme_override_constants/separation = 8
 
-[node name="Hint" type="Label" parent="ContentPanel/Margin/VBox/Panels/UpgradePanel/Margin/VBox"]
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/UpgradeCard/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+text = "Restaurant Upgrades"
+
+[node name="Hint" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/UpgradeCard/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
-text = "Permanent service improvements."
+text = ""
 
-[node name="Scroll" type="ScrollContainer" parent="ContentPanel/Margin/VBox/Panels/UpgradePanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 260)
+[node name="Scroll" type="ScrollContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/UpgradeCard/Margin/VBox"]
+custom_minimum_size = Vector2(0, 236)
 layout_mode = 2
-size_flags_horizontal = 3
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
 
-[node name="List" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/UpgradePanel/Margin/VBox/Scroll"]
+[node name="List" type="VBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/UpgradeCard/Margin/VBox/Scroll"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="CloseButton" type="Button" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox"]
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_type_variation = &"SecondaryButton"
+text = "Close"
+
+[node name="CustomerPopup" type="Panel" parent="HUDLayer/PopupHost"]
+visible = false
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -210.0
+offset_right = 260.0
+offset_bottom = 210.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"OverlayPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/CustomerPopup"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/CustomerPopup/Margin"]
+layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="BackButton" type="Button" parent="ContentPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 56)
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox"]
 layout_mode = 2
-size_flags_horizontal = 3
-text = "Back"
-script = ExtResource("3")
-use_primary_style = false
-enable_motion = true
+theme_type_variation = &"HeadingLabel"
+text = "Town Regular"
+
+[node name="Dialogue" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = ""
+
+[node name="RequestCard" type="Panel" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"CardPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="RequestTitle" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+text = "No Request Yet"
+
+[node name="RequestBody" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = ""
+
+[node name="Reward" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = ""
+
+[node name="Status" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = ""
+
+[node name="CloseButton" type="Button" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox"]
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_type_variation = &"SecondaryButton"
+text = "Close"
