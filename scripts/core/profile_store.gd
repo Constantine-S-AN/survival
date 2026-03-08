@@ -19,6 +19,10 @@ const DEFAULT_PROGRESS: Dictionary = {
 	"meta_currency_total": 0
 }
 
+const DEFAULT_DIALOGUE_STATE: Dictionary = {
+	"seen_dialogue_ids": []
+}
+
 const DEFAULT_META_PROGRESS: Dictionary = {
 	"schema_version": 5,
 	"day_state": {
@@ -217,6 +221,18 @@ func get_meta_progress_state() -> Dictionary:
 
 func set_meta_progress_state(state: Dictionary) -> void:
 	profile["meta_progress"] = _normalize_meta_progress(state)
+	save_profile()
+
+
+func get_dialogue_state() -> Dictionary:
+	var dialogue_variant: Variant = profile.get("dialogue_state", DEFAULT_DIALOGUE_STATE)
+	if dialogue_variant is Dictionary:
+		return _normalize_dialogue_state(dialogue_variant)
+	return DEFAULT_DIALOGUE_STATE.duplicate(true)
+
+
+func set_dialogue_state(state: Dictionary) -> void:
+	profile["dialogue_state"] = _normalize_dialogue_state(state)
 	save_profile()
 
 
@@ -463,6 +479,7 @@ func _migrate_profile(raw_profile: Dictionary, default_character_id: String, def
 	if not migrated.has("run_count"):
 		migrated["run_count"] = 0
 	migrated["language_code"] = _normalize_language_code(String(migrated.get("language_code", DEFAULT_LANGUAGE_CODE)))
+	migrated["dialogue_state"] = _normalize_dialogue_state(migrated.get("dialogue_state", DEFAULT_DIALOGUE_STATE))
 	migrated["meta_progress"] = _normalize_meta_progress(migrated.get("meta_progress", DEFAULT_META_PROGRESS))
 
 	if schema_version < PROFILE_SCHEMA_VERSION:
@@ -677,6 +694,13 @@ func _normalize_restaurant_state(restaurant_variant: Variant) -> Dictionary:
 		owned_upgrade_ids = filtered_upgrade_ids
 	output["owned_upgrade_ids"] = owned_upgrade_ids
 	return output
+
+
+func _normalize_dialogue_state(dialogue_variant: Variant) -> Dictionary:
+	var source: Dictionary = dialogue_variant if dialogue_variant is Dictionary else {}
+	return {
+		"seen_dialogue_ids": _normalize_string_array(source.get("seen_dialogue_ids", []))
+	}
 
 
 func _normalize_meta_phase(phase: String) -> String:

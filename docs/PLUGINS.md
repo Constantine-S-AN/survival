@@ -28,22 +28,15 @@
 
 ## Manual Editor Steps
 
-No editor plugins were auto-enabled in `project.godot`.
+`Dialogue Manager` is now enabled in `project.godot`, and its `DialogueManager` autoload is committed so dialogue can run in normal gameplay without an editor-side activation step.
 
-That is intentional: both Dialogue Manager and QuestSystem add autoload singletons when enabled, and this project already has a custom save model, shared inventory, and meta loop. Leaving them disabled keeps runtime behavior unchanged until you explicitly opt in.
+`QuestSystem` is still intentionally disabled. This project already has a custom save model, shared inventory, and meta loop, so keeping QuestSystem off avoids adding a second runtime singleton before there is a defined quest integration point.
 
-When you are ready to use either addon in-editor:
+If you want to work with `QuestSystem` in-editor later:
 
 1. Open the project in Godot.
-2. Enable `Dialogue Manager` and/or `QuestSystem` in the Plugins section of Project Settings.
-3. If you enable `QuestSystem`, consider turning off its startup update check in Project Settings if you want fully offline editor opens.
-
-Expected side effect after enabling:
-
-- Dialogue Manager adds the `DialogueManager` autoload.
-- QuestSystem adds the `QuestSystem` autoload.
-
-Keep those runtime-facing changes in a separate commit from the vendoring/update commit if you want a cleaner rollout.
+2. Enable `QuestSystem` in the Plugins section of Project Settings.
+3. Consider turning off its startup update check in Project Settings if you want fully offline editor opens.
 
 ## Validation
 
@@ -52,6 +45,13 @@ Use `./scripts/ci/validate_plugins.sh` to verify:
 - pinned plugin files exist where expected
 - the project still imports headlessly
 - the existing headless test suite still passes
+
+## Dialogue Content
+
+- Gameplay dialogue source lives in `data/dialogue/`.
+- The first integrated flow is `data/dialogue/day_hub_intro.dialogue`.
+- The runtime hook for that first use lives in `scripts/meta/day_hub_intro_dialogue_layer.gd`, mounted from `scenes/meta/MetaLoopRoot.tscn`.
+- Its one-shot guard persists in the profile save as `dialogue_state.seen_dialogue_ids`.
 
 ## Evaluated But Not Integrated
 
