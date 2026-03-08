@@ -21,6 +21,10 @@ func _ready() -> void:
 		push_error("Expected 12 daily orders in the persistence smoke test")
 		_cleanup(daily_orders)
 		return
+	if not bool(_get_card(cards, 101).get("featured", false)) or not bool(_get_card(cards, 102).get("featured", false)):
+		push_error("Day 1 starter orders were not surfaced as featured leads")
+		_cleanup(daily_orders)
+		return
 	var meta_progress: Dictionary = ProfileStore.get_meta_progress_state()
 	var gold_before := int((meta_progress.get("economy", {}) as Dictionary).get("gold", 0))
 	var reputation_before := int((meta_progress.get("economy", {}) as Dictionary).get("restaurant_reputation", 0))

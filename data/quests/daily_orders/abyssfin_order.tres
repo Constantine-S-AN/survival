@@ -6,10 +6,14 @@
 script = ExtResource("1")
 id = 112
 quest_name = "Cold Storage"
-quest_description = "Bring back an abyssfin cut so the board can reserve it for tomorrow's premium plates."
+quest_description = "Bring back an abyssfin cut so tomorrow's board can promise a premium plate worth opening the restaurant for."
 quest_objective = "Bring back 1 Abyssfin Fillet."
 order_type = "material_gain"
 pillar = "night"
 target_id = "abyssfin"
 target_amount = 1
-reward_gold = 12
+reward_gold = 13
+reward_reputation = 1
+featured_from_day = 2
+featured_to_day = 3
+featured_priority = 130

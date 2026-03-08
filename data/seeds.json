@@ -38,7 +38,7 @@
 			"name": "Emberleaf Pods",
 			"description": "A peppery leaf crop that sells well once the farm can spare the effort.",
 			"crop_id": "emberleaf",
-			"plant_stamina_cost": 2,
+			"plant_stamina_cost": 1,
 			"starts_unlocked": false
 		}
 	]

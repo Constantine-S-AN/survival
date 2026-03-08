@@ -54,19 +54,8 @@ func get_order_cards() -> Array[Dictionary]:
 			continue
 		var completed := QuestSystem.is_quest_completed(quest)
 		var ready_to_claim := QuestSystem.is_quest_active(quest) and quest.objective_completed
-		cards.append({
-			"id": quest.id,
-			"pillar": quest.pillar,
-			"pillar_title": quest.get_pillar_title(),
-			"name": quest.quest_name,
-			"description": quest.quest_description,
-			"objective": quest.quest_objective,
-			"progress_text": quest.get_progress_text(),
-			"reward_text": describe_reward(_get_reward_config(quest)),
-			"completed": completed,
-			"can_claim": ready_to_claim,
-			"status_text": _build_status_text(completed, ready_to_claim)
-		})
+		cards.append(_build_order_card(quest, completed, ready_to_claim))
+	cards.sort_custom(Callable(self, "_sort_order_cards"))
 	return cards
 
 
@@ -81,6 +70,21 @@ func get_ready_to_claim_count() -> int:
 		if QuestSystem.is_quest_active(quest) and quest.objective_completed:
 			count += 1
 	return count
+
+
+func get_featured_order_cards(limit: int = 0) -> Array[Dictionary]:
+	var cards := get_order_cards()
+	var featured_cards: Array[Dictionary] = []
+	for card_variant in cards:
+		if not (card_variant is Dictionary):
+			continue
+		var card := card_variant as Dictionary
+		if not bool(card.get("featured", false)):
+			continue
+		featured_cards.append(card.duplicate(true))
+		if limit > 0 and featured_cards.size() >= limit:
+			break
+	return featured_cards
 
 
 func describe_reward(reward: Dictionary) -> String:
@@ -529,6 +533,49 @@ func _positive_delta(current: Dictionary, previous: Dictionary, key: String) -> 
 	return maxi(0, current_value - previous_value)
 
 
+func _build_order_card(quest: DailyOrderQuest, completed: bool, ready_to_claim: bool) -> Dictionary:
+	var featured_priority := quest.get_featured_priority_for_day(_current_day) if quest.has_method("get_featured_priority_for_day") else 0
+	return {
+		"id": quest.id,
+		"pillar": quest.pillar,
+		"pillar_title": quest.get_pillar_title(),
+		"name": quest.quest_name,
+		"description": quest.quest_description,
+		"objective": quest.quest_objective,
+		"progress_text": quest.get_progress_text(),
+		"reward_text": describe_reward(_get_reward_config(quest)),
+		"completed": completed,
+		"can_claim": ready_to_claim,
+		"featured": featured_priority > 0,
+		"featured_priority": featured_priority,
+		"status_text": _build_status_text(completed, ready_to_claim)
+	}
+
+
+func _sort_order_cards(a: Dictionary, b: Dictionary) -> bool:
+	var a_bucket := _status_bucket(a)
+	var b_bucket := _status_bucket(b)
+	if a_bucket != b_bucket:
+		return a_bucket < b_bucket
+	var a_featured := int(a.get("featured_priority", 0))
+	var b_featured := int(b.get("featured_priority", 0))
+	if a_featured != b_featured:
+		return a_featured > b_featured
+	var a_id := int(a.get("id", 0))
+	var b_id := int(b.get("id", 0))
+	return a_id < b_id
+
+
+func _status_bucket(card: Dictionary) -> int:
+	if bool(card.get("can_claim", false)):
+		return 0
+	if bool(card.get("featured", false)):
+		return 1
+	if not bool(card.get("completed", false)):
+		return 2
+	return 3
+
+
 func _get_sorted_quest_ids() -> Array[int]:
 	var ids: Array[int] = []
 	for quest_id_variant in _quests_by_id.keys():
@@ -546,7 +593,13 @@ func _get_daily_order(quest_id: int) -> DailyOrderQuest:
 
 func _build_status_text(completed: bool, ready_to_claim: bool) -> String:
 	if completed:
-		return "Completed"
+		return _t("meta.orders.status_completed")
 	if ready_to_claim:
-		return "Ready to claim"
-	return "In progress"
+		return _t("meta.orders.status_ready")
+	return _t("meta.orders.status_progress")
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	if Localization == null or not Localization.has_method("t"):
+		return key
+	return String(Localization.call("t", key, args))

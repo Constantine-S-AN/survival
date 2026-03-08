@@ -3,12 +3,12 @@
 	"seed_offers": [
 		{
 			"seed_id": "kelpberry_seed",
-			"gold_cost": 6,
+			"gold_cost": 5,
 			"description": "A flexible berry vine that can be sold raw or baked into Kelpberry Tart."
 		},
 		{
 			"seed_id": "emberleaf_seed",
-			"gold_cost": 8,
+			"gold_cost": 7,
 			"description": "A spiced leaf crop for sharper daytime specials or a dependable cash fallback."
 		}
 	],

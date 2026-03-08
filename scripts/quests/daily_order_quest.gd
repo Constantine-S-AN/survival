@@ -16,6 +16,9 @@ const PILLAR_NIGHT := "night"
 @export var reward_material_id: String = ""
 @export var reward_material_amount: int = 0
 @export var reward_seed_id: String = ""
+@export var featured_from_day: int = 0
+@export var featured_to_day: int = 0
+@export var featured_priority: int = 0
 
 var current_amount: int = 0
 var assigned_day: int = 0
@@ -72,6 +75,21 @@ func get_reward_config() -> Dictionary:
 	if not seed_id.is_empty():
 		reward["seed_ids"] = [seed_id]
 	return reward
+
+
+func is_featured_on_day(day: int) -> bool:
+	if featured_priority <= 0:
+		return false
+	var safe_day := maxi(1, day)
+	if featured_from_day > 0 and safe_day < featured_from_day:
+		return false
+	if featured_to_day > 0 and safe_day > featured_to_day:
+		return false
+	return true
+
+
+func get_featured_priority_for_day(day: int) -> int:
+	return featured_priority if is_featured_on_day(day) else 0
 
 
 func _get_safe_target_amount() -> int:

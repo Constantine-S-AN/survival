@@ -50,8 +50,8 @@ func close_board() -> void:
 
 
 func _refresh() -> void:
-	title_label.text = "Daily Orders"
-	subtitle_label.text = "Orders refresh at the start of each new day. Finished unclaimed work pays out during rollover."
+	title_label.text = _t("meta.orders.title")
+	subtitle_label.text = _build_subtitle_text()
 	for child in orders_list.get_children():
 		orders_list.remove_child(child)
 		child.queue_free()
@@ -61,18 +61,21 @@ func _refresh() -> void:
 	if cards.is_empty():
 		var empty_label := Label.new()
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		empty_label.text = "No orders are loaded yet."
+		empty_label.text = _t("meta.orders.empty")
 		orders_list.add_child(empty_label)
 		summary_label.text = ""
 		status_label.text = _status_text
 		return
 	var ready_count := 0
+	var featured_count := 0
 	for card in cards:
 		if bool(card.get("can_claim", false)):
 			ready_count += 1
+		if bool(card.get("featured", false)):
+			featured_count += 1
 	for pillar in [DailyOrderQuest.PILLAR_FARM, DailyOrderQuest.PILLAR_RESTAURANT, DailyOrderQuest.PILLAR_NIGHT]:
 		_append_pillar_section(cards, pillar)
-	summary_label.text = "%d active, %d ready to claim" % [cards.size(), ready_count]
+	summary_label.text = _build_summary_text(cards.size(), ready_count, featured_count)
 	status_label.text = _status_text
 
 
@@ -91,6 +94,12 @@ func _build_order_card(card: Dictionary) -> Control:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 6)
 	margin.add_child(content)
+
+	if bool(card.get("featured", false)):
+		var featured_label := Label.new()
+		featured_label.text = _t("meta.orders.badge_featured")
+		featured_label.theme_type_variation = &"BodyMutedLabel"
+		content.add_child(featured_label)
 
 	var pillar_label := Label.new()
 	pillar_label.text = String(card.get("pillar_title", "Orders"))
@@ -132,16 +141,20 @@ func _build_order_card(card: Dictionary) -> Control:
 		var claim_button := Button.new()
 		var order_id := int(card.get("id", 0))
 		var order_name := String(card.get("name", "Order"))
-		claim_button.text = "Claim"
+		claim_button.text = _t("meta.orders.claim")
 		claim_button.pressed.connect(func() -> void:
 			var result: Dictionary = DailyOrders.claim_order(order_id) if DailyOrders != null and DailyOrders.has_method("claim_order") else {"ok": false}
 			if not bool(result.get("ok", false)):
-				_status_text = "Unable to claim %s right now." % order_name
+				_status_text = _t("meta.orders.claim_failed", {"value": order_name})
 			else:
 				var reward_variant: Variant = result.get("reward", {})
 				var reward: Dictionary = reward_variant if reward_variant is Dictionary else {}
 				var reward_text := DailyOrders.describe_reward(reward) if DailyOrders != null and DailyOrders.has_method("describe_reward") else ""
-				_status_text = "Claimed %s for %s." % [order_name, reward_text] if not reward_text.is_empty() else "Claimed %s." % order_name
+				_status_text = (
+					_t("meta.orders.claimed_with_reward", {"name": order_name, "reward": reward_text})
+					if not reward_text.is_empty()
+					else _t("meta.orders.claimed", {"value": order_name})
+				)
 			_refresh()
 		)
 		footer.add_child(claim_button)
@@ -173,3 +186,46 @@ func _append_pillar_section(cards: Array[Dictionary], pillar: String) -> void:
 	orders_list.add_child(heading)
 	for card in section_cards:
 		orders_list.add_child(_build_order_card(card))
+
+
+func _build_subtitle_text() -> String:
+	var featured_names := _get_featured_titles(2)
+	if not featured_names.is_empty():
+		return _t("meta.orders.subtitle_featured", {"value": ", ".join(featured_names)})
+	return _t("meta.orders.subtitle")
+
+
+func _build_summary_text(active_count: int, ready_count: int, featured_count: int) -> String:
+	if featured_count > 0:
+		return _t("meta.orders.summary_featured", {
+			"active": active_count,
+			"ready": ready_count,
+			"featured": featured_count
+		})
+	return _t("meta.orders.summary", {
+		"active": active_count,
+		"ready": ready_count
+	})
+
+
+func _get_featured_titles(limit: int) -> Array[String]:
+	var titles: Array[String] = []
+	if DailyOrders == null or not DailyOrders.has_method("get_featured_order_cards"):
+		return titles
+	var cards_variant: Variant = DailyOrders.call("get_featured_order_cards", limit)
+	if not (cards_variant is Array):
+		return titles
+	for card_variant in cards_variant:
+		if not (card_variant is Dictionary):
+			continue
+		var title := String((card_variant as Dictionary).get("name", "")).strip_edges()
+		if title.is_empty():
+			continue
+		titles.append(title)
+	return titles
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	if Localization == null or not Localization.has_method("t"):
+		return key
+	return String(Localization.call("t", key, args))

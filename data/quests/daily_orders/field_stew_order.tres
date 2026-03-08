@@ -14,3 +14,6 @@ target_id = "field_stew"
 target_amount = 1
 reward_gold = 6
 reward_reputation = 1
+featured_from_day = 1
+featured_to_day = 2
+featured_priority = 120

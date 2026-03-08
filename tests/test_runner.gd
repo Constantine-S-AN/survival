@@ -145,7 +145,7 @@ func _run_data_registry_tests() -> void:
 	var wheat_crop: Dictionary = registry.get_crop_by_seed("wheat_seed")
 	_assert_equal(String(wheat_crop.get("id", "")), "wheat", "crop lookup resolves wheat_seed to wheat")
 	var field_stew: Dictionary = registry.get_recipe("field_stew")
-	_assert_equal(int(field_stew.get("base_price", 0)), 13, "field_stew base price matches data")
+	_assert_equal(int(field_stew.get("base_price", 0)), 14, "field_stew base price matches data")
 	var kelpfire_noodles: Dictionary = registry.get_recipe("kelpfire_noodles")
 	var kelpfire_noodles_ingredients: Dictionary = kelpfire_noodles.get("ingredients", {})
 	_assert_equal(int(kelpfire_noodles.get("base_price", 0)), 24, "kelpfire_noodles base price matches data")
@@ -2390,6 +2390,11 @@ func _run_meta_loop_scaffold_tests() -> void:
 	var starter_emberleaf_card := _find_entry_by_id(snapshot.get("restaurant_recipe_cards", []), "emberleaf_flatbread")
 	_assert_true(not starter_kelpberry_card.is_empty(), "starter restaurant content includes kelpberry_tart")
 	_assert_true(not starter_emberleaf_card.is_empty(), "starter restaurant content includes emberleaf_flatbread")
+	_assert_true(String(snapshot.get("day_hub_guide_text", "")).find("Field Stew") >= 0, "day 1 guide points at the first restaurant success clearly")
+	var day1_featured_cards: Array = DailyOrders.call("get_featured_order_cards", 3) if DailyOrders != null and DailyOrders.has_method("get_featured_order_cards") else []
+	var day1_featured_titles := _extract_order_titles(day1_featured_cards)
+	_assert_true(day1_featured_titles.has("Lunch Rush"), "day 1 featured orders surface the first restaurant request")
+	_assert_true(day1_featured_titles.has("Pantry Restock"), "day 1 featured orders surface the first farm stock request")
 
 	meta_root.call("debug_open_farm")
 	await get_tree().process_frame
@@ -2483,6 +2488,11 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(int(snapshot.get("action_budget", 0)), 5, "next day restores the daytime action budget")
 	_assert_true(bool(snapshot.get("night_button_disabled", false)), "night combat locks again at the start of the next day")
 	_assert_equal(String(snapshot.get("day_hub_guide_title", "")), "Day 2 Guide", "day hub onboarding advances to the second-day guidance")
+	_assert_true(String(snapshot.get("day_hub_guide_text", "")).find("Water yesterday's crops") >= 0, "day 2 guide highlights the carry-over farm step")
+	var day2_featured_cards: Array = DailyOrders.call("get_featured_order_cards", 3) if DailyOrders != null and DailyOrders.has_method("get_featured_order_cards") else []
+	var day2_featured_titles := _extract_order_titles(day2_featured_cards)
+	_assert_true(day2_featured_titles.has("Cold Storage"), "day 2 featured orders point at the first meaningful night return")
+	_assert_true(day2_featured_titles.has("Lunch Rush"), "day 2 featured orders keep restaurant success in the early loop")
 	var day2_materials: Dictionary = snapshot.get("inventory_materials", {})
 	_assert_equal(int(day2_materials.get("abyssfin", 0)), 1, "shared inventory retains abyssfin after returning from combat")
 	_assert_equal(int(day2_materials.get("reef_salt", 0)), 0, "shared inventory does not gain Reef Salt until a successful night clear")
@@ -2665,6 +2675,11 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(String(reload_snapshot.get("phase", "")), "morning", "day 3 starts back at the morning phase")
 	_assert_equal(int(reload_snapshot.get("action_budget", 0)), 5, "day 3 restores the daytime budget after night combat")
 	_assert_equal(String(reload_snapshot.get("day_hub_guide_title", "")), "Day 3 Guide", "day hub onboarding advances to the third-day guidance")
+	_assert_true(String(reload_snapshot.get("day_hub_guide_text", "")).find("Harvest first") >= 0, "day 3 guide turns the first harvest into the main short-term goal")
+	var day3_featured_cards: Array = DailyOrders.call("get_featured_order_cards", 3) if DailyOrders != null and DailyOrders.has_method("get_featured_order_cards") else []
+	var day3_featured_titles := _extract_order_titles(day3_featured_cards)
+	_assert_true(day3_featured_titles.has("Cold Storage"), "day 3 featured orders still tie premium fish back into the restaurant loop")
+	_assert_true(day3_featured_titles.has("Salt Request"), "day 3 featured orders surface the reef-salt seed unlock request")
 	_assert_true((reload_snapshot.get("unlocked_seed_ids", []) as Array).has("mooncap_seed"), "mooncap seed unlock persists into daytime farm state")
 	_assert_true((reload_snapshot.get("unlocked_recipe_ids", []) as Array).has("mooncap_hotpot"), "mooncap hotpot unlock persists into daytime restaurant state")
 	_assert_true((reload_snapshot.get("unlocked_recipe_ids", []) as Array).has("abyssfin_crudo"), "additional premium recipe unlock persists into daytime restaurant state")
@@ -2861,6 +2876,21 @@ func _find_entry_by_id(items_variant: Variant, item_id: String) -> Dictionary:
 		if String(item.get("id", "")).strip_edges().to_lower() == normalized_id:
 			return item.duplicate(true)
 	return {}
+
+
+func _extract_order_titles(cards_variant: Variant) -> Array[String]:
+	var titles: Array[String] = []
+	if not (cards_variant is Array):
+		return titles
+	var cards: Array = cards_variant
+	for card_variant in cards:
+		if not (card_variant is Dictionary):
+			continue
+		var title := String((card_variant as Dictionary).get("name", "")).strip_edges()
+		if title.is_empty():
+			continue
+		titles.append(title)
+	return titles
 
 
 func _make_upgrade_context(current_weapon_ids: Array, active_weapon_id: String, acquired_tags: Dictionary, noise_tier_id: String) -> Dictionary:

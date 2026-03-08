@@ -15,3 +15,6 @@ target_amount = 2
 reward_gold = 5
 reward_material_id = "wheat"
 reward_material_amount = 1
+featured_from_day = 1
+featured_to_day = 1
+featured_priority = 115

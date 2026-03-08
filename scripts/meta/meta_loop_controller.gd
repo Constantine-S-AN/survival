@@ -1072,22 +1072,26 @@ func _build_night_button_tooltip() -> String:
 
 
 func _build_day_hub_onboarding_info() -> Dictionary:
+	var guide_title := ""
+	var guide_text := ""
 	if _day_state.current_day <= 1:
-		return {
-			"title": _t("meta.hub.guide_title_day1"),
-			"text": _t("meta.hub.guide_body_day1")
-		}
-	if _day_state.current_day == 2:
-		return {
-			"title": _t("meta.hub.guide_title_day2"),
-			"text": _t("meta.hub.guide_body_day2", {"value": RESTAURANT_SERVICE_ACTION_COST})
-		}
-	if _day_state.current_day == 3:
-		return {
-			"title": _t("meta.hub.guide_title_day3"),
-			"text": _t("meta.hub.guide_body_day3")
-		}
-	return {}
+		guide_title = _t("meta.hub.guide_title_day1")
+		guide_text = _t("meta.hub.guide_body_day1")
+	elif _day_state.current_day == 2:
+		guide_title = _t("meta.hub.guide_title_day2")
+		guide_text = _t("meta.hub.guide_body_day2", {"value": RESTAURANT_SERVICE_ACTION_COST})
+	elif _day_state.current_day == 3:
+		guide_title = _t("meta.hub.guide_title_day3")
+		guide_text = _t("meta.hub.guide_body_day3")
+	if guide_title.is_empty() and guide_text.is_empty():
+		return {}
+	var featured_orders_text := _build_starter_order_focus_text(2)
+	if not featured_orders_text.is_empty():
+		guide_text = "%s\n%s" % [guide_text, featured_orders_text]
+	return {
+		"title": guide_title,
+		"text": guide_text
+	}
 
 
 func _build_day_hub_farm_tooltip() -> String:
@@ -1440,6 +1444,30 @@ func _get_ready_daily_order_count() -> int:
 	if DailyOrders == null or not DailyOrders.has_method("get_ready_to_claim_count"):
 		return 0
 	return maxi(0, int(DailyOrders.call("get_ready_to_claim_count")))
+
+
+func _get_featured_daily_order_titles(limit: int = 2) -> Array[String]:
+	var titles: Array[String] = []
+	if DailyOrders == null or not DailyOrders.has_method("get_featured_order_cards"):
+		return titles
+	var cards_variant: Variant = DailyOrders.call("get_featured_order_cards", limit)
+	if not (cards_variant is Array):
+		return titles
+	for card_variant in cards_variant:
+		if not (card_variant is Dictionary):
+			continue
+		var title := String((card_variant as Dictionary).get("name", "")).strip_edges()
+		if title.is_empty():
+			continue
+		titles.append(title)
+	return titles
+
+
+func _build_starter_order_focus_text(limit: int = 2) -> String:
+	var titles := _get_featured_daily_order_titles(limit)
+	if titles.is_empty():
+		return ""
+	return _t("meta.hub.guide_orders", {"value": ", ".join(titles)})
 
 
 func _build_shop_seed_offers() -> Array[Dictionary]:

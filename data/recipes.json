@@ -9,7 +9,7 @@
 				"wheat": 2,
 				"herb": 1
 			},
-			"base_price": 13,
+			"base_price": 14,
 			"prep_complexity": 2,
 			"category_tags": ["comfort", "stew", "farmhouse"],
 			"night_material_synergy": {
@@ -29,7 +29,7 @@
 			"ingredients": {
 				"herb": 1
 			},
-			"base_price": 8,
+			"base_price": 9,
 			"prep_complexity": 1,
 			"category_tags": ["tea", "light", "refreshing"],
 			"night_material_synergy": {},
