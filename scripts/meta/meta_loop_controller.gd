@@ -2798,6 +2798,7 @@ func debug_get_snapshot() -> Dictionary:
 		"day_world_visible_town_npc_count": int(day_world_snapshot.get("visible_town_npc_count", 0)),
 		"day_world_player_position": day_world_snapshot.get("player_position", Vector2.ZERO),
 		"day_world_overlay_blocked": bool(day_world_snapshot.get("overlay_blocked", false)),
+		"day_world_orders_open": bool(day_world_snapshot.get("orders_open", false)),
 		"day_world_night_popup_open": bool(day_world_snapshot.get("night_popup_open", false)),
 		"day_world_transition_active": bool(day_world_snapshot.get("transition_active", false)),
 		"day_world_visible_pickup_ids": (day_world_snapshot.get("visible_pickup_ids", []) as Array).duplicate(true) if day_world_snapshot.get("visible_pickup_ids", []) is Array else [],
