@@ -48,8 +48,9 @@ Use `godot --headless --path . res://tests/smoke/QuestSystemDailyOrdersSmoke.tsc
 
 - Gameplay dialogue source lives in `data/dialogue/`.
 - The first integrated flow is `data/dialogue/day_hub_intro.dialogue`.
-- The runtime hook for that first use lives in `scripts/meta/day_hub_intro_dialogue_layer.gd`, mounted from `scenes/meta/MetaLoopRoot.tscn`.
-- Its one-shot guard persists in the profile save as `dialogue_state.seen_dialogue_ids`.
+- Return Summary event dialogue now also lives in `data/dialogue/return_summary_events.dialogue`.
+- The runtime hook for these dialogue uses lives in `scripts/meta/day_hub_intro_dialogue_layer.gd`, mounted from `scenes/meta/MetaLoopRoot.tscn`.
+- Dialogue one-shot guards persist in the profile save as `dialogue_state.seen_dialogue_ids`.
 
 ## Quest Content
 
