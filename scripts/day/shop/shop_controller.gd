@@ -100,6 +100,7 @@ func _ready() -> void:
 	visible = false
 	_build_world_if_needed()
 	_register_zones()
+	_apply_ui_font_overrides()
 	_popup_panels = {
 		"merchant": merchant_popup,
 		"customer": customer_popup
@@ -121,6 +122,15 @@ func _ready() -> void:
 	upgrade_scroll.resized.connect(_sync_scroll_content_widths)
 	_apply_view_model()
 	_sync_visibility_state()
+
+
+func _apply_ui_font_overrides() -> void:
+	info_title_label.add_theme_font_size_override("font_size", 20)
+	info_stats_label.add_theme_font_size_override("font_size", 13)
+	info_inventory_label.add_theme_font_size_override("font_size", 13)
+	status_label.add_theme_font_size_override("font_size", 13)
+	prompt_label.add_theme_font_size_override("font_size", 14)
+	hint_label.add_theme_font_size_override("font_size", 12)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -858,6 +868,7 @@ func _create_zone(zone_id: String, label_key: String, position: Vector2, size: V
 
 func _apply_view_model() -> void:
 	_apply_phase_ambience(String(_view_model.get("phase", "morning")))
+	var inventory_summary := String(_view_model.get("inventory_summary", _t("meta.common.none")))
 	info_title_label.text = _t("meta.shop.world_title")
 	info_stats_label.text = _t("meta.shop.stats", {
 		"day": int(_view_model.get("current_day", 1)),
@@ -867,9 +878,12 @@ func _apply_view_model() -> void:
 		"action_max": int(_view_model.get("max_action_budget", 0))
 	})
 	info_inventory_label.text = _t("meta.shop.inventory", {
-		"value": String(_view_model.get("inventory_summary", _t("meta.common.none")))
+		"value": _compact_panel_inventory(inventory_summary)
 	})
-	info_inventory_label.tooltip_text = String(_view_model.get("inventory_tooltip", ""))
+	info_inventory_label.tooltip_text = _build_panel_tooltip(
+		inventory_summary,
+		String(_view_model.get("inventory_tooltip", ""))
+	)
 	leave_button.text = _t("meta.shop.leave")
 	status_label.text = String(_view_model.get("status_text", ""))
 	status_panel.visible = not status_label.text.strip_edges().is_empty()
@@ -881,9 +895,12 @@ func _apply_view_model() -> void:
 	merchant_subtitle_label.text = _t("meta.shop.subtitle")
 	merchant_dialogue_label.text = String(_view_model.get("shopkeeper_line", ""))
 	merchant_inventory_label.text = _t("meta.shop.inventory", {
-		"value": String(_view_model.get("inventory_summary", _t("meta.common.none")))
+		"value": inventory_summary
 	})
-	merchant_inventory_label.tooltip_text = String(_view_model.get("inventory_tooltip", ""))
+	merchant_inventory_label.tooltip_text = _build_panel_tooltip(
+		inventory_summary,
+		String(_view_model.get("inventory_tooltip", ""))
+	)
 	merchant_upgrades_label.text = _t("meta.shop.owned_upgrades", {
 		"value": String(_view_model.get("owned_upgrades_summary", _t("meta.shop.owned_none")))
 	})
@@ -935,6 +952,32 @@ func _apply_phase_ambience(phase: String) -> void:
 
 func _should_show_prompt_panel() -> bool:
 	return _active_popup_id.is_empty() and not _focused_zone_id.is_empty()
+
+
+func _compact_panel_inventory(summary: String) -> String:
+	var source := summary.strip_edges()
+	if source.is_empty():
+		return _t("meta.common.none")
+	var parts := source.split(", ", false)
+	if parts.size() <= 3:
+		return source
+	var preview := ""
+	for part_index in range(3):
+		if part_index > 0:
+			preview += ", "
+		preview += String(parts[part_index])
+	return "%s, +%d" % [preview, parts.size() - 3]
+
+
+func _build_panel_tooltip(summary: String, tooltip: String) -> String:
+	var parts: Array[String] = []
+	var summary_text := summary.strip_edges()
+	var tooltip_text := tooltip.strip_edges()
+	if not summary_text.is_empty():
+		parts.append(summary_text)
+	if not tooltip_text.is_empty():
+		parts.append(tooltip_text)
+	return "\n\n".join(parts)
 
 
 func _rebuild_seed_buttons() -> void:

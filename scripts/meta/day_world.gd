@@ -543,16 +543,16 @@ func _build_world_tileset() -> TileSet:
 		return _world_tile_set
 	var tile_count := 11
 	var atlas_image := Image.create(TILE_SIZE * tile_count, TILE_SIZE, false, Image.FORMAT_RGBA8)
-	_draw_grass_tile(atlas_image, 0, Color(0.41, 0.73, 0.22, 1.0), Color(0.55, 0.84, 0.34, 1.0), Color(0.26, 0.54, 0.15, 1.0))
-	_draw_grass_tile(atlas_image, 1, Color(0.50, 0.76, 0.30, 1.0), Color(0.63, 0.87, 0.43, 1.0), Color(0.34, 0.57, 0.20, 1.0))
-	_draw_path_tile(atlas_image, 2, Color(0.84, 0.65, 0.40, 1.0), Color(0.92, 0.75, 0.50, 1.0), Color(0.66, 0.49, 0.28, 1.0))
-	_draw_stone_tile(atlas_image, 3, Color(0.73, 0.70, 0.60, 1.0), Color(0.85, 0.82, 0.72, 1.0), Color(0.53, 0.50, 0.42, 1.0))
-	_draw_soil_tile(atlas_image, 4, Color(0.50, 0.33, 0.18, 1.0), Color(0.64, 0.44, 0.26, 1.0), Color(0.34, 0.21, 0.12, 1.0))
-	_draw_water_tile(atlas_image, 5, Color(0.47, 0.72, 0.90, 1.0), Color(0.70, 0.88, 0.98, 1.0), Color(0.30, 0.55, 0.72, 1.0))
+	_draw_grass_tile(atlas_image, 0, Color(0.49, 0.70, 0.27, 1.0), Color(0.58, 0.79, 0.35, 1.0), Color(0.39, 0.58, 0.21, 1.0))
+	_draw_grass_tile(atlas_image, 1, Color(0.55, 0.74, 0.31, 1.0), Color(0.64, 0.82, 0.39, 1.0), Color(0.45, 0.62, 0.24, 1.0))
+	_draw_path_tile(atlas_image, 2, Color(0.72, 0.54, 0.32, 1.0), Color(0.82, 0.64, 0.42, 1.0), Color(0.58, 0.41, 0.23, 1.0))
+	_draw_stone_tile(atlas_image, 3, Color(0.68, 0.60, 0.50, 1.0), Color(0.79, 0.71, 0.61, 1.0), Color(0.53, 0.45, 0.37, 1.0))
+	_draw_soil_tile(atlas_image, 4, Color(0.46, 0.29, 0.16, 1.0), Color(0.58, 0.38, 0.22, 1.0), Color(0.32, 0.19, 0.11, 1.0))
+	_draw_water_tile(atlas_image, 5, Color(0.42, 0.64, 0.78, 1.0), Color(0.66, 0.83, 0.92, 1.0), Color(0.28, 0.47, 0.61, 1.0))
 	_draw_dock_tile(atlas_image, 6, Color(0.55, 0.39, 0.24, 1.0), Color(0.71, 0.53, 0.31, 1.0), Color(0.36, 0.25, 0.16, 1.0))
-	_draw_grass_tile(atlas_image, 7, Color(0.28, 0.54, 0.16, 1.0), Color(0.39, 0.66, 0.22, 1.0), Color(0.18, 0.39, 0.10, 1.0))
+	_draw_grass_tile(atlas_image, 7, Color(0.41, 0.59, 0.21, 1.0), Color(0.49, 0.68, 0.28, 1.0), Color(0.31, 0.47, 0.17, 1.0))
 	_draw_flower_tile(atlas_image, 8)
-	_draw_path_tile(atlas_image, 9, Color(0.88, 0.76, 0.50, 1.0), Color(0.95, 0.84, 0.60, 1.0), Color(0.74, 0.62, 0.38, 1.0))
+	_draw_path_tile(atlas_image, 9, Color(0.80, 0.67, 0.42, 1.0), Color(0.89, 0.75, 0.49, 1.0), Color(0.64, 0.51, 0.30, 1.0))
 	_draw_foam_tile(atlas_image, 10)
 	var atlas_texture := ImageTexture.create_from_image(atlas_image)
 	var tile_set := TileSet.new()
@@ -583,43 +583,69 @@ func _draw_grass_tile(image: Image, tile_index: int, base: Color, light: Color, 
 	_fill_tile_background(image, tile_index, base)
 	for y in range(TILE_SIZE):
 		for x in range(TILE_SIZE):
-			var value := int((x * 11 + y * 17 + tile_index * 7) % 19)
+			var value := int((x * 11 + y * 17 + tile_index * 13) % 37)
 			if value < 4:
 				_set_tile_pixel(image, tile_index, x, y, light)
-			elif value == 7:
+			elif value == 8 or value == 21:
 				_set_tile_pixel(image, tile_index, x, y, dark)
-	for stripe_y in range(4, TILE_SIZE, 9):
-		for stripe_x in range((stripe_y / 3) % 6, TILE_SIZE, 6):
-			_set_tile_pixel(image, tile_index, stripe_x, stripe_y, light)
-			if stripe_y + 1 < TILE_SIZE:
-				_set_tile_pixel(image, tile_index, stripe_x, stripe_y + 1, dark)
+			elif value == 15 and y > 3:
+				_set_tile_pixel(image, tile_index, x, y, light)
+				_set_tile_pixel(image, tile_index, x, y - 1, dark)
+	for clump_y in range(6, TILE_SIZE - 4, 10):
+		for clump_x in range(4 + int((clump_y + tile_index * 5) % 7), TILE_SIZE - 4, 12):
+			for offset in [
+				Vector2i(-1, 1),
+				Vector2i(0, 0),
+				Vector2i(1, -1),
+				Vector2i(2, 1)
+			]:
+				var sample_x: int = clump_x + offset.x
+				var sample_y: int = clump_y + offset.y
+				if sample_x < 0 or sample_x >= TILE_SIZE or sample_y < 0 or sample_y >= TILE_SIZE:
+					continue
+				_set_tile_pixel(image, tile_index, sample_x, sample_y, light)
+				if sample_y + 1 < TILE_SIZE:
+					_set_tile_pixel(image, tile_index, sample_x, sample_y + 1, dark)
 
 
 func _draw_path_tile(image: Image, tile_index: int, base: Color, light: Color, dark: Color) -> void:
 	_fill_tile_background(image, tile_index, base)
 	for y in range(TILE_SIZE):
 		for x in range(TILE_SIZE):
-			var value := int((x * 5 + y * 13 + tile_index * 17) % 23)
+			var value := int((x * 7 + y * 9 + tile_index * 19) % 29)
 			if value < 3:
 				_set_tile_pixel(image, tile_index, x, y, light)
-			elif value == 8 or value == 11:
+			elif value == 8 or value == 15:
 				_set_tile_pixel(image, tile_index, x, y, dark)
-	for seam_y in [12, 24, 36]:
-		for seam_x in range(TILE_SIZE):
-			_set_tile_pixel(image, tile_index, seam_x, seam_y, dark)
+	for pebble_y in range(8, TILE_SIZE - 6, 12):
+		for pebble_x in range(5 + int((pebble_y * 3 + tile_index) % 9), TILE_SIZE - 4, 13):
+			for offset in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1)]:
+				var sample_x: int = pebble_x + offset.x
+				var sample_y: int = pebble_y + offset.y
+				if sample_x >= TILE_SIZE or sample_y >= TILE_SIZE:
+					continue
+				_set_tile_pixel(image, tile_index, sample_x, sample_y, light)
+	for rut_y in [10, 24, 38]:
+		for rut_x in range(4, TILE_SIZE - 4):
+			if int((rut_x + rut_y + tile_index) % 7) < 3:
+				_set_tile_pixel(image, tile_index, rut_x, rut_y, dark)
 
 
 func _draw_stone_tile(image: Image, tile_index: int, base: Color, light: Color, dark: Color) -> void:
 	_fill_tile_background(image, tile_index, base)
-	for seam_y in range(0, TILE_SIZE, 16):
+	for row in range(4):
+		var seam_y := 4 + row * 11
+		var x_offset := 2 + int(((row + tile_index) * 5) % 8)
+		for seam_x in range(0, TILE_SIZE, 12):
+			for sample_x in range(seam_x, mini(TILE_SIZE, seam_x + 10)):
+				_set_tile_pixel(image, tile_index, sample_x, seam_y, dark)
 		for x in range(TILE_SIZE):
-			_set_tile_pixel(image, tile_index, x, seam_y, dark)
-	for seam_x in range(0, TILE_SIZE, 16):
-		for y in range(TILE_SIZE):
-			_set_tile_pixel(image, tile_index, seam_x, y, dark)
-	for y in range(1, TILE_SIZE, 6):
-		for x in range((y * 3) % 8, TILE_SIZE, 8):
-			_set_tile_pixel(image, tile_index, x, y, light)
+			if x % 12 == x_offset or x % 12 == x_offset + 1:
+				for sample_y in range(maxi(0, seam_y - 3), mini(TILE_SIZE, seam_y + 4)):
+					_set_tile_pixel(image, tile_index, x, sample_y, dark)
+	for chip_y in range(2, TILE_SIZE, 7):
+		for chip_x in range((chip_y * 5 + tile_index) % 9, TILE_SIZE, 11):
+			_set_tile_pixel(image, tile_index, chip_x, chip_y, light)
 
 
 func _draw_soil_tile(image: Image, tile_index: int, base: Color, light: Color, dark: Color) -> void:
@@ -631,14 +657,14 @@ func _draw_soil_tile(image: Image, tile_index: int, base: Color, light: Color, d
 				_set_tile_pixel(image, tile_index, x, furrow_y + 1, light)
 	for y in range(TILE_SIZE):
 		for x in range(TILE_SIZE):
-			var value := int((x * 9 + y * 7 + tile_index) % 29)
-			if value == 0:
+			var value := int((x * 9 + y * 7 + tile_index) % 31)
+			if value == 0 or value == 11:
 				_set_tile_pixel(image, tile_index, x, y, light)
 
 
 func _draw_water_tile(image: Image, tile_index: int, base: Color, light: Color, dark: Color) -> void:
 	_fill_tile_background(image, tile_index, base)
-	for wave_y in [8, 20, 32, 42]:
+	for wave_y in [8, 18, 30, 40]:
 		for x in range(2, TILE_SIZE - 2):
 			if (x + wave_y) % 11 < 5:
 				_set_tile_pixel(image, tile_index, x, wave_y, light)
@@ -648,6 +674,9 @@ func _draw_water_tile(image: Image, tile_index: int, base: Color, light: Color, 
 		for x in range(TILE_SIZE):
 			if int((x * 7 + y * 3 + tile_index * 5) % 31) == 0:
 				_set_tile_pixel(image, tile_index, x, y, light)
+	for reed_x in [6, 18, 30, 42]:
+		_set_tile_pixel(image, tile_index, reed_x, TILE_SIZE - 10, dark)
+		_set_tile_pixel(image, tile_index, reed_x + 1 if reed_x + 1 < TILE_SIZE else reed_x, TILE_SIZE - 12, light)
 
 
 func _draw_dock_tile(image: Image, tile_index: int, base: Color, light: Color, dark: Color) -> void:
@@ -710,109 +739,106 @@ func _paint_world_tiles() -> void:
 	_detail_tiles.clear()
 	for y in range(GROUND_ROWS):
 		for x in range(GROUND_COLUMNS):
-			var cell := Vector2i(x, y)
-			var tile := TILE_GRASS
-			var variation := int((x * 17 + y * 31 + x * y * 3) % 13)
-			if variation == 0 or variation == 5 or (x < 10 and y > 10 and variation == 8):
-				tile = TILE_MEADOW
-			elif variation == 2 and y > 8:
-				tile = TILE_DARK_GRASS
-			_ground_tiles.set_cell(cell, 0, tile)
-			if tile == TILE_GRASS and int((x * 11 + y * 19) % 17) == 0:
-				_detail_tiles.set_cell(cell, 0, TILE_FLOWERS)
+			_ground_tiles.set_cell(Vector2i(x, y), 0, TILE_GRASS)
+			if int((x * 7 + y * 13 + x * y) % 29) == 0:
+				_detail_tiles.set_cell(Vector2i(x, y), 0, TILE_FLOWERS)
 
-	# Farm district and service lane
-	_fill_tile_rect(_ground_tiles, Rect2i(0, 8, 11, 10), TILE_DARK_GRASS)
-	_fill_tile_rect(_ground_tiles, Rect2i(1, 8, 8, 8), TILE_MEADOW)
-	_fill_tile_rect(_ground_tiles, Rect2i(3, 10, 4, 4), TILE_SOIL)
-	_fill_tile_rect(_ground_tiles, Rect2i(3, 8, 3, 2), TILE_SAND)
-	_fill_tile_rect(_ground_tiles, Rect2i(6, 8, 3, 7), TILE_PATH)
+	# Meadow masses and darker border framing keep the scene soft instead of checkerboarded.
+	_paint_circle(_ground_tiles, Vector2(5.0, 12.5), Vector2(5.8, 4.6), TILE_MEADOW)
+	_paint_circle(_ground_tiles, Vector2(7.2, 15.0), Vector2(3.2, 2.3), TILE_DARK_GRASS)
+	_paint_circle(_ground_tiles, Vector2(9.8, 5.6), Vector2(5.4, 2.4), TILE_MEADOW)
+	_paint_circle(_ground_tiles, Vector2(20.0, 4.8), Vector2(4.6, 2.4), TILE_MEADOW)
+	_paint_circle(_ground_tiles, Vector2(30.0, 6.0), Vector2(3.0, 2.0), TILE_MEADOW)
+	_paint_circle(_ground_tiles, Vector2(29.6, 16.1), Vector2(4.2, 2.0), TILE_DARK_GRASS)
+	_paint_circle(_ground_tiles, Vector2(2.8, 16.1), Vector2(3.2, 1.8), TILE_DARK_GRASS)
 
-	# Main town route, square, and harbor promenade
-	_fill_tile_rect(_ground_tiles, Rect2i(4, 7, 12, 2), TILE_PATH)
-	_fill_tile_rect(_ground_tiles, Rect2i(14, 5, 2, 5), TILE_PATH)
-	_fill_tile_rect(_ground_tiles, Rect2i(17, 4, 11, 8), TILE_STONE)
-	_fill_tile_rect(_ground_tiles, Rect2i(20, 9, 7, 3), TILE_STONE)
-	_fill_tile_rect(_ground_tiles, Rect2i(13, 13, 4, 2), TILE_PATH)
-	_fill_tile_rect(_ground_tiles, Rect2i(17, 12, 8, 3), TILE_PATH)
+	# Farm courtyard and crop ground.
+	_paint_circle(_ground_tiles, Vector2(5.1, 11.9), Vector2(4.2, 2.8), TILE_PATH)
+	_paint_circle(_ground_tiles, Vector2(4.0, 12.8), Vector2(2.8, 1.8), TILE_SAND)
+	_paint_circle(_ground_tiles, Vector2(5.2, 13.0), Vector2(2.6, 2.0), TILE_SOIL)
+	_paint_circle(_ground_tiles, Vector2(7.9, 13.2), Vector2(1.5, 2.3), TILE_PATH)
 
-	# Harbor edge and pier
-	_fill_tile_rect(_ground_tiles, Rect2i(22, 10, 4, 8), TILE_SAND)
-	_fill_tile_rect(_ground_tiles, Rect2i(25, 10, 9, 8), TILE_WATER)
-	_fill_tile_rect(_ground_tiles, Rect2i(24, 12, 6, 2), TILE_DOCK)
-	_fill_tile_rect(_ground_tiles, Rect2i(27, 12, 3, 5), TILE_DOCK)
-	_fill_tile_rect(_ground_tiles, Rect2i(23, 13, 3, 2), TILE_DOCK)
+	# Authored routes from farm to town, then from the square down to the dock.
+	_paint_brush_stroke(_ground_tiles, [
+		Vector2(0.2, 10.4),
+		Vector2(3.4, 10.4),
+		Vector2(7.4, 9.8),
+		Vector2(11.8, 8.8),
+		Vector2(15.8, 8.4)
+	], Vector2(1.25, 1.0), TILE_PATH)
+	_paint_brush_stroke(_ground_tiles, [
+		Vector2(15.0, 8.0),
+		Vector2(18.0, 8.0),
+		Vector2(21.6, 8.2),
+		Vector2(24.8, 8.4)
+	], Vector2(1.15, 1.0), TILE_PATH)
+	_paint_brush_stroke(_ground_tiles, [
+		Vector2(21.8, 10.2),
+		Vector2(22.6, 11.8),
+		Vector2(23.6, 13.1),
+		Vector2(24.6, 14.4)
+	], Vector2(1.05, 1.0), TILE_PATH)
+	_paint_brush_stroke(_ground_tiles, [
+		Vector2(24.8, 14.4),
+		Vector2(26.2, 15.0),
+		Vector2(28.0, 15.8),
+		Vector2(30.0, 16.4)
+	], Vector2(1.15, 1.0), TILE_SAND)
 
-	# Break up the big shapes so routes read as deliberately composed rather than perfectly blocked.
-	_paint_cells(_ground_tiles, [
-		Vector2i(0, 7), Vector2i(1, 7), Vector2i(2, 7), Vector2i(3, 7),
-		Vector2i(2, 8), Vector2i(3, 8),
-		Vector2i(5, 9), Vector2i(5, 10), Vector2i(5, 11), Vector2i(5, 12),
-		Vector2i(7, 15), Vector2i(8, 15), Vector2i(9, 15), Vector2i(7, 16),
-		Vector2i(15, 4), Vector2i(16, 4), Vector2i(16, 5),
-		Vector2i(15, 10), Vector2i(15, 11), Vector2i(16, 11),
-		Vector2i(12, 13), Vector2i(12, 14), Vector2i(13, 15), Vector2i(14, 15),
-		Vector2i(25, 11), Vector2i(25, 12), Vector2i(24, 15), Vector2i(24, 16)
-	], TILE_PATH)
-	_paint_cells(_ground_tiles, [
-		Vector2i(2, 9), Vector2i(2, 10), Vector2i(3, 9), Vector2i(4, 9),
-		Vector2i(9, 7), Vector2i(10, 7), Vector2i(11, 7),
-		Vector2i(13, 6), Vector2i(16, 6), Vector2i(16, 7),
-		Vector2i(17, 3), Vector2i(18, 3), Vector2i(19, 3), Vector2i(20, 3),
-		Vector2i(28, 5), Vector2i(28, 6), Vector2i(28, 7),
-		Vector2i(19, 12), Vector2i(20, 12), Vector2i(21, 12), Vector2i(22, 12),
-		Vector2i(14, 12), Vector2i(15, 12), Vector2i(16, 12),
-		Vector2i(23, 10), Vector2i(24, 10), Vector2i(24, 11)
-	], TILE_SAND)
-	_paint_cells(_ground_tiles, [
-		Vector2i(0, 6), Vector2i(1, 6), Vector2i(2, 6), Vector2i(3, 6),
-		Vector2i(4, 6), Vector2i(7, 8), Vector2i(8, 8), Vector2i(9, 8),
-		Vector2i(10, 8), Vector2i(9, 9), Vector2i(9, 10),
-		Vector2i(6, 15), Vector2i(8, 16), Vector2i(9, 16), Vector2i(10, 15),
-		Vector2i(16, 2), Vector2i(17, 2), Vector2i(18, 2), Vector2i(21, 2),
-		Vector2i(22, 2), Vector2i(23, 2), Vector2i(24, 2), Vector2i(25, 2),
-		Vector2i(27, 3), Vector2i(29, 4), Vector2i(29, 5),
-		Vector2i(18, 11), Vector2i(27, 11), Vector2i(28, 11),
-		Vector2i(11, 13), Vector2i(11, 14), Vector2i(12, 15), Vector2i(17, 15)
-	], TILE_MEADOW)
-	_paint_cells(_ground_tiles, [
-		Vector2i(0, 8), Vector2i(1, 8), Vector2i(0, 9), Vector2i(10, 9),
-		Vector2i(0, 10), Vector2i(10, 10), Vector2i(0, 11), Vector2i(10, 11),
-		Vector2i(0, 12), Vector2i(10, 12), Vector2i(0, 13), Vector2i(10, 13),
-		Vector2i(1, 15), Vector2i(2, 15), Vector2i(3, 15), Vector2i(4, 16), Vector2i(5, 16),
-		Vector2i(26, 16), Vector2i(27, 16), Vector2i(28, 16), Vector2i(29, 16),
-		Vector2i(30, 16), Vector2i(31, 16), Vector2i(32, 15)
-	], TILE_DARK_GRASS)
+	# Town square and dock apron use warmer stone / sand masses instead of flat rectangles.
+	_paint_circle(_ground_tiles, Vector2(21.8, 8.0), Vector2(4.8, 3.2), TILE_STONE)
+	_paint_circle(_ground_tiles, Vector2(22.8, 10.8), Vector2(3.2, 1.8), TILE_STONE)
+	_paint_circle(_ground_tiles, Vector2(24.6, 13.8), Vector2(2.6, 1.6), TILE_SAND)
 
-	# Carve corners back out of the market plaza and shoreline blocks.
+	# Harbor water and dock.
+	_fill_tile_rect(_ground_tiles, Rect2i(26, 10, 8, 8), TILE_WATER)
+	_paint_circle(_ground_tiles, Vector2(30.4, 12.5), Vector2(4.8, 3.6), TILE_WATER)
+	_paint_circle(_ground_tiles, Vector2(31.2, 16.2), Vector2(3.8, 2.4), TILE_WATER)
+	_paint_brush_stroke(_ground_tiles, [
+		Vector2(26.0, 12.0),
+		Vector2(28.0, 12.0),
+		Vector2(29.6, 12.4)
+	], Vector2(0.9, 0.8), TILE_DOCK)
+	_paint_brush_stroke(_ground_tiles, [
+		Vector2(28.6, 12.8),
+		Vector2(28.6, 14.8),
+		Vector2(28.8, 16.8)
+	], Vector2(0.8, 0.8), TILE_DOCK)
+	_paint_brush_stroke(_ground_tiles, [
+		Vector2(25.2, 13.4),
+		Vector2(26.6, 13.4),
+		Vector2(27.8, 13.6)
+	], Vector2(0.8, 0.7), TILE_DOCK)
+
+	# Edge cleanup so paths look walked-in rather than pasted on top.
 	_paint_cells(_ground_tiles, [
-		Vector2i(17, 4), Vector2i(28, 4), Vector2i(28, 8), Vector2i(17, 11),
-		Vector2i(18, 11), Vector2i(19, 11), Vector2i(27, 10), Vector2i(28, 10),
-		Vector2i(24, 12), Vector2i(24, 14), Vector2i(22, 15), Vector2i(23, 16)
+		Vector2i(0, 9), Vector2i(1, 9), Vector2i(2, 9), Vector2i(8, 10),
+		Vector2i(9, 10), Vector2i(13, 8), Vector2i(16, 9), Vector2i(17, 10),
+		Vector2i(18, 10), Vector2i(19, 11), Vector2i(25, 10), Vector2i(25, 14),
+		Vector2i(24, 15), Vector2i(24, 16), Vector2i(25, 16)
 	], TILE_GRASS)
 	_paint_cells(_ground_tiles, [
-		Vector2i(24, 10), Vector2i(24, 11), Vector2i(24, 15), Vector2i(24, 16),
-		Vector2i(24, 17), Vector2i(25, 17), Vector2i(26, 17), Vector2i(27, 17),
-		Vector2i(28, 17)
-	], TILE_SAND)
+		Vector2i(3, 11), Vector2i(4, 11), Vector2i(5, 10), Vector2i(6, 10),
+		Vector2i(20, 5), Vector2i(21, 5), Vector2i(24, 6), Vector2i(25, 6),
+		Vector2i(27, 9), Vector2i(27, 10), Vector2i(28, 10)
+	], TILE_MEADOW)
 
-	# Flower borders help frame approaches and make the map feel hand-dressed.
+	# Flower borders and bank foam sell the cozy, hand-dressed look.
 	_paint_cells(_detail_tiles, [
-		Vector2i(1, 9), Vector2i(2, 9), Vector2i(3, 9), Vector2i(9, 8),
-		Vector2i(10, 8), Vector2i(11, 8), Vector2i(12, 6), Vector2i(16, 3),
-		Vector2i(17, 3), Vector2i(21, 3), Vector2i(24, 3), Vector2i(27, 4),
-		Vector2i(20, 12), Vector2i(21, 12), Vector2i(12, 14), Vector2i(12, 15),
-		Vector2i(13, 15), Vector2i(17, 15), Vector2i(18, 15), Vector2i(20, 12),
-		Vector2i(22, 9), Vector2i(23, 9), Vector2i(25, 9)
+		Vector2i(1, 10), Vector2i(2, 10), Vector2i(3, 10), Vector2i(3, 9),
+		Vector2i(8, 9), Vector2i(9, 9), Vector2i(10, 8), Vector2i(14, 8),
+		Vector2i(17, 5), Vector2i(18, 5), Vector2i(19, 5), Vector2i(23, 6),
+		Vector2i(24, 6), Vector2i(20, 11), Vector2i(21, 11), Vector2i(22, 11),
+		Vector2i(24, 12), Vector2i(24, 13), Vector2i(25, 13), Vector2i(26, 13)
 	], TILE_FLOWERS)
 
-	for foam_x in range(25, 34):
+	for foam_x in range(26, 34):
 		_detail_tiles.set_cell(Vector2i(foam_x, 10), 0, TILE_FOAM)
 	for foam_y in range(10, 18):
-		_detail_tiles.set_cell(Vector2i(25, foam_y), 0, TILE_FOAM)
+		_detail_tiles.set_cell(Vector2i(26, foam_y), 0, TILE_FOAM)
 	_paint_cells(_detail_tiles, [
-		Vector2i(30, 12), Vector2i(30, 13), Vector2i(30, 14), Vector2i(30, 15),
-		Vector2i(29, 16), Vector2i(31, 14), Vector2i(32, 15)
+		Vector2i(30, 12), Vector2i(30, 13), Vector2i(30, 14), Vector2i(31, 15),
+		Vector2i(29, 16), Vector2i(32, 14), Vector2i(33, 15)
 	], TILE_FOAM)
 
 
@@ -827,6 +853,35 @@ func _paint_cells(layer: TileMapLayer, cells: Array, atlas_coords: Vector2i) -> 
 		if not (cell_variant is Vector2i):
 			continue
 		layer.set_cell(cell_variant, 0, atlas_coords)
+
+
+func _paint_circle(layer: TileMapLayer, center: Vector2, radius: Vector2, atlas_coords: Vector2i) -> void:
+	if radius.x <= 0.0 or radius.y <= 0.0:
+		return
+	for y in range(maxi(0, int(floor(center.y - radius.y))), mini(GROUND_ROWS, int(ceil(center.y + radius.y)) + 1)):
+		for x in range(maxi(0, int(floor(center.x - radius.x))), mini(GROUND_COLUMNS, int(ceil(center.x + radius.x)) + 1)):
+			var dx := (float(x) + 0.5 - center.x) / radius.x
+			var dy := (float(y) + 0.5 - center.y) / radius.y
+			if dx * dx + dy * dy > 1.0:
+				continue
+			layer.set_cell(Vector2i(x, y), 0, atlas_coords)
+
+
+func _paint_brush_stroke(layer: TileMapLayer, points: Array, radius: Vector2, atlas_coords: Vector2i) -> void:
+	if points.is_empty():
+		return
+	if points.size() == 1 and points[0] is Vector2:
+		_paint_circle(layer, points[0] as Vector2, radius, atlas_coords)
+		return
+	for point_index in range(points.size() - 1):
+		if not (points[point_index] is Vector2) or not (points[point_index + 1] is Vector2):
+			continue
+		var from := points[point_index] as Vector2
+		var to := points[point_index + 1] as Vector2
+		var steps := maxi(1, int(ceil(from.distance_to(to) * 6.0)))
+		for step in range(steps + 1):
+			var sample := from.lerp(to, float(step) / float(steps))
+			_paint_circle(layer, sample, radius, atlas_coords)
 
 
 func _build_world_landmarks() -> void:
@@ -861,6 +916,9 @@ func _build_world_landmarks() -> void:
 	_add_rect(_scenery_root, "FarmPorch", Rect2(220.0, 554.0, 72.0, 24.0), Color(0.79, 0.67, 0.47, 1.0), -1)
 	_add_rect(_scenery_root, "FarmShedStep", Rect2(402.0, 592.0, 66.0, 18.0), Color(0.73, 0.60, 0.40, 1.0), -1)
 	_farm_window_glows.append(_add_window_glow(_ambient_root, "FarmWindowGlow", Vector2(256.0, 522.0), Vector2(44.0, 24.0), Color(1.0, 0.86, 0.54, 0.0)))
+	_add_stone_wall_line("FarmWallNorth", Vector2(192.0, 546.0), 4, true)
+	_add_stone_wall_line("FarmWallEast", Vector2(500.0, 612.0), 3, false)
+	_add_stone_wall_line("FarmWallSouth", Vector2(226.0, 796.0), 4, true)
 	_add_fence_line("FarmFenceNorth", Vector2(154.0, 588.0), 6, true)
 	_add_fence_line("FarmFenceWest", Vector2(132.0, 632.0), 4, false)
 	_add_fence_line("FarmFenceEast", Vector2(476.0, 632.0), 4, false)
@@ -870,6 +928,7 @@ func _build_world_landmarks() -> void:
 	_add_barrel_prop("FarmBarrel", Vector2(444.0, 620.0), Color(0.58, 0.40, 0.24, 1.0))
 	_add_planter_box("FarmHerbPatch", Vector2(454.0, 704.0), Color(0.50, 0.82, 0.42, 1.0))
 	_add_planter_box("FarmFlowerBox", Vector2(302.0, 588.0), Color(0.96, 0.76, 0.48, 1.0))
+	_add_planter_box("FarmSunflowerBox", Vector2(216.0, 594.0), Color(0.95, 0.84, 0.42, 1.0))
 	_add_supply_cart("FarmSupplyCart", Vector2(344.0, 688.0), Color(0.73, 0.55, 0.34, 1.0))
 	_add_scarecrow("FarmScarecrow", Vector2(236.0, 724.0))
 
@@ -884,6 +943,8 @@ func _build_world_landmarks() -> void:
 	_add_crate_cluster("RestaurantCrates", Vector2(1072.0, 470.0), 2, Color(0.80, 0.58, 0.34, 1.0))
 	_add_barrel_prop("RestaurantBarrel", Vector2(924.0, 476.0), Color(0.58, 0.38, 0.23, 1.0))
 	_add_planter_box("RestaurantPlanter", Vector2(1070.0, 436.0), Color(0.95, 0.62, 0.38, 1.0))
+	_add_stone_wall_line("RestaurantBorderNorth", Vector2(908.0, 374.0), 4, true)
+	_add_stone_wall_line("RestaurantBorderWest", Vector2(886.0, 430.0), 2, false)
 	_add_a_frame_sign("RestaurantMenuStand", Vector2(896.0, 468.0), Color(0.66, 0.46, 0.27, 1.0), Color(0.96, 0.68, 0.40, 1.0))
 
 	# Market stall
@@ -904,6 +965,7 @@ func _build_world_landmarks() -> void:
 		Color(0.99, 0.78, 0.40, 1.0),
 		Color(0.76, 0.89, 0.54, 1.0)
 	])
+	_add_stone_wall_line("ShopBorderSouth", Vector2(1198.0, 610.0), 3, true)
 	var shop_open_board := _add_a_frame_sign("ShopOpenBoard", Vector2(1216.0, 522.0), Color(0.63, 0.45, 0.24, 1.0), Color(0.97, 0.83, 0.44, 1.0))
 	_shop_open_props.append(shop_open_board)
 	var shop_pennants := _add_pennant_string("ShopPennants", Vector2(1228.0, 432.0), 136.0, [
@@ -920,6 +982,7 @@ func _build_world_landmarks() -> void:
 	_add_planter_box("BoardPlanterLeft", Vector2(1034.0, 632.0), Color(0.95, 0.88, 0.54, 1.0))
 	_add_planter_box("BoardPlanterRight", Vector2(1124.0, 634.0), Color(0.96, 0.74, 0.58, 1.0))
 	_add_bench(Vector2(704.0, 772.0))
+	_add_stone_wall_line("BoardTerraceSouth", Vector2(1002.0, 670.0), 4, true)
 	_add_fence_line("LookoutRail", Vector2(620.0, 754.0), 4, true)
 	_add_planter_box("LookoutFlowersLeft", Vector2(650.0, 804.0), Color(0.95, 0.74, 0.62, 1.0))
 	_add_planter_box("LookoutFlowersRight", Vector2(756.0, 804.0), Color(0.90, 0.82, 0.50, 1.0))
@@ -1076,6 +1139,34 @@ func _add_fence_line(name: String, start_position: Vector2, segments: int, horiz
 			rail.rotation = 0.0 if horizontal else PI * 0.5
 			rail.color = Color(0.67, 0.48, 0.28, 1.0)
 			root.add_child(rail)
+	return root
+
+
+func _add_stone_wall_line(name: String, start_position: Vector2, segments: int, horizontal: bool) -> Node2D:
+	var root := Node2D.new()
+	root.name = name
+	root.position = start_position
+	_scenery_root.add_child(root)
+	var spacing := 42.0
+	for segment_index in range(segments):
+		var stone := Polygon2D.new()
+		stone.polygon = _rect_polygon(Vector2(spacing - 6.0, 12.0))
+		stone.position = Vector2(segment_index * spacing + spacing * 0.5, 0.0) if horizontal else Vector2(0.0, segment_index * spacing + spacing * 0.5)
+		stone.rotation = 0.0 if horizontal else PI * 0.5
+		stone.color = Color(0.62, 0.56, 0.48, 1.0)
+		root.add_child(stone)
+		var cap := Polygon2D.new()
+		cap.polygon = _rect_polygon(Vector2(spacing - 10.0, 4.0))
+		cap.position = stone.position + (Vector2(0.0, -4.0) if horizontal else Vector2(4.0, 0.0))
+		cap.rotation = stone.rotation
+		cap.color = Color(0.77, 0.70, 0.62, 1.0)
+		root.add_child(cap)
+	for post_index in range(segments + 1):
+		var post := Polygon2D.new()
+		post.polygon = _rect_polygon(Vector2(10.0, 16.0))
+		post.position = Vector2(post_index * spacing, 0.0) if horizontal else Vector2(0.0, post_index * spacing)
+		post.color = Color(0.55, 0.48, 0.40, 1.0)
+		root.add_child(post)
 	return root
 
 

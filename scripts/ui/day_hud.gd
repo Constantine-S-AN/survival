@@ -62,9 +62,9 @@ func debug_get_snapshot() -> Dictionary:
 		"night_ready": bool(_hud_model.get("night_ready", false)),
 		"clock_status_text": clock_status_label.text if clock_status_label != null else "",
 		"departure_text": departure_label.text if departure_label != null else "",
-		"prompt_text": prompt_label.text if prompt_label != null else "",
-		"guide_title": guide_title_label.text if guide_title_label != null else "",
-		"guide_text": guide_body_label.text if guide_body_label != null else "",
+		"prompt_text": String(_hud_model.get("prompt_text", prompt_label.text if prompt_label != null else "")),
+		"guide_title": String(_hud_model.get("guide_title", guide_title_label.text if guide_title_label != null else "")),
+		"guide_text": String(_hud_model.get("guide_text", guide_body_label.text if guide_body_label != null else "")),
 		"phase_track_active_index": _phase_index(String(_hud_model.get("phase", "morning")))
 	}
 
@@ -118,15 +118,63 @@ func _apply_hud_model() -> void:
 	farm_tool_panel.visible = bool(_hud_model.get("farm_tool_visible", false))
 	var guide_title := String(_hud_model.get("guide_title", "")).strip_edges()
 	var guide_text := String(_hud_model.get("guide_text", "")).strip_edges()
-	guide_panel.visible = not guide_title.is_empty() or not guide_text.is_empty()
+	var guide_display_text := _compact_guide_text(guide_text)
+	guide_panel.visible = not guide_title.is_empty() or not guide_display_text.is_empty()
 	guide_title_label.text = guide_title
-	guide_body_label.text = guide_text
-	prompt_label.text = String(_hud_model.get("prompt_text", _t("meta.world.prompt_idle")))
+	guide_body_label.text = guide_display_text
+	guide_title_label.visible = not guide_title.is_empty()
+	guide_body_label.visible = not guide_display_text.is_empty()
+	guide_panel.tooltip_text = guide_text
+	guide_title_label.tooltip_text = guide_text
+	guide_body_label.tooltip_text = guide_text
+	prompt_label.text = _compact_prompt_text(String(_hud_model.get("prompt_text", _t("meta.world.prompt_idle"))))
 	hint_label.text = String(_hud_model.get("move_hint", _t("meta.world.move_hint")))
 	var prompt_visible := bool(_hud_model.get("prompt_visible", true))
 	prompt_panel.visible = prompt_visible and (not prompt_label.text.strip_edges().is_empty() or not hint_label.text.strip_edges().is_empty())
-	hint_label.visible = prompt_panel.visible
+	hint_label.visible = prompt_panel.visible and not hint_label.text.strip_edges().is_empty()
 	_apply_visual_theme(phase, night_ready)
+
+
+func _compact_guide_text(text: String) -> String:
+	var source := text.strip_edges()
+	if source.is_empty():
+		return ""
+	var compact_lines: Array[String] = []
+	for line_variant in source.split("\n", false):
+		var line := String(line_variant).strip_edges()
+		if line.is_empty():
+			continue
+		if line.begins_with("- "):
+			line = "• %s" % line.substr(2).strip_edges()
+		elif line.begins_with("-"):
+			line = "• %s" % line.substr(1).strip_edges()
+		compact_lines.append(_trim_panel_line(line, 34))
+		if compact_lines.size() >= 3:
+			break
+	if compact_lines.size() < source.split("\n", false).size():
+		compact_lines.append("...")
+	return "\n".join(compact_lines)
+
+
+func _compact_prompt_text(text: String) -> String:
+	var source := text.strip_edges()
+	if source.is_empty():
+		return ""
+	var compact_lines: Array[String] = []
+	for line_variant in source.split("\n", false):
+		var line := String(line_variant).strip_edges()
+		if line.is_empty():
+			continue
+		compact_lines.append(_trim_panel_line(line, 52))
+		if compact_lines.size() >= 2:
+			break
+	return "\n".join(compact_lines)
+
+
+func _trim_panel_line(text: String, max_length: int) -> String:
+	if text.length() <= max_length:
+		return text
+	return "%s..." % text.substr(0, maxi(0, max_length - 3)).strip_edges()
 
 
 func _rebuild_hotbar_slots(slots: Array, selected_key: String) -> void:
@@ -204,10 +252,21 @@ func _apply_visual_theme(phase: String, night_ready: bool) -> void:
 		text_control.add_theme_font_override("font", HUD_FONT)
 	title_label.add_theme_font_size_override("font_size", 24)
 	subtitle_label.add_theme_font_size_override("font_size", 14)
+	clock_status_label.add_theme_font_size_override("font_size", 14)
+	resources_label.add_theme_font_size_override("font_size", 14)
+	departure_label.add_theme_font_size_override("font_size", 14)
+	status_label.add_theme_font_size_override("font_size", 13)
+	farm_tool_title_label.add_theme_font_size_override("font_size", 16)
+	farm_tool_body_label.add_theme_font_size_override("font_size", 14)
+	farm_tool_hint_label.add_theme_font_size_override("font_size", 12)
+	guide_title_label.add_theme_font_size_override("font_size", 16)
+	guide_body_label.add_theme_font_size_override("font_size", 13)
 	prompt_label.add_theme_font_size_override("font_size", 16)
 	hint_label.add_theme_font_size_override("font_size", 12)
 	orders_button.add_theme_font_override("font", HUD_FONT)
 	legacy_button.add_theme_font_override("font", HUD_FONT)
+	orders_button.add_theme_font_size_override("font_size", 14)
+	legacy_button.add_theme_font_size_override("font_size", 14)
 
 
 func _hud_palette(phase: String, night_ready: bool) -> Dictionary:

@@ -63,12 +63,12 @@ zoom = Vector2(1.12, 1.12)
 layer = 5
 
 [node name="InfoPanel" type="Panel" parent="HUDLayer"]
-custom_minimum_size = Vector2(392, 0)
+custom_minimum_size = Vector2(432, 0)
 layout_mode = 1
 offset_left = 24.0
 offset_top = 20.0
-offset_right = 416.0
-offset_bottom = 128.0
+offset_right = 456.0
+offset_bottom = 236.0
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="HUDLayer/InfoPanel"]
@@ -84,16 +84,19 @@ theme_override_constants/separation = 6
 
 [node name="Title" type="Label" parent="HUDLayer/InfoPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"HeadingLabel"
 text = "Dining Room"
 
 [node name="Stats" type="Label" parent="HUDLayer/InfoPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 text = "Day 1 · Morning · Gold 0 · Reputation 1 · Actions 0/0"
 
 [node name="Bridge" type="Label" parent="HUDLayer/InfoPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
 text = "Night specials: None"
@@ -114,14 +117,14 @@ text = "Step Outside"
 
 [node name="StatusPanel" type="Panel" parent="HUDLayer"]
 visible = false
-custom_minimum_size = Vector2(340, 0)
+custom_minimum_size = Vector2(380, 0)
 layout_mode = 1
 anchors_preset = 3
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 24.0
-offset_top = -172.0
-offset_right = 364.0
+offset_top = -188.0
+offset_right = 404.0
 offset_bottom = -96.0
 grow_vertical = 0
 theme_type_variation = &"OverlayPanel"
@@ -135,21 +138,22 @@ theme_override_constants/margin_bottom = 12
 
 [node name="Status" type="Label" parent="HUDLayer/StatusPanel/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
 text = ""
 
 [node name="PromptPanel" type="Panel" parent="HUDLayer"]
-custom_minimum_size = Vector2(560, 0)
+custom_minimum_size = Vector2(760, 0)
 layout_mode = 1
 anchors_preset = 10
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -280.0
-offset_top = -104.0
-offset_right = 280.0
+offset_left = -380.0
+offset_top = -112.0
+offset_right = 380.0
 offset_bottom = -24.0
 grow_horizontal = 2
 grow_vertical = 0
@@ -168,11 +172,13 @@ theme_override_constants/separation = 4
 
 [node name="Hint" type="Label" parent="HUDLayer/PromptPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"BodyMutedLabel"
 text = "WASD / Arrows move"
 
 [node name="Prompt" type="Label" parent="HUDLayer/PromptPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 text = "Walk to a station and press E."
 

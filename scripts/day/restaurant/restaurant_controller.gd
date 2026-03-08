@@ -51,6 +51,7 @@ const PATRON_COLORS := [
 @onready var leave_button: Button = $HUDLayer/LeaveButton
 @onready var status_panel: Panel = $HUDLayer/StatusPanel
 @onready var status_label: Label = $HUDLayer/StatusPanel/Margin/Status
+@onready var prompt_panel: Panel = $HUDLayer/PromptPanel
 @onready var hint_label: Label = $HUDLayer/PromptPanel/Margin/VBox/Hint
 @onready var prompt_label: Label = $HUDLayer/PromptPanel/Margin/VBox/Prompt
 @onready var popup_shade: ColorRect = $HUDLayer/PopupShade
@@ -112,6 +113,7 @@ func _ready() -> void:
 	visible = false
 	_build_world_if_needed()
 	_register_zones()
+	_apply_ui_font_overrides()
 	_popup_panels = {
 		"menu": menu_popup,
 		"prep": prep_popup,
@@ -138,6 +140,15 @@ func _ready() -> void:
 	visibility_changed.connect(_on_visibility_changed)
 	_apply_view_model()
 	_sync_visibility_state()
+
+
+func _apply_ui_font_overrides() -> void:
+	info_title_label.add_theme_font_size_override("font_size", 20)
+	info_stats_label.add_theme_font_size_override("font_size", 13)
+	info_bridge_label.add_theme_font_size_override("font_size", 13)
+	status_label.add_theme_font_size_override("font_size", 13)
+	prompt_label.add_theme_font_size_override("font_size", 14)
+	hint_label.add_theme_font_size_override("font_size", 12)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -771,6 +782,7 @@ func _create_zone(zone_id: String, label_key: String, position: Vector2, size: V
 
 
 func _apply_view_model() -> void:
+	var bridge_summary := String(_view_model.get("bridge_summary", _t("meta.bridge.summary_none")))
 	info_title_label.text = _t("meta.restaurant.world_title")
 	info_stats_label.text = _t("meta.restaurant.stats", {
 		"day": int(_view_model.get("current_day", 1)),
@@ -781,21 +793,29 @@ func _apply_view_model() -> void:
 		"action_max": int(_view_model.get("max_action_budget", 0))
 	})
 	info_bridge_label.text = _t("meta.restaurant.bridge", {
-		"value": String(_view_model.get("bridge_summary", _t("meta.bridge.summary_none")))
+		"value": _compact_panel_line(bridge_summary, 44)
 	})
-	info_bridge_label.tooltip_text = String(_view_model.get("bridge_tooltip", ""))
+	info_bridge_label.tooltip_text = _build_panel_tooltip(
+		bridge_summary,
+		String(_view_model.get("bridge_tooltip", ""))
+	)
 	leave_button.text = _t("meta.restaurant.leave")
 	status_label.text = String(_view_model.get("status_text", ""))
 	status_panel.visible = not status_label.text.strip_edges().is_empty()
 	hint_label.text = _t("meta.restaurant.world_move_hint")
 	prompt_label.text = _build_prompt_text()
+	prompt_panel.visible = _should_show_prompt_panel()
+	hint_label.visible = prompt_panel.visible
 
 	menu_title_label.text = _t("meta.restaurant.popup_menu_title")
 	menu_subtitle_label.text = _t("meta.restaurant.popup_menu_subtitle")
 	menu_bridge_label.text = _t("meta.restaurant.bridge", {
-		"value": String(_view_model.get("bridge_summary", _t("meta.bridge.summary_none")))
+		"value": bridge_summary
 	})
-	menu_bridge_label.tooltip_text = String(_view_model.get("bridge_tooltip", ""))
+	menu_bridge_label.tooltip_text = _build_panel_tooltip(
+		bridge_summary,
+		String(_view_model.get("bridge_tooltip", ""))
+	)
 	menu_recipes_title_label.text = _t("meta.restaurant.recipes_title")
 	menu_selected_title_label.text = _t("meta.restaurant.menu_title")
 	menu_hint_label.text = String(_view_model.get("menu_hint_text", ""))
@@ -834,6 +854,28 @@ func _apply_view_model() -> void:
 	_refresh_service_ambience()
 	_refresh_zone_visuals()
 	_update_popup_visibility()
+
+
+func _should_show_prompt_panel() -> bool:
+	return _active_popup_id.is_empty() and not _focused_zone_id.is_empty()
+
+
+func _compact_panel_line(text: String, max_length: int) -> String:
+	var compact := text.replace("\n", "  |  ").strip_edges()
+	if compact.length() <= max_length:
+		return compact
+	return "%s..." % compact.substr(0, maxi(0, max_length - 3)).strip_edges()
+
+
+func _build_panel_tooltip(summary: String, tooltip: String) -> String:
+	var parts: Array[String] = []
+	var summary_text := summary.strip_edges()
+	var tooltip_text := tooltip.strip_edges()
+	if not summary_text.is_empty():
+		parts.append(summary_text)
+	if not tooltip_text.is_empty():
+		parts.append(tooltip_text)
+	return "\n\n".join(parts)
 
 
 func _rebuild_recipe_buttons() -> void:
