@@ -7,6 +7,8 @@ static func ensure_default_actions() -> void:
 	_ensure_action("move_left", [KEY_A, KEY_LEFT])
 	_ensure_action("move_right", [KEY_D, KEY_RIGHT])
 	_ensure_action("day_interact", [KEY_E, KEY_ENTER, KEY_KP_ENTER])
+	_ensure_action("day_cycle_farm_tool_prev", [KEY_Q])
+	_ensure_action("day_cycle_farm_tool_next", [KEY_TAB])
 	_ensure_action("dash", [KEY_SPACE, KEY_SHIFT])
 	_ensure_action("sonar_skill", [KEY_Q, KEY_E])
 	_ensure_action("toggle_attack_mode", [KEY_TAB])

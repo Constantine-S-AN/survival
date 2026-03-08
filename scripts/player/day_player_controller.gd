@@ -72,10 +72,26 @@ func set_world_bounds(bounds: Rect2) -> void:
 
 func reset_to_position(spawn_position: Vector2) -> void:
 	global_position = _clamp_to_world(spawn_position)
+	refresh_interaction_focus()
 
 
 func get_focused_zone_id() -> String:
 	return _zone_id_from_area(_focused_zone)
+
+
+func refresh_interaction_focus() -> void:
+	if interaction_sensor == null:
+		return
+	var overlapping: Array[Area2D] = []
+	for area_variant in interaction_sensor.get_overlapping_areas():
+		if not (area_variant is Area2D):
+			continue
+		var area := area_variant as Area2D
+		if not area.is_in_group("day_interaction_zone"):
+			continue
+		overlapping.append(area)
+	_overlapping_zones = overlapping
+	_refresh_focus_zone()
 
 
 func _update_camera_limits() -> void:
@@ -139,6 +155,8 @@ func _refresh_focus_zone() -> void:
 func _zone_id_from_area(area: Area2D) -> String:
 	if area == null or not is_instance_valid(area):
 		return ""
+	if area.has_meta("interaction_id"):
+		return String(area.get_meta("interaction_id", "")).strip_edges().to_lower()
 	var zone_name := area.name.strip_edges()
 	if zone_name.ends_with("Zone"):
 		zone_name = zone_name.substr(0, zone_name.length() - 4)

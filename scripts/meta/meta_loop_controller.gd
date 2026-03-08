@@ -89,6 +89,8 @@ func _connect_signals() -> void:
 	if day_world != null:
 		if day_world.has_signal("farm_requested"):
 			day_world.connect("farm_requested", Callable(self, "_on_day_hub_farm_requested"))
+		if day_world.has_signal("farm_plot_action_requested"):
+			day_world.connect("farm_plot_action_requested", Callable(self, "_on_farm_plot_action_requested"))
 		if day_world.has_signal("restaurant_requested"):
 			day_world.connect("restaurant_requested", Callable(self, "_on_day_hub_restaurant_requested"))
 		if day_world.has_signal("shop_requested"):
@@ -303,16 +305,24 @@ func _crop_progress_text(crop_state: Dictionary) -> String:
 
 func _refresh_views() -> void:
 	var day_hub_model := _build_day_hub_model()
+	var day_world_model := day_hub_model.duplicate(true)
+	if not _farm_status_text.is_empty():
+		day_world_model["status_text"] = _farm_status_text
+	var farm_model := _build_farm_model()
+	var restaurant_model := _build_restaurant_model()
+	var shop_model := _build_shop_model()
 	if day_hub != null and day_hub.has_method("set_view_model"):
 		day_hub.call("set_view_model", day_hub_model)
 	if day_world != null and day_world.has_method("set_view_model"):
-		day_world.call("set_view_model", day_hub_model)
+		day_world.call("set_view_model", day_world_model)
+	if day_world != null and day_world.has_method("set_farm_model"):
+		day_world.call("set_farm_model", farm_model)
 	if farm_view != null and farm_view.has_method("set_view_model"):
-		farm_view.call("set_view_model", _build_farm_model())
+		farm_view.call("set_view_model", farm_model)
 	if restaurant_view != null and restaurant_view.has_method("set_view_model"):
-		restaurant_view.call("set_view_model", _build_restaurant_model())
+		restaurant_view.call("set_view_model", restaurant_model)
 	if shop_view != null and shop_view.has_method("set_view_model"):
-		shop_view.call("set_view_model", _build_shop_model())
+		shop_view.call("set_view_model", shop_model)
 	if return_summary_view != null and return_summary_view.has_method("set_summary"):
 		return_summary_view.call("set_summary", _pending_return_summary)
 
@@ -1051,6 +1061,7 @@ func _build_farm_model() -> Dictionary:
 		"bridge_tooltip": String(bridge_info.get("tooltip", "")),
 		"status_text": _farm_status_text,
 		"columns": int(_farm_state.get("columns", 3)),
+		"rows": int(_farm_state.get("rows", 2)),
 		"tools": _build_farm_tools(),
 		"plots": _build_farm_plot_models()
 	}
@@ -1062,18 +1073,21 @@ func _build_farm_tools() -> Array[Dictionary]:
 			"id": FARM_ACTION_TILL,
 			"seed_id": "",
 			"label": _t("meta.farm.tool_till"),
+			"available": true,
 			"enabled": _day_state.can_take_daytime_action(FARM_TILL_STAMINA_COST, FARM_ACTION_TIME_COST)
 		},
 		{
 			"id": FARM_ACTION_WATER,
 			"seed_id": "",
 			"label": _t("meta.farm.tool_water"),
+			"available": true,
 			"enabled": _day_state.can_take_daytime_action(FARM_WATER_STAMINA_COST, FARM_ACTION_TIME_COST)
 		},
 		{
 			"id": FARM_ACTION_HARVEST,
 			"seed_id": "",
 			"label": _t("meta.farm.tool_harvest"),
+			"available": true,
 			"enabled": _day_state.can_spend_action_budget(FARM_ACTION_TIME_COST)
 		}
 	]
@@ -1104,6 +1118,7 @@ func _build_farm_tools() -> Array[Dictionary]:
 			"id": "plant",
 			"seed_id": seed_id,
 			"label": label,
+			"available": _inventory.has_seed(seed_id),
 			"enabled": _inventory.has_seed(seed_id) and _day_state.can_take_daytime_action(plant_cost, FARM_ACTION_TIME_COST),
 			"tooltip": _build_seed_tooltip(seed, crop_def)
 		})
@@ -1139,14 +1154,18 @@ func _build_farm_plot_models() -> Array[Dictionary]:
 				state_id = "planted"
 				title = crop_name
 				subtitle = _t("meta.farm.plot_planted_hint", {"value": progress_text})
-			plots.append({
-				"index": plot_index,
-				"title": title,
-				"subtitle": subtitle,
-				"state_id": state_id,
-				"enabled": true,
-				"tooltip": _build_plot_tooltip(plot_index, plot, crop_state)
-			})
+		plots.append({
+			"index": plot_index,
+			"title": title,
+			"subtitle": subtitle,
+			"state_id": state_id,
+			"enabled": true,
+			"tilled": bool(plot.get("tilled", false)),
+			"crop_id": String(crop_state.get("crop_id", "")),
+			"seed_id": String(crop_state.get("seed_id", "")),
+			"watered_today": _crop_is_watered_on_day(crop_state, _day_state.current_day),
+			"tooltip": _build_plot_tooltip(plot_index, plot, crop_state)
+		})
 	return plots
 
 
@@ -2327,6 +2346,18 @@ func debug_day_world_interact(zone_id: String) -> bool:
 	return false
 
 
+func debug_day_world_select_farm_tool(action_id: String, seed_id: String = "") -> bool:
+	if day_world != null and day_world.has_method("debug_select_farm_tool"):
+		return bool(day_world.call("debug_select_farm_tool", action_id, seed_id))
+	return false
+
+
+func debug_day_world_interact_farm_plot(plot_index: int) -> bool:
+	if day_world != null and day_world.has_method("debug_interact_farm_plot"):
+		return bool(day_world.call("debug_interact_farm_plot", plot_index))
+	return false
+
+
 func debug_toggle_pause() -> bool:
 	if _meta_pause_visible:
 		_on_pause_resume_requested()
@@ -2461,14 +2492,17 @@ func debug_get_snapshot() -> Dictionary:
 		"day_hub_farm_button_tooltip": String(day_hub_model.get("farm_button_tooltip", "")),
 		"day_hub_restaurant_button_tooltip": String(day_hub_model.get("restaurant_button_tooltip", "")),
 		"day_hub_shop_button_tooltip": String(day_hub_model.get("shop_button_tooltip", "")),
-		"night_button_disabled": bool(day_hub_model.get("night_button_disabled", false)),
-		"wait_button_disabled": bool(day_hub_model.get("wait_button_disabled", false)),
-		"day_hub_bridge_summary": String(day_hub_model.get("bridge_summary", "")),
-		"day_hub_bridge_tooltip": String(day_hub_model.get("bridge_tooltip", "")),
-		"day_world_focus_id": String(day_world_snapshot.get("focused_zone_id", "")),
-		"day_world_prompt_text": String(day_world_snapshot.get("prompt_text", "")),
-		"pending_summary": not _pending_return_summary.is_empty(),
-		"return_summary_payload": _pending_return_summary.duplicate(true),
+			"night_button_disabled": bool(day_hub_model.get("night_button_disabled", false)),
+			"wait_button_disabled": bool(day_hub_model.get("wait_button_disabled", false)),
+			"day_hub_bridge_summary": String(day_hub_model.get("bridge_summary", "")),
+			"day_hub_bridge_tooltip": String(day_hub_model.get("bridge_tooltip", "")),
+			"day_world_focus_id": String(day_world_snapshot.get("focused_zone_id", "")),
+			"day_world_prompt_text": String(day_world_snapshot.get("prompt_text", "")),
+			"day_world_selected_farm_tool_action_id": String(day_world_snapshot.get("selected_farm_tool_action_id", "")),
+			"day_world_selected_farm_tool_seed_id": String(day_world_snapshot.get("selected_farm_tool_seed_id", "")),
+			"day_world_selected_farm_tool_label": String(day_world_snapshot.get("selected_farm_tool_label", "")),
+			"pending_summary": not _pending_return_summary.is_empty(),
+			"return_summary_payload": _pending_return_summary.duplicate(true),
 		"night_active": night_combat_root.is_session_active() if night_combat_root != null else false,
 		"farm_status_text": _farm_status_text,
 		"farm_bridge_summary": String(farm_model.get("bridge_summary", "")),

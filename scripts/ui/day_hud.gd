@@ -9,6 +9,10 @@ signal legacy_requested
 @onready var status_label: Label = $TopMargin/TopBar/InfoPanel/Margin/VBox/Status
 @onready var orders_button: Button = $TopMargin/TopBar/RightColumn/Buttons/OrdersButton
 @onready var legacy_button: Button = $TopMargin/TopBar/RightColumn/Buttons/LegacyButton
+@onready var farm_tool_panel: Panel = $TopMargin/TopBar/RightColumn/FarmToolPanel
+@onready var farm_tool_title_label: Label = $TopMargin/TopBar/RightColumn/FarmToolPanel/Margin/VBox/ToolTitle
+@onready var farm_tool_body_label: Label = $TopMargin/TopBar/RightColumn/FarmToolPanel/Margin/VBox/ToolBody
+@onready var farm_tool_hint_label: Label = $TopMargin/TopBar/RightColumn/FarmToolPanel/Margin/VBox/ToolHint
 @onready var guide_panel: Panel = $TopMargin/TopBar/RightColumn/GuidePanel
 @onready var guide_title_label: Label = $TopMargin/TopBar/RightColumn/GuidePanel/Margin/VBox/GuideTitle
 @onready var guide_body_label: Label = $TopMargin/TopBar/RightColumn/GuidePanel/Margin/VBox/GuideBody
@@ -58,6 +62,10 @@ func _apply_hud_model() -> void:
 	orders_button.tooltip_text = _t("meta.day_hud.orders_tooltip")
 	legacy_button.text = _t("meta.world.legacy_hub")
 	legacy_button.tooltip_text = _t("meta.world.legacy_hub_tooltip")
+	farm_tool_title_label.text = _t("meta.day_hud.farm_tool")
+	farm_tool_body_label.text = String(_hud_model.get("farm_tool_text", _t("meta.farm.tool_none")))
+	farm_tool_hint_label.text = String(_hud_model.get("farm_tool_hint", _t("meta.day_hud.farm_tool_hint")))
+	farm_tool_panel.visible = bool(_hud_model.get("farm_tool_visible", false))
 	var guide_title := String(_hud_model.get("guide_title", "")).strip_edges()
 	var guide_text := String(_hud_model.get("guide_text", "")).strip_edges()
 	guide_panel.visible = not guide_title.is_empty() or not guide_text.is_empty()
