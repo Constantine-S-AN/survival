@@ -4,13 +4,17 @@ const DAY_HUB_INTRO_DIALOGUE_ID := "day_hub_intro"
 const DAY_HUB_INTRO_DIALOGUE_TITLE := "intro"
 const DAY_HUB_INTRO_DIALOGUE_PATH := "res://data/dialogue/day_hub_intro.dialogue"
 const RETURN_SUMMARY_DIALOGUE_PATH := "res://data/dialogue/return_summary_events.dialogue"
+const RESTAURANT_DIALOGUE_PATH := "res://data/dialogue/restaurant_special_customer.dialogue"
 const RETURN_SUMMARY_FIRST_DIALOGUE_ID := "return_summary_first_return"
 const RETURN_SUMMARY_FIRST_DIALOGUE_TITLE := "first_return"
 const RETURN_SUMMARY_RARE_DIALOGUE_ID := "return_summary_rare_loot"
 const RETURN_SUMMARY_RARE_DIALOGUE_TITLE := "rare_loot"
 const RETURN_SUMMARY_POOR_DIALOGUE_ID := "return_summary_poor_run"
 const RETURN_SUMMARY_POOR_DIALOGUE_TITLE := "poor_run"
+const RESTAURANT_FIELD_STEW_DIALOGUE_ID := "restaurant_special_customer_field_stew"
+const RESTAURANT_FIELD_STEW_DIALOGUE_TITLE := "field_stew_special"
 const MORNING_PHASE := "morning"
+const FIELD_STEW_RECIPE_ID := "field_stew"
 const RARE_LOOT_IDS := [
 	"abyssfin",
 	"glow_kelp",
@@ -28,11 +32,15 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_ensure_input_blocker()
 	_connect_day_hub_signals()
+	_connect_restaurant_signals()
 	_connect_return_summary_signals()
 	_connect_dialogue_manager_signals()
 	var day_hub := _get_day_hub()
 	if day_hub != null and day_hub.visible:
 		_maybe_show_day_hub_intro_dialogue.call_deferred()
+	var restaurant := _get_restaurant()
+	if restaurant != null and restaurant.visible:
+		_maybe_show_restaurant_dialogue.call_deferred()
 	var return_summary := _get_return_summary()
 	if return_summary != null and return_summary.visible:
 		_maybe_show_return_summary_dialogue.call_deferred()
@@ -58,6 +66,16 @@ func _connect_day_hub_signals() -> void:
 	if day_hub.is_connected("visibility_changed", visibility_callable):
 		return
 	day_hub.connect("visibility_changed", visibility_callable)
+
+
+func _connect_restaurant_signals() -> void:
+	var restaurant := _get_restaurant()
+	if restaurant == null:
+		return
+	var visibility_callable := Callable(self, "_on_restaurant_visibility_changed")
+	if restaurant.is_connected("visibility_changed", visibility_callable):
+		return
+	restaurant.connect("visibility_changed", visibility_callable)
 
 
 func _connect_return_summary_signals() -> void:
@@ -88,6 +106,14 @@ func _get_day_hub() -> Control:
 	return day_hub as Control
 
 
+func _get_restaurant() -> Control:
+	var parent := get_parent()
+	if parent == null:
+		return null
+	var restaurant: Node = parent.get_node_or_null("Restaurant")
+	return restaurant as Control
+
+
 func _get_return_summary() -> Control:
 	var parent := get_parent()
 	if parent == null:
@@ -107,6 +133,13 @@ func _on_day_hub_visibility_changed() -> void:
 	_maybe_show_day_hub_intro_dialogue.call_deferred()
 
 
+func _on_restaurant_visibility_changed() -> void:
+	var restaurant := _get_restaurant()
+	if restaurant == null or not restaurant.visible:
+		return
+	_maybe_show_restaurant_dialogue.call_deferred()
+
+
 func _on_return_summary_visibility_changed() -> void:
 	var return_summary := _get_return_summary()
 	if return_summary == null or not return_summary.visible:
@@ -114,10 +147,32 @@ func _on_return_summary_visibility_changed() -> void:
 	_maybe_show_return_summary_dialogue.call_deferred()
 
 
+func _process(_delta: float) -> void:
+	_maybe_show_restaurant_dialogue()
+
+
 func _maybe_show_day_hub_intro_dialogue() -> void:
 	if not _should_show_day_hub_intro_dialogue():
 		return
 	_show_dialogue(DAY_HUB_INTRO_DIALOGUE_PATH, DAY_HUB_INTRO_DIALOGUE_TITLE, DAY_HUB_INTRO_DIALOGUE_ID)
+
+
+func _maybe_show_restaurant_dialogue() -> void:
+	if not _should_show_restaurant_dialogue():
+		return
+	var service_snapshot := _get_restaurant_service_snapshot()
+	var dialogue_id := _select_restaurant_dialogue_id(
+		service_snapshot.get("summary", {}),
+		int(service_snapshot.get("current_day", 0)),
+		int(service_snapshot.get("last_service_day", 0)),
+		_get_seen_dialogue_ids()
+	)
+	if dialogue_id.is_empty():
+		return
+	var dialogue_title := _get_restaurant_dialogue_title(dialogue_id)
+	if dialogue_title.is_empty():
+		return
+	_show_dialogue(RESTAURANT_DIALOGUE_PATH, dialogue_title, dialogue_id)
 
 
 func _maybe_show_return_summary_dialogue() -> void:
@@ -157,6 +212,23 @@ func _should_show_day_hub_intro_dialogue() -> bool:
 	if pending_summary_variant is Dictionary and not (pending_summary_variant as Dictionary).is_empty():
 		return false
 	return not _has_seen_dialogue(DAY_HUB_INTRO_DIALOGUE_ID)
+
+
+func _should_show_restaurant_dialogue() -> bool:
+	var restaurant := _get_restaurant()
+	if restaurant == null or not restaurant.visible:
+		return false
+	if _dialogue_blocking_active:
+		return false
+	if DisplayServer.get_name() == "headless":
+		return false
+	if ProfileStore == null or not bool(ProfileStore.loaded):
+		return false
+	var service_snapshot := _get_restaurant_service_snapshot()
+	if int(service_snapshot.get("current_day", 0)) != int(service_snapshot.get("last_service_day", -1)):
+		return false
+	var summary_variant: Variant = service_snapshot.get("summary", {})
+	return summary_variant is Dictionary and not (summary_variant as Dictionary).is_empty()
 
 
 func _should_show_return_summary_dialogue() -> bool:
@@ -240,6 +312,45 @@ func _get_pending_return_summary() -> Dictionary:
 	if pending_summary_variant is Dictionary:
 		return (pending_summary_variant as Dictionary).duplicate(true)
 	return {}
+
+
+func _get_restaurant_service_snapshot() -> Dictionary:
+	if ProfileStore == null or not bool(ProfileStore.loaded):
+		return {}
+	var meta_progress := ProfileStore.get_meta_progress_state()
+	var day_state_variant: Variant = meta_progress.get("day_state", {})
+	var day_state: Dictionary = day_state_variant if day_state_variant is Dictionary else {}
+	var restaurant_state_variant: Variant = meta_progress.get("restaurant_state", {})
+	var restaurant_state: Dictionary = restaurant_state_variant if restaurant_state_variant is Dictionary else {}
+	var summary_variant: Variant = restaurant_state.get("last_service_summary", {})
+	var summary: Dictionary = summary_variant if summary_variant is Dictionary else {}
+	return {
+		"current_day": int(day_state.get("current_day", 0)),
+		"last_service_day": int(restaurant_state.get("last_service_day", 0)),
+		"summary": summary.duplicate(true)
+	}
+
+
+func _select_restaurant_dialogue_id(summary: Dictionary, current_day: int, last_service_day: int, seen_dialogue_ids: Array) -> String:
+	var normalized_seen_ids := _normalize_string_id_array(seen_dialogue_ids)
+	if summary.is_empty():
+		return ""
+	if current_day <= 0 or current_day != last_service_day:
+		return ""
+	var sold_dishes_variant: Variant = summary.get("sold_dishes", {})
+	var sold_dishes: Dictionary = sold_dishes_variant if sold_dishes_variant is Dictionary else {}
+	if int(sold_dishes.get(FIELD_STEW_RECIPE_ID, 0)) <= 0:
+		return ""
+	if normalized_seen_ids.has(RESTAURANT_FIELD_STEW_DIALOGUE_ID):
+		return ""
+	return RESTAURANT_FIELD_STEW_DIALOGUE_ID
+
+
+func _get_restaurant_dialogue_title(dialogue_id: String) -> String:
+	match dialogue_id.strip_edges().to_lower():
+		RESTAURANT_FIELD_STEW_DIALOGUE_ID:
+			return RESTAURANT_FIELD_STEW_DIALOGUE_TITLE
+	return ""
 
 
 func _select_return_summary_dialogue_id(summary: Dictionary, seen_dialogue_ids: Array) -> String:
