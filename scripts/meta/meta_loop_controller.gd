@@ -63,6 +63,7 @@ const MATERIAL_DISPLAY_NAMES: Dictionary = {
 @onready var shop_view: Control = $Shop
 @onready var return_summary_view: Control = $ReturnSummary
 @onready var night_combat_root: Node = $NightCombatRoot
+@onready var day_hub_intro_dialogue_layer: CanvasLayer = $DayHubIntroDialogueLayer
 
 var _day_state = DayStateClass.new()
 var _inventory = InventoryStateClass.new()
@@ -2888,6 +2889,13 @@ func debug_continue_summary() -> bool:
 	return true
 
 
+func debug_mark_dialogue_seen(dialogue_id: String) -> bool:
+	if day_hub_intro_dialogue_layer != null and day_hub_intro_dialogue_layer.has_method("debug_mark_dialogue_seen"):
+		day_hub_intro_dialogue_layer.call("debug_mark_dialogue_seen", dialogue_id)
+		return true
+	return false
+
+
 func debug_save_meta_progress() -> void:
 	_save_meta_progress()
 
@@ -2900,6 +2908,10 @@ func debug_get_snapshot() -> Dictionary:
 	var day_world_snapshot := _get_day_world_debug_snapshot()
 	var restaurant_view_snapshot := _get_restaurant_view_debug_snapshot()
 	var shop_view_snapshot := _get_shop_view_debug_snapshot()
+	var dialogue_layer_snapshot: Dictionary = {}
+	if day_hub_intro_dialogue_layer != null and day_hub_intro_dialogue_layer.has_method("debug_get_snapshot"):
+		var dialogue_variant: Variant = day_hub_intro_dialogue_layer.call("debug_get_snapshot")
+		dialogue_layer_snapshot = dialogue_variant if dialogue_variant is Dictionary else {}
 	var farm_plots: Array[Dictionary] = []
 	for plot_variant in _get_farm_plots():
 		var plot: Dictionary = plot_variant if plot_variant is Dictionary else _build_empty_plot()
@@ -2962,7 +2974,17 @@ func debug_get_snapshot() -> Dictionary:
 		"day_world_hud_clock_status_text": String(day_world_snapshot.get("hud_clock_status_text", "")),
 		"day_world_hud_departure_text": String(day_world_snapshot.get("hud_departure_text", "")),
 		"day_world_hud_prompt_text": String(day_world_snapshot.get("hud_prompt_text", "")),
+		"day_world_hud_guide_title": String(day_world_snapshot.get("hud_guide_title", "")),
+		"day_world_hud_guide_text": String(day_world_snapshot.get("hud_guide_text", "")),
 		"day_world_hud_phase_track_active_index": int(day_world_snapshot.get("hud_phase_track_active_index", 0)),
+		"day_world_orders_board_title_text": String(day_world_snapshot.get("orders_board_title_text", "")),
+		"day_world_orders_board_subtitle_text": String(day_world_snapshot.get("orders_board_subtitle_text", "")),
+		"day_world_orders_board_summary_text": String(day_world_snapshot.get("orders_board_summary_text", "")),
+		"day_world_orders_board_status_text": String(day_world_snapshot.get("orders_board_status_text", "")),
+		"day_world_orders_board_featured_titles": (day_world_snapshot.get("orders_board_featured_titles", []) as Array).duplicate(true) if day_world_snapshot.get("orders_board_featured_titles", []) is Array else [],
+		"day_world_orders_board_ordered_titles": (day_world_snapshot.get("orders_board_ordered_titles", []) as Array).duplicate(true) if day_world_snapshot.get("orders_board_ordered_titles", []) is Array else [],
+		"day_world_orders_board_ready_count": int(day_world_snapshot.get("orders_board_ready_count", 0)),
+		"day_world_orders_board_featured_count": int(day_world_snapshot.get("orders_board_featured_count", 0)),
 		"day_world_player_position": day_world_snapshot.get("player_position", Vector2.ZERO),
 		"day_world_overlay_blocked": bool(day_world_snapshot.get("overlay_blocked", false)),
 		"day_world_orders_open": bool(day_world_snapshot.get("orders_open", false)),
@@ -3014,5 +3036,13 @@ func debug_get_snapshot() -> Dictionary:
 		"shop_world_focus_id": String(shop_view_snapshot.get("focused_zone_id", "")),
 		"shop_world_popup": String(shop_view_snapshot.get("active_popup_id", "")),
 		"shop_world_prompt_text": String(shop_view_snapshot.get("prompt_text", "")),
-		"shop_world_player_position": shop_view_snapshot.get("player_position", Vector2.ZERO)
+		"shop_world_player_position": shop_view_snapshot.get("player_position", Vector2.ZERO),
+		"dialogue_seen_ids": (dialogue_layer_snapshot.get("seen_dialogue_ids", []) as Array).duplicate(true) if dialogue_layer_snapshot.get("seen_dialogue_ids", []) is Array else [],
+		"dialogue_day_hub_intro_candidate_id": String(dialogue_layer_snapshot.get("day_hub_intro_candidate_id", "")),
+		"dialogue_restaurant_candidate_id": String(dialogue_layer_snapshot.get("restaurant_candidate_id", "")),
+		"dialogue_return_summary_candidate_id": String(dialogue_layer_snapshot.get("return_summary_candidate_id", "")),
+		"dialogue_blocking_active": bool(dialogue_layer_snapshot.get("dialogue_blocking_active", false)),
+		"dialogue_active_resource_path": String(dialogue_layer_snapshot.get("active_dialogue_resource_path", "")),
+		"dialogue_pending_return_summary": dialogue_layer_snapshot.get("pending_return_summary", {}).duplicate(true) if dialogue_layer_snapshot.get("pending_return_summary", {}) is Dictionary else {},
+		"dialogue_restaurant_service_snapshot": dialogue_layer_snapshot.get("restaurant_service_snapshot", {}).duplicate(true) if dialogue_layer_snapshot.get("restaurant_service_snapshot", {}) is Dictionary else {}
 	}

@@ -59,6 +59,8 @@ func debug_get_snapshot() -> Dictionary:
 		"clock_status_text": clock_status_label.text if clock_status_label != null else "",
 		"departure_text": departure_label.text if departure_label != null else "",
 		"prompt_text": prompt_label.text if prompt_label != null else "",
+		"guide_title": guide_title_label.text if guide_title_label != null else "",
+		"guide_text": guide_body_label.text if guide_body_label != null else "",
 		"phase_track_active_index": _phase_index(String(_hud_model.get("phase", "morning")))
 	}
 

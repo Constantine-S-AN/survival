@@ -266,6 +266,36 @@ func _show_dialogue(resource_path: String, dialogue_title: String, dialogue_id: 
 	_mark_dialogue_seen(dialogue_id)
 
 
+func debug_mark_dialogue_seen(dialogue_id: String) -> void:
+	_mark_dialogue_seen(dialogue_id)
+
+
+func debug_get_snapshot() -> Dictionary:
+	var seen_dialogue_ids := _get_seen_dialogue_ids()
+	var pending_summary := _get_pending_return_summary()
+	var meta_progress := ProfileStore.get_meta_progress_state() if ProfileStore != null and bool(ProfileStore.loaded) else {}
+	var service_snapshot := _get_restaurant_service_snapshot()
+	return {
+		"seen_dialogue_ids": seen_dialogue_ids,
+		"dialogue_blocking_active": _dialogue_blocking_active,
+		"active_dialogue_resource_path": _active_dialogue_resource_path,
+		"day_hub_intro_candidate_id": (
+			DAY_HUB_INTRO_DIALOGUE_ID
+			if _should_show_day_hub_intro_for_state(meta_progress, seen_dialogue_ids)
+			else ""
+		),
+		"restaurant_candidate_id": _select_restaurant_dialogue_id(
+			service_snapshot.get("summary", {}),
+			int(service_snapshot.get("current_day", 0)),
+			int(service_snapshot.get("last_service_day", 0)),
+			seen_dialogue_ids
+		),
+		"return_summary_candidate_id": _select_return_summary_dialogue_id(pending_summary, seen_dialogue_ids),
+		"pending_return_summary": pending_summary.duplicate(true),
+		"restaurant_service_snapshot": service_snapshot.duplicate(true)
+	}
+
+
 func _has_seen_dialogue(dialogue_id: String) -> bool:
 	return _get_seen_dialogue_ids().has(dialogue_id.strip_edges().to_lower())
 

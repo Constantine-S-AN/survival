@@ -247,9 +247,13 @@ func debug_get_snapshot() -> Dictionary:
 	var selected_tool := _get_selected_farm_tool()
 	var selected_slot := _get_selected_hotbar_slot()
 	var hud_snapshot: Dictionary = {}
+	var orders_board_snapshot: Dictionary = {}
 	if hud != null and hud.has_method("debug_get_snapshot"):
 		var hud_variant: Variant = hud.call("debug_get_snapshot")
 		hud_snapshot = hud_variant if hud_variant is Dictionary else {}
+	if daily_orders_board != null and daily_orders_board.has_method("debug_get_snapshot"):
+		var orders_variant: Variant = daily_orders_board.call("debug_get_snapshot")
+		orders_board_snapshot = orders_variant if orders_variant is Dictionary else {}
 	return {
 		"focused_zone_id": _focused_zone_id,
 		"prompt_text": _build_prompt_text(),
@@ -274,7 +278,17 @@ func debug_get_snapshot() -> Dictionary:
 		"hud_clock_status_text": String(hud_snapshot.get("clock_status_text", "")),
 		"hud_departure_text": String(hud_snapshot.get("departure_text", "")),
 		"hud_prompt_text": String(hud_snapshot.get("prompt_text", "")),
+		"hud_guide_title": String(hud_snapshot.get("guide_title", "")),
+		"hud_guide_text": String(hud_snapshot.get("guide_text", "")),
 		"hud_phase_track_active_index": int(hud_snapshot.get("phase_track_active_index", 0)),
+		"orders_board_title_text": String(orders_board_snapshot.get("title_text", "")),
+		"orders_board_subtitle_text": String(orders_board_snapshot.get("subtitle_text", "")),
+		"orders_board_summary_text": String(orders_board_snapshot.get("summary_text", "")),
+		"orders_board_status_text": String(orders_board_snapshot.get("status_text", "")),
+		"orders_board_featured_titles": (orders_board_snapshot.get("featured_titles", []) as Array).duplicate(true) if orders_board_snapshot.get("featured_titles", []) is Array else [],
+		"orders_board_ordered_titles": (orders_board_snapshot.get("ordered_titles", []) as Array).duplicate(true) if orders_board_snapshot.get("ordered_titles", []) is Array else [],
+		"orders_board_ready_count": int(orders_board_snapshot.get("ready_count", 0)),
+		"orders_board_featured_count": int(orders_board_snapshot.get("featured_count", 0)),
 		"visible_pickup_ids": _get_visible_pickup_ids(),
 		"selected_hotbar_id": String(selected_slot.get("id", "")),
 		"selected_hotbar_label": String(selected_slot.get("label", "")),

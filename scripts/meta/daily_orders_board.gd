@@ -23,6 +23,30 @@ func _ready() -> void:
 	_refresh()
 
 
+func debug_get_snapshot() -> Dictionary:
+	var cards := _get_cards()
+	var ordered_titles: Array[String] = []
+	var ready_count := 0
+	var featured_count := 0
+	for card in cards:
+		ordered_titles.append(String(card.get("name", "")).strip_edges())
+		if bool(card.get("can_claim", false)):
+			ready_count += 1
+		if bool(card.get("featured", false)):
+			featured_count += 1
+	return {
+		"visible": visible,
+		"title_text": title_label.text if title_label != null else "",
+		"subtitle_text": subtitle_label.text if subtitle_label != null else "",
+		"summary_text": summary_label.text if summary_label != null else "",
+		"status_text": status_label.text if status_label != null else "",
+		"featured_titles": _get_featured_titles(2),
+		"ordered_titles": ordered_titles,
+		"ready_count": ready_count,
+		"featured_count": featured_count
+	}
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
@@ -206,6 +230,13 @@ func _build_summary_text(active_count: int, ready_count: int, featured_count: in
 		"active": active_count,
 		"ready": ready_count
 	})
+
+
+func _get_cards() -> Array[Dictionary]:
+	var cards: Array[Dictionary] = []
+	if DailyOrders != null and DailyOrders.has_method("get_order_cards"):
+		cards = DailyOrders.get_order_cards()
+	return cards
 
 
 func _get_featured_titles(limit: int) -> Array[String]:

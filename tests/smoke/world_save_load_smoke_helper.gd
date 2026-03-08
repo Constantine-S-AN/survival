@@ -102,6 +102,76 @@ func claim_order_by_title(title: String) -> Dictionary:
 	return claim_order(order_id)
 
 
+func open_orders_board() -> bool:
+	if meta_root == null:
+		return false
+	if bool(snapshot().get("day_world_orders_open", false)):
+		return true
+	if not bool(meta_root.call("debug_day_world_attempt_interact", "orders")):
+		return false
+	await await_frames(1)
+	return bool(snapshot().get("day_world_orders_open", false))
+
+
+func close_orders_board() -> bool:
+	if meta_root == null:
+		return false
+	if not bool(snapshot().get("day_world_orders_open", false)):
+		return true
+	if not bool(meta_root.call("debug_day_world_close_orders_board")):
+		return false
+	await await_frames(1)
+	return not bool(snapshot().get("day_world_orders_open", false))
+
+
+func wait_until_evening_via_world() -> bool:
+	if meta_root == null:
+		return false
+	if String(snapshot().get("phase", "")) == "evening":
+		return true
+	if not bool(meta_root.call("debug_day_world_attempt_interact", "wait")):
+		return false
+	await await_frames(1)
+	return String(snapshot().get("phase", "")) == "evening"
+
+
+func open_night_departure() -> bool:
+	if meta_root == null:
+		return false
+	if bool(snapshot().get("day_world_night_popup_open", false)):
+		return true
+	if not bool(meta_root.call("debug_day_world_attempt_interact", "night")):
+		return false
+	await await_frames(1)
+	return bool(snapshot().get("day_world_night_popup_open", false))
+
+
+func confirm_night_departure() -> bool:
+	if meta_root == null:
+		return false
+	if not bool(meta_root.call("debug_day_world_confirm_night_departure")):
+		return false
+	await _host.get_tree().create_timer(0.8).timeout
+	return String(snapshot().get("current_screen", "")) == "night"
+
+
+func complete_night(summary_override: Dictionary = {}) -> bool:
+	if meta_root == null:
+		return false
+	meta_root.call("debug_complete_active_night", summary_override)
+	await await_frames(2)
+	return String(snapshot().get("current_screen", "")) == "return_summary"
+
+
+func continue_summary() -> bool:
+	if meta_root == null:
+		return false
+	if not bool(meta_root.call("debug_continue_summary")):
+		return false
+	await await_frames(1)
+	return String(snapshot().get("current_screen", "")) == "day_hub"
+
+
 func reach_evening_via_farm_loop(plot_index: int = 0, seed_id: String = "wheat_seed") -> bool:
 	if meta_root == null:
 		return false
