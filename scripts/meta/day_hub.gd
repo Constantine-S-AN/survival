@@ -7,6 +7,7 @@ signal shop_requested
 signal wait_requested
 signal night_requested
 signal menu_requested
+signal world_requested
 
 @onready var title_label: Label = $ContentPanel/Margin/VBox/Title
 @onready var subtitle_label: Label = $ContentPanel/Margin/VBox/Subtitle
@@ -31,6 +32,7 @@ signal menu_requested
 @onready var shop_button: Button = $ContentPanel/Margin/VBox/Actions/ShopButton
 @onready var wait_button: Button = $ContentPanel/Margin/VBox/Actions/WaitButton
 @onready var night_button: Button = $ContentPanel/Margin/VBox/Actions/NightButton
+@onready var world_button: Button = $ContentPanel/Margin/VBox/Actions/WorldButton
 @onready var menu_button: Button = $ContentPanel/Margin/VBox/Actions/MenuButton
 @onready var daily_orders_board: DailyOrdersBoardView = $DailyOrdersBoard
 
@@ -54,6 +56,9 @@ func _ready() -> void:
 	)
 	night_button.pressed.connect(func() -> void:
 		night_requested.emit()
+	)
+	world_button.pressed.connect(func() -> void:
+		world_requested.emit()
 	)
 	menu_button.pressed.connect(func() -> void:
 		menu_requested.emit()
@@ -89,6 +94,8 @@ func _apply_view_model() -> void:
 	shop_button.text = String(_view_model.get("shop_button_text", _t("meta.hub.shop")))
 	shop_button.tooltip_text = String(_view_model.get("shop_button_tooltip", ""))
 	night_button.text = _t("meta.hub.launch_night")
+	world_button.text = _t("meta.hub.walkable_world")
+	world_button.tooltip_text = _t("meta.hub.walkable_world_tooltip")
 	menu_button.text = _t("meta.hub.menu")
 	var guide_title := String(_view_model.get("guide_title", "")).strip_edges()
 	var guide_text := String(_view_model.get("guide_text", "")).strip_edges()

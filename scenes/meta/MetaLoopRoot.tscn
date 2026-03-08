@@ -1,31 +1,34 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/meta/meta_loop_controller.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/ui/menu/MainMenu.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/meta/DayHub.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://scenes/day/farm/Farm.tscn" id="4"]
-[ext_resource type="PackedScene" path="res://scenes/day/restaurant/Restaurant.tscn" id="5"]
-[ext_resource type="PackedScene" path="res://scenes/day/shop/Shop.tscn" id="6"]
-[ext_resource type="PackedScene" path="res://scenes/meta/ReturnSummary.tscn" id="7"]
-[ext_resource type="PackedScene" path="res://scenes/meta/NightCombatRoot.tscn" id="8"]
-[ext_resource type="Script" path="res://scripts/meta/day_hub_intro_dialogue_layer.gd" id="9"]
+[ext_resource type="PackedScene" path="res://scenes/meta/DayWorld.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/day/farm/Farm.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/day/restaurant/Restaurant.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/day/shop/Shop.tscn" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/meta/ReturnSummary.tscn" id="8"]
+[ext_resource type="PackedScene" path="res://scenes/meta/NightCombatRoot.tscn" id="9"]
+[ext_resource type="Script" path="res://scripts/meta/day_hub_intro_dialogue_layer.gd" id="10"]
 
 [node name="MetaLoopRoot" type="Node"]
 script = ExtResource("1")
 
 [node name="DayHubIntroDialogueLayer" type="CanvasLayer" parent="."]
-script = ExtResource("9")
+script = ExtResource("10")
 
 [node name="MainMenu" parent="." instance=ExtResource("2")]
 
 [node name="DayHub" parent="." instance=ExtResource("3")]
 
-[node name="Farm" parent="." instance=ExtResource("4")]
+[node name="DayWorld" parent="." instance=ExtResource("4")]
 
-[node name="Restaurant" parent="." instance=ExtResource("5")]
+[node name="Farm" parent="." instance=ExtResource("5")]
 
-[node name="Shop" parent="." instance=ExtResource("6")]
+[node name="Restaurant" parent="." instance=ExtResource("6")]
 
-[node name="ReturnSummary" parent="." instance=ExtResource("7")]
+[node name="Shop" parent="." instance=ExtResource("7")]
 
-[node name="NightCombatRoot" parent="." instance=ExtResource("8")]
+[node name="ReturnSummary" parent="." instance=ExtResource("8")]
+
+[node name="NightCombatRoot" parent="." instance=ExtResource("9")]

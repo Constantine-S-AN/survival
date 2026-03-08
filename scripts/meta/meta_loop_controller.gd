@@ -8,6 +8,8 @@ const STATE_RESTAURANT := "restaurant"
 const STATE_SHOP := "shop"
 const STATE_NIGHT := "night"
 const STATE_RETURN_SUMMARY := "return_summary"
+const DAYTIME_SHELL_WORLD := "world"
+const DAYTIME_SHELL_LEGACY := "legacy"
 
 const FARM_ACTION_TILL := "till"
 const FARM_ACTION_WATER := "water"
@@ -31,8 +33,11 @@ const MATERIAL_DISPLAY_NAMES: Dictionary = {
 	"scrap": "Scrap"
 }
 
+@export_enum("world", "legacy") var default_daytime_shell: String = DAYTIME_SHELL_WORLD
+
 @onready var main_menu: Control = $MainMenu
 @onready var day_hub: Control = $DayHub
+@onready var day_world = $DayWorld
 @onready var farm_view: Control = $Farm
 @onready var restaurant_view: Control = $Restaurant
 @onready var shop_view: Control = $Shop
@@ -53,10 +58,12 @@ var _restaurant_status_text: String = ""
 var _shop_status_text: String = ""
 var _pause_menu: Control = null
 var _meta_pause_visible: bool = false
+var _daytime_shell_mode: String = DAYTIME_SHELL_WORLD
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_daytime_shell_mode = _normalize_daytime_shell_mode(default_daytime_shell)
 	_ensure_pause_menu()
 	_ensure_profile_loaded()
 	_load_meta_progress()
@@ -77,6 +84,23 @@ func _connect_signals() -> void:
 		day_hub.wait_requested.connect(_on_day_hub_wait_requested)
 		day_hub.night_requested.connect(_on_day_hub_night_requested)
 		day_hub.menu_requested.connect(_on_menu_requested)
+		if day_hub.has_signal("world_requested"):
+			day_hub.world_requested.connect(_on_day_hub_world_requested)
+	if day_world != null:
+		if day_world.has_signal("farm_requested"):
+			day_world.connect("farm_requested", Callable(self, "_on_day_hub_farm_requested"))
+		if day_world.has_signal("restaurant_requested"):
+			day_world.connect("restaurant_requested", Callable(self, "_on_day_hub_restaurant_requested"))
+		if day_world.has_signal("shop_requested"):
+			day_world.connect("shop_requested", Callable(self, "_on_day_hub_shop_requested"))
+		if day_world.has_signal("wait_requested"):
+			day_world.connect("wait_requested", Callable(self, "_on_day_hub_wait_requested"))
+		if day_world.has_signal("night_requested"):
+			day_world.connect("night_requested", Callable(self, "_on_day_hub_night_requested"))
+		if day_world.has_signal("menu_requested"):
+			day_world.connect("menu_requested", Callable(self, "_on_menu_requested"))
+		if day_world.has_signal("legacy_requested"):
+			day_world.connect("legacy_requested", Callable(self, "_on_day_world_legacy_requested"))
 	if farm_view != null:
 		farm_view.plot_action_requested.connect(_on_farm_plot_action_requested)
 		farm_view.back_requested.connect(_on_farm_back_requested)
@@ -278,8 +302,11 @@ func _crop_progress_text(crop_state: Dictionary) -> String:
 
 
 func _refresh_views() -> void:
+	var day_hub_model := _build_day_hub_model()
 	if day_hub != null and day_hub.has_method("set_view_model"):
-		day_hub.call("set_view_model", _build_day_hub_model())
+		day_hub.call("set_view_model", day_hub_model)
+	if day_world != null and day_world.has_method("set_view_model"):
+		day_world.call("set_view_model", day_hub_model)
 	if farm_view != null and farm_view.has_method("set_view_model"):
 		farm_view.call("set_view_model", _build_farm_model())
 	if restaurant_view != null and restaurant_view.has_method("set_view_model"):
@@ -298,8 +325,7 @@ func _show_state(next_state: String) -> void:
 		get_tree().paused = false
 	if main_menu != null:
 		main_menu.visible = next_state == STATE_MENU
-	if day_hub != null:
-		day_hub.visible = next_state == STATE_DAY_HUB
+	_sync_daytime_shell_visibility()
 	if farm_view != null:
 		farm_view.visible = next_state == STATE_FARM
 	if restaurant_view != null:
@@ -308,6 +334,27 @@ func _show_state(next_state: String) -> void:
 		shop_view.visible = next_state == STATE_SHOP
 	if return_summary_view != null:
 		return_summary_view.visible = next_state == STATE_RETURN_SUMMARY
+
+
+func _sync_daytime_shell_visibility() -> void:
+	var show_daytime_shell := _current_state == STATE_DAY_HUB
+	if day_hub != null:
+		day_hub.visible = show_daytime_shell and _daytime_shell_mode == DAYTIME_SHELL_LEGACY
+	if day_world != null:
+		day_world.visible = show_daytime_shell and _daytime_shell_mode == DAYTIME_SHELL_WORLD
+
+
+func _normalize_daytime_shell_mode(mode: String) -> String:
+	return DAYTIME_SHELL_LEGACY if mode.strip_edges().to_lower() == DAYTIME_SHELL_LEGACY else DAYTIME_SHELL_WORLD
+
+
+func _set_daytime_shell_mode(mode: String) -> void:
+	var normalized_mode := _normalize_daytime_shell_mode(mode)
+	if _daytime_shell_mode == normalized_mode:
+		return
+	_daytime_shell_mode = normalized_mode
+	_sync_daytime_shell_visibility()
+	_refresh_views()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -400,6 +447,14 @@ func _on_day_hub_wait_requested() -> void:
 
 func _on_day_hub_night_requested() -> void:
 	_launch_night()
+
+
+func _on_day_hub_world_requested() -> void:
+	_set_daytime_shell_mode(DAYTIME_SHELL_WORLD)
+
+
+func _on_day_world_legacy_requested() -> void:
+	_set_daytime_shell_mode(DAYTIME_SHELL_LEGACY)
 
 
 func _on_farm_back_requested() -> void:
@@ -2258,6 +2313,20 @@ func debug_return_to_hub() -> void:
 	_show_state(STATE_DAY_HUB)
 
 
+func debug_use_day_world() -> void:
+	_set_daytime_shell_mode(DAYTIME_SHELL_WORLD)
+
+
+func debug_use_legacy_day_hub() -> void:
+	_set_daytime_shell_mode(DAYTIME_SHELL_LEGACY)
+
+
+func debug_day_world_interact(zone_id: String) -> bool:
+	if day_world != null and day_world.has_method("debug_activate_zone"):
+		return bool(day_world.call("debug_activate_zone", zone_id))
+	return false
+
+
 func debug_toggle_pause() -> bool:
 	if _meta_pause_visible:
 		_on_pause_resume_requested()
@@ -2348,6 +2417,10 @@ func debug_get_snapshot() -> Dictionary:
 	var farm_model := _build_farm_model()
 	var restaurant_model := _build_restaurant_model()
 	var shop_model := _build_shop_model()
+	var day_world_snapshot: Dictionary = {}
+	if day_world != null and day_world.has_method("debug_get_snapshot"):
+		var day_world_variant: Variant = day_world.call("debug_get_snapshot")
+		day_world_snapshot = day_world_variant if day_world_variant is Dictionary else {}
 	var farm_plots: Array[Dictionary] = []
 	for plot_variant in _get_farm_plots():
 		var plot: Dictionary = plot_variant if plot_variant is Dictionary else _build_empty_plot()
@@ -2363,6 +2436,7 @@ func debug_get_snapshot() -> Dictionary:
 		})
 	return {
 		"current_screen": _current_state,
+		"daytime_shell_mode": _daytime_shell_mode,
 		"meta_pause_visible": _meta_pause_visible,
 		"tree_paused": get_tree().paused,
 		"current_day": _day_state.current_day,
@@ -2391,6 +2465,8 @@ func debug_get_snapshot() -> Dictionary:
 		"wait_button_disabled": bool(day_hub_model.get("wait_button_disabled", false)),
 		"day_hub_bridge_summary": String(day_hub_model.get("bridge_summary", "")),
 		"day_hub_bridge_tooltip": String(day_hub_model.get("bridge_tooltip", "")),
+		"day_world_focus_id": String(day_world_snapshot.get("focused_zone_id", "")),
+		"day_world_prompt_text": String(day_world_snapshot.get("prompt_text", "")),
 		"pending_summary": not _pending_return_summary.is_empty(),
 		"return_summary_payload": _pending_return_summary.duplicate(true),
 		"night_active": night_combat_root.is_session_active() if night_combat_root != null else false,

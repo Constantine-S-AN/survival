@@ -198,6 +198,14 @@ text = "Launch Night Combat"
 script = ExtResource("3")
 enable_motion = true
 
+[node name="WorldButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Walkable World"
+script = ExtResource("3")
+use_primary_style = false
+enable_motion = true
+
 [node name="MenuButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2

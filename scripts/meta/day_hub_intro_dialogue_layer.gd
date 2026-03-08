@@ -31,12 +31,11 @@ func _ready() -> void:
 	layer = 90
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_ensure_input_blocker()
-	_connect_day_hub_signals()
+	_connect_daytime_hub_signals()
 	_connect_restaurant_signals()
 	_connect_return_summary_signals()
 	_connect_dialogue_manager_signals()
-	var day_hub := _get_day_hub()
-	if day_hub != null and day_hub.visible:
+	if _is_any_daytime_hub_visible():
 		_maybe_show_day_hub_intro_dialogue.call_deferred()
 	var restaurant := _get_restaurant()
 	if restaurant != null and restaurant.visible:
@@ -58,14 +57,12 @@ func _ensure_input_blocker() -> void:
 	add_child(_input_blocker)
 
 
-func _connect_day_hub_signals() -> void:
-	var day_hub := _get_day_hub()
-	if day_hub == null:
-		return
+func _connect_daytime_hub_signals() -> void:
 	var visibility_callable := Callable(self, "_on_day_hub_visibility_changed")
-	if day_hub.is_connected("visibility_changed", visibility_callable):
-		return
-	day_hub.connect("visibility_changed", visibility_callable)
+	for day_hub in _get_daytime_hubs():
+		if day_hub.is_connected("visibility_changed", visibility_callable):
+			continue
+		day_hub.connect("visibility_changed", visibility_callable)
 
 
 func _connect_restaurant_signals() -> void:
@@ -98,12 +95,31 @@ func _connect_dialogue_manager_signals() -> void:
 	dialogue_manager.connect("dialogue_ended", ended_callable)
 
 
-func _get_day_hub() -> Control:
+func _get_day_hub() -> CanvasItem:
+	for day_hub in _get_daytime_hubs():
+		if day_hub != null and day_hub.visible:
+			return day_hub
+	var hubs := _get_daytime_hubs()
+	return hubs[0] if not hubs.is_empty() else null
+
+
+func _get_daytime_hubs() -> Array[CanvasItem]:
 	var parent := get_parent()
 	if parent == null:
-		return null
-	var day_hub: Node = parent.get_node_or_null("DayHub")
-	return day_hub as Control
+		return []
+	var hubs: Array[CanvasItem] = []
+	for node_name in ["DayHub", "DayWorld"]:
+		var hub: Node = parent.get_node_or_null(node_name)
+		if hub is CanvasItem:
+			hubs.append(hub as CanvasItem)
+	return hubs
+
+
+func _is_any_daytime_hub_visible() -> bool:
+	for day_hub in _get_daytime_hubs():
+		if day_hub != null and day_hub.visible:
+			return true
+	return false
 
 
 func _get_restaurant() -> Control:
@@ -127,8 +143,7 @@ func _get_dialogue_manager() -> Node:
 
 
 func _on_day_hub_visibility_changed() -> void:
-	var day_hub := _get_day_hub()
-	if day_hub == null or not day_hub.visible:
+	if not _is_any_daytime_hub_visible():
 		return
 	_maybe_show_day_hub_intro_dialogue.call_deferred()
 
@@ -190,8 +205,7 @@ func _maybe_show_return_summary_dialogue() -> void:
 
 
 func _should_show_day_hub_intro_dialogue() -> bool:
-	var day_hub := _get_day_hub()
-	if day_hub == null or not day_hub.visible:
+	if not _is_any_daytime_hub_visible():
 		return false
 	if _dialogue_blocking_active:
 		return false

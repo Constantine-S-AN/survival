@@ -2359,12 +2359,21 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	var snapshot: Dictionary = meta_root.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("current_screen", "")), "day_hub", "meta loop enters day hub from main menu")
+	_assert_equal(String(snapshot.get("daytime_shell_mode", "")), "world", "meta loop defaults to the walkable day shell")
 	_assert_equal(String(snapshot.get("phase", "")), "morning", "meta loop starts each daytime loop in the morning")
 	_assert_equal(int(snapshot.get("action_budget", 0)), 5, "meta loop starts with a full daytime action budget")
 	_assert_true(not String(snapshot.get("day_hub_guide_title", "")).is_empty(), "day hub shows an early-day onboarding title")
 	_assert_true(String(snapshot.get("day_hub_guide_text", "")).to_lower().find("night combat") >= 0, "day hub onboarding explains the hybrid loop")
 	_assert_true(String(snapshot.get("day_hub_restaurant_button_tooltip", "")).find("3") >= 0, "day hub restaurant tooltip explains the major action cost")
 	_assert_true(bool(snapshot.get("night_button_disabled", false)), "night combat stays locked before evening")
+	meta_root.call("debug_use_legacy_day_hub")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("daytime_shell_mode", "")), "legacy", "meta loop can fall back to the legacy day hub shell")
+	meta_root.call("debug_use_day_world")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("daytime_shell_mode", "")), "world", "meta loop can return to the walkable day shell after fallback")
 	_assert_true(not bool(meta_root.call("debug_launch_night")), "night combat cannot launch before the evening phase")
 	_assert_true(bool(meta_root.call("debug_toggle_pause")), "meta loop pause opens from the day hub")
 	await get_tree().process_frame
