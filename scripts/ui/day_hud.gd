@@ -51,6 +51,18 @@ func set_hud_model(model: Dictionary) -> void:
 	_apply_hud_model()
 
 
+func debug_get_snapshot() -> Dictionary:
+	return {
+		"phase": String(_hud_model.get("phase", "morning")),
+		"actions_until_evening": maxi(0, int(_hud_model.get("actions_until_evening", 0))),
+		"night_ready": bool(_hud_model.get("night_ready", false)),
+		"clock_status_text": clock_status_label.text if clock_status_label != null else "",
+		"departure_text": departure_label.text if departure_label != null else "",
+		"prompt_text": prompt_label.text if prompt_label != null else "",
+		"phase_track_active_index": _phase_index(String(_hud_model.get("phase", "morning")))
+	}
+
+
 func _apply_hud_model() -> void:
 	var phase := String(_hud_model.get("phase", "morning"))
 	var actions_until_evening := maxi(0, int(_hud_model.get("actions_until_evening", 0)))

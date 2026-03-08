@@ -246,18 +246,35 @@ func debug_cancel_night_departure() -> bool:
 func debug_get_snapshot() -> Dictionary:
 	var selected_tool := _get_selected_farm_tool()
 	var selected_slot := _get_selected_hotbar_slot()
+	var hud_snapshot: Dictionary = {}
+	if hud != null and hud.has_method("debug_get_snapshot"):
+		var hud_variant: Variant = hud.call("debug_get_snapshot")
+		hud_snapshot = hud_variant if hud_variant is Dictionary else {}
 	return {
 		"focused_zone_id": _focused_zone_id,
 		"prompt_text": _build_prompt_text(),
+		"phase_idle_cue": _build_phase_idle_cue(),
+		"restaurant_cue": _build_restaurant_cue(),
+		"shop_cue": _build_shop_cue(),
+		"wait_cue": _build_wait_cue(),
+		"night_cue": _build_night_cue(),
 		"orders_open": daily_orders_board.visible if daily_orders_board != null else false,
 		"player_position": day_player.global_position if day_player != null else Vector2.ZERO,
 		"phase_visual_id": _phase_visual_id,
 		"night_ready": bool(_view_model.get("night_ready", false)),
+		"night_enabled": _is_zone_enabled("night"),
+		"wait_enabled": _is_zone_enabled("wait"),
 		"dock_gate_open": _dock_gate_root == null or not _dock_gate_root.visible,
 		"visible_town_npc_count": _count_visible_town_npcs(),
 		"overlay_blocked": _overlay_blocked,
 		"night_popup_open": _night_popup_open,
 		"transition_active": _transition_active,
+		"hud_phase": String(hud_snapshot.get("phase", "")),
+		"hud_actions_until_evening": int(hud_snapshot.get("actions_until_evening", 0)),
+		"hud_clock_status_text": String(hud_snapshot.get("clock_status_text", "")),
+		"hud_departure_text": String(hud_snapshot.get("departure_text", "")),
+		"hud_prompt_text": String(hud_snapshot.get("prompt_text", "")),
+		"hud_phase_track_active_index": int(hud_snapshot.get("phase_track_active_index", 0)),
 		"visible_pickup_ids": _get_visible_pickup_ids(),
 		"selected_hotbar_id": String(selected_slot.get("id", "")),
 		"selected_hotbar_label": String(selected_slot.get("label", "")),
