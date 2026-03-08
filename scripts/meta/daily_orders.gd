@@ -93,11 +93,9 @@ func claim_order(order_id: int) -> Dictionary:
 		return {"ok": false, "error": "order_already_completed"}
 	if not QuestSystem.is_quest_active(quest) or not quest.objective_completed:
 		return {"ok": false, "error": "order_not_ready"}
-	_apply_gold_reward(quest.reward_gold)
-	QuestSystem.complete_quest(quest)
+	var reward := _grant_reward(quest)
 	_persist_state()
 	state_changed.emit()
-	var reward := {"gold": maxi(0, quest.reward_gold)}
 	reward_claimed.emit(order_id, reward)
 	return {
 		"ok": true,
@@ -117,7 +115,10 @@ func _try_initialize() -> bool:
 	if current_day <= 0:
 		return false
 	var saved_state := ProfileStore.get_daily_orders_state()
-	if int(saved_state.get("current_day", 0)) != current_day or not _state_matches_catalog(saved_state):
+	var saved_day := int(saved_state.get("current_day", 0))
+	if saved_day > 0 and saved_day != current_day:
+		_rollover_to_new_day(current_day, saved_state)
+	elif not _state_matches_catalog(saved_state):
 		_initialize_for_day(current_day)
 	else:
 		_restore_state(saved_state)
@@ -163,12 +164,24 @@ func _restore_state(state: Dictionary) -> void:
 	_tracked_materials = _normalize_snapshot(state.get("tracked_materials", {}))
 
 
+func _rollover_to_new_day(new_day: int, previous_state: Dictionary) -> void:
+	var previous_day := int(previous_state.get("current_day", 0))
+	if previous_day > 0:
+		_restore_state(previous_state)
+		_loaded = true
+		_profile_path = _get_profile_path()
+		if _auto_claim_ready_orders() > 0:
+			_persist_state()
+	_initialize_for_day(new_day)
+
+
 func _sync_progress() -> void:
 	var current_day := _get_current_day()
 	if current_day <= 0:
 		return
 	if current_day != _current_day:
-		_initialize_for_day(current_day)
+		var saved_state := ProfileStore.get_daily_orders_state()
+		_rollover_to_new_day(current_day, saved_state)
 		return
 	var meta_progress := ProfileStore.get_meta_progress_state()
 	var dish_sales_snapshot := _snapshot_dish_sales(meta_progress)
@@ -228,6 +241,27 @@ func _apply_gold_reward(amount: int) -> void:
 	economy["gold"] = maxi(0, int(economy.get("gold", 0)) + reward_amount)
 	meta_progress["economy"] = economy
 	ProfileStore.set_meta_progress_state(meta_progress)
+
+
+func _grant_reward(quest: DailyOrderQuest) -> Dictionary:
+	var reward := {"gold": maxi(0, quest.reward_gold)}
+	_apply_gold_reward(int(reward.get("gold", 0)))
+	QuestSystem.complete_quest(quest)
+	return reward
+
+
+func _auto_claim_ready_orders() -> int:
+	var claimed_count := 0
+	for quest_id in _get_sorted_quest_ids():
+		var quest := _get_daily_order(quest_id)
+		if quest == null:
+			continue
+		if not QuestSystem.is_quest_active(quest) or not quest.objective_completed:
+			continue
+		var reward := _grant_reward(quest)
+		reward_claimed.emit(quest.id, reward)
+		claimed_count += 1
+	return claimed_count
 
 
 func _reset_runtime_state() -> void:

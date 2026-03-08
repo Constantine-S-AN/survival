@@ -51,7 +51,7 @@ func close_board() -> void:
 
 func _refresh() -> void:
 	title_label.text = "Daily Orders"
-	subtitle_label.text = "Orders refresh each day across farm, kitchen, and night haul."
+	subtitle_label.text = "Orders refresh at the start of each new day. Finished unclaimed work pays out during rollover."
 	for child in orders_list.get_children():
 		orders_list.remove_child(child)
 		child.queue_free()

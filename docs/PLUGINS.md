@@ -57,6 +57,7 @@ Use `godot --headless --path . res://tests/smoke/QuestSystemDailyOrdersSmoke.tsc
 - The runtime bridge that keeps those quests in sync with the existing hybrid loop lives in `scripts/meta/daily_orders.gd`.
 - The Day Hub entry point is `scenes/meta/DailyOrdersBoard.tscn`, mounted inside `scenes/meta/DayHub.tscn`.
 - Quest persistence stays in the existing profile save under `daily_orders_state`; rewards still route through the existing meta economy save.
+- Daily Orders refresh at the start of each new in-game day. Completed but unclaimed orders are auto-claimed during rollover, while unfinished orders expire with the old board.
 
 ## Evaluated But Not Integrated
 
