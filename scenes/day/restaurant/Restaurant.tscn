@@ -1,8 +1,15 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/day/restaurant/restaurant_controller.gd" id="1"]
 [ext_resource type="Theme" path="res://ui/theme/NeonTheme.tres" id="2"]
-[ext_resource type="Script" path="res://scripts/ui/components/neon_button.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/player/day_player_controller.gd" id="3"]
+[ext_resource type="Texture2D" path="res://assets/textures/pixel/characters/diver.png" id="4"]
+
+[sub_resource type="CircleShape2D" id="1"]
+radius = 18.0
+
+[sub_resource type="CircleShape2D" id="2"]
+radius = 58.0
 
 [node name="Restaurant" type="Control"]
 visible = false
@@ -12,294 +19,546 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 theme = ExtResource("2")
 script = ExtResource("1")
 
-[node name="Background" type="ColorRect" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.117647, 0.121569, 0.0980392, 1)
+[node name="WorldRoot" type="Node2D" parent="."]
 
-[node name="ContentPanel" type="Panel" parent="."]
+[node name="Backdrop" type="Node2D" parent="WorldRoot"]
+z_index = -20
+
+[node name="Environment" type="Node2D" parent="WorldRoot"]
+y_sort_enabled = true
+
+[node name="Zones" type="Node2D" parent="WorldRoot"]
+z_index = 7
+
+[node name="SpawnPoint" type="Marker2D" parent="WorldRoot"]
+position = Vector2(796, 760)
+
+[node name="RestaurantPlayer" type="CharacterBody2D" parent="WorldRoot"]
+position = Vector2(796, 760)
+script = ExtResource("3")
+
+[node name="Sprite2D" type="Sprite2D" parent="WorldRoot/RestaurantPlayer"]
+texture = ExtResource("4")
+texture_filter = 0
+scale = Vector2(1.4, 1.4)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WorldRoot/RestaurantPlayer"]
+shape = SubResource("1")
+
+[node name="InteractionSensor" type="Area2D" parent="WorldRoot/RestaurantPlayer"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WorldRoot/RestaurantPlayer/InteractionSensor"]
+shape = SubResource("2")
+
+[node name="Camera2D" type="Camera2D" parent="WorldRoot/RestaurantPlayer"]
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
+zoom = Vector2(1.12, 1.12)
+
+[node name="HUDLayer" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="InfoPanel" type="Panel" parent="HUDLayer"]
+custom_minimum_size = Vector2(392, 0)
 layout_mode = 1
-anchors_preset = 15
-anchor_left = 0.04
-anchor_top = 0.05
-anchor_right = 0.96
-anchor_bottom = 0.95
-grow_horizontal = 2
-grow_vertical = 2
+offset_left = 24.0
+offset_top = 20.0
+offset_right = 416.0
+offset_bottom = 128.0
 theme_type_variation = &"OverlayPanel"
 
-[node name="Margin" type="MarginContainer" parent="ContentPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 22
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 22
-theme_override_constants/margin_bottom = 20
-
-[node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 14
-
-[node name="Title" type="Label" parent="ContentPanel/Margin/VBox"]
+[node name="Margin" type="MarginContainer" parent="HUDLayer/InfoPanel"]
 layout_mode = 2
-text = "Restaurant"
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/InfoPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="HUDLayer/InfoPanel/Margin/VBox"]
+layout_mode = 2
 theme_type_variation = &"HeadingLabel"
+text = "Dining Room"
 
-[node name="Subtitle" type="Label" parent="ContentPanel/Margin/VBox"]
-layout_mode = 2
-text = "Plan the menu, open service, and read the room."
-theme_type_variation = &"BodyMutedLabel"
-
-[node name="StatsLabel" type="Label" parent="ContentPanel/Margin/VBox"]
+[node name="Stats" type="Label" parent="HUDLayer/InfoPanel/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
-text = "Day 1 · Gold 0 · Reputation 1"
+text = "Day 1 · Morning · Gold 0 · Reputation 1 · Actions 0/0"
 
-[node name="BridgeLabel" type="Label" parent="ContentPanel/Margin/VBox"]
+[node name="Bridge" type="Label" parent="HUDLayer/InfoPanel/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
-text = "Night Specials: -"
+text = "Night specials: None"
 
-[node name="Panels" type="HBoxContainer" parent="ContentPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 320)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_constants/separation = 14
+[node name="LeaveButton" type="Button" parent="HUDLayer"]
+custom_minimum_size = Vector2(136, 40)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -160.0
+offset_top = 20.0
+offset_right = -24.0
+offset_bottom = 60.0
+grow_horizontal = 0
+theme_type_variation = &"SecondaryButton"
+text = "Step Outside"
 
-[node name="IngredientsPanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
-custom_minimum_size = Vector2(260, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-size_flags_stretch_ratio = 1.05
+[node name="StatusPanel" type="Panel" parent="HUDLayer"]
+visible = false
+custom_minimum_size = Vector2(340, 0)
+layout_mode = 1
+anchors_preset = 3
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -172.0
+offset_right = 364.0
+offset_bottom = -96.0
+grow_vertical = 0
 theme_type_variation = &"OverlayPanel"
 
-[node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/IngredientsPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Margin" type="MarginContainer" parent="HUDLayer/StatusPanel"]
+layout_mode = 2
 theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
+theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
+theme_override_constants/margin_bottom = 12
 
-[node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/IngredientsPanel/Margin"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 10
-
-[node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/IngredientsPanel/Margin/VBox"]
-layout_mode = 2
-text = "Available Ingredients"
-theme_type_variation = &"SubheadingLabel"
-
-[node name="Value" type="Label" parent="ContentPanel/Margin/VBox/Panels/IngredientsPanel/Margin/VBox"]
-layout_mode = 2
-size_flags_vertical = 3
-autowrap_mode = 3
-text = "-"
-
-[node name="RecipesPanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
-custom_minimum_size = Vector2(360, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-size_flags_stretch_ratio = 1.35
-theme_type_variation = &"OverlayPanel"
-
-[node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/RecipesPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
-
-[node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/RecipesPanel/Margin"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 10
-
-[node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/RecipesPanel/Margin/VBox"]
-layout_mode = 2
-text = "Unlocked Recipes"
-theme_type_variation = &"SubheadingLabel"
-
-[node name="Scroll" type="ScrollContainer" parent="ContentPanel/Margin/VBox/Panels/RecipesPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 280)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-
-[node name="RecipesList" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/RecipesPanel/Margin/VBox/Scroll"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 10
-
-[node name="MenuPanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
-custom_minimum_size = Vector2(300, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-size_flags_stretch_ratio = 1.1
-theme_type_variation = &"OverlayPanel"
-
-[node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/MenuPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
-
-[node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/MenuPanel/Margin"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 10
-
-[node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/MenuPanel/Margin/VBox"]
-layout_mode = 2
-text = "Today's Menu"
-theme_type_variation = &"SubheadingLabel"
-
-[node name="MenuHint" type="Label" parent="ContentPanel/Margin/VBox/Panels/MenuPanel/Margin/VBox"]
-layout_mode = 2
-autowrap_mode = 3
-text = "Choose up to 3 recipes."
-theme_type_variation = &"BodyMutedLabel"
-
-[node name="Scroll" type="ScrollContainer" parent="ContentPanel/Margin/VBox/Panels/MenuPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 280)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-
-[node name="MenuList" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/MenuPanel/Margin/VBox/Scroll"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 10
-
-[node name="StatusLabel" type="Label" parent="ContentPanel/Margin/VBox"]
+[node name="Status" type="Label" parent="HUDLayer/StatusPanel/Margin"]
 layout_mode = 2
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
 text = ""
 
-[node name="Actions" type="HBoxContainer" parent="ContentPanel/Margin/VBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 14
-
-[node name="ServiceButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Open Service"
-script = ExtResource("3")
-enable_motion = true
-
-[node name="ClearButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Clear Menu"
-script = ExtResource("3")
-use_primary_style = false
-enable_motion = true
-
-[node name="BackButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-size_flags_horizontal = 2
-text = "Back"
-script = ExtResource("3")
-use_primary_style = false
-enable_motion = true
-
-[node name="ResultPanel" type="Panel" parent="ContentPanel/Margin/VBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"OverlayPanel"
-
-[node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/ResultPanel"]
+[node name="PromptPanel" type="Panel" parent="HUDLayer"]
+custom_minimum_size = Vector2(560, 0)
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
+anchors_preset = 10
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
 anchor_bottom = 1.0
+offset_left = -280.0
+offset_top = -104.0
+offset_right = 280.0
+offset_bottom = -24.0
 grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 14
+grow_vertical = 0
+theme_type_variation = &"CardPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PromptPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
+theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 14
 
-[node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/ResultPanel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PromptPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Hint" type="Label" parent="HUDLayer/PromptPanel/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"BodyMutedLabel"
+text = "WASD / Arrows move"
+
+[node name="Prompt" type="Label" parent="HUDLayer/PromptPanel/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "Walk to a station and press E."
+
+[node name="PopupShade" type="ColorRect" parent="HUDLayer"]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 1
+color = Color(0, 0, 0, 0.34)
+
+[node name="PopupHost" type="Control" parent="HUDLayer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MenuPopup" type="Panel" parent="HUDLayer/PopupHost"]
+visible = false
+custom_minimum_size = Vector2(720, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -360.0
+offset_top = -264.0
+offset_right = 360.0
+offset_bottom = 264.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"OverlayPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/MenuPopup"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/MenuPopup/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+text = "Menu Board"
+
+[node name="Subtitle" type="Label" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = ""
+
+[node name="Bridge" type="Label" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = ""
+
+[node name="Columns" type="HBoxContainer" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox"]
+custom_minimum_size = Vector2(0, 336)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="RecipesCard" type="Panel" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns"]
+custom_minimum_size = Vector2(0, 336)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.3
+theme_type_variation = &"CardPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns/RecipesCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns/RecipesCard/Margin"]
+layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="ContentPanel/Margin/VBox/ResultPanel/Margin/VBox"]
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns/RecipesCard/Margin/VBox"]
 layout_mode = 2
-text = "No Service Yet"
 theme_type_variation = &"SubheadingLabel"
+text = "Unlocked Recipes"
 
-[node name="Summary" type="Label" parent="ContentPanel/Margin/VBox/ResultPanel/Margin/VBox"]
+[node name="RecipesScroll" type="ScrollContainer" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns/RecipesCard/Margin/VBox"]
+custom_minimum_size = Vector2(0, 276)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="RecipesList" type="VBoxContainer" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns/RecipesCard/Margin/VBox/RecipesScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="MenuCard" type="Panel" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns"]
+custom_minimum_size = Vector2(0, 336)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.0
+theme_type_variation = &"CardPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns/MenuCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns/MenuCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns/MenuCard/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"SubheadingLabel"
+text = "Today's Menu"
+
+[node name="MenuHint" type="Label" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns/MenuCard/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = ""
+
+[node name="MenuScroll" type="ScrollContainer" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns/MenuCard/Margin/VBox"]
+custom_minimum_size = Vector2(0, 260)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="MenuList" type="VBoxContainer" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Columns/MenuCard/Margin/VBox/MenuScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Buttons" type="HBoxContainer" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 10
+
+[node name="ClearButton" type="Button" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Buttons"]
+custom_minimum_size = Vector2(132, 40)
+layout_mode = 2
+theme_type_variation = &"SecondaryButton"
+text = "Clear Menu"
+
+[node name="CloseButton" type="Button" parent="HUDLayer/PopupHost/MenuPopup/Margin/VBox/Buttons"]
+custom_minimum_size = Vector2(110, 40)
+layout_mode = 2
+theme_type_variation = &"SecondaryButton"
+text = "Close"
+
+[node name="PrepPopup" type="Panel" parent="HUDLayer/PopupHost"]
+visible = false
+custom_minimum_size = Vector2(440, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -204.0
+offset_right = 220.0
+offset_bottom = 204.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"OverlayPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/PrepPopup"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/PrepPopup/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+text = "Prep Station"
+
+[node name="Subtitle" type="Label" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = ""
+
+[node name="PantryCard" type="Panel" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"CardPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox/PantryCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox/PantryCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox/PantryCard/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"SubheadingLabel"
+text = "Available Ingredients"
+
+[node name="Value" type="Label" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox/PantryCard/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
 text = "-"
 
-[node name="Feedback" type="Label" parent="ContentPanel/Margin/VBox/ResultPanel/Margin/VBox"]
+[node name="MenuCard" type="Panel" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"CardPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox/MenuCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox/MenuCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox/MenuCard/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"SubheadingLabel"
+text = "Today's Menu"
+
+[node name="MenuList" type="VBoxContainer" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox/MenuCard/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CloseButton" type="Button" parent="HUDLayer/PopupHost/PrepPopup/Margin/VBox"]
+custom_minimum_size = Vector2(110, 40)
+layout_mode = 2
+size_flags_horizontal = 8
+theme_type_variation = &"SecondaryButton"
+text = "Close"
+
+[node name="ServicePopup" type="Panel" parent="HUDLayer/PopupHost"]
+visible = false
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -210.0
+offset_top = -180.0
+offset_right = 210.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"OverlayPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/ServicePopup"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/ServicePopup/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/ServicePopup/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+text = "Service Counter"
+
+[node name="Subtitle" type="Label" parent="HUDLayer/PopupHost/ServicePopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = ""
+
+[node name="Summary" type="Label" parent="HUDLayer/PopupHost/ServicePopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "-"
+
+[node name="Status" type="Label" parent="HUDLayer/PopupHost/ServicePopup/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
 text = "-"
 
-[node name="SoldStats" type="Label" parent="ContentPanel/Margin/VBox/ResultPanel/Margin/VBox"]
+[node name="Buttons" type="HBoxContainer" parent="HUDLayer/PopupHost/ServicePopup/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ServiceButton" type="Button" parent="HUDLayer/PopupHost/ServicePopup/Margin/VBox/Buttons"]
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
+text = "Open Service"
+
+[node name="CloseButton" type="Button" parent="HUDLayer/PopupHost/ServicePopup/Margin/VBox/Buttons"]
+custom_minimum_size = Vector2(110, 46)
+layout_mode = 2
+theme_type_variation = &"SecondaryButton"
+text = "Close"
+
+[node name="ResultPopup" type="Panel" parent="HUDLayer/PopupHost"]
+visible = false
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -210.0
+offset_right = 250.0
+offset_bottom = 210.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"OverlayPanel"
+
+[node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/ResultPopup"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/ResultPopup/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="HUDLayer/PopupHost/ResultPopup/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+text = "Service Notes"
+
+[node name="ServiceTitle" type="Label" parent="HUDLayer/PopupHost/ResultPopup/Margin/VBox"]
+layout_mode = 2
+theme_type_variation = &"SubheadingLabel"
+text = "No Service Yet"
+
+[node name="Summary" type="Label" parent="HUDLayer/PopupHost/ResultPopup/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
 text = "-"
+
+[node name="Feedback" type="Label" parent="HUDLayer/PopupHost/ResultPopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = "-"
+
+[node name="SoldStats" type="Label" parent="HUDLayer/PopupHost/ResultPopup/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "-"
+
+[node name="CloseButton" type="Button" parent="HUDLayer/PopupHost/ResultPopup/Margin/VBox"]
+custom_minimum_size = Vector2(110, 40)
+layout_mode = 2
+size_flags_horizontal = 8
+theme_type_variation = &"SecondaryButton"
+text = "Close"

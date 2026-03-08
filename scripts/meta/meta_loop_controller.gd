@@ -1199,6 +1199,7 @@ func _build_restaurant_model() -> Dictionary:
 		"status_text": _restaurant_status_text,
 		"recipe_cards": recipe_cards,
 		"selected_menu_entries": selected_menu_entries,
+		"selected_menu_count": selected_menu_ids.size(),
 		"menu_hint_text": _t("meta.restaurant.menu_hint", {
 			"count": selected_menu_ids.size(),
 			"max": RESTAURANT_MAX_MENU_SIZE
@@ -1208,6 +1209,8 @@ func _build_restaurant_model() -> Dictionary:
 		"service_button_tooltip": _t("meta.restaurant.service_tooltip", {"value": RESTAURANT_SERVICE_ACTION_COST}),
 		"service_button_enabled": _can_open_restaurant_service(),
 		"clear_button_enabled": not selected_menu_ids.is_empty(),
+		"last_service_day": int(_restaurant_state.get("last_service_day", 0)),
+		"last_service_summary": last_service_summary.duplicate(true),
 		"result_title": _build_restaurant_result_title(last_service_summary),
 		"result_summary": _build_restaurant_result_summary(last_service_summary),
 		"result_feedback": _build_restaurant_feedback_text(last_service_summary),
@@ -2414,6 +2417,24 @@ func debug_open_restaurant_service() -> bool:
 	return _open_restaurant_service()
 
 
+func debug_restaurant_interact(zone_id: String) -> bool:
+	if restaurant_view != null and restaurant_view.has_method("debug_activate_zone"):
+		return bool(restaurant_view.call("debug_activate_zone", zone_id))
+	return false
+
+
+func debug_restaurant_toggle_recipe(recipe_id: String) -> bool:
+	if restaurant_view != null and restaurant_view.has_method("debug_toggle_recipe_card"):
+		return bool(restaurant_view.call("debug_toggle_recipe_card", recipe_id))
+	return false
+
+
+func debug_restaurant_request_service() -> bool:
+	if restaurant_view != null and restaurant_view.has_method("debug_request_service"):
+		return bool(restaurant_view.call("debug_request_service"))
+	return false
+
+
 func debug_shop_buy_seed(seed_id: String) -> bool:
 	return _buy_shop_seed(seed_id)
 
@@ -2449,9 +2470,13 @@ func debug_get_snapshot() -> Dictionary:
 	var restaurant_model := _build_restaurant_model()
 	var shop_model := _build_shop_model()
 	var day_world_snapshot: Dictionary = {}
+	var restaurant_view_snapshot: Dictionary = {}
 	if day_world != null and day_world.has_method("debug_get_snapshot"):
 		var day_world_variant: Variant = day_world.call("debug_get_snapshot")
 		day_world_snapshot = day_world_variant if day_world_variant is Dictionary else {}
+	if restaurant_view != null and restaurant_view.has_method("debug_get_snapshot"):
+		var restaurant_view_variant: Variant = restaurant_view.call("debug_get_snapshot")
+		restaurant_view_snapshot = restaurant_view_variant if restaurant_view_variant is Dictionary else {}
 	var farm_plots: Array[Dictionary] = []
 	for plot_variant in _get_farm_plots():
 		var plot: Dictionary = plot_variant if plot_variant is Dictionary else _build_empty_plot()
@@ -2522,6 +2547,11 @@ func debug_get_snapshot() -> Dictionary:
 		"restaurant_result_summary": String(restaurant_model.get("result_summary", "")),
 		"restaurant_feedback_text": String(restaurant_model.get("result_feedback", "")),
 		"restaurant_sold_stats_text": String(restaurant_model.get("sold_stats_text", "")),
+		"restaurant_world_focus_id": String(restaurant_view_snapshot.get("focused_zone_id", "")),
+		"restaurant_world_popup": String(restaurant_view_snapshot.get("active_popup_id", "")),
+		"restaurant_world_prompt_text": String(restaurant_view_snapshot.get("prompt_text", "")),
+		"restaurant_world_customer_count": int(restaurant_view_snapshot.get("customer_count", 0)),
+		"restaurant_world_lights_on": bool(restaurant_view_snapshot.get("lights_on", false)),
 		"owned_restaurant_upgrade_ids": _get_owned_restaurant_upgrade_ids(),
 		"shop_status_text": _shop_status_text,
 			"shop_seed_offers": (shop_model.get("seed_offers", []) as Array).duplicate(true) if shop_model.get("seed_offers", []) is Array else [],
