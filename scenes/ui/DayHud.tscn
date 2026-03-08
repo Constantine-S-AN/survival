@@ -20,7 +20,7 @@ layout_mode = 1
 offset_left = 24.0
 offset_top = 20.0
 offset_right = 388.0
-offset_bottom = 122.0
+offset_bottom = 194.0
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="InfoPanel"]
@@ -32,17 +32,58 @@ theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="InfoPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="InfoPanel/Margin/VBox"]
 layout_mode = 2
 theme_type_variation = &"HeadingLabel"
 text = "Day 1 | Morning"
 
+[node name="ClockStatus" type="Label" parent="InfoPanel/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = "Morning | 3 actions to evening"
+
+[node name="PhaseTrack" type="HBoxContainer" parent="InfoPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Morning" type="ColorRect" parent="InfoPanel/Margin/VBox/PhaseTrack"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+size_flags_horizontal = 3
+color = Color(0.92, 0.82, 0.45, 1)
+
+[node name="Noon" type="ColorRect" parent="InfoPanel/Margin/VBox/PhaseTrack"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+size_flags_horizontal = 3
+color = Color(0.95, 0.77, 0.36, 1)
+
+[node name="Afternoon" type="ColorRect" parent="InfoPanel/Margin/VBox/PhaseTrack"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+size_flags_horizontal = 3
+color = Color(0.88, 0.56, 0.28, 1)
+
+[node name="Evening" type="ColorRect" parent="InfoPanel/Margin/VBox/PhaseTrack"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+size_flags_horizontal = 3
+color = Color(0.41, 0.63, 0.93, 1)
+
 [node name="Resources" type="Label" parent="InfoPanel/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
 text = "Gold: 0 | Stamina: 0/0 | Actions: 0/0"
+
+[node name="Departure" type="Label" parent="InfoPanel/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+theme_type_variation = &"BodyMutedLabel"
+text = "Night dock sealed"
 
 [node name="ActionsColumn" type="VBoxContainer" parent="."]
 custom_minimum_size = Vector2(320, 0)

@@ -19,6 +19,7 @@ const STUMP_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny
 const BUSH_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe2.png")
 const ROCK_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Rocks/Rock2.png")
 const BARRIER_TEXTURE := preload("res://assets/textures/pixel/maps/props/barrier_segment.png")
+const PHASE_ORDER := ["morning", "noon", "afternoon", "evening"]
 
 const WORLD_BOUNDS := Rect2(Vector2(56.0, 144.0), Vector2(1488.0, 748.0))
 const TILE_SIZE := 48
@@ -60,7 +61,23 @@ var _tile_root: Node2D = null
 var _ground_tiles: TileMapLayer = null
 var _detail_tiles: TileMapLayer = null
 var _scenery_root: Node2D = null
+var _ambient_root: Node2D = null
 var _world_tile_set: TileSet = null
+var _sky_rect: Polygon2D = null
+var _cloud_band: Polygon2D = null
+var _horizon_glow: Polygon2D = null
+var _phase_overlay: Polygon2D = null
+var _sun_glow: Polygon2D = null
+var _harbor_glow: Polygon2D = null
+var _shop_sign: Polygon2D = null
+var _restaurant_sign: Polygon2D = null
+var _night_beacon_glow: Polygon2D = null
+var _dock_gate_root: Node2D = null
+var _dock_gate_items: Array[CanvasItem] = []
+var _lamp_glows: Array[Polygon2D] = []
+var _lamp_lanterns: Array[Polygon2D] = []
+var _town_npc_nodes: Dictionary = {}
+var _phase_visual_id: String = ""
 
 
 func _ready() -> void:
@@ -140,6 +157,10 @@ func debug_get_snapshot() -> Dictionary:
 		"prompt_text": _build_prompt_text(),
 		"orders_open": daily_orders_board.visible if daily_orders_board != null else false,
 		"player_position": day_player.global_position if day_player != null else Vector2.ZERO,
+		"phase_visual_id": _phase_visual_id,
+		"night_ready": bool(_view_model.get("night_ready", false)),
+		"dock_gate_open": _dock_gate_root == null or not _dock_gate_root.visible,
+		"visible_town_npc_count": _count_visible_town_npcs(),
 		"selected_farm_tool_action_id": String(selected_tool.get("id", "")),
 		"selected_farm_tool_seed_id": String(selected_tool.get("seed_id", "")),
 		"selected_farm_tool_label": _farm_tool_title(selected_tool)
@@ -151,9 +172,12 @@ func _build_world_if_needed() -> void:
 		return
 	_world_built = true
 
-	_add_rect(backdrop, "Sky", Rect2(0.0, 0.0, 1600.0, 980.0), Color(0.65, 0.83, 0.94, 1.0), -20)
-	_add_rect(backdrop, "CloudBand", Rect2(0.0, 24.0, 1600.0, 132.0), Color(0.93, 0.97, 0.99, 0.38), -19)
-	_add_rect(backdrop, "HorizonGlow", Rect2(0.0, 112.0, 1600.0, 220.0), Color(0.93, 0.92, 0.74, 0.24), -18)
+	_sky_rect = _add_rect(backdrop, "Sky", Rect2(0.0, 0.0, 1600.0, 980.0), Color(0.65, 0.83, 0.94, 1.0), -20)
+	_cloud_band = _add_rect(backdrop, "CloudBand", Rect2(0.0, 24.0, 1600.0, 132.0), Color(0.93, 0.97, 0.99, 0.38), -19)
+	_horizon_glow = _add_rect(backdrop, "HorizonGlow", Rect2(0.0, 112.0, 1600.0, 220.0), Color(0.93, 0.92, 0.74, 0.24), -18)
+	_phase_overlay = _add_rect(backdrop, "PhaseOverlay", Rect2(0.0, 0.0, 1600.0, 980.0), Color(0.0, 0.0, 0.0, 0.0), -17)
+	_sun_glow = _add_ellipse(backdrop, "SunGlow", Vector2(1298.0, 118.0), Vector2(258.0, 178.0), Color(1.0, 0.93, 0.62, 0.18), -18)
+	_harbor_glow = _add_ellipse(backdrop, "HarborGlow", Vector2(1186.0, 756.0), Vector2(520.0, 190.0), Color(0.96, 0.79, 0.48, 0.0), -16)
 	_ensure_world_layers()
 	_paint_world_tiles()
 	_build_world_landmarks()
@@ -168,6 +192,7 @@ func _build_world_if_needed() -> void:
 	_farm_plots_root.name = "FarmPlots"
 	_farm_plots_root.z_index = 6
 	zones_root.add_child(_farm_plots_root)
+	_apply_phase_presentation()
 
 
 func _ensure_world_layers() -> void:
@@ -196,6 +221,11 @@ func _ensure_world_layers() -> void:
 		_scenery_root.name = "Scenery"
 		_scenery_root.y_sort_enabled = true
 		environment.add_child(_scenery_root)
+	if _ambient_root == null:
+		_ambient_root = Node2D.new()
+		_ambient_root.name = "Ambient"
+		_ambient_root.y_sort_enabled = true
+		environment.add_child(_ambient_root)
 
 
 func _build_world_tileset() -> TileSet:
@@ -393,10 +423,20 @@ func _fill_tile_rect(layer: TileMapLayer, rect: Rect2i, atlas_coords: Vector2i) 
 
 
 func _build_world_landmarks() -> void:
-	if _scenery_root == null:
+	if _scenery_root == null or _ambient_root == null:
 		return
 	for child in _scenery_root.get_children():
 		child.free()
+	for child in _ambient_root.get_children():
+		child.free()
+	_lamp_glows.clear()
+	_lamp_lanterns.clear()
+	_town_npc_nodes.clear()
+	_dock_gate_items.clear()
+	_shop_sign = null
+	_restaurant_sign = null
+	_night_beacon_glow = null
+	_dock_gate_root = null
 
 	_add_shadow(_scenery_root, "FarmShadow", Vector2(266.0, 568.0), Vector2(116.0, 36.0), Color(0.10, 0.13, 0.12, 0.20), -1)
 	_add_sprite(_scenery_root, "FarmHouse", FARM_BUILDING_TEXTURE, Vector2(266.0, 472.0), Vector2(0.84, 0.84), Color.WHITE, 0)
@@ -430,11 +470,18 @@ func _build_world_landmarks() -> void:
 		_add_shadow(_scenery_root, "RockShadow%s" % str(rock_position), rock_position + Vector2(0.0, 5.0), Vector2(24.0, 8.0), Color(0.10, 0.13, 0.12, 0.12), -1)
 		_add_sprite(_scenery_root, "Rock%s" % str(rock_position), ROCK_TEXTURE, rock_position, Vector2(1.0, 1.0), Color.WHITE, 0)
 
-	for i in range(3):
-		_add_sprite(_scenery_root, "DockBarrier%d" % i, BARRIER_TEXTURE, Vector2(1140.0 + (i * 44.0), 758.0), Vector2(1.2, 1.2), Color(0.92, 0.79, 0.58, 1.0), 0)
-
 	_add_notice_board(Vector2(1078.0, 598.0))
 	_add_bench(Vector2(704.0, 772.0))
+	_restaurant_sign = _add_hanging_sign("RestaurantSign", Vector2(996.0, 422.0), Color(0.95, 0.68, 0.40, 1.0), Color(0.48, 0.25, 0.13, 1.0))
+	_shop_sign = _add_hanging_sign("ShopSign", Vector2(1292.0, 472.0), Color(0.96, 0.82, 0.43, 1.0), Color(0.49, 0.33, 0.18, 1.0))
+	_add_lamp_post("RestaurantLamp", Vector2(930.0, 456.0), Color(1.0, 0.82, 0.47, 1.0))
+	_add_lamp_post("ShopLamp", Vector2(1234.0, 510.0), Color(1.0, 0.84, 0.52, 1.0))
+	_add_lamp_post("BoardLamp", Vector2(1124.0, 628.0), Color(0.92, 0.80, 0.56, 1.0))
+	_add_lamp_post("DockLamp", Vector2(1186.0, 770.0), Color(0.74, 0.88, 1.0, 1.0))
+	_night_beacon_glow = _add_ellipse(_ambient_root, "NightBeaconGlow", Vector2(1238.0, 618.0), Vector2(186.0, 126.0), Color(0.49, 0.79, 1.0, 0.0), -1)
+	_dock_gate_root = _build_dock_gate(Vector2(1178.0, 786.0))
+	_town_npc_nodes["shopkeeper"] = _add_town_npc("ShopkeeperStall", Vector2(1352.0, 554.0), Color(0.76, 0.57, 0.34, 1.0), Color(0.27, 0.45, 0.33, 1.0))
+	_town_npc_nodes["regular"] = _add_town_npc("RegularWanderer", Vector2(964.0, 642.0), Color(0.52, 0.72, 0.84, 1.0), Color(0.61, 0.43, 0.25, 1.0))
 
 
 func _add_notice_board(base_position: Vector2) -> void:
@@ -489,6 +536,123 @@ func _add_bench(base_position: Vector2) -> void:
 		leg.position = Vector2(leg_x, 4.0)
 		leg.color = Color(0.42, 0.28, 0.18, 1.0)
 		root.add_child(leg)
+
+
+func _add_hanging_sign(name: String, position: Vector2, sign_color: Color, trim_color: Color) -> Polygon2D:
+	var chain := Polygon2D.new()
+	chain.name = "%sChain" % name
+	chain.position = position + Vector2(0.0, -12.0)
+	chain.polygon = _rect_polygon(Vector2(6.0, 24.0))
+	chain.color = Color(0.39, 0.27, 0.16, 1.0)
+	_scenery_root.add_child(chain)
+	var sign := Polygon2D.new()
+	sign.name = name
+	sign.position = position
+	sign.polygon = _rect_polygon(Vector2(56.0, 22.0))
+	sign.color = sign_color
+	_scenery_root.add_child(sign)
+	var trim := Polygon2D.new()
+	trim.name = "%sTrim" % name
+	trim.position = position
+	trim.polygon = _rect_polygon(Vector2(40.0, 8.0))
+	trim.color = trim_color
+	_scenery_root.add_child(trim)
+	return sign
+
+
+func _add_lamp_post(name: String, position: Vector2, glow_color: Color) -> void:
+	var root := Node2D.new()
+	root.name = name
+	root.position = position
+	_ambient_root.add_child(root)
+	var pole := Polygon2D.new()
+	pole.polygon = _rect_polygon(Vector2(8.0, 86.0))
+	pole.position = Vector2(0.0, -42.0)
+	pole.color = Color(0.39, 0.29, 0.20, 1.0)
+	root.add_child(pole)
+	var arm := Polygon2D.new()
+	arm.polygon = _rect_polygon(Vector2(28.0, 6.0))
+	arm.position = Vector2(12.0, -78.0)
+	arm.color = Color(0.44, 0.32, 0.21, 1.0)
+	root.add_child(arm)
+	var glow := _add_ellipse(root, "Glow", Vector2(24.0, -64.0), Vector2(94.0, 64.0), glow_color, -1)
+	var lantern := Polygon2D.new()
+	lantern.name = "Lantern"
+	lantern.position = Vector2(24.0, -62.0)
+	lantern.polygon = _rect_polygon(Vector2(16.0, 20.0))
+	lantern.color = Color(0.91, 0.72, 0.38, 1.0)
+	root.add_child(lantern)
+	_lamp_glows.append(glow)
+	_lamp_lanterns.append(lantern)
+
+
+func _build_dock_gate(position: Vector2) -> Node2D:
+	var root := Node2D.new()
+	root.name = "DockGate"
+	root.position = position
+	_ambient_root.add_child(root)
+	for i in range(3):
+		var barrier := Sprite2D.new()
+		barrier.name = "Barrier%d" % i
+		barrier.texture = BARRIER_TEXTURE
+		barrier.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		barrier.position = Vector2(-42.0 + (i * 42.0), -6.0)
+		barrier.scale = Vector2(1.16, 1.16)
+		barrier.modulate = Color(0.92, 0.79, 0.58, 1.0)
+		root.add_child(barrier)
+		_dock_gate_items.append(barrier)
+	var cable := Polygon2D.new()
+	cable.name = "Cable"
+	cable.polygon = _rect_polygon(Vector2(148.0, 8.0))
+	cable.position = Vector2(0.0, -12.0)
+	cable.color = Color(0.34, 0.24, 0.18, 1.0)
+	root.add_child(cable)
+	_dock_gate_items.append(cable)
+	for side in [-1.0, 1.0]:
+		var brace := Polygon2D.new()
+		brace.name = "Brace%s" % str(side)
+		brace.position = Vector2(56.0 * side, -2.0)
+		brace.polygon = _rect_polygon(Vector2(18.0, 28.0))
+		brace.color = Color(0.46, 0.34, 0.22, 1.0)
+		root.add_child(brace)
+		_dock_gate_items.append(brace)
+	return root
+
+
+func _add_town_npc(name: String, position: Vector2, body_color: Color, accent_color: Color) -> Node2D:
+	var root := Node2D.new()
+	root.name = name
+	root.position = position
+	_ambient_root.add_child(root)
+	var shadow := _add_ellipse(root, "Shadow", Vector2(0.0, 14.0), Vector2(34.0, 12.0), Color(0.03, 0.02, 0.01, 0.22), -2)
+	shadow.modulate = Color(1.0, 1.0, 1.0, 0.9)
+	var body := Polygon2D.new()
+	body.position = Vector2(0.0, 2.0)
+	body.polygon = _rect_polygon(Vector2(20.0, 32.0))
+	body.color = body_color
+	root.add_child(body)
+	var accent := Polygon2D.new()
+	accent.position = Vector2(6.0, 10.0)
+	accent.polygon = _rect_polygon(Vector2(10.0, 14.0))
+	accent.color = accent_color
+	root.add_child(accent)
+	var head := Polygon2D.new()
+	head.position = Vector2(0.0, -18.0)
+	head.polygon = _ellipse_polygon(Vector2(18.0, 18.0), 10)
+	head.color = Color(0.95, 0.76, 0.60, 1.0)
+	root.add_child(head)
+	return root
+
+
+func _add_ellipse(parent: Node, name: String, position: Vector2, size: Vector2, color: Color, z_index: int) -> Polygon2D:
+	var polygon := Polygon2D.new()
+	polygon.name = name
+	polygon.position = position
+	polygon.polygon = _ellipse_polygon(size, 20)
+	polygon.color = color
+	polygon.z_index = z_index
+	parent.add_child(polygon)
+	return polygon
 
 
 func _add_shadow(parent: Node2D, name: String, position: Vector2, size: Vector2, color: Color, z_index: int) -> void:
@@ -851,9 +1015,14 @@ func _apply_view_model() -> void:
 	if DailyOrders != null and DailyOrders.has_method("get_ready_to_claim_count"):
 		ready_to_claim = int(DailyOrders.call("get_ready_to_claim_count"))
 	var selected_tool := _get_selected_farm_tool()
+	var actions_until_evening := maxi(0, int(_view_model.get("actions_until_evening", 0)))
+	var night_ready := bool(_view_model.get("night_ready", false))
+	_apply_phase_presentation()
 	hud.set_hud_model({
 		"current_day": int(_view_model.get("current_day", 1)),
 		"phase": String(_view_model.get("phase", "morning")),
+		"actions_until_evening": actions_until_evening,
+		"night_ready": night_ready,
 		"gold": int(_view_model.get("gold", 0)),
 		"stamina": int(_view_model.get("stamina", 0)),
 		"max_stamina": int(_view_model.get("max_stamina", 0)),
@@ -872,11 +1041,208 @@ func _apply_view_model() -> void:
 	_refresh_zone_visuals()
 
 
+func _apply_phase_presentation() -> void:
+	var phase := String(_view_model.get("phase", "morning")).strip_edges().to_lower()
+	var night_ready := bool(_view_model.get("night_ready", false))
+	var palette := _get_phase_palette(phase)
+	_phase_visual_id = phase
+	if _sky_rect != null:
+		_sky_rect.color = palette["sky"]
+	if _cloud_band != null:
+		_cloud_band.color = palette["cloud"]
+	if _horizon_glow != null:
+		_horizon_glow.color = palette["horizon"]
+	if _phase_overlay != null:
+		_phase_overlay.color = palette["overlay"]
+	if _sun_glow != null:
+		_sun_glow.color = palette["sun"]
+		_sun_glow.position = Vector2(1266.0, 102.0) if phase == "morning" else (Vector2(1322.0, 112.0) if phase == "noon" else (Vector2(1382.0, 132.0) if phase == "afternoon" else Vector2(1428.0, 178.0)))
+	if _harbor_glow != null:
+		_harbor_glow.color = palette["harbor"]
+	if _tile_root != null:
+		_tile_root.modulate = palette["ground_modulate"]
+	if _scenery_root != null:
+		_scenery_root.modulate = palette["scenery_modulate"]
+	if _ambient_root != null:
+		_ambient_root.modulate = palette["ambient_modulate"]
+	if _restaurant_sign != null:
+		_restaurant_sign.color = palette["restaurant_sign"]
+	if _shop_sign != null:
+		_shop_sign.color = palette["shop_sign"]
+	var lamp_alpha := float(palette["lamp_alpha"])
+	for glow in _lamp_glows:
+		if glow == null:
+			continue
+		glow.color.a = lamp_alpha
+	for lantern in _lamp_lanterns:
+		if lantern == null:
+			continue
+		lantern.modulate = Color(1.0, 1.0, 1.0, 0.62 + (lamp_alpha * 0.9))
+	if _night_beacon_glow != null:
+		_night_beacon_glow.color = Color(0.50, 0.82, 1.0, 0.42 if night_ready else 0.06)
+	if _dock_gate_root != null:
+		_dock_gate_root.visible = not night_ready
+	for gate_item in _dock_gate_items:
+		if gate_item == null:
+			continue
+		gate_item.modulate = Color(1.0, 1.0, 1.0, 0.92 if not night_ready else 0.0)
+	_apply_town_npc_phase_state(phase)
+
+
+func _apply_town_npc_phase_state(phase: String) -> void:
+	var regular_alpha := 1.0
+	var shopkeeper_alpha := 1.0
+	match phase:
+		"morning":
+			regular_alpha = 0.86
+		"noon":
+			regular_alpha = 1.0
+			shopkeeper_alpha = 1.0
+		"afternoon":
+			regular_alpha = 0.74
+			shopkeeper_alpha = 0.88
+		"evening":
+			regular_alpha = 0.16
+			shopkeeper_alpha = 0.0
+	_update_town_npc_alpha("regular", regular_alpha)
+	_update_town_npc_alpha("shopkeeper", shopkeeper_alpha)
+
+
+func _update_town_npc_alpha(npc_id: String, alpha: float) -> void:
+	var npc := _town_npc_nodes.get(npc_id, null) as Node2D
+	if npc == null:
+		return
+	npc.visible = alpha > 0.03
+	npc.modulate = Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0))
+
+
+func _count_visible_town_npcs() -> int:
+	var count := 0
+	for npc_variant in _town_npc_nodes.values():
+		if not (npc_variant is Node2D):
+			continue
+		var npc := npc_variant as Node2D
+		if npc.visible and npc.modulate.a > 0.03:
+			count += 1
+	return count
+
+
+func _get_phase_palette(phase: String) -> Dictionary:
+	match phase:
+		"noon":
+			return {
+				"sky": Color(0.56, 0.79, 0.95, 1.0),
+				"cloud": Color(0.98, 0.99, 1.0, 0.26),
+				"horizon": Color(0.99, 0.91, 0.68, 0.14),
+				"overlay": Color(1.0, 0.94, 0.74, 0.04),
+				"sun": Color(1.0, 0.94, 0.64, 0.22),
+				"harbor": Color(0.98, 0.78, 0.44, 0.05),
+				"ground_modulate": Color(1.02, 1.01, 0.99, 1.0),
+				"scenery_modulate": Color(1.03, 1.02, 1.0, 1.0),
+				"ambient_modulate": Color(1.0, 1.0, 1.0, 1.0),
+				"restaurant_sign": Color(0.98, 0.74, 0.44, 1.0),
+				"shop_sign": Color(0.99, 0.86, 0.47, 1.0),
+				"lamp_alpha": 0.0
+			}
+		"afternoon":
+			return {
+				"sky": Color(0.72, 0.77, 0.88, 1.0),
+				"cloud": Color(0.99, 0.94, 0.90, 0.22),
+				"horizon": Color(0.99, 0.80, 0.52, 0.22),
+				"overlay": Color(0.98, 0.74, 0.46, 0.10),
+				"sun": Color(0.99, 0.78, 0.47, 0.20),
+				"harbor": Color(0.99, 0.72, 0.36, 0.10),
+				"ground_modulate": Color(1.0, 0.97, 0.93, 1.0),
+				"scenery_modulate": Color(1.02, 0.97, 0.91, 1.0),
+				"ambient_modulate": Color(1.0, 0.98, 0.94, 1.0),
+				"restaurant_sign": Color(0.96, 0.65, 0.37, 1.0),
+				"shop_sign": Color(0.97, 0.78, 0.42, 1.0),
+				"lamp_alpha": 0.12
+			}
+		"evening":
+			return {
+				"sky": Color(0.33, 0.45, 0.66, 1.0),
+				"cloud": Color(0.78, 0.74, 0.84, 0.16),
+				"horizon": Color(0.98, 0.62, 0.40, 0.30),
+				"overlay": Color(0.17, 0.20, 0.33, 0.16),
+				"sun": Color(0.99, 0.61, 0.38, 0.16),
+				"harbor": Color(0.52, 0.76, 1.0, 0.12),
+				"ground_modulate": Color(0.90, 0.90, 0.97, 1.0),
+				"scenery_modulate": Color(0.88, 0.89, 0.98, 1.0),
+				"ambient_modulate": Color(0.96, 0.95, 1.0, 1.0),
+				"restaurant_sign": Color(0.97, 0.73, 0.46, 1.0),
+				"shop_sign": Color(0.99, 0.85, 0.50, 1.0),
+				"lamp_alpha": 0.34
+			}
+		_:
+			return {
+				"sky": Color(0.65, 0.83, 0.94, 1.0),
+				"cloud": Color(0.93, 0.97, 0.99, 0.38),
+				"horizon": Color(0.93, 0.92, 0.74, 0.24),
+				"overlay": Color(1.0, 0.98, 0.88, 0.03),
+				"sun": Color(1.0, 0.93, 0.62, 0.18),
+				"harbor": Color(0.98, 0.84, 0.48, 0.04),
+				"ground_modulate": Color(1.0, 1.0, 1.0, 1.0),
+				"scenery_modulate": Color(1.0, 1.0, 1.0, 1.0),
+				"ambient_modulate": Color(1.0, 1.0, 1.0, 1.0),
+				"restaurant_sign": Color(0.95, 0.68, 0.40, 1.0),
+				"shop_sign": Color(0.96, 0.82, 0.43, 1.0),
+				"lamp_alpha": 0.0
+			}
+
+
+func _build_phase_idle_cue() -> String:
+	match String(_view_model.get("phase", "morning")).strip_edges().to_lower():
+		"noon":
+			return _t("meta.world.phase_cue_noon")
+		"afternoon":
+			return _t("meta.world.phase_cue_afternoon")
+		"evening":
+			return _t("meta.world.phase_cue_evening")
+		_:
+			return _t("meta.world.phase_cue_morning")
+
+
+func _build_restaurant_cue() -> String:
+	if String(_view_model.get("phase", "morning")) == "evening":
+		return _t("meta.world.restaurant_cue_evening")
+	return _t("meta.world.restaurant_cue_day")
+
+
+func _build_shop_cue() -> String:
+	if String(_view_model.get("phase", "morning")) == "evening":
+		return _t("meta.world.shop_cue_evening")
+	return _t("meta.world.shop_cue_day")
+
+
+func _build_orders_cue() -> String:
+	var ready_orders := 0
+	if DailyOrders != null and DailyOrders.has_method("get_ready_to_claim_count"):
+		ready_orders = int(DailyOrders.call("get_ready_to_claim_count"))
+	if ready_orders > 0:
+		return _t("meta.world.orders_ready_cue", {"value": ready_orders})
+	return _t("meta.world.orders_cue")
+
+
+func _build_wait_cue() -> String:
+	var actions_until_evening := maxi(0, int(_view_model.get("actions_until_evening", 0)))
+	if bool(_view_model.get("night_ready", false)):
+		return _t("meta.world.wait_cue_ready")
+	return _t("meta.world.wait_cue_progress", {"value": actions_until_evening})
+
+
+func _build_night_cue() -> String:
+	var actions_until_evening := maxi(0, int(_view_model.get("actions_until_evening", 0)))
+	if bool(_view_model.get("night_ready", false)):
+		return _t("meta.world.night_cue_ready")
+	return _t("meta.world.night_cue_locked", {"value": actions_until_evening})
+
+
 func _build_prompt_text() -> String:
 	if daily_orders_board != null and daily_orders_board.visible:
 		return _t("meta.world.prompt_orders_open")
 	if _focused_zone_id.is_empty():
-		return _t("meta.world.prompt_idle")
+		return "%s\n%s" % [_t("meta.world.prompt_idle"), _build_phase_idle_cue()]
 	if _is_farm_plot_zone(_focused_zone_id):
 		var plot := _get_farm_plot_model(_focused_zone_id)
 		var tool := _get_selected_farm_tool()
@@ -919,13 +1285,24 @@ func _apply_zone_visual(zone_id: String, zone: Dictionary, enabled: bool, focuse
 	var marker := zone.get("marker", null) as Polygon2D
 	var pulse := zone.get("pulse", null) as Polygon2D
 	var accent_variant: Variant = zone.get("accent", Color.WHITE)
-	var accent: Color = accent_variant if accent_variant is Color else Color.WHITE
+	var accent: Color = _zone_accent_for_state(zone_id, accent_variant if accent_variant is Color else Color.WHITE, enabled)
 	if marker != null:
 		marker.scale = Vector2.ONE * (1.18 if focused else 1.0)
 		marker.color = Color(accent.r, accent.g, accent.b, 0.96 if focused else (0.82 if enabled else 0.24))
 	if pulse != null:
 		pulse.scale = Vector2.ONE * (1.36 if focused else 1.0)
 		pulse.color = Color(accent.r, accent.g, accent.b, 0.26 if enabled else 0.08)
+
+
+func _zone_accent_for_state(zone_id: String, base_accent: Color, enabled: bool) -> Color:
+	var phase := String(_view_model.get("phase", "morning")).strip_edges().to_lower()
+	if zone_id == "night":
+		return Color(0.54, 0.86, 1.0, 1.0) if enabled else Color(0.31, 0.53, 0.73, 1.0)
+	if zone_id == "restaurant" and phase == "evening":
+		return Color(1.0, 0.72, 0.42, 1.0)
+	if zone_id == "shop" and phase == "evening":
+		return Color(1.0, 0.84, 0.49, 1.0)
+	return base_accent
 
 
 func _is_zone_enabled(zone_id: String) -> bool:
@@ -953,15 +1330,15 @@ func _get_zone_tooltip(zone_id: String) -> String:
 		return _farm_plot_summary(_get_farm_plot_model(zone_id))
 	match zone_id:
 		"restaurant":
-			return String(_view_model.get("restaurant_button_tooltip", ""))
+			return _build_restaurant_cue()
 		"shop":
-			return String(_view_model.get("shop_button_tooltip", ""))
-		"wait":
-			return String(_view_model.get("wait_button_tooltip", ""))
-		"night":
-			return String(_view_model.get("night_button_tooltip", ""))
+			return _build_shop_cue()
 		"orders":
-			return _t("meta.world.orders_tooltip")
+			return _build_orders_cue()
+		"wait":
+			return _build_wait_cue()
+		"night":
+			return _build_night_cue()
 	return ""
 
 

@@ -22,6 +22,19 @@ func _ready() -> void:
 		push_error("Walkable day shell should be the default daytime presentation")
 		_cleanup(meta_root)
 		return
+	if String(snapshot.get("day_world_phase_visual_id", "")) != "morning":
+		push_error("Day world should start in the morning visual state")
+		_cleanup(meta_root)
+		return
+	if bool(snapshot.get("day_world_dock_gate_open", false)):
+		push_error("Night dock gate should start closed before evening")
+		_cleanup(meta_root)
+		return
+	var town_npcs_before := int(snapshot.get("day_world_visible_town_npc_count", 0))
+	if town_npcs_before < 1:
+		push_error("Day world should show at least one ambient town NPC during daytime")
+		_cleanup(meta_root)
+		return
 	if bool(meta_root.call("debug_day_world_interact", "night")):
 		push_error("Night dock should stay locked at the start of the daytime loop")
 		_cleanup(meta_root)
@@ -74,6 +87,22 @@ func _ready() -> void:
 	var current_day := int(snapshot.get("current_day", 1))
 	if plots.is_empty() or int((plots[0] as Dictionary).get("watered_day", 0)) != current_day:
 		push_error("Plot 0 should record watering on the current day")
+		_cleanup(meta_root)
+		return
+	if String(snapshot.get("day_world_phase_visual_id", "")) != "evening":
+		push_error("Day world should shift into the evening visual state after enough daytime actions")
+		_cleanup(meta_root)
+		return
+	if not bool(snapshot.get("day_world_night_ready", false)):
+		push_error("Night readiness should become visible once evening is reached")
+		_cleanup(meta_root)
+		return
+	if not bool(snapshot.get("day_world_dock_gate_open", false)):
+		push_error("Night dock gate should visibly open once evening is reached")
+		_cleanup(meta_root)
+		return
+	if int(snapshot.get("day_world_visible_town_npc_count", 0)) >= town_npcs_before:
+		push_error("Ambient town NPC presence should wind down as evening begins")
 		_cleanup(meta_root)
 		return
 	if not bool(meta_root.call("debug_day_world_interact", "restaurant")):
