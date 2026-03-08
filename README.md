@@ -1,60 +1,210 @@
 # Survive: Neon Sonar
 
-A hybrid day-night roguelite built in Godot 4.x.
+一个基于 Godot 4.x 开发的白天经营 + 夜晚战斗混合式 roguelite 纵切项目。
 
-By day, you plan a small farm, menu, and shop economy. By night, you run a fog-heavy combat dive where information is temporary and costly: sonar reveals threats, but every aggressive action raises Noise, and Noise escalates danger.
+这个版本的核心，不是把“农场”“餐馆”“夜战”并排摆在一起，而是把它们接成一个会互相影响的循环：白天的行动预算有限，夜晚的稀有资源会回流到第二天的经营层，玩家需要在前 3 天内持续做取舍。
 
-## Project Snapshot
-- Engine: Godot 4.6.x
-- Genre: Hybrid action roguelite + management planner
-- Core loop: Day Hub -> Farm / Restaurant / Shop -> Night Combat -> Return Summary -> Next Day
-- Focus: readable systems, data-driven tuning, stable persistence, and headless regression coverage
+## 玩家版介绍
 
-## Core Gameplay Pillars
-- Hybrid opportunity-cost planning:
-  Farm work, restaurant service, shopping, and resting all consume shared daytime budget.
-- Daytime economy with meaningful tradeoffs:
-  Crops can be sold safely, cooked for better margins, or saved for unlock paths and premium dishes.
-- Fog + sonar information economy:
-  Vision is constrained by design. Sonar reveals space and targets, but only for limited windows.
-- Noise-risk combat pacing:
-  Attack, dash, and active skill usage increase Noise; higher tiers intensify spawn pressure.
-- Night-only progression materials:
-  Combat runs feed rare ingredients, crop unlocks, recipe unlocks, and premium daytime menu paths.
-- Build direction from constrained choices:
-  Combat still uses three-card upgrade drafts, tag synergies, rarity rules, prerequisites, and exclusivity branches.
+### 这是什么游戏
 
-## Showcase Features (Current)
-- Unified neon day-night UI:
-  Main Menu, Day Hub, Farm, Restaurant, Shop, return summary, run setup, combat HUD, and upgrade draft.
-- Shared persistence across the hybrid loop:
-  Day, phase, stamina, action budget, inventory, farm plots, menu state, upgrades, and combat return payload all save/load through the same profile model.
-- Expanded starter content:
-  5 crops, 8 recipes, 5 night-only materials, and multiple shop upgrades/unlock paths in the opening slice.
-- Lightweight onboarding:
-  First-three-day guidance, loop callouts, and clearer action/tooltips for new players.
-- Stable automated verification:
-  Headless tests cover crop progression, menu ingredient consumption, combat reward transfer, save/load restoration, and shop/upgrade flows.
+你白天经营，晚上出战。
 
-## Current Vertical Slice
-- Daytime actions are segmented into Morning, Noon, Afternoon, Evening, and Night.
-- Farm work sets up future harvests rather than same-day profit.
-- Restaurant service is the best daytime gold when ingredients are planned well.
-- Night combat supplies scarce materials and unlock progress that the daytime economy cannot replace.
-- The first three in-game days are tuned around meaningful choices instead of a single dominant route.
+白天你要在 Day Hub 里规划：
 
-## Quick Start
-### Run Latest in One Command
+- 要不要去农场整地、种植、浇水、收获
+- 要不要把库存拿去开餐馆营业
+- 要不要去商店买种子、卖产出、买升级
+- 要不要保留行动预算，赶在傍晚进入夜战
+
+晚上你会进入一个低视野、重迷雾、靠声呐获取信息的战斗潜航流程。夜战结束后，奖励会通过 Return Summary 回流到共享库存、金币和解锁进度里，再进入下一天。
+
+### 核心循环怎么走
+
+当前版本的主循环已经接通：
+
+1. 从 `Day Hub` 开始一天。
+2. 在 `Farm / Restaurant / Shop` 之间分配白天资源。
+3. 随着行动推进，时间会从 `Morning -> Noon -> Afternoon -> Evening -> Night` 前进。
+4. 到达 `Evening` 或 `Night` 后进入 `Night Combat`。
+5. 夜战结束后进入 `Return Summary`。
+6. 奖励进入共享经济层，进入下一天，作物生长推进，白天资源重置。
+
+### 当前版本已经能玩到什么
+
+#### Day Hub 白天总控
+
+Day Hub 已经是完整的规划界面，会显示：
+
+- 当前是第几天
+- 当前时间段
+- 剩余体力 `stamina`
+- 剩余行动预算 `action budget`
+- 当前金币 `gold`
+- 关键库存数量
+- 当前可进入的白天系统和夜战入口
+
+同时，前 3 天还会显示轻量引导，帮助第一次游玩的玩家理解日夜循环。
+
+#### 白天时间 / 体力 / 行动预算
+
+白天已经有真实机会成本，不允许同一天把所有事都做完。
+
+- 时间段分为：`morning`、`noon`、`afternoon`、`evening`、`night`
+- `action_budget` 代表白天还能花多少时间
+- `stamina` 代表白天还能做多少劳动型操作
+- 农场行为会消耗体力和/或行动预算
+- 餐馆开门营业会吃掉明显的白天进度
+- 夜战需要到达 `evening` 或 `night` 才能进入
+- Day Hub 可以直接等待到傍晚，方便切换到夜战
+
+#### 农场系统
+
+农场现在已经是可玩的白天子系统。
+
+当前支持：
+
+- 整地 `Till`
+- 种植 `Plant`
+- 浇水 `Water`
+- 收获 `Harvest`
+- 跨天作物成长
+- 与共享库存联动
+- 与存档 / 读档联动
+
+当前已有 5 种作物：
+
+- `wheat`
+- `herb`
+- `kelpberry`
+- `emberleaf`
+- `mooncap`
+
+它们的定位不同：
+
+- `wheat`、`herb` 是早期基础盘
+- `kelpberry`、`emberleaf` 能让你在“直接卖”与“拿去做菜”之间做选择
+- `mooncap` 是夜战驱动的高级作物路径
+
+#### 餐馆经营系统
+
+餐馆已经接通完整的“菜单规划 -> 开门营业 -> 结算收益 -> 保存结果”流程。
+
+当前支持：
+
+- 查看共享库存食材
+- 选择当日菜单，最多 3 个配方
+- 基于库存、菜单、复杂度、声望和升级效果进行 deterministic service simulation
+- 结算金币与餐馆声望
+- 记录卖出菜品统计
+- 保存最近一次营业总结
+
+当前已有 8 个食谱，覆盖：
+
+- 基础农场菜
+- 早期稳定出餐路线
+- 商店种子带来的新菜路
+- 夜战材料驱动的高价值菜
+- 更后期的高级夜战菜
+
+#### 商店 / 买卖 / 升级
+
+白天商店已经接通，定位是经济转换器和中期规划节点。
+
+当前支持：
+
+- 购买 2 种种子
+  - `kelpberry_seed`
+  - `emberleaf_seed`
+- 出售部分农产品和材料
+  - `wheat`
+  - `herb`
+  - `kelpberry`
+  - `emberleaf`
+  - `mooncap`
+  - `scrap`
+- 购买餐馆升级
+- 在 UI 中清楚显示价格、效果、已拥有状态和金币不足提示
+
+当前商店可购买的餐馆升级包括：
+
+- `Window Herb Boxes`：提高进店需求
+- `Second Stock Pot`：提高产能
+- `Counter Runner`：提高满意度稳定性
+
+这些升级都已经真实作用到餐馆营业结果里。
+
+#### 夜战奖励回流白天经济
+
+夜战不再是独立小游戏，而是白天经营的重要资源来源。
+
+当前支持：
+
+- 从 Day Hub 在正确时间进入 Night Combat
+- 夜战结束后显示 Return Summary
+- Summary 展示 loot、金币、特殊材料和解锁进度
+- 奖励在 Summary 出现前就写入共享状态
+- 关闭 Summary 后进入下一天，奖励不会丢失
+
+当前夜战专属材料至少包括：
+
+- `abyssfin`
+- `glow_kelp`
+- `reef_salt`
+- `moon_spore`
+- `kitchen_blueprint_fragment`
+
+它们已经有真实用途：
+
+- 高价值餐馆料理
+- 农场高级种子 / 高级作物路径
+- 配方或长期解锁进度
+
+### 当前版本的策略重点
+
+这个版本故意把三条路线做成不同价值，不让任何一个系统无脑统治前 3 天。
+
+- 农场：偏未来投资，为后续菜单和库存做准备
+- 餐馆：偏计划兑现，是白天最强的利润引擎
+- 夜战：偏特殊价值，提供白天买不到的稀有材料和解锁
+
+理想体验是：你不会只做一件事，而是每天都在权衡“今天该先做什么、该卖什么、该留什么、要不要赶夜战”。
+
+### 当前内容量
+
+当前 opening slice 已达到：
+
+- 5 种作物
+- 8 个食谱
+- 5 种夜战专属材料 / 稀有食材
+- 3 个已接入商店并真实生效的餐馆升级
+
+### 新手前 3 天会得到什么提示
+
+Day Hub 当前有前 3 天的轻量 onboarding：
+
+- Day 1：解释完整循环，告诉玩家白天和夜战分别在解决什么问题
+- Day 2：强调机会成本，提醒玩家餐馆、农场、商店不能都零成本全做
+- Day 3：提醒玩家优先收成熟作物，再决定卖出、做菜，还是留给高价值路线
+
+这套引导是管理向的，没有额外堆 NPC 或强制教程场景。
+
+### 如何启动
+
+#### 一键运行最新版本
+
 ```bash
 ./play_latest.sh
 ```
 
-What it does:
-1. Switches to `main` (default)
-2. Fetches + fast-forward pulls latest from `origin/main`
-3. Launches game with `godot --path .`
+默认行为：
 
-Optional flags:
+1. 切到 `main`
+2. 从 `origin/main` 拉取最新版本
+3. 使用 `godot --path .` 启动项目
+
+可选参数：
+
 ```bash
 ./play_latest.sh --no-update
 ./play_latest.sh --allow-dirty
@@ -62,72 +212,148 @@ Optional flags:
 ./play_latest.sh --godot /Applications/Godot.app/Contents/MacOS/Godot
 ```
 
-### Run Normally
+#### 直接运行
+
 ```bash
 godot --path .
 ```
 
-### Run Headless Tests
+### 默认操作
+
+- 移动：`WASD` / 方向键
+- 冲刺：`Space` / `Shift`
+- 声呐主动技能：`Q` / `E`
+- 攻击模式切换：`Tab`
+- 调试面板：`F1`
+- 迷雾显示切换：`F2`
+- 声呐视觉切换：`F3`
+- 数据热重载：`F5`
+
+## 开发者版说明
+
+### 项目概况
+
+- 引擎：`Godot 4.6.x`
+- 类型：动作 roguelite + 经营规划混合玩法
+- 当前主循环：`Day Hub -> Farm / Restaurant / Shop -> Night Combat -> Return Summary -> Next Day`
+- 当前目标：把当前版本稳定成可连续游玩的 hybrid day-night vertical slice
+
+### 当前系统状态
+
+当前版本已经接通并稳定化的系统包括：
+
+- `Meta Loop Root`：日夜总流程路由
+- `Day Hub`：白天状态展示与入口分发
+- `Day Clock / Day State`：时间段、体力、行动预算
+- `Farm`：地块状态、作物生长、收获入库
+- `Restaurant`：菜单规划、营业模拟、收益与声望结算
+- `Shop`：买种子、卖材料、买升级
+- `Reward Pipeline`：夜战奖励回流白天经济与解锁
+- `Return Summary`：战斗结算展示与跨天推进
+- `ProfileStore`：统一存档 / 读档与字段归一化
+- `DataRegistry`：白天与夜战系统的 JSON 数据加载
+- `Headless Tests`：围绕混合循环的回归测试
+
+### 存档模型概要
+
+当前混合循环的持久化重点包括：
+
+- 当前天数 `current_day`
+- 当前白天阶段 `current_phase`
+- 体力 / 最大体力
+- 行动预算 / 最大行动预算
+- 金币 `gold`
+- 共享库存 `inventory.materials`
+- 已解锁种子 `unlocked_seeds`
+- 已解锁配方 `unlocked_recipes`
+- 农场地块与作物状态
+- 当前菜单 `selected_menu_recipe_ids`
+- 最近一次餐馆营业总结 `last_service_summary`
+- 餐馆声望 `restaurant_reputation`
+- 累计卖出菜品统计
+- 已拥有餐馆升级 `owned_upgrade_ids`
+- 夜战后的待显示总结 `pending_return_summary`
+- 战斗带来的长期奖励与解锁进度
+
+当前存档设计原则：
+
+- 场景切换本身不会凭空增减库存
+- 夜战奖励在 Summary 弹出前就已结算进共享状态
+- Summary 只负责展示，不负责二次发奖
+- 中途存档恢复后，不会重复扣材料或重复发奖励
+- 存档字段会在 `ProfileStore` 中统一做 normalization
+
+### 自动化测试与验证入口
+
+#### 直接运行 headless runner
+
 ```bash
 godot --headless --path . res://tests/TestRunner.tscn --quit-after 3600
 ```
 
-### Unified Local/CI Test Entry
+#### 本地 / CI 统一入口
+
 ```bash
 ./scripts/ci/run_headless_tests.sh
 ```
 
-## Controls (Default)
-- Move: `WASD` / Arrow keys
-- Dash: `Space` / `Shift`
-- Sonar active skill: `Q` / `E`
-- Attack mode toggle: `Tab`
-- Debug panel: `F1`
-- Fog toggle: `F2`
-- Sonar visual toggle: `F3`
-- Data hot reload: `F5`
+当前自动化覆盖重点包括：
 
-## Data-Driven Tuning
-All major runtime behavior is JSON-driven under `/data`:
-- Day-night crop / recipe loop: `data/seeds.json`, `data/crops.json`, `data/recipes.json`, `data/shop_inventory.json`, `data/special_ingredients.json`, `data/restaurant_upgrades.json`, `data/unlocks.json`, `data/night_loot_tables.json`
-- Characters: `data/characters.json`
-- Weapons: `data/weapons.json`
-- Upgrades: `data/upgrades.json`
-- Enemies / elites / bosses: `data/enemies.json`, `data/elites.json`, `data/bosses.json`
-- Maps / hazards / events: `data/maps.json`, `data/hazards.json`, `data/events.json`
-- Contracts: `data/contracts.json`
-- Fog / sonar / noise: `data/fog.json`, `data/sonar.json`, `data/noise.json`
+- 作物跨天生长
+- 农场状态存档 / 读档
+- 菜单食材消耗
+- 餐馆结算结果持久化
+- 夜战奖励转移到白天库存
+- Summary 后进入下一天
+- 商店买种子 / 卖材料 / 买升级
+- 升级对餐馆结果的真实影响
+- 中途存档并恢复完整日夜循环
 
-## Repository Structure
-- `scenes/`: gameplay and UI scene graph
-- `scripts/`: gameplay systems, UI controllers, CI/test helpers
-- `ui/`: reusable themed UI components and global theme assets
-- `tests/`: deterministic and regression runners
-- `docs/`: design and style guides
-- `assets/`: textures, fonts, icons, shaders, audio
-- `.github/workflows/`: CI automation
+### 数据驱动入口
 
-## CI
-Workflow: `.github/workflows/ci.yml`
-- Step 1: headless import warm-up
-- Step 2: run headless tests via unified script
-- Step 3 (optional by config): export verification
+白天-夜晚混合循环相关的数据主要在：
 
-## Export (Example)
-```bash
-godot --headless --path . --export-release "macOS" exports/macos/Survive-Neon-Sonar.app
-godot --headless --path . --export-release "Windows Desktop" exports/NeonSonar.exe
-```
+- `data/seeds.json`
+- `data/crops.json`
+- `data/recipes.json`
+- `data/shop_inventory.json`
+- `data/special_ingredients.json`
+- `data/restaurant_upgrades.json`
+- `data/unlocks.json`
+- `data/night_loot_tables.json`
 
-## Documentation
-- Day loop: `docs/DAY_LOOP.md`
-- Farm system: `docs/FARM_SYSTEM.md`
-- Restaurant system: `docs/RESTAURANT_SYSTEM.md`
-- Save model: `docs/SAVE_MODEL.md`
-- UI style guide: `docs/UI_STYLE_GUIDE.md`
-- Design notes: `docs/DESIGN_NOTES.md`
-- Trailer / capture references: `media/TRAILER_CAPTURE.md`, `media/SHOTLIST.md`
+动作 roguelite 其余运行数据仍保持数据驱动：
 
-## License & Credits
-- License: `LICENSE`
-- Third-party/asset credits: `CREDITS.md`
+- 角色：`data/characters.json`
+- 武器：`data/weapons.json`
+- 升级：`data/upgrades.json`
+- 敌人 / 精英 / Boss：`data/enemies.json`、`data/elites.json`、`data/bosses.json`
+- 地图 / 危险 / 事件：`data/maps.json`、`data/hazards.json`、`data/events.json`
+- 合同：`data/contracts.json`
+- 迷雾 / 声呐 / 噪声：`data/fog.json`、`data/sonar.json`、`data/noise.json`
+
+### 仓库结构
+
+- `scenes/`：游戏场景与 UI 场景
+- `scripts/`：玩法逻辑、UI 控制器、CI / 测试脚本
+- `ui/`：通用 UI 组件与主题资源
+- `tests/`：headless runner 与回归测试
+- `docs/`：系统设计、存档模型与风格文档
+- `data/`：JSON 数据配置
+- `assets/`：图片、字体、图标、音频与其他素材
+- `.github/workflows/`：CI 配置
+
+### 推荐阅读文档
+
+- 日夜循环：[docs/DAY_LOOP.md](/Users/shijiean/Desktop/project/survive/docs/DAY_LOOP.md)
+- 农场系统：[docs/FARM_SYSTEM.md](/Users/shijiean/Desktop/project/survive/docs/FARM_SYSTEM.md)
+- 餐馆系统：[docs/RESTAURANT_SYSTEM.md](/Users/shijiean/Desktop/project/survive/docs/RESTAURANT_SYSTEM.md)
+- 存档模型：[docs/SAVE_MODEL.md](/Users/shijiean/Desktop/project/survive/docs/SAVE_MODEL.md)
+- UI 风格：[docs/UI_STYLE_GUIDE.md](/Users/shijiean/Desktop/project/survive/docs/UI_STYLE_GUIDE.md)
+- 设计说明：[docs/DESIGN_NOTES.md](/Users/shijiean/Desktop/project/survive/docs/DESIGN_NOTES.md)
+- 录屏与展示参考：`media/TRAILER_CAPTURE.md`、`media/SHOTLIST.md`
+
+### 许可证与鸣谢
+
+- 许可证：`LICENSE`
+- 第三方素材与鸣谢：`CREDITS.md`
