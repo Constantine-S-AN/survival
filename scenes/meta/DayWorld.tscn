@@ -48,7 +48,7 @@ shape = SubResource("2")
 [node name="Camera2D" type="Camera2D" parent="DayPlayer"]
 position_smoothing_enabled = true
 position_smoothing_speed = 7.0
-zoom = Vector2(0.92, 0.92)
+zoom = Vector2(1.08, 1.08)
 
 [node name="HUDLayer" type="CanvasLayer" parent="."]
 layer = 4
