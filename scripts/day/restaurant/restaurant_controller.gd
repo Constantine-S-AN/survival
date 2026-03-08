@@ -165,6 +165,13 @@ func debug_activate_zone(zone_id: String) -> bool:
 	return _activate_zone(zone_id.strip_edges().to_lower())
 
 
+func debug_attempt_world_interaction(zone_id: String) -> bool:
+	var normalized_id := zone_id.strip_edges().to_lower()
+	if not visible or normalized_id.is_empty() or not _active_popup_id.is_empty():
+		return false
+	return _activate_zone(normalized_id)
+
+
 func debug_toggle_recipe_card(recipe_id: String) -> bool:
 	if _active_popup_id != "menu":
 		return false
@@ -179,6 +186,13 @@ func debug_request_service() -> bool:
 	if _active_popup_id != "service" or service_button.disabled:
 		return false
 	service_requested.emit()
+	return true
+
+
+func debug_close_popup() -> bool:
+	if not visible or _active_popup_id.is_empty():
+		return false
+	_close_popups()
 	return true
 
 

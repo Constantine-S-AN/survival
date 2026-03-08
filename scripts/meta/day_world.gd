@@ -192,6 +192,17 @@ func debug_activate_zone(zone_id: String) -> bool:
 	return _activate_zone(zone_id.strip_edges().to_lower())
 
 
+func debug_attempt_world_interaction(zone_id: String) -> bool:
+	var normalized_id := zone_id.strip_edges().to_lower()
+	if not visible or normalized_id.is_empty():
+		return false
+	if _overlay_blocked or _transition_active or _night_popup_open:
+		return false
+	if daily_orders_board != null and daily_orders_board.visible:
+		return false
+	return _activate_zone(normalized_id)
+
+
 func debug_select_farm_tool(action_id: String, seed_id: String = "") -> bool:
 	var target_key := _build_tool_key_from_parts(action_id, seed_id)
 	if action_id.strip_edges().to_lower() == "hand":
@@ -215,6 +226,20 @@ func debug_confirm_night_departure() -> bool:
 	if not _night_popup_open or _transition_active or _overlay_blocked:
 		return false
 	_begin_night_departure_transition()
+	return true
+
+
+func debug_close_orders_board() -> bool:
+	if not visible or daily_orders_board == null or not daily_orders_board.visible:
+		return false
+	daily_orders_board.close_board()
+	return true
+
+
+func debug_cancel_night_departure() -> bool:
+	if not visible or not _night_popup_open or _transition_active:
+		return false
+	_close_night_popup()
 	return true
 
 

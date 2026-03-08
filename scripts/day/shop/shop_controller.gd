@@ -123,6 +123,13 @@ func debug_activate_zone(zone_id: String) -> bool:
 	return _activate_zone(zone_id.strip_edges().to_lower())
 
 
+func debug_attempt_world_interaction(zone_id: String) -> bool:
+	var normalized_id := zone_id.strip_edges().to_lower()
+	if not visible or normalized_id.is_empty() or not _active_popup_id.is_empty():
+		return false
+	return _activate_zone(normalized_id)
+
+
 func debug_purchase_seed(seed_id: String) -> bool:
 	return _emit_offer_action("merchant", _view_model.get("seed_offers", []), seed_id, seed_purchase_requested)
 
@@ -133,6 +140,13 @@ func debug_sell_material(material_id: String) -> bool:
 
 func debug_buy_upgrade(upgrade_id: String) -> bool:
 	return _emit_offer_action("merchant", _view_model.get("upgrade_offers", []), upgrade_id, upgrade_purchase_requested)
+
+
+func debug_close_popup() -> bool:
+	if not visible or _active_popup_id.is_empty():
+		return false
+	_close_popups()
+	return true
 
 
 func debug_get_snapshot() -> Dictionary:

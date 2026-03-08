@@ -87,6 +87,42 @@ func find_entry_by_id(items_variant: Variant, item_id: String) -> Dictionary:
 	return {}
 
 
+func claim_order(order_id: int) -> Dictionary:
+	if DailyOrders == null or not DailyOrders.has_method("claim_order"):
+		return {"ok": false, "error": "daily_orders_unavailable"}
+	var result_variant: Variant = DailyOrders.call("claim_order", order_id)
+	return result_variant if result_variant is Dictionary else {"ok": false, "error": "invalid_claim_result"}
+
+
+func claim_order_by_title(title: String) -> Dictionary:
+	var card := find_order_card_by_title(title)
+	var order_id := int(card.get("id", 0))
+	if order_id <= 0:
+		return {"ok": false, "error": "order_not_found"}
+	return claim_order(order_id)
+
+
+func reach_evening_via_farm_loop(plot_index: int = 0, seed_id: String = "wheat_seed") -> bool:
+	if meta_root == null:
+		return false
+	if not bool(meta_root.call("debug_day_world_select_farm_tool", "till")):
+		return false
+	if not bool(meta_root.call("debug_day_world_interact_farm_plot", plot_index)):
+		return false
+	await await_frames(1)
+	if not bool(meta_root.call("debug_day_world_select_farm_tool", "plant", seed_id)):
+		return false
+	if not bool(meta_root.call("debug_day_world_interact_farm_plot", plot_index)):
+		return false
+	await await_frames(1)
+	if not bool(meta_root.call("debug_day_world_select_farm_tool", "water")):
+		return false
+	if not bool(meta_root.call("debug_day_world_interact_farm_plot", plot_index)):
+		return false
+	await await_frames(1)
+	return String(snapshot().get("phase", "")) == "evening"
+
+
 func cleanup() -> void:
 	if meta_root != null:
 		meta_root.free()

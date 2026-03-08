@@ -731,6 +731,8 @@ func _on_night_session_completed(summary: Dictionary) -> void:
 
 
 func _on_return_summary_continue_requested() -> void:
+	if _current_state != STATE_RETURN_SUMMARY or _pending_return_summary.is_empty():
+		return
 	var previous_day: int = _day_state.current_day
 	_day_state.begin_next_day()
 	_advance_farm_for_new_day(previous_day)
@@ -2696,9 +2698,27 @@ func debug_day_world_interact(zone_id: String) -> bool:
 	return false
 
 
+func debug_day_world_attempt_interact(zone_id: String) -> bool:
+	if day_world != null and day_world.has_method("debug_attempt_world_interaction"):
+		return bool(day_world.call("debug_attempt_world_interaction", zone_id))
+	return false
+
+
 func debug_day_world_confirm_night_departure() -> bool:
 	if day_world != null and day_world.has_method("debug_confirm_night_departure"):
 		return bool(day_world.call("debug_confirm_night_departure"))
+	return false
+
+
+func debug_day_world_close_orders_board() -> bool:
+	if day_world != null and day_world.has_method("debug_close_orders_board"):
+		return bool(day_world.call("debug_close_orders_board"))
+	return false
+
+
+func debug_day_world_cancel_night_departure() -> bool:
+	if day_world != null and day_world.has_method("debug_cancel_night_departure"):
+		return bool(day_world.call("debug_cancel_night_departure"))
 	return false
 
 
@@ -2776,6 +2796,12 @@ func debug_restaurant_interact(zone_id: String) -> bool:
 	return false
 
 
+func debug_restaurant_attempt_interact(zone_id: String) -> bool:
+	if restaurant_view != null and restaurant_view.has_method("debug_attempt_world_interaction"):
+		return bool(restaurant_view.call("debug_attempt_world_interaction", zone_id))
+	return false
+
+
 func debug_restaurant_toggle_recipe(recipe_id: String) -> bool:
 	if restaurant_view != null and restaurant_view.has_method("debug_toggle_recipe_card"):
 		return bool(restaurant_view.call("debug_toggle_recipe_card", recipe_id))
@@ -2788,9 +2814,21 @@ func debug_restaurant_request_service() -> bool:
 	return false
 
 
+func debug_restaurant_close_popup() -> bool:
+	if restaurant_view != null and restaurant_view.has_method("debug_close_popup"):
+		return bool(restaurant_view.call("debug_close_popup"))
+	return false
+
+
 func debug_shop_interact(zone_id: String) -> bool:
 	if shop_view != null and shop_view.has_method("debug_activate_zone"):
 		return bool(shop_view.call("debug_activate_zone", zone_id))
+	return false
+
+
+func debug_shop_attempt_interact(zone_id: String) -> bool:
+	if shop_view != null and shop_view.has_method("debug_attempt_world_interaction"):
+		return bool(shop_view.call("debug_attempt_world_interaction", zone_id))
 	return false
 
 
@@ -2809,6 +2847,12 @@ func debug_shop_popup_sell_material(material_id: String) -> bool:
 func debug_shop_popup_buy_upgrade(upgrade_id: String) -> bool:
 	if shop_view != null and shop_view.has_method("debug_buy_upgrade"):
 		return bool(shop_view.call("debug_buy_upgrade", upgrade_id))
+	return false
+
+
+func debug_shop_close_popup() -> bool:
+	if shop_view != null and shop_view.has_method("debug_close_popup"):
+		return bool(shop_view.call("debug_close_popup"))
 	return false
 
 
@@ -2837,8 +2881,11 @@ func debug_complete_active_night(summary_override: Dictionary = {}) -> void:
 		night_combat_root.call("debug_complete_session", summary_override)
 
 
-func debug_continue_summary() -> void:
+func debug_continue_summary() -> bool:
+	if _current_state != STATE_RETURN_SUMMARY or _pending_return_summary.is_empty():
+		return false
 	_on_return_summary_continue_requested()
+	return true
 
 
 func debug_save_meta_progress() -> void:
