@@ -6,8 +6,8 @@ var unlocked_seeds: Array[String] = []
 var unlocked_recipes: Array[String] = []
 
 
-static func from_dict(source: Dictionary) -> InventoryState:
-	var inventory := InventoryState.new()
+static func from_dict(source: Dictionary):
+	var inventory = load("res://scripts/meta/inventory.gd").new()
 	var materials_variant: Variant = source.get("materials", {})
 	if materials_variant is Dictionary:
 		for material_key_variant in (materials_variant as Dictionary).keys():

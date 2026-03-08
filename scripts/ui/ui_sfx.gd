@@ -1,11 +1,13 @@
 extends RefCounted
 class_name UISfx
 
-const STREAM_HOVER := preload("res://assets/audio/shot.wav")
-const STREAM_CLICK := preload("res://assets/audio/hit.wav")
-const STREAM_CONFIRM := preload("res://assets/audio/shot.wav")
-const STREAM_TIER_UP := preload("res://assets/audio/hit.wav")
-const STREAM_REWARD := preload("res://assets/audio/shot.wav")
+const STREAM_PATHS := {
+	"hover": "res://assets/audio/shot.wav",
+	"click": "res://assets/audio/hit.wav",
+	"confirm": "res://assets/audio/shot.wav",
+	"tier_up": "res://assets/audio/hit.wav",
+	"reward": "res://assets/audio/shot.wav"
+}
 
 const EVENT_GAP_MSEC: Dictionary = {
 	"hover": 50,
@@ -18,6 +20,7 @@ const EVENT_GAP_MSEC: Dictionary = {
 static var _enabled: bool = true
 static var _last_play_msec: Dictionary = {}
 static var _players: Dictionary = {}
+static var _stream_cache: Dictionary = {}
 
 
 static func set_enabled(enabled: bool) -> void:
@@ -30,28 +33,29 @@ static func is_enabled() -> bool:
 
 
 static func play_hover() -> void:
-	_play("hover", STREAM_HOVER, -30.0, 1.42)
+	_play("hover", -30.0, 1.42)
 
 
 static func play_click() -> void:
-	_play("click", STREAM_CLICK, -27.0, 1.12)
+	_play("click", -27.0, 1.12)
 
 
 static func play_confirm() -> void:
-	_play("confirm", STREAM_CONFIRM, -24.0, 1.0)
+	_play("confirm", -24.0, 1.0)
 
 
 static func play_tier_up() -> void:
-	_play("tier_up", STREAM_TIER_UP, -20.0, 0.86)
+	_play("tier_up", -20.0, 0.86)
 
 
 static func play_reward() -> void:
-	_play("reward", STREAM_REWARD, -19.0, 0.94)
+	_play("reward", -19.0, 0.94)
 
 
-static func _play(event_key: String, stream: AudioStream, volume_db: float, pitch_scale: float) -> void:
+static func _play(event_key: String, volume_db: float, pitch_scale: float) -> void:
 	if not _enabled:
 		return
+	var stream := _get_stream(event_key)
 	if stream == null:
 		return
 	if DisplayServer.get_name() == "headless":
@@ -69,6 +73,23 @@ static func _play(event_key: String, stream: AudioStream, volume_db: float, pitc
 	player.volume_db = volume_db
 	player.pitch_scale = pitch_scale
 	player.play()
+
+
+static func _get_stream(event_key: String) -> AudioStream:
+	if _stream_cache.has(event_key):
+		var cached_variant: Variant = _stream_cache.get(event_key, null)
+		return cached_variant as AudioStream
+	var path := String(STREAM_PATHS.get(event_key, "")).strip_edges()
+	if path.is_empty():
+		_stream_cache[event_key] = null
+		return null
+	if not ResourceLoader.exists(path):
+		_stream_cache[event_key] = null
+		return null
+	var loaded := load(path)
+	var stream := loaded as AudioStream
+	_stream_cache[event_key] = stream
+	return stream
 
 
 static func _ensure_player(event_key: String, stream: AudioStream) -> AudioStreamPlayer:

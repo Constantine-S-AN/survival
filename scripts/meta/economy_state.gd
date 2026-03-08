@@ -6,8 +6,8 @@ var restaurant_reputation: int = 1
 var sold_dishes_stats: Dictionary = {}
 
 
-static func from_dict(source: Dictionary) -> EconomyState:
-	var economy := EconomyState.new()
+static func from_dict(source: Dictionary):
+	var economy = load("res://scripts/meta/economy_state.gd").new()
 	economy.gold = maxi(0, int(source.get("gold", 0)))
 	economy.restaurant_reputation = clampi(int(source.get("restaurant_reputation", 1)), 0, 20)
 	var sold_dishes_variant: Variant = source.get("sold_dishes_stats", {})

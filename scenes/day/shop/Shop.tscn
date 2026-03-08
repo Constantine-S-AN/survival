@@ -36,14 +36,24 @@ grow_vertical = 2
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 22
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 22
 theme_override_constants/margin_bottom = 20
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox"]
@@ -80,23 +90,37 @@ text = ""
 
 [node name="Panels" type="HBoxContainer" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 12
+theme_override_constants/separation = 14
 
 [node name="SeedPanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.05
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/SeedPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/SeedPanel/Margin"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/SeedPanel/Margin/VBox"]
@@ -113,6 +137,7 @@ text = "Permanent farm access."
 [node name="Scroll" type="ScrollContainer" parent="ContentPanel/Margin/VBox/Panels/SeedPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 260)
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="List" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/SeedPanel/Margin/VBox/Scroll"]
@@ -121,19 +146,32 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
 [node name="SellPanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.05
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/SellPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/SellPanel/Margin"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/SellPanel/Margin/VBox"]
@@ -150,6 +188,7 @@ text = "Convert inventory into gold."
 [node name="Scroll" type="ScrollContainer" parent="ContentPanel/Margin/VBox/Panels/SellPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 260)
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="List" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/SellPanel/Margin/VBox/Scroll"]
@@ -158,19 +197,32 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
 [node name="UpgradePanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
+custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.15
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/UpgradePanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/UpgradePanel/Margin"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/UpgradePanel/Margin/VBox"]
@@ -187,6 +239,7 @@ text = "Permanent service improvements."
 [node name="Scroll" type="ScrollContainer" parent="ContentPanel/Margin/VBox/Panels/UpgradePanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 260)
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="List" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/UpgradePanel/Margin/VBox/Scroll"]
@@ -195,8 +248,9 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
 [node name="BackButton" type="Button" parent="ContentPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Back"
 script = ExtResource("3")
 use_primary_style = false

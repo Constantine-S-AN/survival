@@ -108,9 +108,9 @@ const CANDLE_TEXTURE_PATHS: Array[String] = [
 	"res://assets/textures/pixel/maps/props/dungeon/candle_4.png"
 ]
 const CANDLE_WORLD_SIZE_PX := 22.0
-const CANDLE_LIGHT_SCALE := 0.38
+const CANDLE_LIGHT_SCALE := 0.20
 const CANDLE_LIGHT_COLOR := Color(1.0, 0.72, 0.42, 1.0)
-const CANDLE_BASE_LIGHT_ENERGY := 1.24
+const CANDLE_BASE_LIGHT_ENERGY := 0.42
 const CANDLE_LIGHT_ENERGY_MIN_MULT := 0.94
 const CANDLE_LIGHT_ENERGY_MAX_MULT := 1.28
 const CANDLE_FRAME_SEC := 0.12
@@ -992,12 +992,12 @@ func is_fog_enabled() -> bool:
 
 func _build_fog_light_texture() -> Texture2D:
 	var gradient := Gradient.new()
-	gradient.offsets = PackedFloat32Array([0.0, 0.26, 0.56, 0.82, 1.0])
+	# Keep the visibility reveal, but remove the strong outer halo bands.
+	gradient.offsets = PackedFloat32Array([0.0, 0.34, 0.72, 1.0])
 	gradient.colors = PackedColorArray([
-		Color(1.0, 1.0, 1.0, 0.98),
-		Color(1.0, 1.0, 1.0, 0.74),
-		Color(1.0, 1.0, 1.0, 0.36),
-		Color(1.0, 1.0, 1.0, 0.12),
+		Color(1.0, 1.0, 1.0, 0.84),
+		Color(1.0, 1.0, 1.0, 0.42),
+		Color(1.0, 1.0, 1.0, 0.07),
 		Color(1.0, 1.0, 1.0, 0.0)
 	])
 	var texture := GradientTexture2D.new()
@@ -1101,7 +1101,7 @@ func spawn_boss_telegraph(telegraph_type: String, payload: Dictionary = {}) -> v
 		return
 	if boss_fx_layer == null:
 		return
-	var telegraph := _checkout_boss_telegraph()
+	var telegraph: Node2D = _checkout_boss_telegraph()
 	if telegraph == null:
 		return
 	if telegraph.get_parent() == null:
@@ -1117,8 +1117,8 @@ func _clear_boss_fx() -> void:
 	for child in boss_fx_layer.get_children():
 		if child == null or not is_instance_valid(child):
 			continue
-		if child is BossTelegraphEffect:
-			_on_boss_telegraph_recycle_requested(child as BossTelegraphEffect)
+		if child.has_method("on_pool_recycle"):
+			_on_boss_telegraph_recycle_requested(child)
 		else:
 			child.queue_free()
 
@@ -1713,29 +1713,31 @@ func _spawn_hit_particles(world_position: Vector2, intensity: float, killed: boo
 	p.emitting = true
 
 
-func _checkout_boss_telegraph() -> BossTelegraphEffect:
-	var telegraph: BossTelegraphEffect = null
+func _checkout_boss_telegraph():
+	var telegraph: Node2D = null
 	if not _boss_fx_pool.is_empty():
 		var pooled: Variant = _boss_fx_pool.pop_back()
-		if pooled is BossTelegraphEffect and is_instance_valid(pooled):
-			telegraph = pooled as BossTelegraphEffect
+		if pooled is Node2D and is_instance_valid(pooled):
+			telegraph = pooled as Node2D
 	if telegraph == null:
 		var created: Variant = BossTelegraphEffectClass.new()
-		if not (created is BossTelegraphEffect):
+		if not (created is Node2D):
 			return null
-		telegraph = created as BossTelegraphEffect
-		telegraph.set_recycle_handler(Callable(self, "_on_boss_telegraph_recycle_requested"))
+		telegraph = created as Node2D
+		if telegraph.has_method("set_recycle_handler"):
+			telegraph.call("set_recycle_handler", Callable(self, "_on_boss_telegraph_recycle_requested"))
 	return telegraph
 
 
-func _on_boss_telegraph_recycle_requested(telegraph: BossTelegraphEffect) -> void:
+func _on_boss_telegraph_recycle_requested(telegraph: Node) -> void:
 	if telegraph == null or not is_instance_valid(telegraph):
 		return
 	if telegraph.get_parent() != null and _boss_fx_pool_root != null and telegraph.get_parent() != _boss_fx_pool_root:
 		telegraph.reparent(_boss_fx_pool_root)
 	elif telegraph.get_parent() == null and _boss_fx_pool_root != null:
 		_boss_fx_pool_root.add_child(telegraph)
-	telegraph.on_pool_recycle()
+	if telegraph.has_method("on_pool_recycle"):
+		telegraph.call("on_pool_recycle")
 	if not _boss_fx_pool.has(telegraph):
 		_boss_fx_pool.append(telegraph)
 

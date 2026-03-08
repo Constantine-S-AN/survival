@@ -55,19 +55,14 @@ static func build_recipe_cards(recipe_defs: Array, materials: Dictionary, unlock
 		var tag_text := _build_tag_text(recipe.get("category_tags", []))
 		var synergy_text := _build_synergy_text(recipe)
 		var night_material_text := _build_night_material_text(recipe)
-		var label := "%s\n$%d · Prep %d · %s\n%s" % [
+		var label := "%s\n$%d · Prep %d · %s" % [
 			String(recipe.get("name", recipe_id.capitalize())),
 			int(recipe.get("base_price", 0)),
 			int(recipe.get("prep_complexity", 1)),
-			_build_servings_text(craftable_servings),
-			ingredients_text
+			_build_servings_text(craftable_servings)
 		]
-		if not night_material_text.is_empty():
-			label += "\n%s" % _t("meta.restaurant.recipe_card_night", {"value": night_material_text})
-		if not tag_text.is_empty():
-			label += "\n%s" % tag_text
-		if not synergy_text.is_empty():
-			label += "\n%s" % synergy_text
+		if not ingredients_text.is_empty():
+			label += "\n%s" % ingredients_text
 		cards.append({
 			"id": recipe_id,
 			"label": label,
@@ -87,10 +82,9 @@ static func build_selected_menu_entries(selected_menu_ids: Array, recipe_lookup:
 			continue
 		var recipe: Dictionary = recipe_variant
 		var craftable_servings := max_servings(recipe, materials)
-		var entry_label := "%s\n%s · %s" % [
+		var entry_label := "%s\n%s" % [
 			String(recipe.get("name", recipe_id.capitalize())),
-			_build_servings_text(craftable_servings),
-			_build_material_bundle_text(recipe.get("ingredients", {}))
+			"%s · %s" % [_build_servings_text(craftable_servings), _build_material_bundle_text(recipe.get("ingredients", {}))]
 		]
 		entries.append({
 			"id": recipe_id,

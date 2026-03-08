@@ -201,7 +201,7 @@ Day Hub 当前有前 3 天的轻量 onboarding：
 
 1. 切到 `main`
 2. 从 `origin/main` 拉取最新版本
-3. 使用 `godot --path .` 启动项目
+3. 显式启动新的日夜混合主入口 `res://scenes/meta/MetaLoopRoot.tscn`
 
 可选参数：
 
@@ -210,12 +210,13 @@ Day Hub 当前有前 3 天的轻量 onboarding：
 ./play_latest.sh --allow-dirty
 ./play_latest.sh --branch main
 ./play_latest.sh --godot /Applications/Godot.app/Contents/MacOS/Godot
+./play_latest.sh --scene res://scenes/meta/MetaLoopRoot.tscn
 ```
 
 #### 直接运行
 
 ```bash
-godot --path .
+godot --path . res://scenes/meta/MetaLoopRoot.tscn
 ```
 
 ### 默认操作

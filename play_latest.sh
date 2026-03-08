@@ -4,6 +4,7 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_BRANCH="${PLAY_LATEST_BRANCH:-main}"
 GODOT_BIN="${GODOT_BIN:-godot}"
+START_SCENE="${PLAY_LATEST_SCENE:-res://scenes/meta/MetaLoopRoot.tscn}"
 UPDATE_ENABLED=1
 ALLOW_DIRTY=0
 
@@ -16,6 +17,7 @@ Options:
   --allow-dirty       Allow launch/update attempt even if working tree is dirty.
   --branch <name>     Branch to update from (default: main, or PLAY_LATEST_BRANCH).
   --godot <path>      Godot executable (default: godot, or GODOT_BIN).
+  --scene <path>      Scene to launch (default: res://scenes/meta/MetaLoopRoot.tscn).
   -h, --help          Show this help.
 USAGE
 }
@@ -42,6 +44,14 @@ while [[ $# -gt 0 ]]; do
       GODOT_BIN="${2:-}"
       if [[ -z "$GODOT_BIN" ]]; then
         echo "[play_latest] missing value for --godot" >&2
+        exit 2
+      fi
+      shift 2
+      ;;
+    --scene)
+      START_SCENE="${2:-}"
+      if [[ -z "$START_SCENE" ]]; then
+        echo "[play_latest] missing value for --scene" >&2
         exit 2
       fi
       shift 2
@@ -76,6 +86,16 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 2
 fi
 
+scene_file="$START_SCENE"
+if [[ "$START_SCENE" == res://* ]]; then
+  scene_file="$ROOT_DIR/${START_SCENE#res://}"
+fi
+
+if [[ ! -f "$scene_file" ]]; then
+  echo "[play_latest] scene not found: $START_SCENE" >&2
+  exit 2
+fi
+
 is_dirty=0
 if ! git diff --quiet || ! git diff --cached --quiet; then
   is_dirty=1
@@ -101,5 +121,5 @@ if [[ "$UPDATE_ENABLED" -eq 1 ]]; then
   git pull --ff-only origin "$TARGET_BRANCH"
 fi
 
-echo "[play_latest] launching game"
-exec "$GODOT_BIN" --path "$ROOT_DIR"
+echo "[play_latest] launching scene: $START_SCENE"
+exec "$GODOT_BIN" --path "$ROOT_DIR" "$START_SCENE"

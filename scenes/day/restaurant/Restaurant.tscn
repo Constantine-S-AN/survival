@@ -27,23 +27,33 @@ color = Color(0.117647, 0.121569, 0.0980392, 1)
 [node name="ContentPanel" type="Panel" parent="."]
 layout_mode = 1
 anchors_preset = 15
-anchor_left = 0.06
-anchor_top = 0.06
-anchor_right = 0.94
-anchor_bottom = 0.94
+anchor_left = 0.04
+anchor_top = 0.05
+anchor_right = 0.96
+anchor_bottom = 0.95
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 22
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 22
 theme_override_constants/margin_bottom = 20
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox"]
@@ -68,25 +78,39 @@ theme_type_variation = &"BodyMutedLabel"
 text = "Night Specials: -"
 
 [node name="Panels" type="HBoxContainer" parent="ContentPanel/Margin/VBox"]
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/separation = 12
-
-[node name="IngredientsPanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
-custom_minimum_size = Vector2(180, 0)
+custom_minimum_size = Vector2(0, 320)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 14
+
+[node name="IngredientsPanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.05
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/IngredientsPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/IngredientsPanel/Margin"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/IngredientsPanel/Margin/VBox"]
@@ -96,23 +120,37 @@ theme_type_variation = &"SubheadingLabel"
 
 [node name="Value" type="Label" parent="ContentPanel/Margin/VBox/Panels/IngredientsPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_vertical = 3
 autowrap_mode = 3
 text = "-"
 
 [node name="RecipesPanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
+custom_minimum_size = Vector2(360, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.35
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/RecipesPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/RecipesPanel/Margin"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/RecipesPanel/Margin/VBox"]
@@ -121,8 +159,9 @@ text = "Unlocked Recipes"
 theme_type_variation = &"SubheadingLabel"
 
 [node name="Scroll" type="ScrollContainer" parent="ContentPanel/Margin/VBox/Panels/RecipesPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 240)
+custom_minimum_size = Vector2(0, 280)
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="RecipesList" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/RecipesPanel/Margin/VBox/Scroll"]
@@ -131,19 +170,32 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
 [node name="MenuPanel" type="Panel" parent="ContentPanel/Margin/VBox/Panels"]
+custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.1
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/Panels/MenuPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/MenuPanel/Margin"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox/Panels/MenuPanel/Margin/VBox"]
@@ -158,8 +210,9 @@ text = "Choose up to 3 recipes."
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="Scroll" type="ScrollContainer" parent="ContentPanel/Margin/VBox/Panels/MenuPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 240)
+custom_minimum_size = Vector2(0, 280)
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="MenuList" type="VBoxContainer" parent="ContentPanel/Margin/VBox/Panels/MenuPanel/Margin/VBox/Scroll"]
@@ -175,10 +228,11 @@ text = ""
 
 [node name="Actions" type="HBoxContainer" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 12
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
 
 [node name="ServiceButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Open Service"
@@ -186,7 +240,7 @@ script = ExtResource("3")
 enable_motion = true
 
 [node name="ClearButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Clear Menu"
@@ -195,7 +249,7 @@ use_primary_style = false
 enable_motion = true
 
 [node name="BackButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 size_flags_horizontal = 2
 text = "Back"
@@ -205,17 +259,28 @@ enable_motion = true
 
 [node name="ResultPanel" type="Panel" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/ResultPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/ResultPanel/Margin"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox/ResultPanel/Margin/VBox"]

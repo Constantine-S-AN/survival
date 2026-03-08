@@ -25,18 +25,19 @@ const EconomyStateClass := preload("res://scripts/meta/economy_state.gd")
 const RewardPipelineClass := preload("res://scripts/meta/reward_pipeline.gd")
 const MenuPlannerClass := preload("res://scripts/day/restaurant/menu_planner.gd")
 const ServiceSimulatorClass := preload("res://scripts/day/restaurant/service_simulator.gd")
+const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause/PauseMenu.tscn")
 
 const MATERIAL_DISPLAY_NAMES: Dictionary = {
 	"scrap": "Scrap"
 }
 
-@onready var main_menu: MainMenuView = $MainMenu
-@onready var day_hub: DayHubView = $DayHub
+@onready var main_menu: Control = $MainMenu
+@onready var day_hub: Control = $DayHub
 @onready var farm_view: Control = $Farm
 @onready var restaurant_view: Control = $Restaurant
-@onready var shop_view: ShopController = $Shop
-@onready var return_summary_view: ReturnSummaryView = $ReturnSummary
-@onready var night_combat_root: NightCombatRoot = $NightCombatRoot
+@onready var shop_view: Control = $Shop
+@onready var return_summary_view: Control = $ReturnSummary
+@onready var night_combat_root: Node = $NightCombatRoot
 
 var _day_state = DayStateClass.new()
 var _inventory = InventoryStateClass.new()
@@ -50,10 +51,13 @@ var _day_hub_status_text: String = ""
 var _farm_status_text: String = ""
 var _restaurant_status_text: String = ""
 var _shop_status_text: String = ""
+var _pause_menu: Control = null
+var _meta_pause_visible: bool = false
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_ensure_pause_menu()
 	_ensure_profile_loaded()
 	_load_meta_progress()
 	_connect_signals()
@@ -64,6 +68,8 @@ func _ready() -> void:
 func _connect_signals() -> void:
 	if main_menu != null and main_menu.has_signal("play_pressed"):
 		main_menu.connect("play_pressed", Callable(self, "_on_play_requested"))
+	if main_menu != null and main_menu.has_signal("quit_pressed"):
+		main_menu.connect("quit_pressed", Callable(self, "_on_quit_requested"))
 	if day_hub != null:
 		day_hub.farm_requested.connect(_on_day_hub_farm_requested)
 		day_hub.restaurant_requested.connect(_on_day_hub_restaurant_requested)
@@ -89,6 +95,26 @@ func _connect_signals() -> void:
 		return_summary_view.menu_requested.connect(_on_menu_requested)
 	if night_combat_root != null:
 		night_combat_root.session_completed.connect(_on_night_session_completed)
+
+
+func _ensure_pause_menu() -> void:
+	if _pause_menu != null:
+		return
+	var pause_menu_variant: Variant = PAUSE_MENU_SCENE.instantiate()
+	if not (pause_menu_variant is Control):
+		return
+	_pause_menu = pause_menu_variant as Control
+	_pause_menu.name = "MetaPauseMenu"
+	_pause_menu.visible = false
+	add_child(_pause_menu)
+	if _pause_menu.has_signal("resume_pressed"):
+		_pause_menu.connect("resume_pressed", Callable(self, "_on_pause_resume_requested"))
+	if _pause_menu.has_signal("settings_pressed"):
+		_pause_menu.connect("settings_pressed", Callable(self, "_on_pause_settings_requested"))
+	if _pause_menu.has_signal("main_menu_pressed"):
+		_pause_menu.connect("main_menu_pressed", Callable(self, "_on_pause_main_menu_requested"))
+	if _pause_menu.has_signal("quit_pressed"):
+		_pause_menu.connect("quit_pressed", Callable(self, "_on_pause_quit_requested"))
 
 
 func _ensure_profile_loaded() -> void:
@@ -265,7 +291,11 @@ func _refresh_views() -> void:
 
 
 func _show_state(next_state: String) -> void:
+	if _meta_pause_visible:
+		_set_meta_pause_visible(false)
 	_current_state = next_state
+	if next_state != STATE_NIGHT and get_tree().paused:
+		get_tree().paused = false
 	if main_menu != null:
 		main_menu.visible = next_state == STATE_MENU
 	if day_hub != null:
@@ -280,6 +310,39 @@ func _show_state(next_state: String) -> void:
 		return_summary_view.visible = next_state == STATE_RETURN_SUMMARY
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if not (event is InputEventKey):
+		return
+	if not event.pressed or event.echo:
+		return
+	if event.keycode != KEY_ESCAPE:
+		return
+	if _current_state == STATE_MENU or _current_state == STATE_NIGHT:
+		return
+	if _meta_pause_visible:
+		return
+	_open_meta_pause()
+	get_viewport().set_input_as_handled()
+
+
+func _can_open_meta_pause() -> bool:
+	return _current_state != STATE_MENU and _current_state != STATE_NIGHT
+
+
+func _open_meta_pause() -> void:
+	if not _can_open_meta_pause():
+		return
+	_set_meta_pause_visible(true)
+
+
+func _set_meta_pause_visible(enabled: bool) -> void:
+	_meta_pause_visible = enabled and _pause_menu != null and _can_open_meta_pause()
+	if _pause_menu != null:
+		_pause_menu.visible = _meta_pause_visible
+	if _current_state != STATE_NIGHT:
+		get_tree().paused = _meta_pause_visible
+
+
 func _on_play_requested() -> void:
 	_refresh_views()
 	if not _pending_return_summary.is_empty():
@@ -290,6 +353,33 @@ func _on_play_requested() -> void:
 
 func _on_menu_requested() -> void:
 	_show_state(STATE_MENU)
+
+
+func _on_quit_requested() -> void:
+	get_tree().quit()
+
+
+func _on_pause_resume_requested() -> void:
+	if not _meta_pause_visible:
+		return
+	_set_meta_pause_visible(false)
+
+
+func _on_pause_main_menu_requested() -> void:
+	if not _meta_pause_visible:
+		return
+	_set_meta_pause_visible(false)
+	_save_meta_progress()
+	_show_state(STATE_MENU)
+
+
+func _on_pause_quit_requested() -> void:
+	_save_meta_progress()
+	get_tree().quit()
+
+
+func _on_pause_settings_requested() -> void:
+	push_warning(_t("sys.settings_coming"))
 
 
 func _on_day_hub_farm_requested() -> void:
@@ -355,7 +445,7 @@ func _on_shop_upgrade_purchase_requested(upgrade_id: String) -> void:
 func _wait_until_evening() -> bool:
 	if _day_state.current_phase == DayStateClass.PHASE_NIGHT:
 		return false
-	var spent_actions := _day_state.rest_until_evening()
+	var spent_actions: int = _day_state.rest_until_evening()
 	if spent_actions <= 0:
 		_day_hub_status_text = _build_day_hub_status_text()
 		_refresh_views()
@@ -803,7 +893,7 @@ func _apply_night_rewards(summary: Dictionary) -> Dictionary:
 func _build_day_hub_model() -> Dictionary:
 	var bridge_info := _build_day_hub_bridge_info()
 	var onboarding_info := _build_day_hub_onboarding_info()
-	var night_ready := _day_state.can_launch_night()
+	var night_ready: bool = _day_state.can_launch_night()
 	return {
 		"current_day": _day_state.current_day,
 		"gold": _economy.gold,
@@ -1039,6 +1129,7 @@ func _build_restaurant_model() -> Dictionary:
 			"count": selected_menu_ids.size(),
 			"max": RESTAURANT_MAX_MENU_SIZE
 		}),
+		"menu_hint_tooltip": _t("meta.restaurant.menu_hint_tooltip"),
 		"service_button_text": _build_restaurant_service_button_text(),
 		"service_button_tooltip": _t("meta.restaurant.service_tooltip", {"value": RESTAURANT_SERVICE_ACTION_COST}),
 		"service_button_enabled": _can_open_restaurant_service(),
@@ -1075,7 +1166,7 @@ func _build_shop_seed_offers() -> Array[Dictionary]:
 		var crop := DataRegistry.get_crop_by_seed(seed_id)
 		if seed_id.is_empty() or seed.is_empty() or crop.is_empty():
 			continue
-		var owned := _inventory.has_seed(seed_id)
+		var owned: bool = _inventory.has_seed(seed_id)
 		var cost := maxi(0, int(offer.get("gold_cost", 0)))
 		var label := _t("meta.shop.seed_owned", {
 			"name": _display_seed_name(seed_id)
@@ -1113,7 +1204,7 @@ func _build_shop_sell_offers() -> Array[Dictionary]:
 		var material_id := String(offer.get("material_id", "")).strip_edges().to_lower()
 		if material_id.is_empty():
 			continue
-		var owned_count := _inventory.get_material_amount(material_id)
+		var owned_count: int = _inventory.get_material_amount(material_id)
 		var value := maxi(0, int(offer.get("gold_value", 0)))
 		var tooltip_lines: Array[String] = []
 		var offer_description := String(offer.get("description", "")).strip_edges()
@@ -1376,7 +1467,7 @@ func _build_inventory_summary() -> String:
 	ordered_ids.append_array(extras)
 	var parts: Array[String] = []
 	for material_id in ordered_ids:
-		var amount := _inventory.get_material_amount(material_id)
+		var amount: int = _inventory.get_material_amount(material_id)
 		if amount <= 0:
 			continue
 		parts.append("%s x%d" % [_display_material_name(material_id), amount])
@@ -1516,7 +1607,7 @@ func _build_night_stock_tooltip() -> String:
 		var material_id := String(ingredient.get("id", "")).strip_edges().to_lower()
 		if material_id.is_empty() or not bool(ingredient.get("night_only", false)):
 			continue
-		var amount := _inventory.get_material_amount(material_id)
+		var amount: int = _inventory.get_material_amount(material_id)
 		if amount <= 0:
 			continue
 		has_stock = true
@@ -2167,6 +2258,19 @@ func debug_return_to_hub() -> void:
 	_show_state(STATE_DAY_HUB)
 
 
+func debug_toggle_pause() -> bool:
+	if _meta_pause_visible:
+		_on_pause_resume_requested()
+		return false
+	_open_meta_pause()
+	return _meta_pause_visible
+
+
+func debug_pause_to_menu() -> void:
+	_open_meta_pause()
+	_on_pause_main_menu_requested()
+
+
 func debug_select_farm_tool(action_id: String, seed_id: String = "") -> Dictionary:
 	return {
 		"action_id": action_id.strip_edges().to_lower(),
@@ -2259,13 +2363,15 @@ func debug_get_snapshot() -> Dictionary:
 		})
 	return {
 		"current_screen": _current_state,
+		"meta_pause_visible": _meta_pause_visible,
+		"tree_paused": get_tree().paused,
 		"current_day": _day_state.current_day,
 		"phase": _day_state.current_phase,
-		"gold": _economy.gold,
-		"reputation": _economy.restaurant_reputation,
-		"stamina": _day_state.stamina,
-		"max_stamina": _day_state.max_stamina,
-		"action_budget": _day_state.action_budget,
+			"gold": _economy.gold,
+			"reputation": _economy.restaurant_reputation,
+			"stamina": _day_state.stamina,
+			"max_stamina": _day_state.max_stamina,
+			"action_budget": _day_state.action_budget,
 		"max_action_budget": _day_state.max_action_budget,
 		"pending_next_day_stamina_penalty": _day_state.pending_next_day_stamina_penalty,
 		"next_day_stamina_preview": _day_state.preview_next_day_stamina(),
@@ -2308,8 +2414,8 @@ func debug_get_snapshot() -> Dictionary:
 		"restaurant_sold_stats_text": String(restaurant_model.get("sold_stats_text", "")),
 		"owned_restaurant_upgrade_ids": _get_owned_restaurant_upgrade_ids(),
 		"shop_status_text": _shop_status_text,
-		"shop_seed_offers": (shop_model.get("seed_offers", []) as Array).duplicate(true) if shop_model.get("seed_offers", []) is Array else [],
-		"shop_sell_offers": (shop_model.get("sell_offers", []) as Array).duplicate(true) if shop_model.get("sell_offers", []) is Array else [],
-		"shop_upgrade_offers": (shop_model.get("upgrade_offers", []) as Array).duplicate(true) if shop_model.get("upgrade_offers", []) is Array else [],
-		"shop_owned_upgrades_summary": String(shop_model.get("owned_upgrades_summary", ""))
+			"shop_seed_offers": (shop_model.get("seed_offers", []) as Array).duplicate(true) if shop_model.get("seed_offers", []) is Array else [],
+			"shop_sell_offers": (shop_model.get("sell_offers", []) as Array).duplicate(true) if shop_model.get("sell_offers", []) is Array else [],
+			"shop_upgrade_offers": (shop_model.get("upgrade_offers", []) as Array).duplicate(true) if shop_model.get("upgrade_offers", []) is Array else [],
+			"shop_owned_upgrades_summary": String(shop_model.get("owned_upgrades_summary", ""))
 	}

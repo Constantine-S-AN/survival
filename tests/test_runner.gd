@@ -2366,6 +2366,17 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true(String(snapshot.get("day_hub_restaurant_button_tooltip", "")).find("3") >= 0, "day hub restaurant tooltip explains the major action cost")
 	_assert_true(bool(snapshot.get("night_button_disabled", false)), "night combat stays locked before evening")
 	_assert_true(not bool(meta_root.call("debug_launch_night")), "night combat cannot launch before the evening phase")
+	_assert_true(bool(meta_root.call("debug_toggle_pause")), "meta loop pause opens from the day hub")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_true(bool(snapshot.get("meta_pause_visible", false)), "meta loop exposes the shared pause menu during daytime planning")
+	_assert_true(bool(snapshot.get("tree_paused", false)), "meta loop pause pauses the SceneTree outside night combat")
+	_assert_equal(String(snapshot.get("current_screen", "")), "day_hub", "meta loop keeps the current daytime screen visible while paused")
+	_assert_true(not bool(meta_root.call("debug_toggle_pause")), "meta loop pause closes from the day hub")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_true(not bool(snapshot.get("meta_pause_visible", true)), "meta loop hides the shared pause menu after resuming")
+	_assert_true(not bool(snapshot.get("tree_paused", true)), "meta loop unpauses the SceneTree after resuming")
 	var starter_kelpberry_card := _find_entry_by_id(snapshot.get("restaurant_recipe_cards", []), "kelpberry_tart")
 	var starter_emberleaf_card := _find_entry_by_id(snapshot.get("restaurant_recipe_cards", []), "emberleaf_flatbread")
 	_assert_true(not starter_kelpberry_card.is_empty(), "starter restaurant content includes kelpberry_tart")
@@ -2375,6 +2386,22 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("current_screen", "")), "farm", "meta loop opens farm screen")
+	_assert_true(bool(meta_root.call("debug_toggle_pause")), "meta loop pause also opens from the farm screen")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "farm", "meta loop pause preserves the active farm screen")
+	_assert_true(bool(snapshot.get("meta_pause_visible", false)), "farm view uses the same shared pause menu")
+	meta_root.call("debug_pause_to_menu")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "menu", "shared pause can return the player to the main menu from daytime screens")
+	_assert_true(not bool(snapshot.get("tree_paused", true)), "returning to the main menu from shared pause clears the paused tree state")
+	meta_root.call("debug_press_play")
+	await get_tree().process_frame
+	meta_root.call("debug_open_farm")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "farm", "meta loop can resume the daytime run after pausing back to the main menu")
 	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "till")), "farm till succeeds on plot 0")
 	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "plant", "wheat_seed")), "farm plants wheat on plot 0")
 	_assert_true(bool(meta_root.call("debug_interact_farm_plot", 0, "water")), "farm waters wheat on plot 0")

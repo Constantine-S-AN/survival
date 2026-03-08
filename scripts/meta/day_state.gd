@@ -20,8 +20,8 @@ var pending_night_material_bonus: int = 0
 var pending_next_day_stamina_penalty: int = 0
 
 
-static func from_dict(source: Dictionary) -> DayState:
-	var state := DayState.new()
+static func from_dict(source: Dictionary):
+	var state = load("res://scripts/meta/day_state.gd").new()
 	state.current_day = maxi(1, int(source.get("current_day", 1)))
 	state.current_phase = _normalize_phase(String(source.get("current_phase", PHASE_MORNING)))
 	state.max_stamina = maxi(1, int(source.get("max_stamina", 6)))
