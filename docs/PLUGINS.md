@@ -28,7 +28,7 @@
 
 ## Manual Editor Steps
 
-`Dialogue Manager` is now enabled in `project.godot`, and its `DialogueManager` autoload is committed so gameplay code can call it without any additional editor-side activation step.
+`Dialogue Manager` is now enabled in `project.godot`, and its `DialogueManager` autoload is committed so dialogue can run in normal gameplay without an editor-side activation step.
 
 `QuestSystem` is still intentionally disabled. This project already has a custom save model, shared inventory, and meta loop, so keeping QuestSystem off avoids adding a second runtime singleton before there is a defined quest integration point.
 
@@ -46,11 +46,12 @@ Use `./scripts/ci/validate_plugins.sh` to verify:
 - the project still imports headlessly
 - the existing headless test suite still passes
 
-## Dialogue Manager Smoke Check
+## Dialogue Content
 
-- No gameplay scenes are wired to Dialogue Manager yet.
-- A tiny standalone smoke scene lives at `tests/smoke/DialogueManagerSmoke.tscn`.
-- Run it headlessly with `godot --headless --path . res://tests/smoke/DialogueManagerSmoke.tscn --quit-after 10` to verify the `DialogueManager` autoload is present and exposes its runtime API.
+- Gameplay dialogue source lives in `data/dialogue/`.
+- The first integrated flow is `data/dialogue/day_hub_intro.dialogue`.
+- The runtime hook for that first use lives in `scripts/meta/day_hub_intro_dialogue_layer.gd`, mounted from `scenes/meta/MetaLoopRoot.tscn`.
+- Its one-shot guard persists in the profile save as `dialogue_state.seen_dialogue_ids`.
 
 ## Evaluated But Not Integrated
 
