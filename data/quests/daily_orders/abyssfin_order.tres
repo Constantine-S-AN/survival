@@ -4,12 +4,12 @@
 
 [resource]
 script = ExtResource("1")
-id = 103
-pillar = "night"
-quest_name = "Salt Request"
-quest_description = "A late-shift cook is paying for fresh reef salt scraped back from the night tide."
-quest_objective = "Bring back 1 Reef Salt."
+id = 112
+quest_name = "Cold Storage"
+quest_description = "Bring back an abyssfin cut so the board can reserve it for tomorrow's premium plates."
+quest_objective = "Bring back 1 Abyssfin Fillet."
 order_type = "material_gain"
-target_id = "reef_salt"
+pillar = "night"
+target_id = "abyssfin"
 target_amount = 1
-reward_gold = 9
+reward_gold = 12

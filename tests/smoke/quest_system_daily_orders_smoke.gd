@@ -19,8 +19,23 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	var cards_variant: Variant = daily_orders.call("get_order_cards")
-	if not (cards_variant is Array) or (cards_variant as Array).size() != 3:
-		push_error("DailyOrders did not expose the expected starter order list")
+	if not (cards_variant is Array):
+		push_error("DailyOrders did not expose an order list")
+		get_tree().quit(1)
+		return
+	var cards: Array = cards_variant as Array
+	if cards.size() < 9:
+		push_error("DailyOrders did not expose the expanded order catalog")
+		get_tree().quit(1)
+		return
+	var pillars := {}
+	for card_variant in cards:
+		if not (card_variant is Dictionary):
+			continue
+		var card: Dictionary = card_variant
+		pillars[String(card.get("pillar", ""))] = true
+	if not pillars.has("farm") or not pillars.has("restaurant") or not pillars.has("night"):
+		push_error("DailyOrders is missing one or more gameplay pillars in the board data")
 		get_tree().quit(1)
 		return
 	print("QuestSystem daily orders smoke PASS")

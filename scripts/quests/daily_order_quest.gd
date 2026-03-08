@@ -3,8 +3,12 @@ class_name DailyOrderQuest
 
 const ORDER_TYPE_DISH_SALES := "dish_sales"
 const ORDER_TYPE_MATERIAL_GAIN := "material_gain"
+const PILLAR_FARM := "farm"
+const PILLAR_RESTAURANT := "restaurant"
+const PILLAR_NIGHT := "night"
 
 @export_enum("dish_sales", "material_gain") var order_type: String = ORDER_TYPE_MATERIAL_GAIN
+@export_enum("farm", "restaurant", "night") var pillar: String = PILLAR_FARM
 @export var target_id: String = ""
 @export var target_amount: int = 1
 @export var reward_gold: int = 0
@@ -35,6 +39,17 @@ func get_progress_text() -> String:
 
 func get_safe_target_id() -> String:
 	return target_id.strip_edges().to_lower()
+
+
+func get_pillar_title() -> String:
+	match pillar:
+		PILLAR_FARM:
+			return "Farm"
+		PILLAR_RESTAURANT:
+			return "Restaurant"
+		PILLAR_NIGHT:
+			return "Night Run"
+	return "Orders"
 
 
 func _get_safe_target_amount() -> int:

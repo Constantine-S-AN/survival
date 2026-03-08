@@ -5,8 +5,17 @@ signal reward_claimed(order_id: int, reward: Dictionary)
 
 const ORDER_RESOURCE_PATHS: Array[String] = [
 	"res://data/quests/daily_orders/field_stew_order.tres",
+	"res://data/quests/daily_orders/herb_tea_order.tres",
+	"res://data/quests/daily_orders/kelpfire_noodles_order.tres",
+	"res://data/quests/daily_orders/kelpberry_tart_order.tres",
+	"res://data/quests/daily_orders/emberleaf_flatbread_order.tres",
 	"res://data/quests/daily_orders/wheat_stock_order.tres",
-	"res://data/quests/daily_orders/reef_salt_order.tres"
+	"res://data/quests/daily_orders/herb_bundle_order.tres",
+	"res://data/quests/daily_orders/kelpberry_crate_order.tres",
+	"res://data/quests/daily_orders/emberleaf_bundle_order.tres",
+	"res://data/quests/daily_orders/reef_salt_order.tres",
+	"res://data/quests/daily_orders/glow_kelp_order.tres",
+	"res://data/quests/daily_orders/abyssfin_order.tres"
 ]
 const SYNC_INTERVAL_SECONDS := 0.25
 
@@ -47,6 +56,8 @@ func get_order_cards() -> Array[Dictionary]:
 		var ready_to_claim := QuestSystem.is_quest_active(quest) and quest.objective_completed
 		cards.append({
 			"id": quest.id,
+			"pillar": quest.pillar,
+			"pillar_title": quest.get_pillar_title(),
 			"name": quest.quest_name,
 			"description": quest.quest_description,
 			"objective": quest.quest_objective,

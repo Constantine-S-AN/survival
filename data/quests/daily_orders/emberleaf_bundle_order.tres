@@ -4,12 +4,12 @@
 
 [resource]
 script = ExtResource("1")
-id = 102
-pillar = "farm"
-quest_name = "Pantry Restock"
-quest_description = "Stack a little grain back into the pantry so tomorrow's kitchen starts stocked."
-quest_objective = "Gain 2 Wheat."
+id = 110
+quest_name = "Pepperleaf Bundle"
+quest_description = "Cut an emberleaf bundle so the kitchen can prep sharper daytime specials."
+quest_objective = "Gain 2 Emberleaf."
 order_type = "material_gain"
-target_id = "wheat"
+pillar = "farm"
+target_id = "emberleaf"
 target_amount = 2
-reward_gold = 5
+reward_gold = 8

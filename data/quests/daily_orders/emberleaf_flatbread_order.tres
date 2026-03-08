@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="DailyOrderQuest" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/quests/daily_order_quest.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = 111
+quest_name = "Lunch Counter Flatbread"
+quest_description = "Plate one emberleaf flatbread to prove the farm's pepper crop has real lunch value."
+quest_objective = "Sell 1 Emberleaf Flatbread."
+order_type = "dish_sales"
+pillar = "restaurant"
+target_id = "emberleaf_flatbread"
+target_amount = 1
+reward_gold = 9

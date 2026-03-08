@@ -4,12 +4,12 @@
 
 [resource]
 script = ExtResource("1")
-id = 101
-pillar = "restaurant"
-quest_name = "Lunch Rush"
-quest_description = "Serve a dependable lunch special to prove the kitchen can anchor the daytime crowd."
-quest_objective = "Sell 1 Field Stew."
+id = 109
+quest_name = "Window Tart"
+quest_description = "Bake a bright tart that shows the board the farm can feed a real dessert counter."
+quest_objective = "Sell 1 Kelpberry Tart."
 order_type = "dish_sales"
-target_id = "field_stew"
+pillar = "restaurant"
+target_id = "kelpberry_tart"
 target_amount = 1
-reward_gold = 6
+reward_gold = 8

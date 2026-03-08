@@ -51,7 +51,7 @@ func close_board() -> void:
 
 func _refresh() -> void:
 	title_label.text = "Daily Orders"
-	subtitle_label.text = "Three small contracts refresh at the start of each new day."
+	subtitle_label.text = "Orders refresh each day across farm, kitchen, and night haul."
 	for child in orders_list.get_children():
 		orders_list.remove_child(child)
 		child.queue_free()
@@ -70,8 +70,9 @@ func _refresh() -> void:
 	for card in cards:
 		if bool(card.get("can_claim", false)):
 			ready_count += 1
-		orders_list.add_child(_build_order_card(card))
-	summary_label.text = "%d ready to claim" % ready_count if ready_count > 0 else "No rewards ready yet."
+	for pillar in [DailyOrderQuest.PILLAR_FARM, DailyOrderQuest.PILLAR_RESTAURANT, DailyOrderQuest.PILLAR_NIGHT]:
+		_append_pillar_section(cards, pillar)
+	summary_label.text = "%d active, %d ready to claim" % [cards.size(), ready_count]
 	status_label.text = _status_text
 
 
@@ -90,6 +91,11 @@ func _build_order_card(card: Dictionary) -> Control:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 6)
 	margin.add_child(content)
+
+	var pillar_label := Label.new()
+	pillar_label.text = String(card.get("pillar_title", "Orders"))
+	pillar_label.theme_type_variation = &"BodyMutedLabel"
+	content.add_child(pillar_label)
 
 	var name_label := Label.new()
 	name_label.text = String(card.get("name", "Order"))
@@ -149,3 +155,19 @@ func _on_orders_changed() -> void:
 func _on_reward_claimed(_order_id: int, _reward: Dictionary) -> void:
 	if visible:
 		_refresh()
+
+
+func _append_pillar_section(cards: Array[Dictionary], pillar: String) -> void:
+	var section_cards: Array[Dictionary] = []
+	for card in cards:
+		if String(card.get("pillar", "")) != pillar:
+			continue
+		section_cards.append(card)
+	if section_cards.is_empty():
+		return
+	var heading := Label.new()
+	heading.text = String(section_cards[0].get("pillar_title", "Orders"))
+	heading.theme_type_variation = &"HeadingLabel"
+	orders_list.add_child(heading)
+	for card in section_cards:
+		orders_list.add_child(_build_order_card(card))
