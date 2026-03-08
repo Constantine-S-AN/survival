@@ -187,9 +187,18 @@ func debug_get_snapshot() -> Dictionary:
 		"focused_zone_id": _focused_zone_id,
 		"active_popup_id": _active_popup_id,
 		"prompt_text": _build_prompt_text(),
+		"player_position": restaurant_player.global_position if restaurant_player != null else Vector2.ZERO,
 		"customer_count": _customer_count,
 		"lights_on": _lights_on
 	}
+
+
+func apply_restore_state(popup_id: String) -> void:
+	var normalized_popup_id := popup_id.strip_edges().to_lower()
+	if normalized_popup_id.is_empty() or not _popup_panels.has(normalized_popup_id):
+		_close_popups()
+		return
+	_open_popup(normalized_popup_id)
 
 
 func _build_world_if_needed() -> void:

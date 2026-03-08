@@ -71,6 +71,7 @@ var _reward_pipeline = RewardPipelineClass.new()
 var _farm_state: Dictionary = {}
 var _restaurant_state: Dictionary = {}
 var _day_world_state: Dictionary = {}
+var _resume_state: Dictionary = {}
 var _pending_return_summary: Dictionary = {}
 var _current_state: String = STATE_MENU
 var _day_hub_status_text: String = ""
@@ -190,6 +191,8 @@ func _load_meta_progress() -> void:
 	_farm_state = _normalize_farm_state(snapshot.get("farm_state", {}))
 	_restaurant_state = _normalize_restaurant_state(snapshot.get("restaurant_state", {}))
 	_day_world_state = _normalize_day_world_state(snapshot.get("day_world_state", {}))
+	_resume_state = _normalize_resume_state(snapshot.get("resume_state", {}))
+	_daytime_shell_mode = _normalize_daytime_shell_mode(String(_resume_state.get("daytime_shell_mode", _daytime_shell_mode)))
 	var summary_variant: Variant = snapshot.get("pending_return_summary", {})
 	_pending_return_summary = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
 	_sync_day_world_state_to_current_day()
@@ -201,6 +204,7 @@ func _load_meta_progress() -> void:
 func _save_meta_progress() -> void:
 	if ProfileStore == null or not ProfileStore.has_method("set_meta_progress_state"):
 		return
+	_capture_resume_state()
 	ProfileStore.set_meta_progress_state({
 		"schema_version": 5,
 		"day_state": _day_state.to_dict(),
@@ -209,6 +213,7 @@ func _save_meta_progress() -> void:
 		"farm_state": _farm_state.duplicate(true),
 		"restaurant_state": _restaurant_state.duplicate(true),
 		"day_world_state": _day_world_state.duplicate(true),
+		"resume_state": _resume_state.duplicate(true),
 		"pending_return_summary": _pending_return_summary.duplicate(true)
 	})
 
@@ -251,6 +256,111 @@ func _normalize_day_world_state(source_variant: Variant) -> Dictionary:
 		"pickup_day": maxi(1, int(source.get("pickup_day", _day_state.current_day))),
 		"collected_pickup_ids": _normalize_string_id_array(source.get("collected_pickup_ids", []))
 	}
+
+
+func _default_resume_state() -> Dictionary:
+	return {
+		"screen": STATE_DAY_HUB,
+		"daytime_shell_mode": DAYTIME_SHELL_WORLD,
+		"day_world_tool_action_id": "hand",
+		"day_world_tool_seed_id": "",
+		"day_world_orders_open": false,
+		"day_world_night_popup_open": false,
+		"restaurant_popup_id": "",
+		"shop_popup_id": ""
+	}
+
+
+func _normalize_resume_state(source_variant: Variant) -> Dictionary:
+	var output := _default_resume_state()
+	var source: Dictionary = source_variant if source_variant is Dictionary else {}
+	var screen := String(source.get("screen", STATE_DAY_HUB)).strip_edges().to_lower()
+	if not [STATE_DAY_HUB, STATE_FARM, STATE_RESTAURANT, STATE_SHOP].has(screen):
+		screen = STATE_DAY_HUB
+	output["screen"] = screen
+	output["daytime_shell_mode"] = _normalize_daytime_shell_mode(String(source.get("daytime_shell_mode", DAYTIME_SHELL_WORLD)))
+	var tool_action_id := String(source.get("day_world_tool_action_id", "hand")).strip_edges().to_lower()
+	if tool_action_id.is_empty():
+		tool_action_id = "hand"
+	output["day_world_tool_action_id"] = tool_action_id
+	output["day_world_tool_seed_id"] = String(source.get("day_world_tool_seed_id", "")).strip_edges().to_lower()
+	output["day_world_orders_open"] = bool(source.get("day_world_orders_open", false))
+	output["day_world_night_popup_open"] = bool(source.get("day_world_night_popup_open", false))
+	var restaurant_popup_id := String(source.get("restaurant_popup_id", "")).strip_edges().to_lower()
+	if not ["", "menu", "prep", "service", "summary"].has(restaurant_popup_id):
+		restaurant_popup_id = ""
+	output["restaurant_popup_id"] = restaurant_popup_id
+	var shop_popup_id := String(source.get("shop_popup_id", "")).strip_edges().to_lower()
+	if not ["", "merchant", "customer"].has(shop_popup_id):
+		shop_popup_id = ""
+	output["shop_popup_id"] = shop_popup_id
+	return output
+
+
+func _get_day_world_debug_snapshot() -> Dictionary:
+	if day_world != null and day_world.has_method("debug_get_snapshot"):
+		var day_world_variant: Variant = day_world.call("debug_get_snapshot")
+		return day_world_variant if day_world_variant is Dictionary else {}
+	return {}
+
+
+func _get_restaurant_view_debug_snapshot() -> Dictionary:
+	if restaurant_view != null and restaurant_view.has_method("debug_get_snapshot"):
+		var restaurant_view_variant: Variant = restaurant_view.call("debug_get_snapshot")
+		return restaurant_view_variant if restaurant_view_variant is Dictionary else {}
+	return {}
+
+
+func _get_shop_view_debug_snapshot() -> Dictionary:
+	if shop_view != null and shop_view.has_method("debug_get_snapshot"):
+		var shop_view_variant: Variant = shop_view.call("debug_get_snapshot")
+		return shop_view_variant if shop_view_variant is Dictionary else {}
+	return {}
+
+
+func _capture_resume_state() -> void:
+	var next_resume_state := _default_resume_state()
+	next_resume_state["daytime_shell_mode"] = _daytime_shell_mode
+	var day_world_snapshot := _get_day_world_debug_snapshot()
+	var restaurant_view_snapshot := _get_restaurant_view_debug_snapshot()
+	var shop_view_snapshot := _get_shop_view_debug_snapshot()
+	var selected_action_id := String(day_world_snapshot.get("selected_farm_tool_action_id", "hand")).strip_edges().to_lower()
+	if selected_action_id.is_empty():
+		selected_action_id = "hand"
+	next_resume_state["day_world_tool_action_id"] = selected_action_id
+	next_resume_state["day_world_tool_seed_id"] = String(day_world_snapshot.get("selected_farm_tool_seed_id", "")).strip_edges().to_lower()
+	if _pending_return_summary.is_empty():
+		match _current_state:
+			STATE_DAY_HUB, STATE_FARM, STATE_RESTAURANT, STATE_SHOP:
+				next_resume_state["screen"] = _current_state
+			_:
+				next_resume_state["screen"] = STATE_DAY_HUB
+	else:
+		next_resume_state["screen"] = STATE_DAY_HUB
+	match String(next_resume_state.get("screen", STATE_DAY_HUB)):
+		STATE_DAY_HUB:
+			next_resume_state["day_world_orders_open"] = bool(day_world_snapshot.get("orders_open", false))
+			next_resume_state["day_world_night_popup_open"] = bool(day_world_snapshot.get("night_popup_open", false))
+		STATE_RESTAURANT:
+			next_resume_state["restaurant_popup_id"] = String(restaurant_view_snapshot.get("active_popup_id", "")).strip_edges().to_lower()
+		STATE_SHOP:
+			next_resume_state["shop_popup_id"] = String(shop_view_snapshot.get("active_popup_id", "")).strip_edges().to_lower()
+	_resume_state = _normalize_resume_state(next_resume_state)
+
+
+func _get_resume_screen() -> String:
+	return String(_resume_state.get("screen", STATE_DAY_HUB))
+
+
+func _apply_resume_state() -> void:
+	if day_world != null and day_world.has_method("apply_restore_state"):
+		day_world.call("apply_restore_state", _resume_state)
+	if restaurant_view != null and restaurant_view.has_method("apply_restore_state"):
+		var restaurant_popup_id := String(_resume_state.get("restaurant_popup_id", "")) if _current_state == STATE_RESTAURANT else ""
+		restaurant_view.call("apply_restore_state", restaurant_popup_id)
+	if shop_view != null and shop_view.has_method("apply_restore_state"):
+		var shop_popup_id := String(_resume_state.get("shop_popup_id", "")) if _current_state == STATE_SHOP else ""
+		shop_view.call("apply_restore_state", shop_popup_id)
 
 
 func _sync_day_world_state_to_current_day() -> void:
@@ -456,7 +566,9 @@ func _on_play_requested() -> void:
 	if not _pending_return_summary.is_empty():
 		_show_state(STATE_RETURN_SUMMARY)
 		return
-	_show_state(STATE_DAY_HUB)
+	_daytime_shell_mode = _normalize_daytime_shell_mode(String(_resume_state.get("daytime_shell_mode", _daytime_shell_mode)))
+	_show_state(_get_resume_screen())
+	call_deferred("_apply_resume_state")
 
 
 func _on_menu_requested() -> void:
@@ -2729,23 +2841,18 @@ func debug_continue_summary() -> void:
 	_on_return_summary_continue_requested()
 
 
+func debug_save_meta_progress() -> void:
+	_save_meta_progress()
+
+
 func debug_get_snapshot() -> Dictionary:
 	var day_hub_model := _build_day_hub_model()
 	var farm_model := _build_farm_model()
 	var restaurant_model := _build_restaurant_model()
 	var shop_model := _build_shop_model()
-	var day_world_snapshot: Dictionary = {}
-	var restaurant_view_snapshot: Dictionary = {}
-	var shop_view_snapshot: Dictionary = {}
-	if day_world != null and day_world.has_method("debug_get_snapshot"):
-		var day_world_variant: Variant = day_world.call("debug_get_snapshot")
-		day_world_snapshot = day_world_variant if day_world_variant is Dictionary else {}
-	if restaurant_view != null and restaurant_view.has_method("debug_get_snapshot"):
-		var restaurant_view_variant: Variant = restaurant_view.call("debug_get_snapshot")
-		restaurant_view_snapshot = restaurant_view_variant if restaurant_view_variant is Dictionary else {}
-	if shop_view != null and shop_view.has_method("debug_get_snapshot"):
-		var shop_view_variant: Variant = shop_view.call("debug_get_snapshot")
-		shop_view_snapshot = shop_view_variant if shop_view_variant is Dictionary else {}
+	var day_world_snapshot := _get_day_world_debug_snapshot()
+	var restaurant_view_snapshot := _get_restaurant_view_debug_snapshot()
+	var shop_view_snapshot := _get_shop_view_debug_snapshot()
 	var farm_plots: Array[Dictionary] = []
 	for plot_variant in _get_farm_plots():
 		var plot: Dictionary = plot_variant if plot_variant is Dictionary else _build_empty_plot()
@@ -2831,6 +2938,7 @@ func debug_get_snapshot() -> Dictionary:
 		"restaurant_world_focus_id": String(restaurant_view_snapshot.get("focused_zone_id", "")),
 		"restaurant_world_popup": String(restaurant_view_snapshot.get("active_popup_id", "")),
 		"restaurant_world_prompt_text": String(restaurant_view_snapshot.get("prompt_text", "")),
+		"restaurant_world_player_position": restaurant_view_snapshot.get("player_position", Vector2.ZERO),
 		"restaurant_world_customer_count": int(restaurant_view_snapshot.get("customer_count", 0)),
 		"restaurant_world_lights_on": bool(restaurant_view_snapshot.get("lights_on", false)),
 		"owned_restaurant_upgrade_ids": _get_owned_restaurant_upgrade_ids(),
@@ -2845,5 +2953,6 @@ func debug_get_snapshot() -> Dictionary:
 		"shop_request_status": String(shop_model.get("request_status", "")),
 		"shop_world_focus_id": String(shop_view_snapshot.get("focused_zone_id", "")),
 		"shop_world_popup": String(shop_view_snapshot.get("active_popup_id", "")),
-		"shop_world_prompt_text": String(shop_view_snapshot.get("prompt_text", ""))
+		"shop_world_prompt_text": String(shop_view_snapshot.get("prompt_text", "")),
+		"shop_world_player_position": shop_view_snapshot.get("player_position", Vector2.ZERO)
 	}

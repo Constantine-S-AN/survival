@@ -242,6 +242,28 @@ func debug_get_snapshot() -> Dictionary:
 	}
 
 
+func apply_restore_state(state_variant: Variant) -> void:
+	var state: Dictionary = state_variant if state_variant is Dictionary else {}
+	var action_id := String(state.get("day_world_tool_action_id", "hand")).strip_edges().to_lower()
+	var seed_id := String(state.get("day_world_tool_seed_id", "")).strip_edges().to_lower()
+	if action_id.is_empty():
+		action_id = "hand"
+	if not debug_select_farm_tool(action_id, seed_id):
+		_selected_farm_tool_key = HOTBAR_HAND_KEY
+	var orders_open := bool(state.get("day_world_orders_open", false))
+	if daily_orders_board != null:
+		if orders_open:
+			daily_orders_board.open_board()
+		else:
+			daily_orders_board.close_board()
+	if not orders_open and bool(state.get("day_world_night_popup_open", false)) and bool(_view_model.get("night_ready", false)):
+		_open_night_popup()
+	else:
+		_close_night_popup()
+	_sync_visibility_state()
+	_apply_view_model()
+
+
 func _build_world_if_needed() -> void:
 	if _world_built:
 		return

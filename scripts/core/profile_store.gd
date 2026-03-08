@@ -90,6 +90,16 @@ const DEFAULT_META_PROGRESS: Dictionary = {
 		"pickup_day": 1,
 		"collected_pickup_ids": []
 	},
+	"resume_state": {
+		"screen": "day_hub",
+		"daytime_shell_mode": "world",
+		"day_world_tool_action_id": "hand",
+		"day_world_tool_seed_id": "",
+		"day_world_orders_open": false,
+		"day_world_night_popup_open": false,
+		"restaurant_popup_id": "",
+		"shop_popup_id": ""
+	},
 	"pending_return_summary": {}
 }
 
@@ -622,6 +632,9 @@ func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
 	var day_world_state_variant: Variant = source.get("day_world_state", {})
 	output["day_world_state"] = _normalize_day_world_state(day_world_state_variant)
 
+	var resume_state_variant: Variant = source.get("resume_state", {})
+	output["resume_state"] = _normalize_resume_state(resume_state_variant)
+
 	var summary_variant: Variant = source.get("pending_return_summary", {})
 	output["pending_return_summary"] = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
 	return output
@@ -733,6 +746,36 @@ func _normalize_day_world_state(day_world_variant: Variant) -> Dictionary:
 	return {
 		"pickup_day": maxi(1, int(source.get("pickup_day", 1))),
 		"collected_pickup_ids": _normalize_string_array(source.get("collected_pickup_ids", []))
+	}
+
+
+func _normalize_resume_state(resume_variant: Variant) -> Dictionary:
+	var source: Dictionary = resume_variant if resume_variant is Dictionary else {}
+	var screen := String(source.get("screen", "day_hub")).strip_edges().to_lower()
+	if not ["day_hub", "farm", "restaurant", "shop"].has(screen):
+		screen = "day_hub"
+	var daytime_shell_mode := String(source.get("daytime_shell_mode", "world")).strip_edges().to_lower()
+	if daytime_shell_mode != "legacy":
+		daytime_shell_mode = "world"
+	var tool_action_id := String(source.get("day_world_tool_action_id", "hand")).strip_edges().to_lower()
+	if tool_action_id.is_empty():
+		tool_action_id = "hand"
+	var tool_seed_id := String(source.get("day_world_tool_seed_id", "")).strip_edges().to_lower()
+	var restaurant_popup_id := String(source.get("restaurant_popup_id", "")).strip_edges().to_lower()
+	if not ["", "menu", "prep", "service", "summary"].has(restaurant_popup_id):
+		restaurant_popup_id = ""
+	var shop_popup_id := String(source.get("shop_popup_id", "")).strip_edges().to_lower()
+	if not ["", "merchant", "customer"].has(shop_popup_id):
+		shop_popup_id = ""
+	return {
+		"screen": screen,
+		"daytime_shell_mode": daytime_shell_mode,
+		"day_world_tool_action_id": tool_action_id,
+		"day_world_tool_seed_id": tool_seed_id,
+		"day_world_orders_open": bool(source.get("day_world_orders_open", false)),
+		"day_world_night_popup_open": bool(source.get("day_world_night_popup_open", false)),
+		"restaurant_popup_id": restaurant_popup_id,
+		"shop_popup_id": shop_popup_id
 	}
 
 
