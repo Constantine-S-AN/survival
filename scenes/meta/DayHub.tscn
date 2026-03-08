@@ -32,10 +32,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -360.0
-offset_top = -396.0
-offset_right = 360.0
-offset_bottom = 396.0
+offset_left = -470.0
+offset_top = -352.0
+offset_right = 470.0
+offset_bottom = 352.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"OverlayPanel"
@@ -49,21 +49,24 @@ theme_override_constants/margin_bottom = 20
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Day Hub"
 theme_type_variation = &"HeadingLabel"
 
 [node name="Subtitle" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
 text = "Plan the next descent."
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="GuidePanel" type="Panel" parent="ContentPanel/Margin/VBox"]
 visible = false
-custom_minimum_size = Vector2(0, 112)
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
 theme_type_variation = &"OverlayPanel"
 
@@ -80,10 +83,12 @@ theme_override_constants/separation = 6
 
 [node name="GuideTitle" type="Label" parent="ContentPanel/Margin/VBox/GuidePanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Day 1 Guide"
 
 [node name="GuideBody" type="Label" parent="ContentPanel/Margin/VBox/GuidePanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 text = "- Farm now if you want harvests on Day 3."
 theme_type_variation = &"BodyMutedLabel"
@@ -94,121 +99,144 @@ theme_override_constants/separation = 4
 
 [node name="DayLabel" type="Label" parent="ContentPanel/Margin/VBox/Stats"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Day 1"
 
 [node name="GoldLabel" type="Label" parent="ContentPanel/Margin/VBox/Stats"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Gold: 0"
 
 [node name="ReputationLabel" type="Label" parent="ContentPanel/Margin/VBox/Stats"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Reputation: 1"
 
 [node name="StaminaLabel" type="Label" parent="ContentPanel/Margin/VBox/Stats"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Stamina: 0/0"
 
 [node name="ActionBudgetLabel" type="Label" parent="ContentPanel/Margin/VBox/Stats"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Actions: 0/0"
 
 [node name="PhaseLabel" type="Label" parent="ContentPanel/Margin/VBox/Stats"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Phase: Day"
 
 [node name="InventoryLabel" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 text = "Inventory: -"
 
 [node name="SeedsLabel" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 text = "Seeds: -"
 
 [node name="RecipesLabel" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 text = "Recipes: -"
 
 [node name="BonusLabel" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 text = "Night Bonus: -"
 
 [node name="BridgeLabel" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 text = "Night Bridge: -"
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="StatusLabel" type="Label" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 text = ""
 theme_type_variation = &"BodyMutedLabel"
 
-[node name="Actions" type="VBoxContainer" parent="ContentPanel/Margin/VBox"]
+[node name="Actions" type="GridContainer" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 12
+size_flags_horizontal = 3
+columns = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
 
 [node name="FarmButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Farm"
 script = ExtResource("3")
 enable_motion = true
 
 [node name="RestaurantButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Restaurant"
 script = ExtResource("3")
 use_primary_style = false
 enable_motion = true
 
 [node name="ShopButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Shop"
 script = ExtResource("3")
 use_primary_style = false
 enable_motion = true
 
 [node name="OrdersButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Daily Orders"
 script = ExtResource("3")
 use_primary_style = false
 enable_motion = true
 
 [node name="WaitButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Rest Until Evening"
 script = ExtResource("3")
 use_primary_style = false
 enable_motion = true
 
 [node name="NightButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 54)
+custom_minimum_size = Vector2(0, 46)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Launch Night Combat"
 script = ExtResource("3")
 enable_motion = true
 
 [node name="WorldButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Walkable World"
 script = ExtResource("3")
 use_primary_style = false
 enable_motion = true
 
 [node name="MenuButton" type="Button" parent="ContentPanel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Main Menu"
 script = ExtResource("3")
 use_primary_style = false
