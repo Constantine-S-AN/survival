@@ -86,6 +86,10 @@ const DEFAULT_META_PROGRESS: Dictionary = {
 		"last_service_summary": {},
 		"owned_upgrade_ids": []
 	},
+	"day_world_state": {
+		"pickup_day": 1,
+		"collected_pickup_ids": []
+	},
 	"pending_return_summary": {}
 }
 
@@ -615,6 +619,9 @@ func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
 	var restaurant_state_variant: Variant = source.get("restaurant_state", {})
 	output["restaurant_state"] = _normalize_restaurant_state(restaurant_state_variant)
 
+	var day_world_state_variant: Variant = source.get("day_world_state", {})
+	output["day_world_state"] = _normalize_day_world_state(day_world_state_variant)
+
 	var summary_variant: Variant = source.get("pending_return_summary", {})
 	output["pending_return_summary"] = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
 	return output
@@ -719,6 +726,14 @@ func _normalize_restaurant_state(restaurant_variant: Variant) -> Dictionary:
 		owned_upgrade_ids = filtered_upgrade_ids
 	output["owned_upgrade_ids"] = owned_upgrade_ids
 	return output
+
+
+func _normalize_day_world_state(day_world_variant: Variant) -> Dictionary:
+	var source: Dictionary = day_world_variant if day_world_variant is Dictionary else {}
+	return {
+		"pickup_day": maxi(1, int(source.get("pickup_day", 1))),
+		"collected_pickup_ids": _normalize_string_array(source.get("collected_pickup_ids", []))
+	}
 
 
 func _normalize_dialogue_state(dialogue_variant: Variant) -> Dictionary:

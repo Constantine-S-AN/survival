@@ -192,18 +192,22 @@ theme_override_constants/separation = 4
 [node name="ToolTitle" type="Label" parent="BottomLeftColumn/FarmToolPanel/Margin/VBox"]
 layout_mode = 2
 theme_type_variation = &"HeadingLabel"
-text = "Farm Tool"
+text = "Hotbar"
+
+[node name="ToolSlots" type="HBoxContainer" parent="BottomLeftColumn/FarmToolPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="ToolBody" type="Label" parent="BottomLeftColumn/FarmToolPanel/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
-text = "Till"
+text = "Hand"
 
 [node name="ToolHint" type="Label" parent="BottomLeftColumn/FarmToolPanel/Margin/VBox"]
 layout_mode = 2
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
-text = "Q / Tab cycle | E use"
+text = "1-6 select | Q / Tab cycle | E use"
 
 [node name="PromptPanel" type="Panel" parent="."]
 custom_minimum_size = Vector2(540, 0)

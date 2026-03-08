@@ -22,6 +22,7 @@ const PHASE_ORDER := ["morning", "noon", "afternoon", "evening"]
 @onready var legacy_button: Button = $ActionsColumn/Buttons/LegacyButton
 @onready var farm_tool_panel: Panel = $BottomLeftColumn/FarmToolPanel
 @onready var farm_tool_title_label: Label = $BottomLeftColumn/FarmToolPanel/Margin/VBox/ToolTitle
+@onready var farm_tool_slots: HBoxContainer = $BottomLeftColumn/FarmToolPanel/Margin/VBox/ToolSlots
 @onready var farm_tool_body_label: Label = $BottomLeftColumn/FarmToolPanel/Margin/VBox/ToolBody
 @onready var farm_tool_hint_label: Label = $BottomLeftColumn/FarmToolPanel/Margin/VBox/ToolHint
 @onready var guide_panel: Panel = $ActionsColumn/GuidePanel
@@ -89,9 +90,12 @@ func _apply_hud_model() -> void:
 	orders_button.tooltip_text = _t("meta.day_hud.orders_tooltip")
 	legacy_button.text = _t("meta.world.legacy_hub")
 	legacy_button.tooltip_text = _t("meta.world.legacy_hub_tooltip")
-	farm_tool_title_label.text = _t("meta.day_hud.farm_tool")
-	farm_tool_body_label.text = String(_hud_model.get("farm_tool_text", _t("meta.farm.tool_none")))
-	farm_tool_hint_label.text = String(_hud_model.get("farm_tool_hint", _t("meta.day_hud.farm_tool_hint")))
+	farm_tool_title_label.text = _t("meta.day_hud.hotbar")
+	var hotbar_slots_variant: Variant = _hud_model.get("hotbar_slots", [])
+	var hotbar_slots: Array = hotbar_slots_variant if hotbar_slots_variant is Array else []
+	_rebuild_hotbar_slots(hotbar_slots, String(_hud_model.get("selected_hotbar_key", "")))
+	farm_tool_body_label.text = String(_hud_model.get("hotbar_selected_text", _t("meta.farm.tool_none")))
+	farm_tool_hint_label.text = String(_hud_model.get("hotbar_hint", _t("meta.day_hud.hotbar_hint")))
 	farm_tool_panel.visible = bool(_hud_model.get("farm_tool_visible", false))
 	var guide_title := String(_hud_model.get("guide_title", "")).strip_edges()
 	var guide_text := String(_hud_model.get("guide_text", "")).strip_edges()
@@ -100,6 +104,60 @@ func _apply_hud_model() -> void:
 	guide_body_label.text = guide_text
 	hint_label.text = String(_hud_model.get("move_hint", _t("meta.world.move_hint")))
 	prompt_label.text = String(_hud_model.get("prompt_text", _t("meta.world.prompt_idle")))
+
+
+func _rebuild_hotbar_slots(slots: Array, selected_key: String) -> void:
+	if farm_tool_slots == null:
+		return
+	for child in farm_tool_slots.get_children():
+		child.free()
+	for slot_variant in slots:
+		if not (slot_variant is Dictionary):
+			continue
+		var slot: Dictionary = slot_variant
+		var slot_key := String(slot.get("key", ""))
+		var panel := Panel.new()
+		panel.custom_minimum_size = Vector2(58.0, 56.0)
+		panel.theme_type_variation = &"OverlayPanel"
+		panel.modulate = _hotbar_slot_modulate(slot, slot_key == selected_key)
+		farm_tool_slots.add_child(panel)
+
+		var margin := MarginContainer.new()
+		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+		margin.add_theme_constant_override("margin_left", 6)
+		margin.add_theme_constant_override("margin_top", 5)
+		margin.add_theme_constant_override("margin_right", 6)
+		margin.add_theme_constant_override("margin_bottom", 5)
+		panel.add_child(margin)
+
+		var vbox := VBoxContainer.new()
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		vbox.add_theme_constant_override("separation", 2)
+		margin.add_child(vbox)
+
+		var index_label := Label.new()
+		index_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		index_label.theme_type_variation = &"BodyMutedLabel"
+		index_label.text = String(slot.get("slot_label", ""))
+		index_label.modulate = Color(1.0, 1.0, 1.0, 0.84)
+		vbox.add_child(index_label)
+
+		var body_label := Label.new()
+		body_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body_label.text = String(slot.get("short_label", ""))
+		body_label.modulate = Color(1.0, 1.0, 1.0, 1.0 if bool(slot.get("enabled", true)) else 0.56)
+		vbox.add_child(body_label)
+
+
+func _hotbar_slot_modulate(slot: Dictionary, selected: bool) -> Color:
+	if selected:
+		return Color(1.0, 0.96, 0.82, 1.0)
+	if bool(slot.get("enabled", true)):
+		return Color(1.0, 1.0, 1.0, 0.92)
+	return Color(0.78, 0.82, 0.88, 0.62)
 
 
 func _apply_phase_track(phase: String, night_ready: bool) -> void:

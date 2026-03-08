@@ -30,9 +30,36 @@ func _ready() -> void:
 		push_error("Night dock gate should start closed before evening")
 		_cleanup(meta_root)
 		return
+	if String(snapshot.get("day_world_selected_hotbar_id", "")) != "hand":
+		push_error("Day world should default to the hand interaction slot")
+		_cleanup(meta_root)
+		return
+	var visible_pickups: Array = snapshot.get("day_world_visible_pickup_ids", [])
+	if not visible_pickups.has("harbor_herb") or not visible_pickups.has("dock_scrap"):
+		push_error("Day world should expose the starter world pickups")
+		_cleanup(meta_root)
+		return
 	var town_npcs_before := int(snapshot.get("day_world_visible_town_npc_count", 0))
 	if town_npcs_before < 1:
 		push_error("Day world should show at least one ambient town NPC during daytime")
+		_cleanup(meta_root)
+		return
+	var starting_inventory: Dictionary = snapshot.get("inventory_materials", {})
+	var herb_before := int(starting_inventory.get("herb", 0))
+	if not bool(meta_root.call("debug_day_world_interact", "pickup_harbor_herb")):
+		push_error("Harbor herb pickup should be interactable from the day world")
+		_cleanup(meta_root)
+		return
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	var inventory_after_pickup: Dictionary = snapshot.get("inventory_materials", {})
+	if int(inventory_after_pickup.get("herb", 0)) != herb_before + 1:
+		push_error("Picking up harbor herb should route into shared inventory")
+		_cleanup(meta_root)
+		return
+	visible_pickups = snapshot.get("day_world_visible_pickup_ids", [])
+	if visible_pickups.has("harbor_herb"):
+		push_error("Collected world pickups should disappear until the next day")
 		_cleanup(meta_root)
 		return
 	if bool(meta_root.call("debug_day_world_interact", "night")):
@@ -123,6 +150,11 @@ func _ready() -> void:
 		push_error("Farm plots disappeared after leaving and returning to the day world")
 		_cleanup(meta_root)
 		return
+	visible_pickups = snapshot.get("day_world_visible_pickup_ids", [])
+	if visible_pickups.has("harbor_herb"):
+		push_error("Collected pickups should stay gone across daytime scene changes")
+		_cleanup(meta_root)
+		return
 	var plot0 := plots[0] as Dictionary
 	if String(plot0.get("seed_id", "")) != "wheat_seed" or int(plot0.get("watered_day", 0)) != current_day:
 		push_error("Farm state should persist across daytime scene changes")
@@ -209,6 +241,11 @@ func _ready() -> void:
 	snapshot = meta_root.call("debug_get_snapshot")
 	if String(snapshot.get("current_screen", "")) != "day_hub":
 		push_error("Continuing the return overlay should advance into the next day world")
+		_cleanup(meta_root)
+		return
+	visible_pickups = snapshot.get("day_world_visible_pickup_ids", [])
+	if not visible_pickups.has("harbor_herb"):
+		push_error("Day world pickups should refresh when the next day begins")
 		_cleanup(meta_root)
 		return
 	print("Day World shell smoke PASS")

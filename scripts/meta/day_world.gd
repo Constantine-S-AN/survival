@@ -3,6 +3,7 @@ class_name DayWorldView
 
 signal farm_requested
 signal farm_plot_action_requested(plot_index: int, action_id: String, seed_id: String)
+signal world_pickup_requested(pickup_id: String)
 signal restaurant_requested
 signal shop_requested
 signal wait_requested
@@ -42,6 +43,15 @@ const FARM_PLOT_STEP := Vector2(104.0, 84.0)
 const FARM_PLOT_SIZE := Vector2(82.0, 60.0)
 const NIGHT_DOCK_POSITION := Vector2(1218.0, 818.0)
 const NIGHT_TRANSITION_SECONDS := 0.55
+const HOTBAR_HAND_KEY := "hand::"
+const HOTBAR_DIRECT_ACTIONS := [
+	"day_hotbar_slot_1",
+	"day_hotbar_slot_2",
+	"day_hotbar_slot_3",
+	"day_hotbar_slot_4",
+	"day_hotbar_slot_5",
+	"day_hotbar_slot_6"
+]
 
 @onready var backdrop: Node2D = $Backdrop
 @onready var environment: Node2D = $Environment
@@ -59,6 +69,7 @@ var _farm_plot_zones: Dictionary = {}
 var _focused_zone_id: String = ""
 var _world_built: bool = false
 var _farm_plots_root: Node2D = null
+var _pickup_root: Node2D = null
 var _selected_farm_tool_key: String = ""
 var _tile_root: Node2D = null
 var _ground_tiles: TileMapLayer = null
@@ -80,6 +91,7 @@ var _dock_gate_items: Array[CanvasItem] = []
 var _lamp_glows: Array[Polygon2D] = []
 var _lamp_lanterns: Array[Polygon2D] = []
 var _town_npc_nodes: Dictionary = {}
+var _pickup_zones: Dictionary = {}
 var _phase_visual_id: String = ""
 var _overlay_blocked: bool = false
 var _night_popup: Panel = null
@@ -101,6 +113,7 @@ func _ready() -> void:
 	_build_overlay_ui()
 	_register_zones()
 	_rebuild_farm_plots()
+	_rebuild_pickups()
 	day_player.set_world_bounds(WORLD_BOUNDS)
 	day_player.reset_to_position(spawn_point.global_position)
 	day_player.focus_changed.connect(_on_player_focus_changed)
@@ -133,6 +146,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _overlay_blocked:
 		return
+	for slot_index in range(HOTBAR_DIRECT_ACTIONS.size()):
+		if not event.is_action_pressed(HOTBAR_DIRECT_ACTIONS[slot_index]):
+			continue
+		_select_hotbar_slot_by_index(slot_index)
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("day_cycle_farm_tool_prev"):
 		_cycle_farm_tool(-1)
 		get_viewport().set_input_as_handled()
@@ -144,6 +163,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func set_view_model(model: Dictionary) -> void:
 	_view_model = model.duplicate(true)
+	_rebuild_pickups()
 	_apply_view_model()
 
 
@@ -174,6 +194,10 @@ func debug_activate_zone(zone_id: String) -> bool:
 
 func debug_select_farm_tool(action_id: String, seed_id: String = "") -> bool:
 	var target_key := _build_tool_key_from_parts(action_id, seed_id)
+	if action_id.strip_edges().to_lower() == "hand":
+		_selected_farm_tool_key = HOTBAR_HAND_KEY
+		_apply_view_model()
+		return true
 	for tool in _get_farm_tools():
 		if _build_tool_key(tool) != target_key:
 			continue
@@ -196,6 +220,7 @@ func debug_confirm_night_departure() -> bool:
 
 func debug_get_snapshot() -> Dictionary:
 	var selected_tool := _get_selected_farm_tool()
+	var selected_slot := _get_selected_hotbar_slot()
 	return {
 		"focused_zone_id": _focused_zone_id,
 		"prompt_text": _build_prompt_text(),
@@ -208,9 +233,12 @@ func debug_get_snapshot() -> Dictionary:
 		"overlay_blocked": _overlay_blocked,
 		"night_popup_open": _night_popup_open,
 		"transition_active": _transition_active,
-		"selected_farm_tool_action_id": String(selected_tool.get("id", "")),
-		"selected_farm_tool_seed_id": String(selected_tool.get("seed_id", "")),
-		"selected_farm_tool_label": _farm_tool_title(selected_tool)
+		"visible_pickup_ids": _get_visible_pickup_ids(),
+		"selected_hotbar_id": String(selected_slot.get("id", "")),
+		"selected_hotbar_label": String(selected_slot.get("label", "")),
+		"selected_farm_tool_action_id": String(selected_slot.get("id", selected_tool.get("id", ""))),
+		"selected_farm_tool_seed_id": String(selected_slot.get("seed_id", selected_tool.get("seed_id", ""))),
+		"selected_farm_tool_label": String(selected_slot.get("label", _farm_tool_title(selected_tool)))
 	}
 
 
@@ -239,6 +267,10 @@ func _build_world_if_needed() -> void:
 	_farm_plots_root.name = "FarmPlots"
 	_farm_plots_root.z_index = 6
 	zones_root.add_child(_farm_plots_root)
+	_pickup_root = Node2D.new()
+	_pickup_root.name = "WorldPickups"
+	_pickup_root.z_index = 6
+	zones_root.add_child(_pickup_root)
 	_apply_phase_presentation()
 
 
@@ -827,7 +859,7 @@ func _rect_polygon(size: Vector2) -> PackedVector2Array:
 func _register_zones() -> void:
 	_zones.clear()
 	for zone_root_variant in zones_root.get_children():
-		if zone_root_variant == _farm_plots_root or not (zone_root_variant is Node2D):
+		if zone_root_variant == _farm_plots_root or zone_root_variant == _pickup_root or not (zone_root_variant is Node2D):
 			continue
 		var zone_root := zone_root_variant as Node2D
 		var area := zone_root.get_node_or_null("Area2D") as Area2D
@@ -861,6 +893,121 @@ func _rebuild_farm_plots() -> void:
 			continue
 		_create_farm_plot(plot_variant as Dictionary, columns)
 	_schedule_focus_refresh()
+
+
+func _rebuild_pickups() -> void:
+	if _pickup_root == null:
+		return
+	for child in _pickup_root.get_children():
+		child.free()
+	_pickup_zones.clear()
+	for pickup_variant in _get_day_world_pickups():
+		if not (pickup_variant is Dictionary):
+			continue
+		_create_pickup_zone(pickup_variant as Dictionary)
+	_schedule_focus_refresh()
+
+
+func _create_pickup_zone(pickup: Dictionary) -> void:
+	var pickup_id := String(pickup.get("id", "")).strip_edges().to_lower()
+	if pickup_id.is_empty():
+		return
+	var zone_id := "pickup_%s" % pickup_id
+	var variant := String(pickup.get("variant", "forage"))
+	var accent := _pickup_accent(variant)
+	var pickup_root := Node2D.new()
+	pickup_root.name = "Pickup%s" % pickup_id.capitalize()
+	pickup_root.position = pickup.get("position", Vector2.ZERO)
+	_pickup_root.add_child(pickup_root)
+
+	var pulse := Polygon2D.new()
+	pulse.name = "Pulse"
+	pulse.polygon = _ellipse_polygon(Vector2(44.0, 18.0), 10)
+	pulse.position = Vector2(0.0, 10.0)
+	pulse.color = Color(accent.r, accent.g, accent.b, 0.14)
+	pulse.z_index = 1
+	pickup_root.add_child(pulse)
+
+	var shadow := Polygon2D.new()
+	shadow.name = "Shadow"
+	shadow.polygon = _ellipse_polygon(Vector2(30.0, 10.0), 10)
+	shadow.position = Vector2(0.0, 12.0)
+	shadow.color = Color(0.04, 0.03, 0.02, 0.28)
+	shadow.z_index = 0
+	pickup_root.add_child(shadow)
+
+	if variant == "salvage":
+		var crate := Polygon2D.new()
+		crate.name = "Crate"
+		crate.polygon = _rect_polygon(Vector2(26.0, 22.0))
+		crate.position = Vector2(0.0, -2.0)
+		crate.color = Color(0.63, 0.49, 0.29, 1.0)
+		crate.z_index = 3
+		pickup_root.add_child(crate)
+		for scrap_position in [Vector2(-8.0, -14.0), Vector2(8.0, -10.0)]:
+			var scrap := Polygon2D.new()
+			scrap.polygon = PackedVector2Array([
+				Vector2(-6.0, 2.0),
+				Vector2(-2.0, -6.0),
+				Vector2(4.0, -4.0),
+				Vector2(6.0, 4.0),
+				Vector2(-2.0, 6.0)
+			])
+			scrap.position = scrap_position
+			scrap.color = Color(0.76, 0.82, 0.88, 1.0)
+			scrap.z_index = 4
+			pickup_root.add_child(scrap)
+	else:
+		var stem := Polygon2D.new()
+		stem.name = "Stem"
+		stem.polygon = _rect_polygon(Vector2(4.0, 18.0))
+		stem.position = Vector2(0.0, -3.0)
+		stem.color = Color(0.27, 0.52, 0.20, 1.0)
+		stem.z_index = 3
+		pickup_root.add_child(stem)
+		for leaf_points in [
+			PackedVector2Array([Vector2(-2.0, 0.0), Vector2(-18.0, -10.0), Vector2(-8.0, -22.0), Vector2(2.0, -6.0)]),
+			PackedVector2Array([Vector2(2.0, 0.0), Vector2(18.0, -10.0), Vector2(8.0, -22.0), Vector2(-2.0, -6.0)]),
+			PackedVector2Array([Vector2(0.0, -6.0), Vector2(-10.0, -24.0), Vector2(0.0, -30.0), Vector2(10.0, -24.0)])
+		]:
+			var leaf := Polygon2D.new()
+			leaf.polygon = leaf_points
+			leaf.color = accent
+			leaf.z_index = 4
+			pickup_root.add_child(leaf)
+
+	var marker := Polygon2D.new()
+	marker.name = "Marker"
+	marker.polygon = PackedVector2Array([
+		Vector2(0.0, -12.0),
+		Vector2(12.0, 0.0),
+		Vector2(0.0, 12.0),
+		Vector2(-12.0, 0.0)
+	])
+	marker.position = Vector2(0.0, -34.0)
+	marker.color = Color(accent.r, accent.g, accent.b, 0.34)
+	marker.z_index = 5
+	pickup_root.add_child(marker)
+
+	var area := Area2D.new()
+	area.name = "Pickup%sZone" % pickup_id.capitalize()
+	area.set_meta("interaction_id", zone_id)
+	area.add_to_group("day_interaction_zone")
+	pickup_root.add_child(area)
+
+	var shape := CollisionShape2D.new()
+	var rectangle := RectangleShape2D.new()
+	rectangle.size = Vector2(52.0, 42.0)
+	shape.shape = rectangle
+	area.add_child(shape)
+
+	_pickup_zones[zone_id] = {
+		"area": area,
+		"marker": marker,
+		"pulse": pulse,
+		"accent": accent,
+		"pickup": pickup.duplicate(true)
+	}
 
 
 func _create_zone(zone_id: String, label_key: String, position: Vector2, size: Vector2, accent: Color) -> void:
@@ -1111,6 +1258,10 @@ func _farm_plot_accent(state_id: String) -> Color:
 	return Color(0.78, 0.88, 0.82, 1.0)
 
 
+func _pickup_accent(variant: String) -> Color:
+	return Color(0.72, 0.84, 0.36, 1.0) if variant == "forage" else Color(0.72, 0.84, 0.94, 1.0)
+
+
 func _add_rect(parent: Node, name: String, rect: Rect2, color: Color, z_index: int) -> Polygon2D:
 	var polygon := Polygon2D.new()
 	polygon.name = name
@@ -1154,7 +1305,7 @@ func _apply_view_model() -> void:
 	var ready_to_claim: int = 0
 	if DailyOrders != null and DailyOrders.has_method("get_ready_to_claim_count"):
 		ready_to_claim = int(DailyOrders.call("get_ready_to_claim_count"))
-	var selected_tool := _get_selected_farm_tool()
+	var selected_slot := _get_selected_hotbar_slot()
 	var actions_until_evening := maxi(0, int(_view_model.get("actions_until_evening", 0)))
 	var night_ready := bool(_view_model.get("night_ready", false))
 	_apply_phase_presentation()
@@ -1174,9 +1325,11 @@ func _apply_view_model() -> void:
 		"move_hint": _t("meta.world.move_hint"),
 		"prompt_text": _build_prompt_text(),
 		"ready_orders": ready_to_claim,
-		"farm_tool_visible": not _get_cycleable_farm_tools().is_empty(),
-		"farm_tool_text": _farm_tool_label(selected_tool) if not selected_tool.is_empty() else _t("meta.farm.tool_none"),
-		"farm_tool_hint": _t("meta.day_hud.farm_tool_hint")
+		"farm_tool_visible": not _get_hotbar_slots().is_empty(),
+		"hotbar_slots": _get_hotbar_slots(),
+		"selected_hotbar_key": String(selected_slot.get("key", HOTBAR_HAND_KEY)),
+		"hotbar_selected_text": _hotbar_description(selected_slot),
+		"hotbar_hint": _t("meta.day_hud.hotbar_hint")
 	})
 	_update_night_popup_copy()
 	_refresh_zone_visuals()
@@ -1484,8 +1637,19 @@ func _build_prompt_text() -> String:
 		return _build_phase_idle_cue()
 	if _focused_zone_id.is_empty():
 		return "%s\n%s" % [_t("meta.world.prompt_idle"), _build_phase_idle_cue()]
+	if _is_pickup_zone(_focused_zone_id):
+		return "%s\n%s" % [
+			_t("meta.world.prompt_pickup", {"value": _get_zone_name(_focused_zone_id)}),
+			_get_zone_tooltip(_focused_zone_id)
+		]
 	if _is_farm_plot_zone(_focused_zone_id):
 		var plot := _get_farm_plot_model(_focused_zone_id)
+		if _is_hand_selected():
+			var hand_key := "meta.world.prompt_farm_harvest" if _plot_is_harvestable(plot) else "meta.world.prompt_farm_switch"
+			return "%s\n%s" % [
+				_t(hand_key, {"target": _farm_plot_name(plot)}),
+				_farm_plot_summary(plot)
+			]
 		var tool := _get_selected_farm_tool()
 		var plot_summary := _farm_plot_summary(plot)
 		if tool.is_empty():
@@ -1517,6 +1681,9 @@ func _refresh_zone_visuals() -> void:
 	for zone_id_variant in _zones.keys():
 		var zone_id := String(zone_id_variant)
 		_apply_zone_visual(zone_id, _zones.get(zone_id, {}) as Dictionary, _is_zone_enabled(zone_id), zone_id == _focused_zone_id)
+	for zone_id_variant in _pickup_zones.keys():
+		var zone_id := String(zone_id_variant)
+		_apply_zone_visual(zone_id, _pickup_zones.get(zone_id, {}) as Dictionary, _is_zone_enabled(zone_id), zone_id == _focused_zone_id)
 	for zone_id_variant in _farm_plot_zones.keys():
 		var zone_id := String(zone_id_variant)
 		_apply_zone_visual(zone_id, _farm_plot_zones.get(zone_id, {}) as Dictionary, _is_zone_enabled(zone_id), zone_id == _focused_zone_id)
@@ -1547,7 +1714,11 @@ func _zone_accent_for_state(zone_id: String, base_accent: Color, enabled: bool) 
 
 
 func _is_zone_enabled(zone_id: String) -> bool:
+	if _is_pickup_zone(zone_id):
+		return true
 	if _is_farm_plot_zone(zone_id):
+		if _is_hand_selected():
+			return _plot_is_harvestable(_get_farm_plot_model(zone_id))
 		var tool := _get_selected_farm_tool()
 		return not tool.is_empty() and bool(tool.get("available", true))
 	match zone_id:
@@ -1559,6 +1730,8 @@ func _is_zone_enabled(zone_id: String) -> bool:
 
 
 func _get_zone_name(zone_id: String) -> String:
+	if _is_pickup_zone(zone_id):
+		return String(_get_pickup_model(zone_id).get("name", ""))
 	if _is_farm_plot_zone(zone_id):
 		return _farm_plot_name(_get_farm_plot_model(zone_id))
 	var zone: Dictionary = _zones.get(zone_id, {}) as Dictionary
@@ -1567,6 +1740,8 @@ func _get_zone_name(zone_id: String) -> String:
 
 
 func _get_zone_tooltip(zone_id: String) -> String:
+	if _is_pickup_zone(zone_id):
+		return String(_get_pickup_model(zone_id).get("summary", ""))
 	if _is_farm_plot_zone(zone_id):
 		return _farm_plot_summary(_get_farm_plot_model(zone_id))
 	match zone_id:
@@ -1588,6 +1763,8 @@ func _activate_zone(zone_id: String) -> bool:
 		return false
 	if _overlay_blocked or _transition_active:
 		return false
+	if _is_pickup_zone(zone_id):
+		return _activate_pickup(zone_id)
 	if _is_farm_plot_zone(zone_id):
 		return _activate_farm_plot(zone_id)
 	if not _is_zone_enabled(zone_id):
@@ -1613,9 +1790,22 @@ func _activate_zone(zone_id: String) -> bool:
 
 
 func _activate_farm_plot(zone_id: String) -> bool:
-	var tool := _get_selected_farm_tool()
 	var plot := _get_farm_plot_model(zone_id)
-	if tool.is_empty() or plot.is_empty():
+	if plot.is_empty():
+		_apply_view_model()
+		return false
+	if _is_hand_selected():
+		if not _plot_is_harvestable(plot):
+			_apply_view_model()
+			return false
+		farm_plot_action_requested.emit(
+			int(plot.get("index", -1)),
+			"harvest",
+			""
+		)
+		return true
+	var tool := _get_selected_farm_tool()
+	if tool.is_empty():
 		_apply_view_model()
 		return false
 	farm_plot_action_requested.emit(
@@ -1623,6 +1813,15 @@ func _activate_farm_plot(zone_id: String) -> bool:
 		String(tool.get("id", "")),
 		String(tool.get("seed_id", ""))
 	)
+	return true
+
+
+func _activate_pickup(zone_id: String) -> bool:
+	var pickup := _get_pickup_model(zone_id)
+	if pickup.is_empty():
+		_apply_view_model()
+		return false
+	world_pickup_requested.emit(String(pickup.get("id", "")))
 	return true
 
 
@@ -1667,27 +1866,54 @@ func _schedule_focus_refresh() -> void:
 
 
 func _cycle_farm_tool(direction: int) -> void:
-	var tools := _get_cycleable_farm_tools()
-	if tools.is_empty():
+	var slots := _get_hotbar_slots()
+	if slots.is_empty():
 		return
 	var current_index := 0
-	for tool_index in range(tools.size()):
-		if _build_tool_key(tools[tool_index]) != _selected_farm_tool_key:
+	for slot_index in range(slots.size()):
+		if String(slots[slot_index].get("key", "")) != _selected_farm_tool_key:
 			continue
-		current_index = tool_index
+		current_index = slot_index
 		break
-	var next_index := posmod(current_index + direction, tools.size())
-	_selected_farm_tool_key = _build_tool_key(tools[next_index])
+	var next_index := posmod(current_index + direction, slots.size())
+	_selected_farm_tool_key = String(slots[next_index].get("key", HOTBAR_HAND_KEY))
 	_apply_view_model()
 
 
-func _get_cycleable_farm_tools() -> Array:
-	var cycleable: Array = []
+func _select_hotbar_slot_by_index(index: int) -> void:
+	var slots := _get_hotbar_slots()
+	if index < 0 or index >= slots.size():
+		return
+	_selected_farm_tool_key = String(slots[index].get("key", HOTBAR_HAND_KEY))
+	_apply_view_model()
+
+
+func _get_hotbar_slots() -> Array:
+	var slots: Array = [
+		{
+			"key": HOTBAR_HAND_KEY,
+			"id": "hand",
+			"seed_id": "",
+			"slot_label": "1",
+			"short_label": _t("meta.day_hud.hotbar_hand_short"),
+			"label": _t("meta.day_hud.hotbar_hand_short"),
+			"enabled": true
+		}
+	]
+	var visible_slot_index := 2
 	for tool in _get_farm_tools():
 		if not bool(tool.get("available", false)):
 			continue
-		cycleable.append(tool)
-	return cycleable
+		if String(tool.get("id", "")) == "harvest":
+			continue
+		var slot: Dictionary = tool.duplicate(true)
+		slot["key"] = _build_tool_key(slot)
+		slot["slot_label"] = str(visible_slot_index)
+		slot["short_label"] = _hotbar_short_label(slot)
+		slot["label"] = _hotbar_slot_title(slot)
+		slots.append(slot)
+		visible_slot_index += 1
+	return slots
 
 
 func _get_farm_tools() -> Array:
@@ -1701,7 +1927,20 @@ func _get_farm_tools() -> Array:
 	return tools
 
 
+func _get_selected_hotbar_slot() -> Dictionary:
+	for slot_variant in _get_hotbar_slots():
+		if not (slot_variant is Dictionary):
+			continue
+		var slot := slot_variant as Dictionary
+		if String(slot.get("key", "")) != _selected_farm_tool_key:
+			continue
+		return slot
+	return {}
+
+
 func _get_selected_farm_tool() -> Dictionary:
+	if _selected_farm_tool_key == HOTBAR_HAND_KEY:
+		return {}
 	for tool in _get_farm_tools():
 		if _build_tool_key(tool) == _selected_farm_tool_key:
 			return tool
@@ -1709,14 +1948,17 @@ func _get_selected_farm_tool() -> Dictionary:
 
 
 func _sync_selected_farm_tool() -> void:
-	var tools := _get_cycleable_farm_tools()
-	if tools.is_empty():
+	var slots := _get_hotbar_slots()
+	if slots.is_empty():
 		_selected_farm_tool_key = ""
 		return
-	for tool in tools:
-		if _build_tool_key(tool) == _selected_farm_tool_key:
+	for slot_variant in slots:
+		if not (slot_variant is Dictionary):
+			continue
+		var slot := slot_variant as Dictionary
+		if String(slot.get("key", "")) == _selected_farm_tool_key:
 			return
-	_selected_farm_tool_key = _build_tool_key(tools[0])
+	_selected_farm_tool_key = String(slots[0].get("key", HOTBAR_HAND_KEY))
 
 
 func _build_tool_key(tool: Dictionary) -> String:
@@ -1724,7 +1966,13 @@ func _build_tool_key(tool: Dictionary) -> String:
 
 
 func _build_tool_key_from_parts(action_id: String, seed_id: String) -> String:
+	if action_id.strip_edges().to_lower() == "hand":
+		return HOTBAR_HAND_KEY
 	return "%s::%s" % [action_id.strip_edges().to_lower(), seed_id.strip_edges().to_lower()]
+
+
+func _is_hand_selected() -> bool:
+	return _selected_farm_tool_key == HOTBAR_HAND_KEY
 
 
 func _farm_tool_label(tool: Dictionary) -> String:
@@ -1741,14 +1989,84 @@ func _farm_tool_title(tool: Dictionary) -> String:
 	return label.substr(0, newline_index).strip_edges()
 
 
+func _hotbar_short_label(slot: Dictionary) -> String:
+	var action_id := String(slot.get("id", ""))
+	match action_id:
+		"till":
+			return _t("meta.day_hud.hotbar_hoe_short")
+		"water":
+			return _t("meta.day_hud.hotbar_water_short")
+		"plant":
+			return _farm_tool_title(slot)
+	return _hotbar_slot_title(slot)
+
+
+func _hotbar_slot_title(slot: Dictionary) -> String:
+	var action_id := String(slot.get("id", ""))
+	if action_id == "hand":
+		return _t("meta.day_hud.hotbar_hand_short")
+	return _farm_tool_title(slot)
+
+
+func _hotbar_description(slot: Dictionary) -> String:
+	var action_id := String(slot.get("id", ""))
+	match action_id:
+		"hand":
+			return _t("meta.day_hud.hotbar_hand_desc")
+		"till":
+			return _t("meta.day_hud.hotbar_hoe_desc")
+		"water":
+			return _t("meta.day_hud.hotbar_water_desc")
+		"plant":
+			return _t("meta.day_hud.hotbar_seed_desc", {"value": _farm_tool_title(slot)})
+	return _farm_tool_label(slot)
+
+
 func _is_farm_plot_zone(zone_id: String) -> bool:
 	return zone_id.begins_with("farm_plot_")
+
+
+func _is_pickup_zone(zone_id: String) -> bool:
+	return zone_id.begins_with("pickup_")
 
 
 func _get_farm_plot_model(zone_id: String) -> Dictionary:
 	var zone: Dictionary = _farm_plot_zones.get(zone_id, {}) as Dictionary
 	var plot_variant: Variant = zone.get("plot", {})
 	return plot_variant if plot_variant is Dictionary else {}
+
+
+func _get_pickup_model(zone_id: String) -> Dictionary:
+	var zone: Dictionary = _pickup_zones.get(zone_id, {}) as Dictionary
+	var pickup_variant: Variant = zone.get("pickup", {})
+	return pickup_variant if pickup_variant is Dictionary else {}
+
+
+func _get_day_world_pickups() -> Array:
+	var pickups_variant: Variant = _view_model.get("pickups", [])
+	var pickups_source: Array = pickups_variant if pickups_variant is Array else []
+	var pickups: Array = []
+	for pickup_variant in pickups_source:
+		if not (pickup_variant is Dictionary):
+			continue
+		pickups.append((pickup_variant as Dictionary).duplicate(true))
+	return pickups
+
+
+func _get_visible_pickup_ids() -> Array:
+	var pickup_ids: Array = []
+	for zone_id_variant in _pickup_zones.keys():
+		var pickup := _get_pickup_model(String(zone_id_variant))
+		var pickup_id := String(pickup.get("id", "")).strip_edges().to_lower()
+		if pickup_id.is_empty():
+			continue
+		pickup_ids.append(pickup_id)
+	pickup_ids.sort()
+	return pickup_ids
+
+
+func _plot_is_harvestable(plot: Dictionary) -> bool:
+	return String(plot.get("state_id", "")) == "harvestable"
 
 
 func _farm_plot_name(plot: Dictionary) -> String:

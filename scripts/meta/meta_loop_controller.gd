@@ -19,6 +19,26 @@ const FARM_WATER_STAMINA_COST := 1
 const FARM_ACTION_TIME_COST := 1
 const RESTAURANT_SERVICE_ACTION_COST := 3
 const RESTAURANT_MAX_MENU_SIZE := 3
+const DAY_WORLD_PICKUP_DEFS := [
+	{
+		"id": "harbor_herb",
+		"material_id": "herb",
+		"amount": 1,
+		"position": Vector2(454.0, 694.0),
+		"variant": "forage",
+		"name_key": "meta.world.pickup_harbor_herb_name",
+		"summary_key": "meta.world.pickup_harbor_herb_summary"
+	},
+	{
+		"id": "dock_scrap",
+		"material_id": "scrap",
+		"amount": 1,
+		"position": Vector2(1130.0, 808.0),
+		"variant": "salvage",
+		"name_key": "meta.world.pickup_dock_scrap_name",
+		"summary_key": "meta.world.pickup_dock_scrap_summary"
+	}
+]
 
 const DayClockClass := preload("res://scripts/meta/day_clock.gd")
 const DayStateClass := preload("res://scripts/meta/day_state.gd")
@@ -50,6 +70,7 @@ var _economy = EconomyStateClass.new()
 var _reward_pipeline = RewardPipelineClass.new()
 var _farm_state: Dictionary = {}
 var _restaurant_state: Dictionary = {}
+var _day_world_state: Dictionary = {}
 var _pending_return_summary: Dictionary = {}
 var _current_state: String = STATE_MENU
 var _day_hub_status_text: String = ""
@@ -103,6 +124,8 @@ func _connect_signals() -> void:
 			day_world.connect("menu_requested", Callable(self, "_on_menu_requested"))
 		if day_world.has_signal("legacy_requested"):
 			day_world.connect("legacy_requested", Callable(self, "_on_day_world_legacy_requested"))
+		if day_world.has_signal("world_pickup_requested"):
+			day_world.connect("world_pickup_requested", Callable(self, "_on_day_world_pickup_requested"))
 	if farm_view != null:
 		farm_view.plot_action_requested.connect(_on_farm_plot_action_requested)
 		farm_view.back_requested.connect(_on_farm_back_requested)
@@ -166,8 +189,10 @@ func _load_meta_progress() -> void:
 	_economy = EconomyStateClass.from_dict(snapshot.get("economy", {}))
 	_farm_state = _normalize_farm_state(snapshot.get("farm_state", {}))
 	_restaurant_state = _normalize_restaurant_state(snapshot.get("restaurant_state", {}))
+	_day_world_state = _normalize_day_world_state(snapshot.get("day_world_state", {}))
 	var summary_variant: Variant = snapshot.get("pending_return_summary", {})
 	_pending_return_summary = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
+	_sync_day_world_state_to_current_day()
 	if _day_state.current_phase == DayStateClass.PHASE_NIGHT and _pending_return_summary.is_empty():
 		_day_state.reset_daytime()
 		_save_meta_progress()
@@ -183,6 +208,7 @@ func _save_meta_progress() -> void:
 		"inventory": _inventory.to_dict(),
 		"farm_state": _farm_state.duplicate(true),
 		"restaurant_state": _restaurant_state.duplicate(true),
+		"day_world_state": _day_world_state.duplicate(true),
 		"pending_return_summary": _pending_return_summary.duplicate(true)
 	})
 
@@ -216,6 +242,26 @@ func _normalize_restaurant_state(source_variant: Variant) -> Dictionary:
 		"last_service_day": maxi(0, int(source.get("last_service_day", 0))),
 		"last_service_summary": (source.get("last_service_summary", {}) as Dictionary).duplicate(true) if source.get("last_service_summary", {}) is Dictionary else {},
 		"owned_upgrade_ids": _normalize_string_id_array(source.get("owned_upgrade_ids", []))
+	}
+
+
+func _normalize_day_world_state(source_variant: Variant) -> Dictionary:
+	var source: Dictionary = source_variant if source_variant is Dictionary else {}
+	return {
+		"pickup_day": maxi(1, int(source.get("pickup_day", _day_state.current_day))),
+		"collected_pickup_ids": _normalize_string_id_array(source.get("collected_pickup_ids", []))
+	}
+
+
+func _sync_day_world_state_to_current_day() -> void:
+	var pickup_day := maxi(1, int(_day_world_state.get("pickup_day", _day_state.current_day)))
+	if pickup_day == _day_state.current_day:
+		_day_world_state["pickup_day"] = pickup_day
+		_day_world_state["collected_pickup_ids"] = _normalize_string_id_array(_day_world_state.get("collected_pickup_ids", []))
+		return
+	_day_world_state = {
+		"pickup_day": _day_state.current_day,
+		"collected_pickup_ids": []
 	}
 
 
@@ -306,6 +352,7 @@ func _crop_progress_text(crop_state: Dictionary) -> String:
 func _refresh_views() -> void:
 	var day_hub_model := _build_day_hub_model()
 	var day_world_model := day_hub_model.duplicate(true)
+	day_world_model["pickups"] = _build_day_world_pickup_models()
 	if not _farm_status_text.is_empty():
 		day_world_model["status_text"] = _farm_status_text
 	var farm_model := _build_farm_model()
@@ -471,6 +518,10 @@ func _on_day_world_legacy_requested() -> void:
 	_set_daytime_shell_mode(DAYTIME_SHELL_LEGACY)
 
 
+func _on_day_world_pickup_requested(pickup_id: String) -> void:
+	_collect_day_world_pickup(pickup_id)
+
+
 func _on_farm_back_requested() -> void:
 	_show_state(STATE_DAY_HUB)
 
@@ -571,6 +622,7 @@ func _on_return_summary_continue_requested() -> void:
 	var previous_day: int = _day_state.current_day
 	_day_state.begin_next_day()
 	_advance_farm_for_new_day(previous_day)
+	_sync_day_world_state_to_current_day()
 	_pending_return_summary.clear()
 	_day_hub_status_text = ""
 	_farm_status_text = ""
@@ -1247,6 +1299,72 @@ func _build_shop_model() -> Dictionary:
 		"sell_offers": _build_shop_sell_offers(),
 		"upgrade_offers": _build_shop_upgrade_offers()
 	}
+
+
+func _build_day_world_pickup_models() -> Array[Dictionary]:
+	var models: Array[Dictionary] = []
+	var collected_pickup_ids := _normalize_string_id_array(_day_world_state.get("collected_pickup_ids", []))
+	for pickup_def_variant in DAY_WORLD_PICKUP_DEFS:
+		if not (pickup_def_variant is Dictionary):
+			continue
+		var pickup_def: Dictionary = (pickup_def_variant as Dictionary).duplicate(true)
+		var pickup_id := String(pickup_def.get("id", "")).strip_edges().to_lower()
+		if pickup_id.is_empty() or collected_pickup_ids.has(pickup_id):
+			continue
+		var amount := maxi(1, int(pickup_def.get("amount", 1)))
+		var material_id := String(pickup_def.get("material_id", "")).strip_edges().to_lower()
+		models.append({
+			"id": pickup_id,
+			"position": pickup_def.get("position", Vector2.ZERO),
+			"variant": String(pickup_def.get("variant", "forage")),
+			"name": _t(String(pickup_def.get("name_key", ""))),
+			"summary": _t(String(pickup_def.get("summary_key", ""))),
+			"material_id": material_id,
+			"amount": amount,
+			"reward_text": _build_material_bundle_text({material_id: amount})
+		})
+	return models
+
+
+func _collect_day_world_pickup(pickup_id: String) -> bool:
+	var normalized_pickup_id := pickup_id.strip_edges().to_lower()
+	if normalized_pickup_id.is_empty():
+		return false
+	var pickup_def := _find_day_world_pickup_def(normalized_pickup_id)
+	if pickup_def.is_empty():
+		return false
+	var collected_pickup_ids := _normalize_string_id_array(_day_world_state.get("collected_pickup_ids", []))
+	if collected_pickup_ids.has(normalized_pickup_id):
+		return false
+	var material_id := String(pickup_def.get("material_id", "")).strip_edges().to_lower()
+	var amount := maxi(1, int(pickup_def.get("amount", 1)))
+	if material_id.is_empty():
+		return false
+	_inventory.add_material(material_id, amount)
+	collected_pickup_ids.append(normalized_pickup_id)
+	_day_world_state["pickup_day"] = _day_state.current_day
+	_day_world_state["collected_pickup_ids"] = collected_pickup_ids
+	_day_hub_status_text = _t("meta.world.pickup_collected", {
+		"value": _build_material_bundle_text({material_id: amount})
+	})
+	_farm_status_text = ""
+	_restaurant_status_text = ""
+	_shop_status_text = ""
+	_save_meta_progress()
+	_refresh_views()
+	return true
+
+
+func _find_day_world_pickup_def(pickup_id: String) -> Dictionary:
+	var normalized_pickup_id := pickup_id.strip_edges().to_lower()
+	for pickup_def_variant in DAY_WORLD_PICKUP_DEFS:
+		if not (pickup_def_variant is Dictionary):
+			continue
+		var pickup_def: Dictionary = pickup_def_variant
+		if String(pickup_def.get("id", "")).strip_edges().to_lower() != normalized_pickup_id:
+			continue
+		return pickup_def.duplicate(true)
+	return {}
 
 
 func _build_shop_request_info() -> Dictionary:
@@ -2654,6 +2772,9 @@ func debug_get_snapshot() -> Dictionary:
 		"day_world_overlay_blocked": bool(day_world_snapshot.get("overlay_blocked", false)),
 		"day_world_night_popup_open": bool(day_world_snapshot.get("night_popup_open", false)),
 		"day_world_transition_active": bool(day_world_snapshot.get("transition_active", false)),
+		"day_world_visible_pickup_ids": (day_world_snapshot.get("visible_pickup_ids", []) as Array).duplicate(true) if day_world_snapshot.get("visible_pickup_ids", []) is Array else [],
+		"day_world_selected_hotbar_id": String(day_world_snapshot.get("selected_hotbar_id", "")),
+		"day_world_selected_hotbar_label": String(day_world_snapshot.get("selected_hotbar_label", "")),
 		"day_world_selected_farm_tool_action_id": String(day_world_snapshot.get("selected_farm_tool_action_id", "")),
 		"day_world_selected_farm_tool_seed_id": String(day_world_snapshot.get("selected_farm_tool_seed_id", "")),
 		"day_world_selected_farm_tool_label": String(day_world_snapshot.get("selected_farm_tool_label", "")),
