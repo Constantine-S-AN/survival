@@ -347,11 +347,15 @@ func _show_state(next_state: String) -> void:
 
 
 func _sync_daytime_shell_visibility() -> void:
-	var show_daytime_shell := _current_state == STATE_DAY_HUB
+	var show_daytime_shell := _current_state == STATE_DAY_HUB or (_current_state == STATE_RETURN_SUMMARY and _daytime_shell_mode == DAYTIME_SHELL_WORLD)
 	if day_hub != null:
-		day_hub.visible = show_daytime_shell and _daytime_shell_mode == DAYTIME_SHELL_LEGACY
+		day_hub.visible = _current_state == STATE_DAY_HUB and _daytime_shell_mode == DAYTIME_SHELL_LEGACY
 	if day_world != null:
 		day_world.visible = show_daytime_shell and _daytime_shell_mode == DAYTIME_SHELL_WORLD
+		if day_world.has_method("set_overlay_blocked"):
+			day_world.call("set_overlay_blocked", _current_state == STATE_RETURN_SUMMARY)
+		if _current_state == STATE_RETURN_SUMMARY and day_world.has_method("snap_player_to_night_dock"):
+			day_world.call("snap_player_to_night_dock")
 
 
 func _normalize_daytime_shell_mode(mode: String) -> String:
@@ -2434,6 +2438,12 @@ func debug_day_world_interact(zone_id: String) -> bool:
 	return false
 
 
+func debug_day_world_confirm_night_departure() -> bool:
+	if day_world != null and day_world.has_method("debug_confirm_night_departure"):
+		return bool(day_world.call("debug_confirm_night_departure"))
+	return false
+
+
 func debug_day_world_select_farm_tool(action_id: String, seed_id: String = "") -> bool:
 	if day_world != null and day_world.has_method("debug_select_farm_tool"):
 		return bool(day_world.call("debug_select_farm_tool", action_id, seed_id))
@@ -2640,6 +2650,10 @@ func debug_get_snapshot() -> Dictionary:
 		"day_world_night_ready": bool(day_world_snapshot.get("night_ready", false)),
 		"day_world_dock_gate_open": bool(day_world_snapshot.get("dock_gate_open", false)),
 		"day_world_visible_town_npc_count": int(day_world_snapshot.get("visible_town_npc_count", 0)),
+		"day_world_player_position": day_world_snapshot.get("player_position", Vector2.ZERO),
+		"day_world_overlay_blocked": bool(day_world_snapshot.get("overlay_blocked", false)),
+		"day_world_night_popup_open": bool(day_world_snapshot.get("night_popup_open", false)),
+		"day_world_transition_active": bool(day_world_snapshot.get("transition_active", false)),
 		"day_world_selected_farm_tool_action_id": String(day_world_snapshot.get("selected_farm_tool_action_id", "")),
 		"day_world_selected_farm_tool_seed_id": String(day_world_snapshot.get("selected_farm_tool_seed_id", "")),
 		"day_world_selected_farm_tool_label": String(day_world_snapshot.get("selected_farm_tool_label", "")),

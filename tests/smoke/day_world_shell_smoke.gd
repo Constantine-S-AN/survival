@@ -161,13 +161,54 @@ func _ready() -> void:
 			return
 		await get_tree().process_frame
 	if not bool(meta_root.call("debug_day_world_interact", "night")):
-		push_error("Night dock should launch combat after evening is reached")
+		push_error("Night dock should open a departure confirmation after evening is reached")
 		_cleanup(meta_root)
 		return
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
+	if not bool(snapshot.get("day_world_night_popup_open", false)):
+		push_error("Night dock interaction did not open the world departure confirmation")
+		_cleanup(meta_root)
+		return
+	if not bool(meta_root.call("debug_day_world_confirm_night_departure")):
+		push_error("World departure confirmation should launch the night run")
+		_cleanup(meta_root)
+		return
+	await get_tree().create_timer(0.7).timeout
+	snapshot = meta_root.call("debug_get_snapshot")
 	if String(snapshot.get("current_screen", "")) != "night":
 		push_error("Night dock did not launch the embedded night combat screen")
+		_cleanup(meta_root)
+		return
+	meta_root.call("debug_complete_active_night", {
+		"exit_reason": "completed",
+		"time_survived_sec": 84.0,
+		"kills": 14
+	})
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	if String(snapshot.get("current_screen", "")) != "return_summary":
+		push_error("Night completion should enter the return summary state")
+		_cleanup(meta_root)
+		return
+	if not bool(snapshot.get("day_world_overlay_blocked", false)):
+		push_error("Day world should stay visible but blocked behind the return overlay")
+		_cleanup(meta_root)
+		return
+	if String(snapshot.get("day_world_phase_visual_id", "")) != "night":
+		push_error("Day world should shift to the night visual state on return")
+		_cleanup(meta_root)
+		return
+	var dock_position: Vector2 = snapshot.get("day_world_player_position", Vector2.ZERO)
+	if dock_position.distance_to(Vector2(1218.0, 818.0)) > 80.0:
+		push_error("Player should return near the dock after night combat")
+		_cleanup(meta_root)
+		return
+	meta_root.call("debug_continue_summary")
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	if String(snapshot.get("current_screen", "")) != "day_hub":
+		push_error("Continuing the return overlay should advance into the next day world")
 		_cleanup(meta_root)
 		return
 	print("Day World shell smoke PASS")

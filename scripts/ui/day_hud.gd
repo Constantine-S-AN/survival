@@ -117,6 +117,8 @@ func _apply_phase_track(phase: String, night_ready: bool) -> void:
 
 func _phase_index(phase: String) -> int:
 	var normalized := phase.strip_edges().to_lower()
+	if normalized == "night":
+		return phase_segments.size() - 1
 	var index := PHASE_ORDER.find(normalized)
 	return index if index >= 0 else 0
 

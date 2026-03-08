@@ -40,12 +40,15 @@ const TILE_FOAM := Vector2i(10, 0)
 const FARM_PLOT_ORIGIN := Vector2(214.0, 628.0)
 const FARM_PLOT_STEP := Vector2(104.0, 84.0)
 const FARM_PLOT_SIZE := Vector2(82.0, 60.0)
+const NIGHT_DOCK_POSITION := Vector2(1218.0, 818.0)
+const NIGHT_TRANSITION_SECONDS := 0.55
 
 @onready var backdrop: Node2D = $Backdrop
 @onready var environment: Node2D = $Environment
 @onready var zones_root: Node2D = $Zones
 @onready var spawn_point: Marker2D = $SpawnPoint
 @onready var day_player: DayPlayerController = $DayPlayer
+@onready var hud_layer: CanvasLayer = $HUDLayer
 @onready var hud: DayHud = $HUDLayer/DayHud
 @onready var daily_orders_board: DailyOrdersBoardView = $HUDLayer/DailyOrdersBoard
 
@@ -78,11 +81,24 @@ var _lamp_glows: Array[Polygon2D] = []
 var _lamp_lanterns: Array[Polygon2D] = []
 var _town_npc_nodes: Dictionary = {}
 var _phase_visual_id: String = ""
+var _overlay_blocked: bool = false
+var _night_popup: Panel = null
+var _night_popup_title_label: Label = null
+var _night_popup_body_label: Label = null
+var _night_popup_confirm_button: Button = null
+var _night_popup_cancel_button: Button = null
+var _transition_shade: ColorRect = null
+var _transition_title_label: Label = null
+var _transition_body_label: Label = null
+var _night_popup_open: bool = false
+var _transition_active: bool = false
+var _was_visible: bool = false
 
 
 func _ready() -> void:
 	visible = false
 	_build_world_if_needed()
+	_build_overlay_ui()
 	_register_zones()
 	_rebuild_farm_plots()
 	day_player.set_world_bounds(WORLD_BOUNDS)
@@ -108,7 +124,14 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
+	if _night_popup_open:
+		if event.is_action_pressed("ui_cancel"):
+			_close_night_popup()
+			get_viewport().set_input_as_handled()
+		return
 	if daily_orders_board != null and daily_orders_board.visible:
+		return
+	if _overlay_blocked:
 		return
 	if event.is_action_pressed("day_cycle_farm_tool_prev"):
 		_cycle_farm_tool(-1)
@@ -131,6 +154,20 @@ func set_farm_model(model: Dictionary) -> void:
 	_apply_view_model()
 
 
+func set_overlay_blocked(blocked: bool) -> void:
+	_overlay_blocked = blocked
+	if blocked:
+		_close_night_popup()
+	_sync_visibility_state()
+	_apply_view_model()
+
+
+func snap_player_to_night_dock() -> void:
+	if day_player == null:
+		return
+	day_player.reset_to_position(NIGHT_DOCK_POSITION)
+
+
 func debug_activate_zone(zone_id: String) -> bool:
 	return _activate_zone(zone_id.strip_edges().to_lower())
 
@@ -150,6 +187,13 @@ func debug_interact_farm_plot(plot_index: int) -> bool:
 	return _activate_zone("farm_plot_%d" % plot_index)
 
 
+func debug_confirm_night_departure() -> bool:
+	if not _night_popup_open or _transition_active or _overlay_blocked:
+		return false
+	_begin_night_departure_transition()
+	return true
+
+
 func debug_get_snapshot() -> Dictionary:
 	var selected_tool := _get_selected_farm_tool()
 	return {
@@ -161,6 +205,9 @@ func debug_get_snapshot() -> Dictionary:
 		"night_ready": bool(_view_model.get("night_ready", false)),
 		"dock_gate_open": _dock_gate_root == null or not _dock_gate_root.visible,
 		"visible_town_npc_count": _count_visible_town_npcs(),
+		"overlay_blocked": _overlay_blocked,
+		"night_popup_open": _night_popup_open,
+		"transition_active": _transition_active,
 		"selected_farm_tool_action_id": String(selected_tool.get("id", "")),
 		"selected_farm_tool_seed_id": String(selected_tool.get("seed_id", "")),
 		"selected_farm_tool_label": _farm_tool_title(selected_tool)
@@ -193,6 +240,99 @@ func _build_world_if_needed() -> void:
 	_farm_plots_root.z_index = 6
 	zones_root.add_child(_farm_plots_root)
 	_apply_phase_presentation()
+
+
+func _build_overlay_ui() -> void:
+	if hud_layer == null or _night_popup != null:
+		return
+	_transition_shade = ColorRect.new()
+	_transition_shade.name = "NightTransitionShade"
+	_transition_shade.visible = false
+	_transition_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_transition_shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_transition_shade.color = Color(0.04, 0.07, 0.12, 0.0)
+	hud_layer.add_child(_transition_shade)
+
+	var transition_margin := MarginContainer.new()
+	transition_margin.name = "TransitionMargin"
+	transition_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	transition_margin.add_theme_constant_override("margin_left", 24)
+	transition_margin.add_theme_constant_override("margin_top", 24)
+	transition_margin.add_theme_constant_override("margin_right", 24)
+	transition_margin.add_theme_constant_override("margin_bottom", 24)
+	_transition_shade.add_child(transition_margin)
+
+	var transition_box := VBoxContainer.new()
+	transition_box.name = "TransitionBox"
+	transition_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	transition_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	transition_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	transition_box.add_theme_constant_override("separation", 10)
+	transition_margin.add_child(transition_box)
+
+	_transition_title_label = Label.new()
+	_transition_title_label.theme_type_variation = &"HeadingLabel"
+	_transition_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_transition_title_label.text = _t("meta.world.night_transition_title")
+	transition_box.add_child(_transition_title_label)
+
+	_transition_body_label = Label.new()
+	_transition_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_transition_body_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_transition_body_label.theme_type_variation = &"BodyMutedLabel"
+	_transition_body_label.text = _t("meta.world.night_transition_body")
+	transition_box.add_child(_transition_body_label)
+
+	_night_popup = Panel.new()
+	_night_popup.name = "NightDeparturePopup"
+	_night_popup.visible = false
+	_night_popup.custom_minimum_size = Vector2(480.0, 0.0)
+	_night_popup.position = Vector2(560.0, 176.0)
+	_night_popup.theme_type_variation = &"OverlayPanel"
+	hud_layer.add_child(_night_popup)
+
+	var popup_margin := MarginContainer.new()
+	popup_margin.name = "Margin"
+	popup_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_margin.add_theme_constant_override("margin_left", 18)
+	popup_margin.add_theme_constant_override("margin_top", 16)
+	popup_margin.add_theme_constant_override("margin_right", 18)
+	popup_margin.add_theme_constant_override("margin_bottom", 16)
+	_night_popup.add_child(popup_margin)
+
+	var popup_vbox := VBoxContainer.new()
+	popup_vbox.name = "VBox"
+	popup_vbox.add_theme_constant_override("separation", 10)
+	popup_margin.add_child(popup_vbox)
+
+	_night_popup_title_label = Label.new()
+	_night_popup_title_label.theme_type_variation = &"HeadingLabel"
+	popup_vbox.add_child(_night_popup_title_label)
+
+	_night_popup_body_label = Label.new()
+	_night_popup_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	popup_vbox.add_child(_night_popup_body_label)
+
+	var button_row := HBoxContainer.new()
+	button_row.name = "Buttons"
+	button_row.add_theme_constant_override("separation", 10)
+	popup_vbox.add_child(button_row)
+
+	_night_popup_confirm_button = Button.new()
+	_night_popup_confirm_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_night_popup_confirm_button.custom_minimum_size = Vector2(0.0, 42.0)
+	_night_popup_confirm_button.theme_type_variation = &"PrimaryButton"
+	_night_popup_confirm_button.pressed.connect(_begin_night_departure_transition)
+	button_row.add_child(_night_popup_confirm_button)
+
+	_night_popup_cancel_button = Button.new()
+	_night_popup_cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_night_popup_cancel_button.custom_minimum_size = Vector2(0.0, 42.0)
+	_night_popup_cancel_button.theme_type_variation = &"SecondaryButton"
+	_night_popup_cancel_button.pressed.connect(_close_night_popup)
+	button_row.add_child(_night_popup_cancel_button)
+
+	_update_night_popup_copy()
 
 
 func _ensure_world_layers() -> void:
@@ -1038,7 +1178,76 @@ func _apply_view_model() -> void:
 		"farm_tool_text": _farm_tool_label(selected_tool) if not selected_tool.is_empty() else _t("meta.farm.tool_none"),
 		"farm_tool_hint": _t("meta.day_hud.farm_tool_hint")
 	})
+	_update_night_popup_copy()
 	_refresh_zone_visuals()
+
+
+func _update_night_popup_copy() -> void:
+	if _night_popup == null:
+		return
+	if _night_popup_title_label != null:
+		_night_popup_title_label.text = _t("meta.world.night_confirm_title")
+	if _night_popup_body_label != null:
+		_night_popup_body_label.text = _build_night_confirmation_text()
+	if _night_popup_confirm_button != null:
+		_night_popup_confirm_button.text = _t("meta.world.night_confirm_launch")
+		_night_popup_confirm_button.disabled = _transition_active or not bool(_view_model.get("night_ready", false))
+	if _night_popup_cancel_button != null:
+		_night_popup_cancel_button.text = _t("meta.world.night_confirm_cancel")
+	_night_popup.visible = visible and _night_popup_open
+	if _transition_title_label != null:
+		_transition_title_label.text = _t("meta.world.night_transition_title")
+	if _transition_body_label != null:
+		_transition_body_label.text = _t("meta.world.night_transition_body")
+
+
+func _build_night_confirmation_text() -> String:
+	if bool(_view_model.get("night_ready", false)):
+		return _t("meta.world.night_confirm_ready")
+	return _build_night_cue()
+
+
+func _open_night_popup() -> void:
+	if _overlay_blocked or _transition_active or not bool(_view_model.get("night_ready", false)):
+		return
+	_night_popup_open = true
+	_update_night_popup_copy()
+	_sync_visibility_state()
+	_apply_view_model()
+
+
+func _close_night_popup() -> void:
+	_night_popup_open = false
+	if _night_popup != null:
+		_night_popup.visible = false
+	_sync_visibility_state()
+	_apply_view_model()
+
+
+func _begin_night_departure_transition() -> void:
+	if _overlay_blocked or _transition_active or not bool(_view_model.get("night_ready", false)):
+		return
+	_night_popup_open = false
+	_transition_active = true
+	_set_transition_visible(true)
+	_sync_visibility_state()
+	var timer := get_tree().create_timer(NIGHT_TRANSITION_SECONDS)
+	timer.timeout.connect(_emit_night_departure, CONNECT_ONE_SHOT)
+
+
+func _emit_night_departure() -> void:
+	if not _transition_active:
+		return
+	_transition_active = false
+	_set_transition_visible(false)
+	night_requested.emit()
+
+
+func _set_transition_visible(active: bool) -> void:
+	if _transition_shade == null:
+		return
+	_transition_shade.visible = active and visible
+	_transition_shade.color = Color(0.04, 0.07, 0.12, 0.82 if active else 0.0)
 
 
 func _apply_phase_presentation() -> void:
@@ -1103,6 +1312,9 @@ func _apply_town_npc_phase_state(phase: String) -> void:
 			shopkeeper_alpha = 0.88
 		"evening":
 			regular_alpha = 0.16
+			shopkeeper_alpha = 0.0
+		"night":
+			regular_alpha = 0.0
 			shopkeeper_alpha = 0.0
 	_update_town_npc_alpha("regular", regular_alpha)
 	_update_town_npc_alpha("shopkeeper", shopkeeper_alpha)
@@ -1174,6 +1386,21 @@ func _get_phase_palette(phase: String) -> Dictionary:
 				"shop_sign": Color(0.99, 0.85, 0.50, 1.0),
 				"lamp_alpha": 0.34
 			}
+		"night":
+			return {
+				"sky": Color(0.11, 0.16, 0.28, 1.0),
+				"cloud": Color(0.42, 0.46, 0.62, 0.12),
+				"horizon": Color(0.24, 0.34, 0.48, 0.20),
+				"overlay": Color(0.04, 0.08, 0.18, 0.30),
+				"sun": Color(0.40, 0.55, 0.82, 0.06),
+				"harbor": Color(0.30, 0.58, 0.90, 0.14),
+				"ground_modulate": Color(0.72, 0.78, 0.92, 1.0),
+				"scenery_modulate": Color(0.68, 0.74, 0.91, 1.0),
+				"ambient_modulate": Color(0.92, 0.95, 1.0, 1.0),
+				"restaurant_sign": Color(0.90, 0.73, 0.52, 1.0),
+				"shop_sign": Color(0.92, 0.82, 0.54, 1.0),
+				"lamp_alpha": 0.46
+			}
 		_:
 			return {
 				"sky": Color(0.65, 0.83, 0.94, 1.0),
@@ -1199,18 +1426,26 @@ func _build_phase_idle_cue() -> String:
 			return _t("meta.world.phase_cue_afternoon")
 		"evening":
 			return _t("meta.world.phase_cue_evening")
+		"night":
+			return _t("meta.world.phase_cue_night")
 		_:
 			return _t("meta.world.phase_cue_morning")
 
 
 func _build_restaurant_cue() -> String:
-	if String(_view_model.get("phase", "morning")) == "evening":
+	var phase := String(_view_model.get("phase", "morning"))
+	if phase == "night":
+		return _t("meta.world.restaurant_cue_night")
+	if phase == "evening":
 		return _t("meta.world.restaurant_cue_evening")
 	return _t("meta.world.restaurant_cue_day")
 
 
 func _build_shop_cue() -> String:
-	if String(_view_model.get("phase", "morning")) == "evening":
+	var phase := String(_view_model.get("phase", "morning"))
+	if phase == "night":
+		return _t("meta.world.shop_cue_night")
+	if phase == "evening":
 		return _t("meta.world.shop_cue_evening")
 	return _t("meta.world.shop_cue_day")
 
@@ -1241,6 +1476,12 @@ func _build_night_cue() -> String:
 func _build_prompt_text() -> String:
 	if daily_orders_board != null and daily_orders_board.visible:
 		return _t("meta.world.prompt_orders_open")
+	if _transition_active:
+		return "%s\n%s" % [_t("meta.world.night_transition_title"), _t("meta.world.night_transition_body")]
+	if _night_popup_open:
+		return "%s\n%s" % [_t("meta.world.night_confirm_title"), _build_night_confirmation_text()]
+	if _overlay_blocked:
+		return _build_phase_idle_cue()
 	if _focused_zone_id.is_empty():
 		return "%s\n%s" % [_t("meta.world.prompt_idle"), _build_phase_idle_cue()]
 	if _is_farm_plot_zone(_focused_zone_id):
@@ -1345,6 +1586,8 @@ func _get_zone_tooltip(zone_id: String) -> String:
 func _activate_zone(zone_id: String) -> bool:
 	if zone_id.is_empty():
 		return false
+	if _overlay_blocked or _transition_active:
+		return false
 	if _is_farm_plot_zone(zone_id):
 		return _activate_farm_plot(zone_id)
 	if not _is_zone_enabled(zone_id):
@@ -1364,7 +1607,7 @@ func _activate_zone(zone_id: String) -> bool:
 			wait_requested.emit()
 			return true
 		"night":
-			night_requested.emit()
+			_open_night_popup()
 			return true
 	return false
 
@@ -1386,6 +1629,8 @@ func _activate_farm_plot(zone_id: String) -> bool:
 func _toggle_daily_orders_board() -> void:
 	if daily_orders_board == null:
 		return
+	if _overlay_blocked or _transition_active:
+		return
 	if daily_orders_board.visible:
 		daily_orders_board.close_board()
 	else:
@@ -1402,7 +1647,17 @@ func _sync_visibility_state() -> void:
 		daily_orders_board.close_board()
 	if day_player != null:
 		day_player.set_camera_active(ui_visible)
-		day_player.set_controls_enabled(ui_visible and (daily_orders_board == null or not daily_orders_board.visible))
+		day_player.set_controls_enabled(
+			ui_visible
+			and not _overlay_blocked
+			and not _transition_active
+			and not _night_popup_open
+			and (daily_orders_board == null or not daily_orders_board.visible)
+		)
+	if _night_popup != null:
+		_night_popup.visible = ui_visible and _night_popup_open
+	if _transition_shade != null:
+		_transition_shade.visible = ui_visible and _transition_active
 	_schedule_focus_refresh()
 
 
@@ -1535,8 +1790,15 @@ func _on_player_interaction_requested(zone_id: String) -> void:
 
 
 func _on_visibility_changed() -> void:
+	if visible and not _was_visible and _overlay_blocked:
+		snap_player_to_night_dock()
+	if not visible:
+		_night_popup_open = false
+		_transition_active = false
+		_set_transition_visible(false)
 	_sync_visibility_state()
 	_apply_view_model()
+	_was_visible = visible
 
 
 func _on_daily_orders_board_closed() -> void:
