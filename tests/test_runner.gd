@@ -439,7 +439,7 @@ func _run_character_profile_tests() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	profile_store.load_profile("diver")
-	_assert_equal(profile_store.get_schema_version(), 6, "profile migration upgrades schema to v6")
+	_assert_equal(profile_store.get_schema_version(), 7, "profile migration upgrades schema to v7")
 	var migrated_profile: Dictionary = profile_store.get_profile()
 	var migrated_progress_variant: Variant = migrated_profile.get("progress", {})
 	var migrated_progress: Dictionary = migrated_progress_variant if migrated_progress_variant is Dictionary else {}
@@ -2351,6 +2351,10 @@ func _find_active_enemy_by_id(enemy_manager: Node, enemy_id: String) -> Node:
 
 
 func _run_meta_loop_scaffold_tests() -> void:
+	_reset_profile_isolation_state()
+	if DailyOrders != null and DailyOrders.has_method("_reset_runtime_state"):
+		DailyOrders.call("_reset_runtime_state")
+	await get_tree().process_frame
 	var meta_scene: PackedScene = load("res://scenes/meta/MetaLoopRoot.tscn")
 	var meta_root: Node = meta_scene.instantiate()
 	get_tree().root.add_child(meta_root)
@@ -2987,6 +2991,20 @@ func _cleanup_profile_isolation() -> void:
 	if ProfileStore != null and ProfileStore.has_method("end_test_session"):
 		ProfileStore.end_test_session(true)
 	_profile_test_session_started = false
+
+
+func _reset_profile_isolation_state() -> void:
+	if ProfileStore == null:
+		return
+	if ProfileStore.has_method("end_test_session") and _profile_test_session_started:
+		ProfileStore.end_test_session(true)
+		_profile_test_session_started = false
+	if ProfileStore.has_method("begin_test_session"):
+		var session_id := "test_runner_meta_loop_%d_%d" % [int(Time.get_unix_time_from_system()), int(Time.get_ticks_usec() % 1000000)]
+		ProfileStore.begin_test_session(session_id, true)
+		_profile_test_session_started = true
+	if ProfileStore.has_method("load_profile"):
+		ProfileStore.load_profile("diver", "map_trench_lab")
 
 
 func _current_profile_path() -> String:

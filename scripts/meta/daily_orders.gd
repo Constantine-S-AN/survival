@@ -26,6 +26,7 @@ var _tracked_dish_sales: Dictionary = {}
 var _tracked_materials: Dictionary = {}
 var _quests_by_id: Dictionary = {}
 var _profile_path: String = ""
+var _is_rolling_over_day: bool = false
 
 
 func _ready() -> void:
@@ -118,13 +119,15 @@ func _try_initialize() -> bool:
 	if ProfileStore == null or QuestSystem == null:
 		return false
 	var profile_path := _get_profile_path()
-	if _loaded and profile_path == _profile_path:
-		return true
-	if _loaded and profile_path != _profile_path:
-		_reset_runtime_state()
 	var current_day := _get_current_day()
 	if current_day <= 0:
 		return false
+	if _loaded and profile_path == _profile_path:
+		if current_day != _current_day and not _is_rolling_over_day:
+			_rollover_to_new_day(current_day, ProfileStore.get_daily_orders_state())
+		return true
+	if _loaded and profile_path != _profile_path:
+		_reset_runtime_state()
 	var saved_state := ProfileStore.get_daily_orders_state()
 	var saved_day := int(saved_state.get("current_day", 0))
 	if saved_day > 0 and saved_day != current_day:
@@ -176,6 +179,7 @@ func _restore_state(state: Dictionary) -> void:
 
 
 func _rollover_to_new_day(new_day: int, previous_state: Dictionary) -> void:
+	_is_rolling_over_day = true
 	var previous_day := int(previous_state.get("current_day", 0))
 	if previous_day > 0:
 		_restore_state(previous_state)
@@ -184,6 +188,7 @@ func _rollover_to_new_day(new_day: int, previous_state: Dictionary) -> void:
 		if _auto_claim_ready_orders() > 0:
 			_persist_state()
 	_initialize_for_day(new_day)
+	_is_rolling_over_day = false
 
 
 func _sync_progress() -> void:
@@ -448,6 +453,7 @@ func _reset_runtime_state() -> void:
 	_tracked_materials.clear()
 	_quests_by_id.clear()
 	_profile_path = ""
+	_is_rolling_over_day = false
 	if QuestSystem != null:
 		QuestSystem.reset_pool()
 
