@@ -1,6 +1,8 @@
 extends Control
 class_name RestaurantController
 
+const StardewLikeAssets := preload("res://scripts/day/stardew_like_asset_library.gd")
+
 signal back_requested
 signal recipe_toggled(recipe_id: String)
 signal clear_menu_requested
@@ -18,6 +20,8 @@ const TILE_CHECKER_DARK := Vector2i(3, 0)
 const TILE_RUG := Vector2i(4, 0)
 const TILE_WALL := Vector2i(5, 0)
 const TILE_MAT := Vector2i(6, 0)
+const CAINOS_STONE_SHEET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Pixel-Art-Top-Down---Basic-v1-2-3/Texture/TX Tileset Stone Ground.png"
+const HARVEST_TILE_SHEET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Harvest-Farm---Free-pack/Tilesets/harvest_farm_tileset.png"
 const TABLE_POSITIONS := [
 	Vector2(756.0, 428.0),
 	Vector2(1000.0, 462.0),
@@ -248,6 +252,8 @@ func _build_world_if_needed() -> void:
 	if _world_built:
 		return
 	_world_built = true
+	StardewLikeAssets.configure_sprite(restaurant_player.sprite, "base_idle_strip9", 4)
+	restaurant_player.sprite.scale = Vector2(0.82, 0.82)
 	_add_rect(backdrop, "WallBack", Rect2(0.0, 0.0, 1600.0, 980.0), Color(0.14, 0.11, 0.08, 1.0), -20)
 	_add_rect(backdrop, "WarmBloom", Rect2(0.0, 0.0, 1600.0, 240.0), Color(0.72, 0.54, 0.32, 0.10), -19)
 	_add_rect(backdrop, "FloorShadow", Rect2(64.0, 118.0, 1472.0, 780.0), Color(0.02, 0.01, 0.01, 0.28), -18)
@@ -303,25 +309,15 @@ func _ensure_world_layers() -> void:
 func _build_world_tileset() -> TileSet:
 	if _world_tile_set != null:
 		return _world_tile_set
-	var tile_count := 7
-	var atlas_image := Image.create(TILE_SIZE * tile_count, TILE_SIZE, false, Image.FORMAT_RGBA8)
-	_draw_wood_tile(atlas_image, 0, Color(0.37, 0.25, 0.15, 1.0), Color(0.47, 0.33, 0.20, 1.0), Color(0.24, 0.16, 0.10, 1.0))
-	_draw_wood_tile(atlas_image, 1, Color(0.31, 0.21, 0.13, 1.0), Color(0.40, 0.28, 0.18, 1.0), Color(0.20, 0.13, 0.08, 1.0))
-	_draw_checker_tile(atlas_image, 2, Color(0.71, 0.68, 0.58, 1.0), Color(0.56, 0.52, 0.43, 1.0))
-	_draw_checker_tile(atlas_image, 3, Color(0.63, 0.58, 0.48, 1.0), Color(0.48, 0.44, 0.36, 1.0))
-	_draw_rug_tile(atlas_image, 4)
-	_draw_wall_tile(atlas_image, 5)
-	_draw_mat_tile(atlas_image, 6)
-	var atlas_texture := ImageTexture.create_from_image(atlas_image)
-	var tile_set := TileSet.new()
-	tile_set.tile_size = Vector2i(TILE_SIZE, TILE_SIZE)
-	var source := TileSetAtlasSource.new()
-	source.texture = atlas_texture
-	source.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
-	for tile_index in range(tile_count):
-		source.create_tile(Vector2i(tile_index, 0))
-	tile_set.add_source(source, 0)
-	_world_tile_set = tile_set
+	_world_tile_set = StardewLikeAssets.build_tileset([
+		{"sprite_name": "wood"},
+		{"sprite_name": "crate_base"},
+		{"path": CAINOS_STONE_SHEET_PATH, "cell": Vector2i(0, 0), "cell_size": 16},
+		{"path": CAINOS_STONE_SHEET_PATH, "cell": Vector2i(1, 0), "cell_size": 16},
+		{"sprite_name": "spr_deco_rug_01"},
+		{"path": CAINOS_STONE_SHEET_PATH, "cell": Vector2i(2, 0), "cell_size": 16},
+		{"path": HARVEST_TILE_SHEET_PATH, "cell": Vector2i(15, 4), "cell_size": 16}
+	], TILE_SIZE)
 	return _world_tile_set
 
 
@@ -413,6 +409,43 @@ func _paint_floor_tiles() -> void:
 	_fill_tile_rect(_ground_tiles, Rect2i(14, 14, 3, 2), TILE_MAT)
 
 
+func _add_external_sprite(
+	parent: Node,
+	name: String,
+	sprite_name: String,
+	position: Vector2,
+	scale_value: Vector2,
+	z_index: int
+) -> Sprite2D:
+	var sprite := Sprite2D.new()
+	sprite.name = name
+	StardewLikeAssets.configure_sprite(sprite, sprite_name)
+	sprite.position = position
+	sprite.scale = scale_value
+	sprite.z_index = z_index
+	parent.add_child(sprite)
+	return sprite
+
+
+func _add_external_anim_sprite(
+	parent: Node,
+	name: String,
+	sprite_name: String,
+	position: Vector2,
+	scale_value: Vector2,
+	z_index: int,
+	fps: float
+) -> AnimatedSprite2D:
+	var sprite := AnimatedSprite2D.new()
+	sprite.name = name
+	StardewLikeAssets.configure_animated_sprite(sprite, sprite_name, fps)
+	sprite.position = position
+	sprite.scale = scale_value
+	sprite.z_index = z_index
+	parent.add_child(sprite)
+	return sprite
+
+
 func _fill_tile_rect(layer: TileMapLayer, rect: Rect2i, atlas_coords: Vector2i) -> void:
 	for y in range(rect.position.y, rect.position.y + rect.size.y):
 		for x in range(rect.position.x, rect.position.x + rect.size.x):
@@ -500,28 +533,11 @@ func _add_board_station(position: Vector2) -> void:
 	root.name = "MenuBoardStation"
 	root.position = position
 	_props_root.add_child(root)
-	_add_shadow(root, "Shadow", Vector2(0.0, 34.0), Vector2(176.0, 34.0), Color(0.04, 0.02, 0.01, 0.18), -2)
-	var counter := Polygon2D.new()
-	counter.position = Vector2(0.0, 30.0)
-	counter.polygon = _rect_polygon(Vector2(168.0, 44.0))
-	counter.color = Color(0.50, 0.34, 0.21, 1.0)
-	root.add_child(counter)
-	var surface := Polygon2D.new()
-	surface.position = Vector2(0.0, 12.0)
-	surface.polygon = _rect_polygon(Vector2(176.0, 18.0))
-	surface.color = Color(0.72, 0.54, 0.32, 1.0)
-	root.add_child(surface)
-	var board := Polygon2D.new()
-	board.position = Vector2(0.0, -46.0)
-	board.polygon = _rect_polygon(Vector2(118.0, 76.0))
-	board.color = Color(0.16, 0.22, 0.16, 1.0)
-	root.add_child(board)
-	for note_position in [Vector2(-22.0, -58.0), Vector2(16.0, -48.0), Vector2(2.0, -30.0)]:
-		var note := Polygon2D.new()
-		note.position = note_position
-		note.polygon = _rect_polygon(Vector2(22.0, 16.0))
-		note.color = Color(0.96, 0.91, 0.76, 1.0)
-		root.add_child(note)
+	_add_external_sprite(root, "Table", "spr_deco_sidetable_01", Vector2(0.0, 18.0), Vector2(3.2, 3.2), 0)
+	_add_external_sprite(root, "Rug", "spr_deco_rug_01", Vector2(0.0, 58.0), Vector2(3.2, 3.2), -1)
+	_add_external_sprite(root, "Book", "spr_deco_book_01", Vector2(-22.0, -10.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(root, "Jar", "spr_deco_jar_01", Vector2(18.0, -14.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(root, "BoardFlower", "spr_deco_flowers_house_02", Vector2(-84.0, 12.0), Vector2(2.6, 2.6), 1)
 
 
 func _add_prep_station(position: Vector2) -> void:
@@ -529,29 +545,14 @@ func _add_prep_station(position: Vector2) -> void:
 	root.name = "PrepStation"
 	root.position = position
 	_props_root.add_child(root)
-	_add_shadow(root, "Shadow", Vector2(0.0, 34.0), Vector2(168.0, 34.0), Color(0.04, 0.02, 0.01, 0.18), -2)
-	var island := Polygon2D.new()
-	island.position = Vector2(0.0, 14.0)
-	island.polygon = _rect_polygon(Vector2(160.0, 54.0))
-	island.color = Color(0.44, 0.31, 0.20, 1.0)
-	root.add_child(island)
-	var surface := Polygon2D.new()
-	surface.position = Vector2(0.0, -8.0)
-	surface.polygon = _rect_polygon(Vector2(168.0, 20.0))
-	surface.color = Color(0.76, 0.69, 0.57, 1.0)
-	root.add_child(surface)
-	var chopping_block := Polygon2D.new()
-	chopping_block.position = Vector2(-34.0, -12.0)
-	chopping_block.polygon = _rect_polygon(Vector2(34.0, 24.0))
-	chopping_block.color = Color(0.59, 0.40, 0.22, 1.0)
-	root.add_child(chopping_block)
-	var prep_bowl := Polygon2D.new()
-	prep_bowl.position = Vector2(34.0, -10.0)
-	prep_bowl.polygon = _ellipse_polygon(Vector2(34.0, 22.0), 10)
-	prep_bowl.color = Color(0.62, 0.77, 0.88, 1.0)
-	root.add_child(prep_bowl)
-	_add_rect(root, "Shelf", Rect2(-96.0, -74.0, 32.0, 92.0), Color(0.35, 0.25, 0.18, 1.0), 0)
-	_add_rect(root, "ShelfTop", Rect2(-102.0, -78.0, 44.0, 10.0), Color(0.65, 0.47, 0.27, 1.0), 1)
+	_add_rect(root, "Island", Rect2(-80.0, -14.0, 160.0, 56.0), Color(0.44, 0.31, 0.20, 1.0), 0)
+	_add_rect(root, "Surface", Rect2(-84.0, -28.0, 168.0, 18.0), Color(0.76, 0.69, 0.57, 1.0), 1)
+	_add_external_sprite(root, "WaterBarrel", "spr_deco_barrel_water", Vector2(-78.0, -18.0), Vector2(2.4, 2.4), 1)
+	_add_external_sprite(root, "Bucket", "spr_deco_bucket", Vector2(-22.0, -18.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(root, "PrepJar", "spr_deco_jar_02", Vector2(24.0, -18.0), Vector2(2.1, 2.1), 1)
+	_add_external_sprite(root, "Plate", "spr_deco_plate_knifeandfork", Vector2(64.0, -18.0), Vector2(2.1, 2.1), 1)
+	var steam := _add_external_anim_sprite(root, "Steam", "chimneysmoke_01", Vector2(16.0, -52.0), Vector2(1.3, 1.3), 2, 5.0)
+	_register_ambient_motion(steam, Vector2(2.0, 6.0), 0.82, 0.3)
 
 
 func _add_service_counter(position: Vector2) -> void:
@@ -570,17 +571,11 @@ func _add_service_counter(position: Vector2) -> void:
 	surface.polygon = _rect_polygon(Vector2(258.0, 18.0))
 	surface.color = Color(0.74, 0.56, 0.33, 1.0)
 	root.add_child(surface)
+	_add_external_sprite(root, "Plate", "spr_deco_plate_food", Vector2(-34.0, -6.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(root, "Mug", "spr_deco_mug_01", Vector2(14.0, -6.0), Vector2(2.0, 2.0), 1)
+	_add_external_sprite(root, "Jar", "spr_deco_jar_01", Vector2(72.0, -8.0), Vector2(2.0, 2.0), 1)
 	for stool_x in [-76.0, 0.0, 76.0]:
-		var stool := Polygon2D.new()
-		stool.position = Vector2(stool_x, 74.0)
-		stool.polygon = _ellipse_polygon(Vector2(28.0, 18.0), 10)
-		stool.color = Color(0.60, 0.42, 0.24, 1.0)
-		root.add_child(stool)
-	var bell := Polygon2D.new()
-	bell.position = Vector2(80.0, -8.0)
-	bell.polygon = _ellipse_polygon(Vector2(18.0, 16.0), 10)
-	bell.color = Color(0.88, 0.76, 0.32, 1.0)
-	root.add_child(bell)
+		_add_external_sprite(root, "Chair%s" % str(stool_x), "spr_deco_chair_01", Vector2(stool_x, 64.0), Vector2(2.4, 2.4), 0)
 
 
 func _add_summary_nook(position: Vector2) -> void:
@@ -588,32 +583,11 @@ func _add_summary_nook(position: Vector2) -> void:
 	root.name = "SummaryNook"
 	root.position = position
 	_props_root.add_child(root)
-	_add_shadow(root, "Shadow", Vector2(0.0, 26.0), Vector2(142.0, 28.0), Color(0.04, 0.02, 0.01, 0.18), -2)
-	var booth := Polygon2D.new()
-	booth.position = Vector2(0.0, 14.0)
-	booth.polygon = _rect_polygon(Vector2(128.0, 58.0))
-	booth.color = Color(0.53, 0.22, 0.18, 1.0)
-	root.add_child(booth)
-	var table := Polygon2D.new()
-	table.position = Vector2(0.0, -8.0)
-	table.polygon = _ellipse_polygon(Vector2(90.0, 34.0), 12)
-	table.color = Color(0.67, 0.49, 0.28, 1.0)
-	root.add_child(table)
-	var ledger := Polygon2D.new()
-	ledger.position = Vector2(18.0, -14.0)
-	ledger.polygon = _rect_polygon(Vector2(30.0, 20.0))
-	ledger.color = Color(0.94, 0.88, 0.76, 1.0)
-	root.add_child(ledger)
-	var frame := Polygon2D.new()
-	frame.position = Vector2(0.0, -72.0)
-	frame.polygon = _rect_polygon(Vector2(86.0, 52.0))
-	frame.color = Color(0.68, 0.50, 0.29, 1.0)
-	root.add_child(frame)
-	var insert := Polygon2D.new()
-	insert.position = Vector2(0.0, -72.0)
-	insert.polygon = _rect_polygon(Vector2(70.0, 36.0))
-	insert.color = Color(0.19, 0.25, 0.18, 1.0)
-	root.add_child(insert)
+	_add_external_sprite(root, "Rug", "spr_deco_rug_01", Vector2(0.0, 42.0), Vector2(3.0, 3.0), -1)
+	_add_external_sprite(root, "Table", "spr_deco_sidetable_01", Vector2(0.0, 0.0), Vector2(2.9, 2.9), 0)
+	_add_external_sprite(root, "Chair", "spr_deco_chair_01", Vector2(70.0, 18.0), Vector2(2.4, 2.4), 0)
+	_add_external_sprite(root, "Ledger", "spr_deco_book_02", Vector2(18.0, -12.0), Vector2(2.0, 2.0), 1)
+	_add_external_sprite(root, "Flowers", "spr_deco_flowers_house_01", Vector2(-76.0, 10.0), Vector2(2.7, 2.7), 1)
 
 
 func _add_table(position: Vector2) -> void:
@@ -621,18 +595,9 @@ func _add_table(position: Vector2) -> void:
 	root.name = "DiningTable%s" % str(position)
 	root.position = position
 	_props_root.add_child(root)
-	_add_shadow(root, "Shadow", Vector2(0.0, 18.0), Vector2(112.0, 30.0), Color(0.04, 0.02, 0.01, 0.18), -2)
-	var tabletop := Polygon2D.new()
-	tabletop.position = Vector2(0.0, 0.0)
-	tabletop.polygon = _ellipse_polygon(Vector2(92.0, 38.0), 12)
-	tabletop.color = Color(0.71, 0.52, 0.30, 1.0)
-	root.add_child(tabletop)
-	for chair_offset in [Vector2(-56.0, 0.0), Vector2(56.0, 0.0), Vector2(0.0, -34.0)]:
-		var chair := Polygon2D.new()
-		chair.position = chair_offset
-		chair.polygon = _rect_polygon(Vector2(24.0, 20.0))
-		chair.color = Color(0.51, 0.35, 0.21, 1.0)
-		root.add_child(chair)
+	_add_external_sprite(root, "Table", "spr_deco_sidetable_01", Vector2.ZERO, Vector2(2.8, 2.8), 0)
+	for chair_offset in [Vector2(-56.0, 6.0), Vector2(56.0, 6.0), Vector2(0.0, -38.0)]:
+		_add_external_sprite(root, "Chair%s" % str(chair_offset), "spr_deco_chair_01", chair_offset, Vector2(2.2, 2.2), 0)
 
 
 func _add_entry_door(position: Vector2) -> void:
@@ -673,21 +638,15 @@ func _add_patron(position: Vector2, body_color: Color) -> Node2D:
 	root.position = position
 	_patron_root.add_child(root)
 	_add_shadow(root, "Shadow", Vector2(0.0, 16.0), Vector2(34.0, 12.0), Color(0.04, 0.02, 0.01, 0.18), -2)
-	var body := Polygon2D.new()
-	body.position = Vector2(0.0, 2.0)
-	body.polygon = _rect_polygon(Vector2(20.0, 30.0))
-	body.color = body_color
-	root.add_child(body)
-	var apron := Polygon2D.new()
-	apron.position = Vector2(0.0, 7.0)
-	apron.polygon = _rect_polygon(Vector2(10.0, 18.0))
-	apron.color = Color(0.17, 0.19, 0.25, 0.70)
-	root.add_child(apron)
-	var head := Polygon2D.new()
-	head.position = Vector2(0.0, -16.0)
-	head.polygon = _ellipse_polygon(Vector2(18.0, 18.0), 10)
-	head.color = Color(0.96, 0.78, 0.62, 1.0)
-	root.add_child(head)
+	var sprite_name := "longhair_idle_strip9"
+	match posmod(int(position.x + position.y), 4):
+		1:
+			sprite_name = "spikeyhair_idle_strip9"
+		2:
+			sprite_name = "bowlhair_idle_strip9"
+		3:
+			sprite_name = "mophair_idle_strip9"
+	_add_external_anim_sprite(root, "Body", sprite_name, Vector2.ZERO, Vector2(0.84, 0.84), 0, 7.0)
 	return root
 
 
@@ -697,21 +656,7 @@ func _add_floor_runner(position: Vector2, body_color: Color, apron_color: Color)
 	root.position = position
 	_patron_root.add_child(root)
 	_add_shadow(root, "Shadow", Vector2(0.0, 16.0), Vector2(34.0, 12.0), Color(0.04, 0.02, 0.01, 0.18), -2)
-	var body := Polygon2D.new()
-	body.position = Vector2(0.0, 2.0)
-	body.polygon = _rect_polygon(Vector2(20.0, 32.0))
-	body.color = body_color
-	root.add_child(body)
-	var apron := Polygon2D.new()
-	apron.position = Vector2(0.0, 8.0)
-	apron.polygon = _rect_polygon(Vector2(12.0, 18.0))
-	apron.color = apron_color
-	root.add_child(apron)
-	var head := Polygon2D.new()
-	head.position = Vector2(0.0, -18.0)
-	head.polygon = _ellipse_polygon(Vector2(18.0, 18.0), 10)
-	head.color = Color(0.95, 0.77, 0.62, 1.0)
-	root.add_child(head)
+	_add_external_anim_sprite(root, "Body", "shorthair_idle_strip9", Vector2.ZERO, Vector2(0.86, 0.86), 0, 7.0)
 	return root
 
 

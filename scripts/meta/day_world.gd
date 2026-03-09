@@ -1,6 +1,8 @@
 extends Node2D
 class_name DayWorldView
 
+const StardewLikeAssets := preload("res://scripts/day/stardew_like_asset_library.gd")
+
 signal farm_requested
 signal farm_plot_action_requested(plot_index: int, action_id: String, seed_id: String)
 signal world_pickup_requested(pickup_id: String)
@@ -11,66 +13,28 @@ signal night_requested
 signal menu_requested
 signal legacy_requested
 
-const FARM_BUILDING_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Buildings/Yellow Buildings/House1.png")
-const FARM_SHED_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Buildings/Yellow Buildings/House2.png")
-const RESTAURANT_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Buildings/Red Buildings/Barracks.png")
-const SHOP_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Buildings/Blue Buildings/Archery.png")
-const NIGHT_TOWER_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Buildings/Black Buildings/Tower.png")
-const ZED_VILLAGE_SHEET_PATH := "res://assets/external/dayworld_visual_pass_2/unpacked/village/Pixel 16 v2 village free/Pixel 16 v2 village free.png"
-const ZED_FOREST_SHEET_PATH := "res://assets/external/dayworld_visual_pass_2/unpacked/forest/pixel_16_woods v2 free/free_pixel_16_woods.png"
-const TREE_SHEETS := [
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree2.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree3.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree4.png")
-]
-const STUMP_TEXTURE := preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Stump 1.png")
-const BUSH_SHEETS := [
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe1.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe2.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe3.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe4.png")
-]
-const ROCK_TEXTURES := [
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Rocks/Rock1.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Rocks/Rock2.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Rocks/Rock3.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Rocks/Rock4.png")
-]
-const WATER_ROCK_SHEETS := [
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Rocks in the Water/Water Rocks_01.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Rocks in the Water/Water Rocks_02.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Rocks in the Water/Water Rocks_03.png"),
-	preload("res://assets/source/pixel_packs/tiny_swords/Tiny Swords (Free Pack)/Terrain/Decorations/Rocks in the Water/Water Rocks_04.png")
-]
-const ZED_VILLAGE_STALL_REGION := Rect2i(19, 120, 43, 40)
-const ZED_VILLAGE_RESTAURANT_REGION := Rect2i(68, 123, 72, 101)
-const ZED_VILLAGE_FARMHOUSE_REGION := Rect2i(148, 155, 115, 69)
-const ZED_VILLAGE_LAMP_REGION := Rect2i(160, 16, 40, 64)
-const ZED_VILLAGE_BENCH_REGION := Rect2i(208, 24, 32, 24)
-const ZED_VILLAGE_PLANTER_WOOD_REGION := Rect2i(104, 48, 32, 16)
-const ZED_VILLAGE_PLANTER_STONE_REGION := Rect2i(102, 80, 36, 16)
-const ZED_VILLAGE_POT_BLUE_REGION := Rect2i(192, 64, 16, 16)
-const ZED_VILLAGE_POT_ORANGE_REGION := Rect2i(192, 80, 16, 16)
-const ZED_VILLAGE_POT_YELLOW_REGION := Rect2i(208, 80, 16, 16)
-const ZED_VILLAGE_POT_SKY_REGION := Rect2i(224, 80, 16, 16)
-const ZED_VILLAGE_CRATE_REGIONS := [
-	Rect2i(208, 64, 16, 16),
-	Rect2i(224, 64, 16, 16),
-	Rect2i(240, 64, 16, 16)
-]
-const ZED_FOREST_TREE_LIGHT_REGION := Rect2i(275, 10, 59, 70)
-const ZED_FOREST_TREE_DARK_REGION := Rect2i(17, 100, 78, 75)
-const ZED_FOREST_TREE_ROUND_REGION := Rect2i(23, 24, 66, 65)
-const ZED_FOREST_TREE_SMALL_REGION := Rect2i(275, 92, 28, 36)
-const ZED_FOREST_TREE_PINE_REGION := Rect2i(308, 97, 25, 31)
-const ZED_FOREST_PATCH_LIGHT_REGION := Rect2i(23, 24, 66, 65)
-const ZED_FOREST_PATCH_DARK_REGION := Rect2i(151, 23, 66, 66)
-const ZED_FOREST_POND_REGION := Rect2i(144, 96, 80, 80)
-const ZED_FOREST_CLIFF_REGION := Rect2i(80, 112, 48, 64)
-const ZED_FOREST_ROCK_LARGE_REGION := Rect2i(224, 36, 16, 16)
-const ZED_FOREST_ROCK_SMALL_REGION := Rect2i(240, 128, 16, 16)
-const ZED_FOREST_WATER_PLANTS_REGION := Rect2i(224, 128, 48, 16)
+const CAINOS_GRASS_SHEET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Pixel-Art-Top-Down---Basic-v1-2-3/Texture/TX Tileset Grass.png"
+const CAINOS_STONE_SHEET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Pixel-Art-Top-Down---Basic-v1-2-3/Texture/TX Tileset Stone Ground.png"
+const CAINOS_PLANT_SHEET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Pixel-Art-Top-Down---Basic-v1-2-3/Texture/TX Plant.png"
+const HARVEST_TILE_SHEET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Harvest-Farm---Free-pack/Tilesets/harvest_farm_tileset.png"
+const HARVEST_ENV_SHEET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Harvest-Farm---Free-pack/Objects/environment_sprite_sheet.png"
+const SUNNYSIDE_TILESET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Sunnyside-World-ASSET-PACK-V2-1/Sunnyside_World_ASSET_PACK_V2.1/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png"
+const SUNNYSIDE_BUILDING_FARM_REGION := Rect2i(288, 272, 176, 112)
+const SUNNYSIDE_BUILDING_RESTAURANT_REGION := Rect2i(288, 400, 176, 112)
+const SUNNYSIDE_BUILDING_SHOP_REGION := Rect2i(288, 528, 176, 112)
+const SUNNYSIDE_BUILDING_DOCK_REGION := Rect2i(288, 656, 176, 112)
+const CAINOS_TREE_LARGE_REGION := Rect2i(24, 14, 113, 139)
+const CAINOS_TREE_ROUND_REGION := Rect2i(161, 17, 96, 136)
+const CAINOS_TREE_SLIM_REGION := Rect2i(295, 31, 79, 120)
+const CAINOS_BUSH_ROUND_REGION := Rect2i(216, 185, 47, 42)
+const CAINOS_BUSH_TALL_REGION := Rect2i(282, 186, 39, 45)
+const HARVEST_BARREL_REGION := Rect2i(7, 5, 17, 20)
+const HARVEST_CRATE_REGION := Rect2i(31, 10, 12, 15)
+const HARVEST_ROCK_CLUSTER_REGION := Rect2i(54, 4, 27, 31)
+const HARVEST_ROCK_FLAT_REGION := Rect2i(88, 11, 27, 23)
+const HARVEST_ROCK_SMALL_REGION := Rect2i(124, 13, 20, 20)
+const HARVEST_TREE_REGION := Rect2i(34, 40, 35, 53)
+const HARVEST_STUMP_REGION := Rect2i(11, 75, 13, 16)
 const PHASE_ORDER := ["morning", "noon", "afternoon", "evening"]
 
 const WORLD_BOUNDS := Rect2(Vector2(56.0, 144.0), Vector2(1488.0, 748.0))
@@ -178,6 +142,10 @@ var _feedback_root: Node2D = null
 var _feedback_items: Array[Dictionary] = []
 var _prompt_reveal_elapsed: float = 0.0
 var _prompt_is_revealed: bool = false
+var _sunnyside_farm_texture: Texture2D = null
+var _sunnyside_restaurant_texture: Texture2D = null
+var _sunnyside_shop_texture: Texture2D = null
+var _sunnyside_dock_texture: Texture2D = null
 
 
 func _ready() -> void:
@@ -419,6 +387,9 @@ func _build_world_if_needed() -> void:
 	_phase_overlay = _add_rect(backdrop, "PhaseOverlay", Rect2(0.0, 0.0, 1600.0, 980.0), Color(0.0, 0.0, 0.0, 0.0), -17)
 	_sun_glow = _add_ellipse(backdrop, "SunGlow", Vector2(1298.0, 118.0), Vector2(258.0, 178.0), Color(1.0, 0.93, 0.62, 0.18), -18)
 	_harbor_glow = _add_ellipse(backdrop, "HarborGlow", Vector2(1186.0, 756.0), Vector2(520.0, 190.0), Color(0.96, 0.79, 0.48, 0.0), -16)
+	if day_player != null and day_player.sprite != null:
+		StardewLikeAssets.configure_sprite(day_player.sprite, "base_idle_strip9", 4)
+		day_player.sprite.scale = Vector2(0.82, 0.82)
 	_ensure_world_layers()
 	_paint_world_tiles()
 	_build_world_landmarks()
@@ -573,42 +544,107 @@ func _ensure_world_layers() -> void:
 func _build_world_tileset() -> TileSet:
 	if _world_tile_set != null:
 		return _world_tile_set
-	var tile_count := 11
-	var atlas_image := Image.create(TILE_SIZE * tile_count, TILE_SIZE, false, Image.FORMAT_RGBA8)
-	_draw_grass_tile(atlas_image, 0, Color(0.49, 0.70, 0.27, 1.0), Color(0.58, 0.79, 0.35, 1.0), Color(0.39, 0.58, 0.21, 1.0))
-	_draw_grass_tile(atlas_image, 1, Color(0.55, 0.74, 0.31, 1.0), Color(0.64, 0.82, 0.39, 1.0), Color(0.45, 0.62, 0.24, 1.0))
-	_draw_path_tile(atlas_image, 2, Color(0.72, 0.54, 0.32, 1.0), Color(0.82, 0.64, 0.42, 1.0), Color(0.58, 0.41, 0.23, 1.0))
-	_draw_stone_tile(atlas_image, 3, Color(0.68, 0.60, 0.50, 1.0), Color(0.79, 0.71, 0.61, 1.0), Color(0.53, 0.45, 0.37, 1.0))
-	_draw_soil_tile(atlas_image, 4, Color(0.46, 0.29, 0.16, 1.0), Color(0.58, 0.38, 0.22, 1.0), Color(0.32, 0.19, 0.11, 1.0))
-	_draw_water_tile(atlas_image, 5, Color(0.42, 0.64, 0.78, 1.0), Color(0.66, 0.83, 0.92, 1.0), Color(0.28, 0.47, 0.61, 1.0))
-	_draw_dock_tile(atlas_image, 6, Color(0.55, 0.39, 0.24, 1.0), Color(0.71, 0.53, 0.31, 1.0), Color(0.36, 0.25, 0.16, 1.0))
-	_draw_grass_tile(atlas_image, 7, Color(0.41, 0.59, 0.21, 1.0), Color(0.49, 0.68, 0.28, 1.0), Color(0.31, 0.47, 0.17, 1.0))
-	_draw_flower_tile(atlas_image, 8)
-	_draw_path_tile(atlas_image, 9, Color(0.80, 0.67, 0.42, 1.0), Color(0.89, 0.75, 0.49, 1.0), Color(0.64, 0.51, 0.30, 1.0))
-	_draw_foam_tile(atlas_image, 10)
-	var atlas_texture := ImageTexture.create_from_image(atlas_image)
-	var tile_set := TileSet.new()
-	tile_set.tile_size = Vector2i(TILE_SIZE, TILE_SIZE)
-	var source := TileSetAtlasSource.new()
-	source.texture = atlas_texture
-	source.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
-	for tile_index in range(tile_count):
-		source.create_tile(Vector2i(tile_index, 0))
-	tile_set.add_source(source, 0)
-	_world_tile_set = tile_set
+	_world_tile_set = StardewLikeAssets.build_tileset([
+		{"path": CAINOS_GRASS_SHEET_PATH, "cell": Vector2i(0, 0), "cell_size": 16},
+		{"path": CAINOS_GRASS_SHEET_PATH, "cell": Vector2i(4, 1), "cell_size": 16},
+		{"path": HARVEST_TILE_SHEET_PATH, "cell": Vector2i(17, 1), "cell_size": 16},
+		{"path": CAINOS_STONE_SHEET_PATH, "cell": Vector2i(0, 0), "cell_size": 16},
+		{"path": HARVEST_TILE_SHEET_PATH, "cell": Vector2i(15, 4), "cell_size": 16},
+		{"sprite_name": "water"},
+		{"sprite_name": "wood"},
+		{"path": CAINOS_GRASS_SHEET_PATH, "cell": Vector2i(7, 3), "cell_size": 16},
+		{"path": CAINOS_GRASS_SHEET_PATH, "cell": Vector2i(11, 4), "cell_size": 16},
+		{"path": HARVEST_TILE_SHEET_PATH, "cell": Vector2i(14, 0), "cell_size": 16},
+		{"path": CAINOS_STONE_SHEET_PATH, "cell": Vector2i(1, 1), "cell_size": 16}
+	], TILE_SIZE)
 	return _world_tile_set
 
 
 func _get_zed_village_sheet() -> Texture2D:
 	if _zed_village_sheet == null:
-		_zed_village_sheet = load(ZED_VILLAGE_SHEET_PATH) as Texture2D
+		_zed_village_sheet = load(SUNNYSIDE_TILESET_PATH) as Texture2D
 	return _zed_village_sheet
 
 
 func _get_zed_forest_sheet() -> Texture2D:
 	if _zed_forest_sheet == null:
-		_zed_forest_sheet = load(ZED_FOREST_SHEET_PATH) as Texture2D
+		_zed_forest_sheet = load(CAINOS_PLANT_SHEET_PATH) as Texture2D
 	return _zed_forest_sheet
+
+
+func _ensure_landmark_textures() -> void:
+	if _sunnyside_farm_texture == null:
+		_sunnyside_farm_texture = StardewLikeAssets.make_region_texture(SUNNYSIDE_TILESET_PATH, SUNNYSIDE_BUILDING_FARM_REGION)
+	if _sunnyside_restaurant_texture == null:
+		_sunnyside_restaurant_texture = StardewLikeAssets.make_region_texture(SUNNYSIDE_TILESET_PATH, SUNNYSIDE_BUILDING_RESTAURANT_REGION)
+	if _sunnyside_shop_texture == null:
+		_sunnyside_shop_texture = StardewLikeAssets.make_region_texture(SUNNYSIDE_TILESET_PATH, SUNNYSIDE_BUILDING_SHOP_REGION)
+	if _sunnyside_dock_texture == null:
+		_sunnyside_dock_texture = StardewLikeAssets.make_region_texture(SUNNYSIDE_TILESET_PATH, SUNNYSIDE_BUILDING_DOCK_REGION)
+
+
+func _add_external_sprite(
+	parent: Node,
+	name: String,
+	sprite_name: String,
+	position: Vector2,
+	scale_value: Vector2,
+	z_index: int,
+	modulate_color: Color = Color.WHITE
+) -> Sprite2D:
+	var sprite := Sprite2D.new()
+	sprite.name = name
+	StardewLikeAssets.configure_sprite(sprite, sprite_name)
+	sprite.position = position
+	sprite.scale = scale_value
+	sprite.modulate = modulate_color
+	sprite.z_index = z_index
+	parent.add_child(sprite)
+	return sprite
+
+
+func _add_external_anim_sprite(
+	parent: Node,
+	name: String,
+	sprite_name: String,
+	position: Vector2,
+	scale_value: Vector2,
+	z_index: int,
+	fps: float
+) -> AnimatedSprite2D:
+	var sprite := AnimatedSprite2D.new()
+	sprite.name = name
+	StardewLikeAssets.configure_animated_sprite(sprite, sprite_name, fps)
+	sprite.position = position
+	sprite.scale = scale_value
+	sprite.z_index = z_index
+	parent.add_child(sprite)
+	return sprite
+
+
+func _add_sheet_region_sprite(
+	parent: Node,
+	name: String,
+	texture_path: String,
+	region: Rect2i,
+	position: Vector2,
+	scale_value: Vector2,
+	z_index: int,
+	modulate_color: Color = Color.WHITE
+) -> Sprite2D:
+	var texture := StardewLikeAssets.make_region_texture(texture_path, region)
+	return _add_sprite(parent, name, texture, position, scale_value, modulate_color, z_index)
+
+
+func _add_town_resident(name: String, sprite_name: String, position: Vector2, scale_value: Vector2) -> Node2D:
+	var root := Node2D.new()
+	root.name = name
+	root.position = position
+	_ambient_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 14.0), Vector2(34.0, 12.0), Color(0.03, 0.02, 0.01, 0.18), -2)
+	_add_external_anim_sprite(root, "Body", sprite_name, Vector2.ZERO, scale_value, 0, 7.0)
+	_register_ambient_motion(root, Vector2(0.0, 2.4), 1.1, position.x * 0.01)
+	return root
 
 
 func _draw_grass_tile(image: Image, tile_index: int, base: Color, light: Color, dark: Color) -> void:
@@ -943,17 +979,15 @@ func _build_world_landmarks() -> void:
 	_dock_ready_glows.clear()
 	_dock_ready_props.clear()
 	_dock_gate_root = null
+	_ensure_landmark_textures()
 
 	# Farm frontage and working yard
-	_add_sprite(_scenery_root, "FarmMeadowPatch", _make_region_texture(_get_zed_forest_sheet(), ZED_FOREST_PATCH_DARK_REGION), Vector2(240.0, 662.0), Vector2(1.55, 1.55), Color(1.0, 1.0, 1.0, 0.52), -2)
-	_add_shadow(_scenery_root, "FarmHouseShadow", Vector2(272.0, 566.0), Vector2(116.0, 32.0), Color(0.10, 0.13, 0.12, 0.18), -1)
-	_add_sprite(_scenery_root, "FarmHouse", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_FARMHOUSE_REGION), Vector2(272.0, 520.0), Vector2(1.42, 1.42), Color(1.0, 0.98, 0.96, 1.0), 0)
-	_add_shadow(_scenery_root, "FarmShedShadow", Vector2(428.0, 606.0), Vector2(84.0, 24.0), Color(0.10, 0.13, 0.12, 0.14), -1)
-	_add_sprite(_scenery_root, "FarmStand", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_STALL_REGION), Vector2(430.0, 576.0), Vector2(1.45, 1.45), Color(0.98, 0.94, 0.88, 1.0), 0)
-	_add_rect(_scenery_root, "FarmPorch", Rect2(220.0, 554.0, 72.0, 24.0), Color(0.79, 0.67, 0.47, 1.0), -1)
-	_add_rect(_scenery_root, "FarmShedStep", Rect2(402.0, 592.0, 66.0, 18.0), Color(0.73, 0.60, 0.40, 1.0), -1)
-	_farm_window_glows.append(_add_window_glow(_ambient_root, "FarmWindowGlow", Vector2(256.0, 522.0), Vector2(44.0, 24.0), Color(1.0, 0.86, 0.54, 0.0)))
-	_add_stone_wall_line("FarmWallNorth", Vector2(192.0, 546.0), 4, true)
+	_add_shadow(_scenery_root, "FarmHouseShadow", Vector2(274.0, 568.0), Vector2(174.0, 40.0), Color(0.10, 0.13, 0.12, 0.16), -1)
+	_add_sprite(_scenery_root, "FarmHouse", _sunnyside_farm_texture, Vector2(274.0, 518.0), Vector2(1.34, 1.34), Color.WHITE, 0)
+	_add_external_sprite(_scenery_root, "FarmWindmill", "spr_deco_windmill_withshadow", Vector2(152.0, 470.0), Vector2(1.40, 1.40), -1)
+	_add_sheet_region_sprite(_scenery_root, "FarmTreeWest", CAINOS_PLANT_SHEET_PATH, CAINOS_TREE_LARGE_REGION, Vector2(90.0, 392.0), Vector2(1.06, 1.06), -1)
+	_add_sheet_region_sprite(_scenery_root, "FarmTreeNorth", CAINOS_PLANT_SHEET_PATH, CAINOS_TREE_ROUND_REGION, Vector2(216.0, 340.0), Vector2(0.96, 0.96), -1)
+	_add_stone_wall_line("FarmWallNorth", Vector2(188.0, 546.0), 4, true)
 	_add_stone_wall_line("FarmWallEast", Vector2(500.0, 612.0), 3, false)
 	_add_stone_wall_line("FarmWallSouth", Vector2(226.0, 796.0), 4, true)
 	_add_fence_line("FarmFenceNorth", Vector2(154.0, 588.0), 6, true)
@@ -961,55 +995,64 @@ func _build_world_landmarks() -> void:
 	_add_fence_line("FarmFenceEast", Vector2(476.0, 632.0), 4, false)
 	_add_fence_line("FarmFenceSouthWest", Vector2(164.0, 770.0), 3, true)
 	_add_fence_line("FarmFenceSouthEast", Vector2(350.0, 770.0), 2, true)
-	_add_crate_cluster("FarmCrates", Vector2(386.0, 608.0), 2, Color(0.72, 0.55, 0.34, 1.0))
-	_add_barrel_prop("FarmBarrel", Vector2(444.0, 620.0), Color(0.58, 0.40, 0.24, 1.0))
-	_add_planter_box("FarmHerbPatch", Vector2(454.0, 704.0), Color(0.50, 0.82, 0.42, 1.0))
-	_add_planter_box("FarmFlowerBox", Vector2(302.0, 588.0), Color(0.96, 0.76, 0.48, 1.0))
-	_add_planter_box("FarmSunflowerBox", Vector2(216.0, 594.0), Color(0.95, 0.84, 0.42, 1.0))
-	_add_supply_cart("FarmSupplyCart", Vector2(344.0, 688.0), Color(0.73, 0.55, 0.34, 1.0))
-	_add_scarecrow("FarmScarecrow", Vector2(236.0, 724.0))
-	_register_guide_glow("farm", Vector2(304.0, 694.0), Vector2(276.0, 112.0), Color(0.56, 0.84, 0.44, 0.0))
+	_add_external_sprite(_scenery_root, "FarmWell", "spr_deco_well_covered", Vector2(426.0, 620.0), Vector2(2.7, 2.7), 0)
+	_add_external_sprite(_scenery_root, "FarmTrough", "spr_deco_trough", Vector2(226.0, 724.0), Vector2(2.6, 2.6), 0)
+	_add_external_sprite(_scenery_root, "FarmWaterBowl", "spr_deco_waterbowl", Vector2(310.0, 734.0), Vector2(2.6, 2.6), 0)
+	_add_external_sprite(_scenery_root, "FarmDuck", "spr_deco_duck_01", Vector2(252.0, 684.0), Vector2(2.7, 2.7), 1)
+	_add_external_sprite(_scenery_root, "FarmPig", "spr_deco_pig_01", Vector2(354.0, 722.0), Vector2(2.4, 2.4), 1)
+	_add_external_sprite(_scenery_root, "FarmSheep", "spr_deco_sheep_01", Vector2(426.0, 706.0), Vector2(2.3, 2.3), 1)
+	_add_crate_cluster("FarmCrates", Vector2(390.0, 612.0), 2, Color.WHITE)
+	_add_barrel_prop("FarmBarrel", Vector2(454.0, 622.0), Color.WHITE)
+	_add_planter_box("FarmFlowerBox", Vector2(216.0, 594.0), Color(0.95, 0.84, 0.42, 1.0))
+	_add_planter_box("FarmHerbPatch", Vector2(452.0, 706.0), Color(0.50, 0.82, 0.42, 1.0))
+	for stump_position in [Vector2(390.0, 618.0), Vector2(432.0, 654.0)]:
+		_add_shadow(_scenery_root, "StumpShadow%s" % str(stump_position), stump_position + Vector2(0.0, 6.0), Vector2(24.0, 10.0), Color(0.10, 0.13, 0.12, 0.14), -1)
+		_add_sheet_region_sprite(_scenery_root, "Stump%s" % str(stump_position), HARVEST_ENV_SHEET_PATH, HARVEST_STUMP_REGION, stump_position - Vector2(0.0, 18.0), Vector2(2.6, 2.6), 0)
+	_farm_window_glows.append(_add_window_glow(_ambient_root, "FarmWindowGlow", Vector2(260.0, 522.0), Vector2(70.0, 30.0), Color(1.0, 0.86, 0.54, 0.0)))
+	_register_guide_glow("farm", Vector2(304.0, 694.0), Vector2(286.0, 120.0), Color(0.56, 0.84, 0.44, 0.0))
 
 	# Restaurant frontage
-	_add_sprite(_scenery_root, "RestaurantGardenPatch", _make_region_texture(_get_zed_forest_sheet(), ZED_FOREST_PATCH_LIGHT_REGION), Vector2(980.0, 458.0), Vector2(1.35, 1.35), Color(1.0, 1.0, 1.0, 0.28), -2)
-	_add_shadow(_scenery_root, "RestaurantShadow", Vector2(990.0, 446.0), Vector2(144.0, 36.0), Color(0.10, 0.13, 0.12, 0.18), -1)
-	_add_sprite(_scenery_root, "RestaurantHall", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_RESTAURANT_REGION), Vector2(990.0, 394.0), Vector2(1.56, 1.56), Color(1.0, 0.98, 0.95, 1.0), 0)
-	_add_rect(_scenery_root, "RestaurantPatio", Rect2(934.0, 420.0, 122.0, 30.0), Color(0.84, 0.66, 0.44, 1.0), -1)
-	_add_market_canopy("RestaurantAwning", Vector2(994.0, 430.0), Vector2(124.0, 24.0), Color(0.81, 0.38, 0.24, 1.0), Color(0.53, 0.27, 0.17, 1.0))
-	_restaurant_window_glows.append(_add_window_glow(_ambient_root, "RestaurantGlowLeft", Vector2(950.0, 414.0), Vector2(46.0, 24.0), Color(1.0, 0.78, 0.45, 0.0)))
-	_restaurant_window_glows.append(_add_window_glow(_ambient_root, "RestaurantGlowRight", Vector2(1032.0, 414.0), Vector2(46.0, 24.0), Color(1.0, 0.78, 0.45, 0.0)))
-	_add_crate_cluster("RestaurantCrates", Vector2(1072.0, 470.0), 2, Color(0.80, 0.58, 0.34, 1.0))
-	_add_barrel_prop("RestaurantBarrel", Vector2(924.0, 476.0), Color(0.58, 0.38, 0.23, 1.0))
-	_add_planter_box("RestaurantPlanter", Vector2(1070.0, 436.0), Color(0.95, 0.62, 0.38, 1.0))
-	_add_stone_wall_line("RestaurantBorderNorth", Vector2(908.0, 374.0), 4, true)
-	_add_stone_wall_line("RestaurantBorderWest", Vector2(886.0, 430.0), 2, false)
-	var restaurant_menu_stand := _add_a_frame_sign("RestaurantMenuStand", Vector2(896.0, 468.0), Color(0.66, 0.46, 0.27, 1.0), Color(0.96, 0.68, 0.40, 1.0))
+	_add_shadow(_scenery_root, "RestaurantShadow", Vector2(992.0, 446.0), Vector2(194.0, 42.0), Color(0.10, 0.13, 0.12, 0.18), -1)
+	_add_sprite(_scenery_root, "RestaurantHall", _sunnyside_restaurant_texture, Vector2(992.0, 392.0), Vector2(1.42, 1.42), Color.WHITE, 0)
+	_add_rect(_scenery_root, "RestaurantPatio", Rect2(926.0, 422.0, 136.0, 34.0), Color(0.84, 0.66, 0.44, 0.82), -1)
+	_add_market_canopy("RestaurantAwning", Vector2(994.0, 430.0), Vector2(128.0, 24.0), Color(0.81, 0.38, 0.24, 1.0), Color(0.53, 0.27, 0.17, 1.0))
+	_add_external_sprite(_scenery_root, "RestaurantRug", "spr_deco_rug_01", Vector2(974.0, 474.0), Vector2(2.9, 2.9), 0)
+	_add_external_sprite(_scenery_root, "RestaurantTable", "spr_deco_sidetable_01", Vector2(976.0, 444.0), Vector2(2.8, 2.8), 0)
+	_add_external_sprite(_scenery_root, "RestaurantPlate", "spr_deco_plate_food", Vector2(956.0, 432.0), Vector2(2.1, 2.1), 1)
+	_add_external_sprite(_scenery_root, "RestaurantCutlery", "spr_deco_plate_knifeandfork", Vector2(1000.0, 432.0), Vector2(2.1, 2.1), 1)
+	_add_external_sprite(_scenery_root, "RestaurantMug", "spr_deco_mug_01", Vector2(980.0, 420.0), Vector2(2.0, 2.0), 1)
+	_add_external_sprite(_scenery_root, "RestaurantJar", "spr_deco_jar_02", Vector2(1084.0, 438.0), Vector2(2.3, 2.3), 1)
+	_add_external_sprite(_scenery_root, "RestaurantBarrelWater", "spr_deco_barrel_water", Vector2(922.0, 478.0), Vector2(2.4, 2.4), 0)
+	var chimney_smoke := _add_external_anim_sprite(_ambient_root, "RestaurantSmoke", "chimneysmoke_01", Vector2(1018.0, 304.0), Vector2(1.8, 1.8), 1, 5.0)
+	_register_ambient_motion(chimney_smoke, Vector2(3.0, 8.0), 0.82, 0.3)
+	_restaurant_window_glows.append(_add_window_glow(_ambient_root, "RestaurantGlowLeft", Vector2(950.0, 414.0), Vector2(60.0, 28.0), Color(1.0, 0.78, 0.45, 0.0)))
+	_restaurant_window_glows.append(_add_window_glow(_ambient_root, "RestaurantGlowRight", Vector2(1036.0, 414.0), Vector2(60.0, 28.0), Color(1.0, 0.78, 0.45, 0.0)))
+	_add_stone_wall_line("RestaurantBorderNorth", Vector2(906.0, 374.0), 4, true)
+	_add_stone_wall_line("RestaurantBorderWest", Vector2(884.0, 430.0), 2, false)
+	var restaurant_menu_stand := _add_a_frame_sign("RestaurantMenuStand", Vector2(896.0, 470.0), Color(0.66, 0.46, 0.27, 1.0), Color(0.96, 0.68, 0.40, 1.0))
 	_register_ambient_motion(restaurant_menu_stand, Vector2(0.0, 1.5), 1.1, 0.4)
-	_register_guide_glow("restaurant", Vector2(988.0, 458.0), Vector2(188.0, 80.0), Color(1.0, 0.71, 0.44, 0.0))
+	_register_guide_glow("restaurant", Vector2(992.0, 458.0), Vector2(206.0, 92.0), Color(1.0, 0.71, 0.44, 0.0))
 
-	# Market stall
-	_add_sprite(_scenery_root, "ShopGardenPatch", _make_region_texture(_get_zed_forest_sheet(), ZED_FOREST_PATCH_LIGHT_REGION), Vector2(1294.0, 520.0), Vector2(1.08, 1.08), Color(1.0, 1.0, 1.0, 0.24), -2)
-	_add_shadow(_scenery_root, "ShopShadow", Vector2(1292.0, 492.0), Vector2(116.0, 32.0), Color(0.10, 0.13, 0.12, 0.16), -1)
-	_add_sprite(_scenery_root, "ShopStoreRoom", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_FARMHOUSE_REGION), Vector2(1300.0, 430.0), Vector2(1.10, 1.10), Color(0.94, 0.98, 1.0, 0.92), -1)
-	_add_sprite(_scenery_root, "ShopStall", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_STALL_REGION), Vector2(1292.0, 466.0), Vector2(2.10, 2.10), Color.WHITE, 0)
-	_add_rect(_scenery_root, "ShopPad", Rect2(1244.0, 466.0, 100.0, 24.0), Color(0.80, 0.70, 0.47, 1.0), -1)
-	_shop_window_glows.append(_add_window_glow(_ambient_root, "ShopGlowLeft", Vector2(1258.0, 454.0), Vector2(34.0, 18.0), Color(1.0, 0.84, 0.55, 0.0)))
-	_shop_window_glows.append(_add_window_glow(_ambient_root, "ShopGlowRight", Vector2(1318.0, 454.0), Vector2(34.0, 18.0), Color(1.0, 0.84, 0.55, 0.0)))
-	_add_crate_cluster("ShopCrates", Vector2(1362.0, 520.0), 3, Color(0.77, 0.61, 0.39, 1.0))
-	_add_barrel_prop("ShopBarrel", Vector2(1240.0, 522.0), Color(0.55, 0.38, 0.24, 1.0))
-	_add_planter_box("ShopPlanter", Vector2(1188.0, 512.0), Color(0.84, 0.89, 0.54, 1.0))
-	_add_sack_stack("ShopSeedSacks", Vector2(1198.0, 536.0), Color(0.82, 0.72, 0.44, 1.0), Color(0.29, 0.51, 0.28, 1.0), 3)
-	_add_tool_rack("ShopToolRack", Vector2(1376.0, 502.0), Color(0.44, 0.61, 0.82, 1.0))
-	_add_market_display("ShopSeedDisplay", Vector2(1320.0, 520.0), [
-		Color(0.84, 0.91, 0.50, 1.0),
-		Color(0.99, 0.78, 0.40, 1.0),
-		Color(0.76, 0.89, 0.54, 1.0)
-	])
+	# Market and supply house
+	_add_shadow(_scenery_root, "ShopShadow", Vector2(1292.0, 490.0), Vector2(188.0, 38.0), Color(0.10, 0.13, 0.12, 0.16), -1)
+	_add_sprite(_scenery_root, "ShopHouse", _sunnyside_shop_texture, Vector2(1294.0, 430.0), Vector2(1.38, 1.38), Color.WHITE, 0)
+	_add_external_sprite(_scenery_root, "ShopCrateA", "spr_deco_crate_01", Vector2(1372.0, 516.0), Vector2(2.7, 2.7), 1)
+	_add_external_sprite(_scenery_root, "ShopCrateB", "spr_deco_crate_02", Vector2(1336.0, 528.0), Vector2(2.7, 2.7), 1)
+	_add_external_sprite(_scenery_root, "ShopBarrel", "spr_deco_barrel_closed", Vector2(1238.0, 524.0), Vector2(2.6, 2.6), 1)
+	_add_external_sprite(_scenery_root, "ShopBucket", "spr_deco_bucket", Vector2(1212.0, 522.0), Vector2(2.5, 2.5), 1)
+	_add_external_sprite(_scenery_root, "ShopChest", "spr_deco_chest_01_closed", Vector2(1368.0, 556.0), Vector2(2.5, 2.5), 1)
+	_add_external_sprite(_scenery_root, "ShopAnvil", "spr_deco_anvil", Vector2(1188.0, 556.0), Vector2(2.5, 2.5), 1)
+	_add_external_sprite(_scenery_root, "ShopJar", "spr_deco_jar_01", Vector2(1320.0, 496.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(_scenery_root, "ShopBook", "spr_deco_book_02", Vector2(1278.0, 500.0), Vector2(2.1, 2.1), 1)
+	_add_external_sprite(_scenery_root, "ShopCoins", "spr_deco_coins", Vector2(1298.0, 496.0), Vector2(2.0, 2.0), 2)
+	_add_external_sprite(_scenery_root, "ShopDisplayTable", "spr_deco_sidetable_01", Vector2(1318.0, 526.0), Vector2(2.7, 2.7), 0)
 	_add_stone_wall_line("ShopBorderSouth", Vector2(1198.0, 610.0), 3, true)
-	var shop_open_board := _add_a_frame_sign("ShopOpenBoard", Vector2(1216.0, 522.0), Color(0.63, 0.45, 0.24, 1.0), Color(0.97, 0.83, 0.44, 1.0))
+	_shop_window_glows.append(_add_window_glow(_ambient_root, "ShopGlowLeft", Vector2(1258.0, 454.0), Vector2(44.0, 22.0), Color(1.0, 0.84, 0.55, 0.0)))
+	_shop_window_glows.append(_add_window_glow(_ambient_root, "ShopGlowRight", Vector2(1322.0, 454.0), Vector2(44.0, 22.0), Color(1.0, 0.84, 0.55, 0.0)))
+	var shop_open_board := _add_a_frame_sign("ShopOpenBoard", Vector2(1218.0, 522.0), Color(0.63, 0.45, 0.24, 1.0), Color(0.97, 0.83, 0.44, 1.0))
 	_shop_open_props.append(shop_open_board)
 	_register_ambient_motion(shop_open_board, Vector2(0.0, 1.4), 1.0, 1.1)
-	var shop_pennants := _add_pennant_string("ShopPennants", Vector2(1228.0, 432.0), 136.0, [
+	var shop_pennants := _add_pennant_string("ShopPennants", Vector2(1212.0, 432.0), 156.0, [
 		Color(0.37, 0.58, 0.84, 1.0),
 		Color(0.96, 0.80, 0.42, 1.0),
 		Color(0.76, 0.91, 0.52, 1.0),
@@ -1017,18 +1060,18 @@ func _build_world_landmarks() -> void:
 	])
 	_shop_open_props.append(shop_pennants)
 	_register_ambient_motion(shop_pennants, Vector2(0.0, 3.4), 1.7, 0.8)
-	_shop_open_glows.append(_add_ellipse(_ambient_root, "ShopEntryGlow", Vector2(1288.0, 510.0), Vector2(174.0, 72.0), Color(1.0, 0.84, 0.56, 0.0), -1))
-	_register_guide_glow("shop", Vector2(1288.0, 514.0), Vector2(192.0, 78.0), Color(1.0, 0.84, 0.52, 0.0))
+	_shop_open_glows.append(_add_ellipse(_ambient_root, "ShopEntryGlow", Vector2(1290.0, 512.0), Vector2(198.0, 76.0), Color(1.0, 0.84, 0.56, 0.0), -1))
+	_register_guide_glow("shop", Vector2(1290.0, 514.0), Vector2(212.0, 84.0), Color(1.0, 0.84, 0.52, 0.0))
 
-	# Central board and overlook
+	# Central board and lookout
 	_add_notice_board(Vector2(1078.0, 598.0))
-	_add_planter_box("BoardPlanterLeft", Vector2(1034.0, 632.0), Color(0.95, 0.88, 0.54, 1.0))
-	_add_planter_box("BoardPlanterRight", Vector2(1124.0, 634.0), Color(0.96, 0.74, 0.58, 1.0))
+	_add_external_sprite(_scenery_root, "BoardFlowersLeft", "spr_deco_flowers_house_02", Vector2(1028.0, 638.0), Vector2(2.9, 2.9), 1)
+	_add_external_sprite(_scenery_root, "BoardFlowersRight", "spr_deco_flowers_house_02", Vector2(1124.0, 640.0), Vector2(2.9, 2.9), 1)
 	_add_bench(Vector2(704.0, 772.0))
+	_add_external_sprite(_scenery_root, "BoardTrough", "spr_deco_trough", Vector2(998.0, 654.0), Vector2(2.3, 2.3), 0)
+	_add_external_sprite(_ambient_root, "SquareCampfire", "spr_deco_campfire", Vector2(934.0, 658.0), Vector2(2.0, 2.0), 0)
 	_add_stone_wall_line("BoardTerraceSouth", Vector2(1002.0, 670.0), 4, true)
 	_add_fence_line("LookoutRail", Vector2(620.0, 754.0), 4, true)
-	_add_planter_box("LookoutFlowersLeft", Vector2(650.0, 804.0), Color(0.95, 0.74, 0.62, 1.0))
-	_add_planter_box("LookoutFlowersRight", Vector2(756.0, 804.0), Color(0.90, 0.82, 0.50, 1.0))
 	_add_direction_post("TownGuidepost", Vector2(836.0, 630.0), [
 		{"direction": "left", "color": Color(0.58, 0.82, 0.42, 1.0)},
 		{"direction": "right", "color": Color(0.96, 0.68, 0.40, 1.0)},
@@ -1038,16 +1081,14 @@ func _build_world_landmarks() -> void:
 	_register_guide_glow("orders", Vector2(1078.0, 612.0), Vector2(162.0, 72.0), Color(0.96, 0.81, 0.44, 0.0))
 
 	# Harbor and departure point
-	_add_sprite(_scenery_root, "HarborPatch", _make_region_texture(_get_zed_forest_sheet(), ZED_FOREST_POND_REGION), Vector2(1310.0, 776.0), Vector2(1.04, 1.04), Color(1.0, 1.0, 1.0, 0.70), -2)
-	_add_shadow(_scenery_root, "NightShadow", Vector2(1240.0, 736.0), Vector2(94.0, 26.0), Color(0.10, 0.13, 0.12, 0.18), -1)
-	_add_sprite(_scenery_root, "DockBeaconPost", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_LAMP_REGION), Vector2(1240.0, 694.0), Vector2(2.20, 2.20), Color(0.96, 0.94, 0.90, 1.0), 0)
-	_add_rect(_scenery_root, "DockBeaconStep", Rect2(1206.0, 722.0, 74.0, 22.0), Color(0.72, 0.54, 0.31, 1.0), -1)
+	_add_shadow(_scenery_root, "DockHouseShadow", Vector2(1238.0, 736.0), Vector2(172.0, 34.0), Color(0.10, 0.13, 0.12, 0.18), -1)
+	_add_sprite(_scenery_root, "DockHouse", _sunnyside_dock_texture, Vector2(1238.0, 680.0), Vector2(1.24, 1.24), Color.WHITE, 0)
+	_add_external_sprite(_scenery_root, "DockBoat", "spr_deco_coracle_land", Vector2(1394.0, 844.0), Vector2(2.8, 2.8), 0)
+	_add_external_sprite(_scenery_root, "DockWaterBarrel", "spr_deco_barrel_water", Vector2(1164.0, 790.0), Vector2(2.5, 2.5), 1)
+	_add_external_sprite(_ambient_root, "DockCampfire", "spr_deco_campfire", Vector2(1116.0, 774.0), Vector2(2.0, 2.0), 1)
+	_add_crate_cluster("DockCargo", Vector2(1108.0, 764.0), 3, Color.WHITE)
 	_add_post_rope_span("DockRail", Vector2(1138.0, 790.0), 4, true)
 	_add_post_rope_span("PierRail", Vector2(1312.0, 724.0), 3, false)
-	_add_crate_cluster("DockCargo", Vector2(1108.0, 764.0), 3, Color(0.73, 0.55, 0.34, 1.0))
-	_add_barrel_prop("DockBarrel", Vector2(1164.0, 794.0), Color(0.54, 0.38, 0.24, 1.0))
-	var dock_skiff := _add_skiff(Vector2(1394.0, 846.0))
-	_register_ambient_motion(dock_skiff, Vector2(4.0, 5.0), 0.76, 1.9, 0.02)
 	_add_water_rock_prop("HarborRockA", Vector2(1278.0, 748.0), 0)
 	_add_water_rock_prop("HarborRockB", Vector2(1362.0, 780.0), 1)
 	_add_water_rock_prop("HarborRockC", Vector2(1460.0, 830.0), 2)
@@ -1057,8 +1098,8 @@ func _build_world_landmarks() -> void:
 	_add_lamp_post("BoardLamp", Vector2(1138.0, 628.0), Color(0.92, 0.80, 0.56, 1.0))
 	_add_lamp_post("DockLampWest", Vector2(1174.0, 770.0), Color(0.74, 0.88, 1.0, 1.0))
 	_add_lamp_post("DockLampEast", Vector2(1240.0, 790.0), Color(0.74, 0.88, 1.0, 1.0))
-	_restaurant_sign = _add_hanging_sign("RestaurantSign", Vector2(996.0, 420.0), Color(0.95, 0.68, 0.40, 1.0), Color(0.48, 0.25, 0.13, 1.0))
-	_shop_sign = _add_hanging_sign("ShopSign", Vector2(1292.0, 470.0), Color(0.96, 0.82, 0.43, 1.0), Color(0.49, 0.33, 0.18, 1.0))
+	_restaurant_sign = _add_hanging_sign("RestaurantSign", Vector2(998.0, 420.0), Color(0.95, 0.68, 0.40, 1.0), Color(0.48, 0.25, 0.13, 1.0))
+	_shop_sign = _add_hanging_sign("ShopSign", Vector2(1294.0, 470.0), Color(0.96, 0.82, 0.43, 1.0), Color(0.49, 0.33, 0.18, 1.0))
 	_register_ambient_motion(_restaurant_sign, Vector2(0.0, 2.0), 1.0, 0.2, 0.05)
 	_register_ambient_motion(_shop_sign, Vector2(0.0, 2.0), 1.05, 0.8, 0.05)
 	_night_beacon_glow = _add_ellipse(_ambient_root, "NightBeaconGlow", Vector2(1240.0, 614.0), Vector2(206.0, 138.0), Color(0.49, 0.79, 1.0, 0.0), -1)
@@ -1078,53 +1119,43 @@ func _build_world_landmarks() -> void:
 	_register_guide_glow("dock", Vector2(1218.0, 792.0), Vector2(228.0, 94.0), Color(0.58, 0.84, 1.0, 0.0))
 
 	for tree_data in [
-		{"name": "TreeNorthWestA", "position": Vector2(92.0, 338.0), "sheet": 0, "scale": Vector2(0.58, 0.58)},
-		{"name": "TreeNorthWestB", "position": Vector2(166.0, 304.0), "sheet": 1, "scale": Vector2(0.56, 0.56)},
-		{"name": "TreeNorthMeadow", "position": Vector2(684.0, 300.0), "sheet": 3, "scale": Vector2(0.52, 0.52)},
-		{"name": "TreeTownNorth", "position": Vector2(878.0, 286.0), "sheet": 2, "scale": Vector2(0.50, 0.50)},
-		{"name": "TreeFarmEdge", "position": Vector2(544.0, 340.0), "sheet": 2, "scale": Vector2(0.54, 0.54)},
-		{"name": "TreeShopNorth", "position": Vector2(1184.0, 318.0), "sheet": 0, "scale": Vector2(0.50, 0.50)},
-		{"name": "TreeHarborNorth", "position": Vector2(1480.0, 324.0), "sheet": 3, "scale": Vector2(0.56, 0.56)},
-		{"name": "TreeHarborEast", "position": Vector2(1506.0, 610.0), "sheet": 0, "scale": Vector2(0.54, 0.54)},
-		{"name": "TreeHarborSouth", "position": Vector2(1438.0, 804.0), "sheet": 1, "scale": Vector2(0.54, 0.54)}
+		{"name": "TreeNorthWestA", "position": Vector2(92.0, 338.0), "sheet": 0, "scale": Vector2(0.92, 0.92)},
+		{"name": "TreeNorthWestB", "position": Vector2(166.0, 304.0), "sheet": 1, "scale": Vector2(0.90, 0.90)},
+		{"name": "TreeNorthMeadow", "position": Vector2(684.0, 300.0), "sheet": 2, "scale": Vector2(0.86, 0.86)},
+		{"name": "TreeTownNorth", "position": Vector2(878.0, 286.0), "sheet": 0, "scale": Vector2(0.90, 0.90)},
+		{"name": "TreeFarmEdge", "position": Vector2(544.0, 340.0), "sheet": 1, "scale": Vector2(0.88, 0.88)},
+		{"name": "TreeShopNorth", "position": Vector2(1184.0, 318.0), "sheet": 2, "scale": Vector2(0.84, 0.84)},
+		{"name": "TreeHarborNorth", "position": Vector2(1480.0, 324.0), "sheet": 0, "scale": Vector2(0.90, 0.90)},
+		{"name": "TreeHarborEast", "position": Vector2(1506.0, 610.0), "sheet": 1, "scale": Vector2(0.88, 0.88)},
+		{"name": "TreeHarborSouth", "position": Vector2(1438.0, 804.0), "sheet": 2, "scale": Vector2(0.88, 0.88)}
 	]:
 		_add_tree_prop(String(tree_data.get("name", "")), tree_data.get("position", Vector2.ZERO), int(tree_data.get("sheet", 0)), tree_data.get("scale", Vector2.ONE))
 
-	for stump_position in [Vector2(390.0, 616.0), Vector2(432.0, 654.0)]:
-		_add_shadow(_scenery_root, "StumpShadow%s" % str(stump_position), stump_position, Vector2(20.0, 8.0), Color(0.10, 0.13, 0.12, 0.16), -1)
-		_add_sprite(_scenery_root, "Stump%s" % str(stump_position), STUMP_TEXTURE, stump_position - Vector2(0.0, 12.0), Vector2(1.0, 1.0), Color.WHITE, 0)
-
 	for bush_data in [
 		{"name": "BushFarmLane", "position": Vector2(542.0, 330.0), "sheet": 0},
-		{"name": "BushFarmYard", "position": Vector2(562.0, 366.0), "sheet": 2},
+		{"name": "BushFarmYard", "position": Vector2(562.0, 366.0), "sheet": 1},
 		{"name": "BushTownGuide", "position": Vector2(778.0, 612.0), "sheet": 0},
 		{"name": "BushRestaurantWalk", "position": Vector2(878.0, 452.0), "sheet": 1},
 		{"name": "BushBoard", "position": Vector2(1184.0, 514.0), "sheet": 1},
-		{"name": "BushShopEdge", "position": Vector2(1424.0, 520.0), "sheet": 2},
-		{"name": "BushLookout", "position": Vector2(1102.0, 792.0), "sheet": 3},
-		{"name": "BushFarmSouth", "position": Vector2(154.0, 818.0), "sheet": 2}
+		{"name": "BushShopEdge", "position": Vector2(1424.0, 520.0), "sheet": 0},
+		{"name": "BushLookout", "position": Vector2(1102.0, 792.0), "sheet": 1},
+		{"name": "BushFarmSouth", "position": Vector2(154.0, 818.0), "sheet": 0}
 	]:
 		_add_bush_prop(String(bush_data.get("name", "")), bush_data.get("position", Vector2.ZERO), int(bush_data.get("sheet", 0)))
 
 	for rock_data in [
 		{"name": "FarmRock", "position": Vector2(522.0, 676.0), "texture": 0},
-		{"name": "HarborRock", "position": Vector2(1114.0, 708.0), "texture": 2},
-		{"name": "PierRock", "position": Vector2(1188.0, 750.0), "texture": 1}
+		{"name": "HarborRock", "position": Vector2(1114.0, 708.0), "texture": 1},
+		{"name": "PierRock", "position": Vector2(1188.0, 750.0), "texture": 2}
 	]:
 		_add_rock_prop(String(rock_data.get("name", "")), rock_data.get("position", Vector2.ZERO), int(rock_data.get("texture", 0)))
 
-	_town_npc_nodes["shopkeeper"] = _add_town_npc("ShopkeeperStall", Vector2(1352.0, 554.0), Color(0.76, 0.57, 0.34, 1.0), Color(0.27, 0.45, 0.33, 1.0))
-	_town_npc_nodes["regular"] = _add_town_npc("RegularWanderer", Vector2(986.0, 640.0), Color(0.52, 0.72, 0.84, 1.0), Color(0.61, 0.43, 0.25, 1.0))
-	_register_ambient_motion(_town_npc_nodes["shopkeeper"] as Node2D, Vector2(0.0, 2.4), 1.2, 0.9)
-	_register_ambient_motion(_town_npc_nodes["regular"] as Node2D, Vector2(0.0, 2.8), 1.4, 1.8)
-	_ambient_character_nodes["farmhand"] = _add_town_npc("Farmhand", Vector2(398.0, 696.0), Color(0.66, 0.78, 0.46, 1.0), Color(0.58, 0.39, 0.24, 1.0))
-	_ambient_character_nodes["restaurant_patron"] = _add_town_npc("RestaurantPatron", Vector2(912.0, 470.0), Color(0.93, 0.62, 0.42, 1.0), Color(0.69, 0.28, 0.22, 1.0))
-	_ambient_character_nodes["board_reader"] = _add_town_npc("BoardReader", Vector2(1142.0, 646.0), Color(0.48, 0.67, 0.84, 1.0), Color(0.58, 0.42, 0.26, 1.0))
-	_ambient_character_nodes["dockhand"] = _add_town_npc("Dockhand", Vector2(1140.0, 760.0), Color(0.62, 0.82, 0.90, 1.0), Color(0.44, 0.35, 0.25, 1.0))
-	_register_ambient_motion(_ambient_character_nodes["farmhand"] as Node2D, Vector2(0.0, 2.4), 1.2, 0.1)
-	_register_ambient_motion(_ambient_character_nodes["restaurant_patron"] as Node2D, Vector2(0.0, 2.8), 1.4, 0.7)
-	_register_ambient_motion(_ambient_character_nodes["board_reader"] as Node2D, Vector2(0.0, 2.0), 1.0, 1.4)
-	_register_ambient_motion(_ambient_character_nodes["dockhand"] as Node2D, Vector2(0.0, 2.6), 1.3, 2.2)
+	_town_npc_nodes["shopkeeper"] = _add_town_resident("ShopkeeperStall", "bowlhair_idle_strip9", Vector2(1328.0, 556.0), Vector2(0.88, 0.88))
+	_town_npc_nodes["regular"] = _add_town_resident("RegularWanderer", "longhair_idle_strip9", Vector2(986.0, 640.0), Vector2(0.86, 0.86))
+	_ambient_character_nodes["farmhand"] = _add_town_resident("Farmhand", "shorthair_idle_strip9", Vector2(398.0, 696.0), Vector2(0.84, 0.84))
+	_ambient_character_nodes["restaurant_patron"] = _add_town_resident("RestaurantPatron", "base_idle_strip9", Vector2(912.0, 470.0), Vector2(0.86, 0.86))
+	_ambient_character_nodes["board_reader"] = _add_town_resident("BoardReader", "spikeyhair_idle_strip9", Vector2(1142.0, 646.0), Vector2(0.84, 0.84))
+	_ambient_character_nodes["dockhand"] = _add_town_resident("Dockhand", "mophair_idle_strip9", Vector2(1140.0, 760.0), Vector2(0.88, 0.88))
 
 
 func _make_sheet_frame(texture_sheet: Texture2D, frame_size: Vector2i, frame_index: int = 0) -> AtlasTexture:
@@ -1144,40 +1175,77 @@ func _make_region_texture(texture_sheet: Texture2D, region: Rect2i) -> AtlasText
 
 
 func _add_tree_prop(name: String, base_position: Vector2, sheet_index: int, scale_value: Vector2 = Vector2(0.56, 0.56)) -> void:
-	var scale_factor := (scale_value.x + scale_value.y) * 0.5
-	var region := ZED_FOREST_TREE_LIGHT_REGION
-	match posmod(sheet_index, 5):
+	var region := CAINOS_TREE_LARGE_REGION
+	var y_shift_factor := 0.42
+	match posmod(sheet_index, 3):
 		1:
-			region = ZED_FOREST_TREE_DARK_REGION
+			region = CAINOS_TREE_ROUND_REGION
+			y_shift_factor = 0.40
 		2:
-			region = ZED_FOREST_TREE_ROUND_REGION
-		3:
-			region = ZED_FOREST_TREE_SMALL_REGION
-		4:
-			region = ZED_FOREST_TREE_PINE_REGION
-	var texture := _make_region_texture(_get_zed_forest_sheet(), region)
-	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 12.0), Vector2(84.0, 26.0) * scale_factor, Color(0.10, 0.13, 0.12, 0.14), -1)
-	_add_sprite(_scenery_root, name, texture, base_position - Vector2(0.0, float(region.size.y) * scale_value.y * 0.46), scale_value * 1.9, Color.WHITE, 0)
+			region = CAINOS_TREE_SLIM_REGION
+			y_shift_factor = 0.44
+	var shadow_width := maxf(46.0, float(region.size.x) * scale_value.x * 0.40)
+	var shadow_height := maxf(16.0, float(region.size.y) * scale_value.y * 0.10)
+	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 12.0), Vector2(shadow_width, shadow_height), Color(0.10, 0.13, 0.12, 0.14), -1)
+	_add_sheet_region_sprite(
+		_scenery_root,
+		name,
+		CAINOS_PLANT_SHEET_PATH,
+		region,
+		base_position - Vector2(0.0, float(region.size.y) * scale_value.y * y_shift_factor),
+		scale_value,
+		0
+	)
 
 
 func _add_bush_prop(name: String, base_position: Vector2, sheet_index: int, scale_value: Vector2 = Vector2(0.92, 0.92)) -> void:
-	var scale_factor := (scale_value.x + scale_value.y) * 0.5
-	var region := ZED_FOREST_PATCH_LIGHT_REGION if posmod(sheet_index, 2) == 0 else ZED_FOREST_PATCH_DARK_REGION
-	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 6.0), Vector2(50.0, 16.0) * scale_factor, Color(0.10, 0.13, 0.12, 0.10), -1)
-	_add_sprite(_scenery_root, name, _make_region_texture(_get_zed_forest_sheet(), region), base_position - Vector2(0.0, 18.0 * scale_value.y), scale_value * 0.72, Color(1.0, 1.0, 1.0, 0.92), 0)
+	var region := CAINOS_BUSH_ROUND_REGION if posmod(sheet_index, 2) == 0 else CAINOS_BUSH_TALL_REGION
+	var shadow_width := maxf(28.0, float(region.size.x) * scale_value.x * 0.46)
+	var shadow_height := maxf(12.0, float(region.size.y) * scale_value.y * 0.16)
+	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 8.0), Vector2(shadow_width, shadow_height), Color(0.10, 0.13, 0.12, 0.10), -1)
+	_add_sheet_region_sprite(
+		_scenery_root,
+		name,
+		CAINOS_PLANT_SHEET_PATH,
+		region,
+		base_position - Vector2(0.0, float(region.size.y) * scale_value.y * 0.34),
+		scale_value * 0.96,
+		0,
+		Color(1.0, 1.0, 1.0, 0.96)
+	)
 
 
 func _add_rock_prop(name: String, base_position: Vector2, texture_index: int, scale_value: Vector2 = Vector2.ONE) -> void:
-	var scale_factor := (scale_value.x + scale_value.y) * 0.5
-	var region := ZED_FOREST_ROCK_LARGE_REGION if posmod(texture_index, 2) == 0 else ZED_FOREST_ROCK_SMALL_REGION
-	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 5.0), Vector2(24.0, 8.0) * scale_factor, Color(0.10, 0.13, 0.12, 0.12), -1)
-	_add_sprite(_scenery_root, name, _make_region_texture(_get_zed_forest_sheet(), region), base_position, scale_value * 1.5, Color.WHITE, 0)
+	var region := HARVEST_ROCK_CLUSTER_REGION
+	match posmod(texture_index, 3):
+		1:
+			region = HARVEST_ROCK_FLAT_REGION
+		2:
+			region = HARVEST_ROCK_SMALL_REGION
+	var render_scale := scale_value * 2.0
+	var shadow_width := maxf(18.0, float(region.size.x) * render_scale.x * 0.52)
+	var shadow_height := maxf(8.0, float(region.size.y) * render_scale.y * 0.16)
+	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 6.0), Vector2(shadow_width, shadow_height), Color(0.10, 0.13, 0.12, 0.12), -1)
+	_add_sheet_region_sprite(
+		_scenery_root,
+		name,
+		HARVEST_ENV_SHEET_PATH,
+		region,
+		base_position - Vector2(0.0, float(region.size.y) * render_scale.y * 0.30),
+		render_scale,
+		0
+	)
 
 
 func _add_water_rock_prop(name: String, base_position: Vector2, sheet_index: int) -> void:
-	var region := ZED_FOREST_WATER_PLANTS_REGION if posmod(sheet_index, 2) == 0 else ZED_FOREST_ROCK_SMALL_REGION
-	var scale_value := Vector2(1.2, 1.2) if region == ZED_FOREST_WATER_PLANTS_REGION else Vector2.ONE
-	_add_sprite(_ambient_root, name, _make_region_texture(_get_zed_forest_sheet(), region), base_position, scale_value, Color.WHITE, 0)
+	var root := Node2D.new()
+	root.name = name
+	root.position = base_position
+	_ambient_root.add_child(root)
+	var region := HARVEST_ROCK_SMALL_REGION if posmod(sheet_index, 2) == 0 else HARVEST_ROCK_FLAT_REGION
+	var render_scale := Vector2(1.8, 1.8) if region == HARVEST_ROCK_SMALL_REGION else Vector2(1.6, 1.6)
+	_add_ellipse(root, "Foam", Vector2(0.0, 8.0), Vector2(42.0, 16.0), Color(0.88, 0.95, 1.0, 0.22), -1)
+	_add_sheet_region_sprite(root, "Rock", HARVEST_ENV_SHEET_PATH, region, Vector2.ZERO, render_scale, 0)
 
 
 func _add_fence_line(name: String, start_position: Vector2, segments: int, horizontal: bool) -> Node2D:
@@ -1239,8 +1307,8 @@ func _add_crate_cluster(name: String, position: Vector2, crate_count: int, wood_
 	for crate_index in range(crate_count):
 		var offset := Vector2(crate_index * 20.0, float(crate_index % 2) * 12.0)
 		_add_shadow(root, "Shadow%d" % crate_index, offset + Vector2(0.0, 8.0), Vector2(24.0, 10.0), Color(0.08, 0.09, 0.08, 0.12), -2)
-		var region: Rect2i = ZED_VILLAGE_CRATE_REGIONS[posmod(crate_index, ZED_VILLAGE_CRATE_REGIONS.size())]
-		_add_sprite(root, "Crate%d" % crate_index, _make_region_texture(_get_zed_village_sheet(), region), offset, Vector2(1.3, 1.3), Color.WHITE, 0)
+		var sprite_name := "spr_deco_crate_01" if posmod(crate_index, 2) == 0 else "spr_deco_crate_02"
+		_add_external_sprite(root, "Crate%d" % crate_index, sprite_name, offset, Vector2(2.0, 2.0), 0)
 	return root
 
 
@@ -1249,24 +1317,8 @@ func _add_barrel_prop(name: String, position: Vector2, body_color: Color) -> Nod
 	root.name = name
 	root.position = position
 	_scenery_root.add_child(root)
-	var shadow := Polygon2D.new()
-	shadow.polygon = _ellipse_polygon(Vector2(22.0, 8.0), 10)
-	shadow.position = Vector2(0.0, 10.0)
-	shadow.color = Color(0.08, 0.09, 0.08, 0.12)
-	root.add_child(shadow)
-	var body := Polygon2D.new()
-	body.polygon = _rect_polygon(Vector2(18.0, 24.0))
-	body.position = Vector2(0.0, -2.0)
-	body.color = body_color
-	root.add_child(body)
-	var band_top := Polygon2D.new()
-	band_top.polygon = _rect_polygon(Vector2(20.0, 4.0))
-	band_top.position = Vector2(0.0, -10.0)
-	band_top.color = Color(0.32, 0.23, 0.17, 1.0)
-	root.add_child(band_top)
-	var band_bottom := band_top.duplicate() as Polygon2D
-	band_bottom.position = Vector2(0.0, 2.0)
-	root.add_child(band_bottom)
+	_add_shadow(root, "Shadow", Vector2(0.0, 10.0), Vector2(24.0, 10.0), Color(0.08, 0.09, 0.08, 0.12), -2)
+	_add_external_sprite(root, "Barrel", "spr_deco_barrel_closed", Vector2.ZERO, Vector2(2.1, 2.1), 0)
 	return root
 
 
@@ -1276,10 +1328,8 @@ func _add_planter_box(name: String, position: Vector2, flower_color: Color) -> N
 	root.position = position
 	_scenery_root.add_child(root)
 	_add_shadow(root, "Shadow", Vector2(0.0, 8.0), Vector2(34.0, 10.0), Color(0.08, 0.09, 0.08, 0.10), -2)
-	var planter_region := ZED_VILLAGE_PLANTER_WOOD_REGION if flower_color.r > flower_color.g else ZED_VILLAGE_PLANTER_STONE_REGION
-	_add_sprite(root, "Planter", _make_region_texture(_get_zed_village_sheet(), planter_region), Vector2.ZERO, Vector2(1.5, 1.5), Color.WHITE, 0)
-	var pot_region := ZED_VILLAGE_POT_ORANGE_REGION if flower_color.r > flower_color.b else (ZED_VILLAGE_POT_SKY_REGION if flower_color.b > flower_color.g else ZED_VILLAGE_POT_YELLOW_REGION)
-	_add_sprite(root, "Bloom", _make_region_texture(_get_zed_village_sheet(), pot_region), Vector2(0.0, -18.0), Vector2(1.2, 1.2), Color.WHITE, 1)
+	var sprite_name := "spr_deco_flowers_house_01" if flower_color.r > flower_color.g else "spr_deco_flowers_house_02"
+	_add_external_sprite(root, "Bloom", sprite_name, Vector2.ZERO, Vector2(2.8, 2.8), 1)
 	return root
 
 
@@ -1423,7 +1473,17 @@ func _add_bench(base_position: Vector2) -> void:
 	root.position = base_position
 	_scenery_root.add_child(root)
 	_add_shadow(root, "Shadow", Vector2(0.0, 10.0), Vector2(66.0, 16.0), Color(0.10, 0.13, 0.12, 0.14), -2)
-	_add_sprite(root, "Bench", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_BENCH_REGION), Vector2.ZERO, Vector2(1.8, 1.8), Color.WHITE, 0)
+	var seat := Polygon2D.new()
+	seat.position = Vector2(0.0, 0.0)
+	seat.polygon = _rect_polygon(Vector2(74.0, 12.0))
+	seat.color = Color(0.66, 0.47, 0.27, 1.0)
+	root.add_child(seat)
+	for leg_x in [-24.0, 24.0]:
+		var leg := Polygon2D.new()
+		leg.position = Vector2(leg_x, 10.0)
+		leg.polygon = _rect_polygon(Vector2(8.0, 20.0))
+		leg.color = Color(0.44, 0.31, 0.20, 1.0)
+		root.add_child(leg)
 
 
 func _add_supply_cart(name: String, position: Vector2, wood_color: Color) -> Node2D:
@@ -1702,7 +1762,18 @@ func _add_lamp_post(name: String, position: Vector2, glow_color: Color) -> void:
 	root.position = position
 	_ambient_root.add_child(root)
 	_add_shadow(root, "Shadow", Vector2(0.0, 10.0), Vector2(40.0, 12.0), Color(0.10, 0.13, 0.12, 0.12), -2)
-	_add_sprite(root, "Lamp", _make_region_texture(_get_zed_village_sheet(), ZED_VILLAGE_LAMP_REGION), Vector2.ZERO, Vector2(1.7, 1.7), Color.WHITE, 0)
+	var post := Polygon2D.new()
+	post.name = "Post"
+	post.position = Vector2(0.0, -18.0)
+	post.polygon = _rect_polygon(Vector2(8.0, 54.0))
+	post.color = Color(0.48, 0.34, 0.21, 1.0)
+	root.add_child(post)
+	var crossbar := Polygon2D.new()
+	crossbar.name = "Crossbar"
+	crossbar.position = Vector2(10.0, -42.0)
+	crossbar.polygon = _rect_polygon(Vector2(22.0, 6.0))
+	crossbar.color = Color(0.58, 0.40, 0.24, 1.0)
+	root.add_child(crossbar)
 	var glow := _add_ellipse(root, "Glow", Vector2(10.0, -26.0), Vector2(90.0, 60.0), glow_color, -1)
 	var lantern := Polygon2D.new()
 	lantern.name = "Lantern"
@@ -1900,44 +1971,10 @@ func _create_pickup_zone(pickup: Dictionary) -> void:
 	pickup_root.add_child(shadow)
 
 	if variant == "salvage":
-		var crate := Polygon2D.new()
-		crate.name = "Crate"
-		crate.polygon = _rect_polygon(Vector2(26.0, 22.0))
-		crate.position = Vector2(0.0, -2.0)
-		crate.color = Color(0.63, 0.49, 0.29, 1.0)
-		crate.z_index = 3
-		pickup_root.add_child(crate)
-		for scrap_position in [Vector2(-8.0, -14.0), Vector2(8.0, -10.0)]:
-			var scrap := Polygon2D.new()
-			scrap.polygon = PackedVector2Array([
-				Vector2(-6.0, 2.0),
-				Vector2(-2.0, -6.0),
-				Vector2(4.0, -4.0),
-				Vector2(6.0, 4.0),
-				Vector2(-2.0, 6.0)
-			])
-			scrap.position = scrap_position
-			scrap.color = Color(0.76, 0.82, 0.88, 1.0)
-			scrap.z_index = 4
-			pickup_root.add_child(scrap)
+		_add_external_sprite(pickup_root, "Crate", "spr_deco_crate_01", Vector2(0.0, 0.0), Vector2(2.0, 2.0), 3)
+		_add_external_sprite(pickup_root, "Coins", "spr_deco_coins", Vector2(10.0, -12.0), Vector2(1.6, 1.6), 4)
 	else:
-		var stem := Polygon2D.new()
-		stem.name = "Stem"
-		stem.polygon = _rect_polygon(Vector2(4.0, 18.0))
-		stem.position = Vector2(0.0, -3.0)
-		stem.color = Color(0.27, 0.52, 0.20, 1.0)
-		stem.z_index = 3
-		pickup_root.add_child(stem)
-		for leaf_points in [
-			PackedVector2Array([Vector2(-2.0, 0.0), Vector2(-18.0, -10.0), Vector2(-8.0, -22.0), Vector2(2.0, -6.0)]),
-			PackedVector2Array([Vector2(2.0, 0.0), Vector2(18.0, -10.0), Vector2(8.0, -22.0), Vector2(-2.0, -6.0)]),
-			PackedVector2Array([Vector2(0.0, -6.0), Vector2(-10.0, -24.0), Vector2(0.0, -30.0), Vector2(10.0, -24.0)])
-		]:
-			var leaf := Polygon2D.new()
-			leaf.polygon = leaf_points
-			leaf.color = accent
-			leaf.z_index = 4
-			pickup_root.add_child(leaf)
+		_add_external_sprite(pickup_root, "Forage", "spr_deco_flowers_house_02", Vector2(0.0, -4.0), Vector2(2.5, 2.5), 4)
 
 	var marker := Polygon2D.new()
 	marker.name = "Marker"
@@ -2054,24 +2091,29 @@ func _create_farm_plot(plot: Dictionary, columns: int) -> void:
 	shadow.z_index = 0
 	plot_root.add_child(shadow)
 
-	var soil := Polygon2D.new()
-	soil.name = "Soil"
-	soil.polygon = _plot_polygon(FARM_PLOT_SIZE)
-	soil.color = _farm_plot_soil_color(state_id)
-	soil.z_index = 2
-	plot_root.add_child(soil)
-
-	var moisture := Polygon2D.new()
-	moisture.name = "Moisture"
-	moisture.position = Vector2(0.0, 4.0)
-	moisture.polygon = _plot_polygon(FARM_PLOT_SIZE - Vector2(18.0, 24.0))
-	moisture.color = Color(0.22, 0.52, 0.72, 0.34 if state_id == "watered" or state_id == "harvestable" else 0.0)
-	moisture.z_index = 3
-	plot_root.add_child(moisture)
+	var soil_root := Node2D.new()
+	soil_root.name = "Soil"
+	soil_root.z_index = 2
+	plot_root.add_child(soil_root)
+	var soil_sprite_name := "soil_00"
+	match state_id:
+		"tilled":
+			soil_sprite_name = "soil_01"
+		"planted":
+			soil_sprite_name = "soil_03"
+		"watered", "harvestable":
+			soil_sprite_name = "soil_04"
+	for soil_offset in [
+		Vector2(-22.0, -6.0),
+		Vector2(22.0, -6.0),
+		Vector2(-22.0, 16.0),
+		Vector2(22.0, 16.0)
+	]:
+		_add_external_sprite(soil_root, "Patch%s" % str(soil_offset), soil_sprite_name, soil_offset, Vector2(2.8, 2.8), 0)
 
 	var crop_root := _create_farm_crop_visual(state_id)
 	crop_root.name = "Crop"
-	crop_root.position = Vector2(0.0, -10.0)
+	crop_root.position = Vector2(0.0, -4.0)
 	crop_root.z_index = 4
 	plot_root.add_child(crop_root)
 
@@ -2099,73 +2141,23 @@ func _create_farm_plot(plot: Dictionary, columns: int) -> void:
 func _create_farm_crop_visual(state_id: String) -> Node2D:
 	var crop_root := Node2D.new()
 	if state_id == "empty" or state_id == "tilled":
-		var furrow := Polygon2D.new()
-		furrow.polygon = PackedVector2Array([
-			Vector2(-22.0, 12.0),
-			Vector2(-18.0, -12.0),
-			Vector2(-8.0, -12.0),
-			Vector2(-12.0, 12.0)
-		])
-		furrow.color = Color(0.35, 0.22, 0.12, 0.42 if state_id == "tilled" else 0.16)
-		crop_root.add_child(furrow)
-		var furrow_right := furrow.duplicate() as Polygon2D
-		furrow_right.position = Vector2(18.0, 0.0)
-		crop_root.add_child(furrow_right)
 		return crop_root
 
-	var stem := Polygon2D.new()
-	stem.polygon = PackedVector2Array([
-		Vector2(-4.0, 18.0),
-		Vector2(-2.0, -8.0),
-		Vector2(2.0, -8.0),
-		Vector2(4.0, 18.0)
-	])
-	stem.color = Color(0.25, 0.56, 0.18, 1.0)
-	crop_root.add_child(stem)
-
-	var leaf_left := Polygon2D.new()
-	leaf_left.polygon = PackedVector2Array([
-		Vector2(-2.0, 2.0),
-		Vector2(-26.0, -8.0),
-		Vector2(-10.0, -22.0),
-		Vector2(2.0, -4.0)
-	])
-	leaf_left.color = Color(0.36, 0.70, 0.22, 1.0)
-	crop_root.add_child(leaf_left)
-
-	var leaf_right := Polygon2D.new()
-	leaf_right.polygon = PackedVector2Array([
-		Vector2(2.0, 2.0),
-		Vector2(26.0, -8.0),
-		Vector2(10.0, -22.0),
-		Vector2(-2.0, -4.0)
-	])
-	leaf_right.color = Color(0.42, 0.76, 0.26, 1.0)
-	crop_root.add_child(leaf_right)
-
-	if state_id == "planted" or state_id == "watered":
-		stem.scale = Vector2(0.72, 0.72)
-		leaf_left.scale = Vector2(0.72, 0.72)
-		leaf_right.scale = Vector2(0.72, 0.72)
-		if state_id == "watered":
-			leaf_left.modulate = Color(0.76, 1.0, 0.82, 1.0)
-			leaf_right.modulate = Color(0.82, 1.0, 0.88, 1.0)
+	if state_id == "planted":
+		for seed_offset in [Vector2(-18.0, 6.0), Vector2(0.0, 0.0), Vector2(18.0, 6.0)]:
+			_add_external_sprite(crop_root, "Seed%s" % str(seed_offset), "seeds_generic", seed_offset, Vector2(2.2, 2.2), 0)
+		_add_external_sprite(crop_root, "Sprout", "wheat_00", Vector2(0.0, -10.0), Vector2(2.8, 2.8), 1)
 		return crop_root
 
-	var fruit_left := Polygon2D.new()
-	fruit_left.polygon = PackedVector2Array([
-		Vector2(-14.0, -6.0),
-		Vector2(-6.0, -14.0),
-		Vector2(2.0, -6.0),
-		Vector2(-6.0, 2.0)
-	])
-	fruit_left.color = Color(0.98, 0.78, 0.24, 1.0)
-	crop_root.add_child(fruit_left)
+	if state_id == "watered":
+		for crop_offset in [Vector2(-18.0, 4.0), Vector2(0.0, -8.0), Vector2(18.0, 4.0)]:
+			_add_external_sprite(crop_root, "Watered%s" % str(crop_offset), "wheat_03", crop_offset, Vector2(3.0, 3.0), 1)
+		_add_external_sprite(crop_root, "WaterSpark", "water", Vector2(20.0, 16.0), Vector2(2.0, 2.0), 2)
+		return crop_root
 
-	var fruit_right := fruit_left.duplicate() as Polygon2D
-	fruit_right.position = Vector2(14.0, 6.0)
-	fruit_right.color = Color(0.95, 0.56, 0.26, 1.0)
-	crop_root.add_child(fruit_right)
+	for crop_offset in [Vector2(-22.0, 4.0), Vector2(-6.0, -10.0), Vector2(10.0, 2.0), Vector2(24.0, -8.0)]:
+		_add_external_sprite(crop_root, "Harvest%s" % str(crop_offset), "wheat_05", crop_offset, Vector2(3.2, 3.2), 1)
+	_add_external_sprite(crop_root, "HarvestAccent", "parsnip_05", Vector2(-2.0, -14.0), Vector2(3.0, 3.0), 2)
 	return crop_root
 
 

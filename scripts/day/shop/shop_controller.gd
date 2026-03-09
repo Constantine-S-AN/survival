@@ -1,6 +1,8 @@
 extends Control
 class_name ShopController
 
+const StardewLikeAssets := preload("res://scripts/day/stardew_like_asset_library.gd")
+
 signal back_requested
 signal seed_purchase_requested(seed_id: String)
 signal sell_requested(material_id: String)
@@ -16,6 +18,8 @@ const TILE_WOOD_DARK := Vector2i(1, 0)
 const TILE_STONE := Vector2i(2, 0)
 const TILE_RUG := Vector2i(3, 0)
 const TILE_MAT := Vector2i(4, 0)
+const CAINOS_STONE_SHEET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Pixel-Art-Top-Down---Basic-v1-2-3/Texture/TX Tileset Stone Ground.png"
+const HARVEST_TILE_SHEET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Harvest-Farm---Free-pack/Tilesets/harvest_farm_tileset.png"
 const ZED_VILLAGE_SHEET_PATH := "res://assets/external/dayworld_visual_pass_2/unpacked/village/Pixel 16 v2 village free/Pixel 16 v2 village free.png"
 const ZED_INTERIOR_SHEET_PATH := "res://assets/external/dayworld_visual_pass_2/unpacked/interior/Pixel_16_interiors_v2_free/tiles and items.png"
 const ZED_VILLAGE_CRATE_REGIONS := [
@@ -224,6 +228,8 @@ func _build_world_if_needed() -> void:
 	if _world_built:
 		return
 	_world_built = true
+	StardewLikeAssets.configure_sprite(shop_player.sprite, "base_idle_strip9", 4)
+	shop_player.sprite.scale = Vector2(0.82, 0.82)
 	_add_rect(backdrop, "WallBack", Rect2(0.0, 0.0, 1600.0, 980.0), Color(0.15, 0.11, 0.08, 1.0), -20)
 	_add_rect(backdrop, "WindowGlow", Rect2(0.0, 0.0, 1600.0, 260.0), Color(0.86, 0.75, 0.51, 0.10), -19)
 	_ensure_world_layers()
@@ -275,23 +281,13 @@ func _ensure_world_layers() -> void:
 func _build_world_tileset() -> TileSet:
 	if _world_tile_set != null:
 		return _world_tile_set
-	var tile_count := 5
-	var atlas_image := Image.create(TILE_SIZE * tile_count, TILE_SIZE, false, Image.FORMAT_RGBA8)
-	_draw_wood_tile(atlas_image, 0, Color(0.60, 0.41, 0.24, 1.0), Color(0.76, 0.56, 0.35, 1.0), Color(0.42, 0.28, 0.16, 1.0))
-	_draw_wood_tile(atlas_image, 1, Color(0.52, 0.35, 0.20, 1.0), Color(0.67, 0.49, 0.29, 1.0), Color(0.35, 0.22, 0.12, 1.0))
-	_draw_stone_tile(atlas_image, 2)
-	_draw_rug_tile(atlas_image, 3)
-	_draw_mat_tile(atlas_image, 4)
-	var atlas_texture := ImageTexture.create_from_image(atlas_image)
-	var tile_set := TileSet.new()
-	tile_set.tile_size = Vector2i(TILE_SIZE, TILE_SIZE)
-	var source := TileSetAtlasSource.new()
-	source.texture = atlas_texture
-	source.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
-	for tile_index in range(tile_count):
-		source.create_tile(Vector2i(tile_index, 0))
-	tile_set.add_source(source, 0)
-	_world_tile_set = tile_set
+	_world_tile_set = StardewLikeAssets.build_tileset([
+		{"sprite_name": "wood"},
+		{"sprite_name": "crate_base"},
+		{"path": CAINOS_STONE_SHEET_PATH, "cell": Vector2i(0, 0), "cell_size": 16},
+		{"sprite_name": "spr_deco_rug_01"},
+		{"path": HARVEST_TILE_SHEET_PATH, "cell": Vector2i(15, 4), "cell_size": 16}
+	], TILE_SIZE)
 	return _world_tile_set
 
 
@@ -312,6 +308,43 @@ func _make_region_texture(texture_sheet: Texture2D, region: Rect2i) -> AtlasText
 	atlas.atlas = texture_sheet
 	atlas.region = Rect2(region.position, region.size)
 	return atlas
+
+
+func _add_external_sprite(
+	parent: Node,
+	name: String,
+	sprite_name: String,
+	position: Vector2,
+	scale_value: Vector2,
+	z_index: int
+) -> Sprite2D:
+	var sprite := Sprite2D.new()
+	sprite.name = name
+	StardewLikeAssets.configure_sprite(sprite, sprite_name)
+	sprite.position = position
+	sprite.scale = scale_value
+	sprite.z_index = z_index
+	parent.add_child(sprite)
+	return sprite
+
+
+func _add_external_anim_sprite(
+	parent: Node,
+	name: String,
+	sprite_name: String,
+	position: Vector2,
+	scale_value: Vector2,
+	z_index: int,
+	fps: float
+) -> AnimatedSprite2D:
+	var sprite := AnimatedSprite2D.new()
+	sprite.name = name
+	StardewLikeAssets.configure_animated_sprite(sprite, sprite_name, fps)
+	sprite.position = position
+	sprite.scale = scale_value
+	sprite.z_index = z_index
+	parent.add_child(sprite)
+	return sprite
 
 
 func _draw_wood_tile(image: Image, tile_index: int, base: Color, light: Color, dark: Color) -> void:
@@ -408,20 +441,81 @@ func _build_static_props() -> void:
 	_ambient_motion_items.clear()
 	_shopkeeper_npc = null
 	_regular_npc = null
-	_add_rect(_props_root, "TopWall", Rect2(130.0, 164.0, 1340.0, 46.0), Color(0.59, 0.43, 0.25, 1.0), -1)
-	_add_rect(_props_root, "LeftWall", Rect2(130.0, 208.0, 40.0, 592.0), Color(0.33, 0.24, 0.15, 1.0), -1)
-	_add_rect(_props_root, "RightWall", Rect2(1430.0, 208.0, 40.0, 592.0), Color(0.33, 0.24, 0.15, 1.0), -1)
-	_add_back_wall_textures()
-	_add_counter(Vector2(1038.0, 308.0))
-	_add_seed_shelves(Vector2(268.0, 276.0))
-	_add_upgrade_shelves(Vector2(1286.0, 276.0))
-	_add_parcel_stack(Vector2(470.0, 592.0))
-	_add_display_table(Vector2(782.0, 566.0))
+	_add_rect(_props_root, "TopWall", Rect2(130.0, 164.0, 1340.0, 46.0), Color(0.60, 0.43, 0.26, 1.0), -1)
+	_add_rect(_props_root, "LeftWall", Rect2(130.0, 208.0, 40.0, 592.0), Color(0.35, 0.25, 0.16, 1.0), -1)
+	_add_rect(_props_root, "RightWall", Rect2(1430.0, 208.0, 40.0, 592.0), Color(0.35, 0.25, 0.16, 1.0), -1)
+	for window_x in [420.0, 1038.0, 1288.0]:
+		_add_rect(_props_root, "WindowFrame%s" % str(window_x), Rect2(window_x - 66.0, 182.0, 132.0, 28.0), Color(0.63, 0.46, 0.26, 1.0), -1)
+		_add_rect(_props_root, "WindowGlow%s" % str(window_x), Rect2(window_x - 58.0, 188.0, 116.0, 16.0), Color(0.88, 0.93, 0.98, 0.52), 0)
+
+	var seed_shelves := Node2D.new()
+	seed_shelves.name = "SeedShelves"
+	seed_shelves.position = Vector2(282.0, 298.0)
+	_props_root.add_child(seed_shelves)
+	for shelf_y in [0.0, 42.0, 84.0]:
+		_add_rect(seed_shelves, "Shelf%s" % str(shelf_y), Rect2(-88.0, shelf_y, 176.0, 12.0), Color(0.63, 0.45, 0.24, 1.0), 0)
+	_add_external_sprite(seed_shelves, "SeedCrateA", "spr_deco_crate_01", Vector2(-54.0, 6.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(seed_shelves, "SeedCrateB", "spr_deco_crate_02", Vector2(-4.0, 8.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(seed_shelves, "SeedJarA", "spr_deco_jar_01", Vector2(48.0, 2.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(seed_shelves, "SeedBook", "spr_deco_book_01", Vector2(76.0, 4.0), Vector2(2.0, 2.0), 1)
+	_add_external_sprite(seed_shelves, "SeedJarB", "spr_deco_jar_02", Vector2(-40.0, 48.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(seed_shelves, "SeedBucket", "spr_deco_bucket", Vector2(10.0, 52.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(seed_shelves, "SeedCoins", "spr_deco_coin", Vector2(56.0, 52.0), Vector2(1.8, 1.8), 1)
+	_add_external_sprite(seed_shelves, "SeedRug", "spr_deco_rug_01", Vector2(0.0, 138.0), Vector2(2.8, 2.8), -1)
+
+	var counter := Node2D.new()
+	counter.name = "Counter"
+	counter.position = Vector2(1038.0, 316.0)
+	_props_root.add_child(counter)
+	_add_shadow(counter, "Shadow", Vector2(0.0, 34.0), Vector2(328.0, 42.0), Color(0.04, 0.02, 0.01, 0.18), -2)
+	_add_rect(counter, "Body", Rect2(-148.0, 8.0, 296.0, 68.0), Color(0.47, 0.31, 0.18, 1.0), 0)
+	_add_rect(counter, "Top", Rect2(-156.0, -24.0, 312.0, 18.0), Color(0.74, 0.56, 0.31, 1.0), 1)
+	_add_external_sprite(counter, "Ledger", "spr_deco_book_02", Vector2(118.0, -18.0), Vector2(2.1, 2.1), 2)
+	_add_external_sprite(counter, "Coins", "spr_deco_coins", Vector2(70.0, -18.0), Vector2(1.8, 1.8), 2)
+	_add_external_sprite(counter, "JarA", "spr_deco_jar_01", Vector2(-82.0, -16.0), Vector2(2.0, 2.0), 2)
+	_add_external_sprite(counter, "JarB", "spr_deco_jar_02", Vector2(-36.0, -16.0), Vector2(2.0, 2.0), 2)
+	_add_external_sprite(counter, "Mug", "spr_deco_mug_01", Vector2(18.0, -16.0), Vector2(2.0, 2.0), 2)
+
+	var request_corner := Node2D.new()
+	request_corner.name = "RequestCorner"
+	request_corner.position = Vector2(470.0, 564.0)
+	_props_root.add_child(request_corner)
+	_add_external_sprite(request_corner, "BoardCrate", "spr_deco_crate_02", Vector2(-26.0, 0.0), Vector2(2.4, 2.4), 1)
+	_add_external_sprite(request_corner, "BoardChest", "spr_deco_chest_01_closed", Vector2(20.0, -8.0), Vector2(2.3, 2.3), 1)
+	_add_external_sprite(request_corner, "BoardBook", "spr_deco_book_01", Vector2(8.0, -42.0), Vector2(2.0, 2.0), 2)
+	_add_external_sprite(request_corner, "BoardJar", "spr_deco_jar_02", Vector2(-44.0, -34.0), Vector2(2.0, 2.0), 2)
+
+	var display_table := Node2D.new()
+	display_table.name = "DisplayTable"
+	display_table.position = Vector2(782.0, 566.0)
+	_props_root.add_child(display_table)
+	_add_external_sprite(display_table, "Table", "spr_deco_sidetable_01", Vector2.ZERO, Vector2(3.0, 3.0), 0)
+	_add_external_sprite(display_table, "Plate", "spr_deco_plate_food", Vector2(-22.0, -10.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(display_table, "Mug", "spr_deco_mug_02", Vector2(22.0, -12.0), Vector2(2.1, 2.1), 1)
+	_add_external_sprite(display_table, "Jar", "spr_deco_jar_01", Vector2(0.0, -22.0), Vector2(2.0, 2.0), 1)
+
+	var upgrade_corner := Node2D.new()
+	upgrade_corner.name = "UpgradeCorner"
+	upgrade_corner.position = Vector2(1286.0, 300.0)
+	_props_root.add_child(upgrade_corner)
+	for shelf_y in [0.0, 42.0, 84.0]:
+		_add_rect(upgrade_corner, "Shelf%s" % str(shelf_y), Rect2(-84.0, shelf_y, 168.0, 12.0), Color(0.58, 0.41, 0.24, 1.0), 0)
+	_add_external_sprite(upgrade_corner, "Anvil", "spr_deco_anvil", Vector2(-46.0, 4.0), Vector2(2.4, 2.4), 1)
+	_add_external_sprite(upgrade_corner, "UpgradeCrate", "spr_deco_crate_01", Vector2(8.0, 8.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(upgrade_corner, "UpgradeChest", "spr_deco_chest_02_closed", Vector2(58.0, 4.0), Vector2(2.2, 2.2), 1)
+	_add_external_sprite(upgrade_corner, "UpgradeBucket", "spr_deco_bucket", Vector2(-28.0, 48.0), Vector2(2.1, 2.1), 1)
+	_add_external_sprite(upgrade_corner, "UpgradeBook", "spr_deco_book_02", Vector2(28.0, 50.0), Vector2(2.0, 2.0), 1)
+
+	var waiting_nook := Node2D.new()
+	waiting_nook.name = "WaitingNook"
+	waiting_nook.position = Vector2(632.0, 642.0)
+	_props_root.add_child(waiting_nook)
+	_add_external_sprite(waiting_nook, "Rug", "spr_deco_rug_01", Vector2(0.0, 46.0), Vector2(3.4, 3.4), -1)
+	_add_external_sprite(waiting_nook, "Table", "spr_deco_sidetable_01", Vector2(0.0, 0.0), Vector2(3.0, 3.0), 0)
+	_add_external_sprite(waiting_nook, "Chair", "spr_deco_chair_01", Vector2(82.0, 18.0), Vector2(2.6, 2.6), 0)
+	_add_external_sprite(waiting_nook, "Flowers", "spr_deco_flowers_house_02", Vector2(-86.0, 12.0), Vector2(2.8, 2.8), 1)
+
 	_add_entry_door(Vector2(798.0, 778.0))
-	_add_seed_bins(Vector2(278.0, 462.0))
-	_add_request_board(Vector2(470.0, 468.0))
-	_add_upgrade_display(Vector2(1284.0, 462.0))
-	_add_waiting_nook(Vector2(630.0, 624.0))
 	_shopkeeper_npc = _add_shopkeeper_npc(Vector2(1040.0, 286.0))
 	_regular_npc = _add_regular_npc(Vector2(478.0, 590.0))
 	_register_ambient_motion(_shopkeeper_npc, Vector2(0.0, 2.2), 1.1, 0.4)
@@ -713,21 +807,7 @@ func _add_shopkeeper_npc(position: Vector2) -> Node2D:
 	root.position = position
 	_npc_root.add_child(root)
 	_add_shadow(root, "Shadow", Vector2(0.0, 16.0), Vector2(34.0, 12.0), Color(0.04, 0.02, 0.01, 0.18), -2)
-	var body := Polygon2D.new()
-	body.position = Vector2(0.0, 4.0)
-	body.polygon = _rect_polygon(Vector2(22.0, 34.0))
-	body.color = Color(0.74, 0.54, 0.30, 1.0)
-	root.add_child(body)
-	var apron := Polygon2D.new()
-	apron.position = Vector2(0.0, 10.0)
-	apron.polygon = _rect_polygon(Vector2(12.0, 20.0))
-	apron.color = Color(0.26, 0.41, 0.31, 0.80)
-	root.add_child(apron)
-	var head := Polygon2D.new()
-	head.position = Vector2(0.0, -18.0)
-	head.polygon = _ellipse_polygon(Vector2(18.0, 18.0), 10)
-	head.color = Color(0.96, 0.78, 0.61, 1.0)
-	root.add_child(head)
+	_add_external_anim_sprite(root, "Body", "bowlhair_idle_strip9", Vector2.ZERO, Vector2(0.88, 0.88), 0, 7.0)
 	return root
 
 
@@ -737,21 +817,7 @@ func _add_regular_npc(position: Vector2) -> Node2D:
 	root.position = position
 	_npc_root.add_child(root)
 	_add_shadow(root, "Shadow", Vector2(0.0, 16.0), Vector2(32.0, 12.0), Color(0.04, 0.02, 0.01, 0.18), -2)
-	var body := Polygon2D.new()
-	body.position = Vector2(0.0, 4.0)
-	body.polygon = _rect_polygon(Vector2(20.0, 32.0))
-	body.color = Color(0.52, 0.69, 0.78, 1.0)
-	root.add_child(body)
-	var satchel := Polygon2D.new()
-	satchel.position = Vector2(10.0, 12.0)
-	satchel.polygon = _rect_polygon(Vector2(10.0, 14.0))
-	satchel.color = Color(0.57, 0.41, 0.24, 1.0)
-	root.add_child(satchel)
-	var head := Polygon2D.new()
-	head.position = Vector2(0.0, -18.0)
-	head.polygon = _ellipse_polygon(Vector2(18.0, 18.0), 10)
-	head.color = Color(0.93, 0.74, 0.57, 1.0)
-	root.add_child(head)
+	_add_external_anim_sprite(root, "Body", "longhair_idle_strip9", Vector2.ZERO, Vector2(0.86, 0.86), 0, 7.0)
 	return root
 
 
