@@ -32,6 +32,7 @@ const ZED_INTERIOR_PLANT_REGION := Rect2i(49, 140, 12, 20)
 const ZED_INTERIOR_STOOL_REGION := Rect2i(99, 115, 12, 13)
 const ZED_INTERIOR_CHAIR_LEFT_REGION := Rect2i(145, 142, 14, 18)
 const ZED_INTERIOR_CHAIR_RIGHT_REGION := Rect2i(161, 141, 13, 19)
+const PROMPT_REVEAL_SECONDS := 0.14
 
 @onready var world_root: Node2D = $WorldRoot
 @onready var backdrop: Node2D = $WorldRoot/Backdrop
@@ -94,6 +95,12 @@ var _ambient_root: Node2D = null
 var _ambient_glows: Array[Polygon2D] = []
 var _popup_panels: Dictionary = {}
 var _was_visible: bool = false
+var _ambient_motion_time: float = 0.0
+var _ambient_motion_items: Array[Dictionary] = []
+var _shopkeeper_npc: Node2D = null
+var _regular_npc: Node2D = null
+var _prompt_reveal_elapsed: float = 0.0
+var _prompt_is_revealed: bool = false
 
 
 func _ready() -> void:
@@ -120,6 +127,7 @@ func _ready() -> void:
 	seed_scroll.resized.connect(_sync_scroll_content_widths)
 	sell_scroll.resized.connect(_sync_scroll_content_widths)
 	upgrade_scroll.resized.connect(_sync_scroll_content_widths)
+	set_process(true)
 	_apply_view_model()
 	_sync_visibility_state()
 
@@ -142,6 +150,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	_close_popups()
 	get_viewport().set_input_as_handled()
+
+
+func _process(delta: float) -> void:
+	if not _world_built:
+		return
+	if visible:
+		_ambient_motion_time += delta
+		_update_prompt_reveal(delta)
+	else:
+		_prompt_reveal_elapsed = 0.0
+		_prompt_is_revealed = false
+	_update_ambient_motion()
 
 
 func set_view_model(model: Dictionary) -> void:
@@ -385,6 +405,9 @@ func _build_static_props() -> void:
 	for child in _ambient_root.get_children():
 		child.free()
 	_ambient_glows.clear()
+	_ambient_motion_items.clear()
+	_shopkeeper_npc = null
+	_regular_npc = null
 	_add_rect(_props_root, "TopWall", Rect2(130.0, 164.0, 1340.0, 46.0), Color(0.59, 0.43, 0.25, 1.0), -1)
 	_add_rect(_props_root, "LeftWall", Rect2(130.0, 208.0, 40.0, 592.0), Color(0.33, 0.24, 0.15, 1.0), -1)
 	_add_rect(_props_root, "RightWall", Rect2(1430.0, 208.0, 40.0, 592.0), Color(0.33, 0.24, 0.15, 1.0), -1)
@@ -399,8 +422,10 @@ func _build_static_props() -> void:
 	_add_request_board(Vector2(470.0, 468.0))
 	_add_upgrade_display(Vector2(1284.0, 462.0))
 	_add_waiting_nook(Vector2(630.0, 624.0))
-	_add_shopkeeper_npc(Vector2(1040.0, 286.0))
-	_add_regular_npc(Vector2(478.0, 590.0))
+	_shopkeeper_npc = _add_shopkeeper_npc(Vector2(1040.0, 286.0))
+	_regular_npc = _add_regular_npc(Vector2(478.0, 590.0))
+	_register_ambient_motion(_shopkeeper_npc, Vector2(0.0, 2.2), 1.1, 0.4)
+	_register_ambient_motion(_regular_npc, Vector2(0.0, 2.8), 1.3, 1.2)
 	for glow_position in [Vector2(320.0, 246.0), Vector2(1040.0, 246.0), Vector2(1286.0, 246.0)]:
 		_ambient_glows.append(_add_glow(_ambient_root, glow_position, Vector2(144.0, 74.0), Color(1.0, 0.78, 0.42, 0.10)))
 	_ambient_glows.append(_add_glow(_ambient_root, Vector2(1038.0, 394.0), Vector2(238.0, 84.0), Color(1.0, 0.82, 0.48, 0.0)))
@@ -682,7 +707,7 @@ func _add_entry_door(position: Vector2) -> void:
 	root.add_child(opening)
 
 
-func _add_shopkeeper_npc(position: Vector2) -> void:
+func _add_shopkeeper_npc(position: Vector2) -> Node2D:
 	var root := Node2D.new()
 	root.name = "ShopkeeperNPC"
 	root.position = position
@@ -703,9 +728,10 @@ func _add_shopkeeper_npc(position: Vector2) -> void:
 	head.polygon = _ellipse_polygon(Vector2(18.0, 18.0), 10)
 	head.color = Color(0.96, 0.78, 0.61, 1.0)
 	root.add_child(head)
+	return root
 
 
-func _add_regular_npc(position: Vector2) -> void:
+func _add_regular_npc(position: Vector2) -> Node2D:
 	var root := Node2D.new()
 	root.name = "RegularNPC"
 	root.position = position
@@ -726,6 +752,38 @@ func _add_regular_npc(position: Vector2) -> void:
 	head.polygon = _ellipse_polygon(Vector2(18.0, 18.0), 10)
 	head.color = Color(0.93, 0.74, 0.57, 1.0)
 	root.add_child(head)
+	return root
+
+
+func _register_ambient_motion(node: Node2D, amplitude: Vector2, speed: float, phase_offset: float) -> void:
+	if node == null:
+		return
+	_ambient_motion_items.append({
+		"node": node,
+		"base_position": node.position,
+		"amplitude": amplitude,
+		"speed": speed,
+		"phase_offset": phase_offset
+	})
+
+
+func _update_ambient_motion() -> void:
+	for item_variant in _ambient_motion_items:
+		if not (item_variant is Dictionary):
+			continue
+		var item := item_variant as Dictionary
+		var node := item.get("node", null) as Node2D
+		if node == null:
+			continue
+		var base_position_variant: Variant = item.get("base_position", node.position)
+		var base_position: Vector2 = base_position_variant if base_position_variant is Vector2 else node.position
+		var amplitude_variant: Variant = item.get("amplitude", Vector2.ZERO)
+		var amplitude: Vector2 = amplitude_variant if amplitude_variant is Vector2 else Vector2.ZERO
+		var speed := float(item.get("speed", 1.0))
+		var phase_offset := float(item.get("phase_offset", 0.0))
+		var wave := sin((_ambient_motion_time * speed) + phase_offset)
+		var drift := cos((_ambient_motion_time * speed * 0.64) + (phase_offset * 0.6))
+		node.position = base_position + Vector2(amplitude.x * drift, amplitude.y * wave)
 
 
 func _add_glow(parent: Node2D, position: Vector2, size: Vector2, color: Color) -> Polygon2D:
@@ -890,6 +948,7 @@ func _apply_view_model() -> void:
 	hint_label.text = _t("meta.shop.world_move_hint")
 	prompt_label.text = _build_prompt_text()
 	prompt_panel.visible = _should_show_prompt_panel()
+	hint_label.visible = prompt_panel.visible and prompt_label.text.strip_edges().is_empty()
 
 	merchant_title_label.text = _t("meta.shop.popup_merchant_title")
 	merchant_subtitle_label.text = _t("meta.shop.subtitle")
@@ -935,23 +994,57 @@ func _apply_view_model() -> void:
 
 func _apply_phase_ambience(phase: String) -> void:
 	var glow_alpha := 0.10
+	var shopkeeper_alpha := 1.0
+	var regular_alpha := 0.56
 	match phase.strip_edges().to_lower():
+		"morning":
+			regular_alpha = 0.40
 		"noon":
 			glow_alpha = 0.14
+			regular_alpha = 0.68
 		"afternoon":
 			glow_alpha = 0.18
+			regular_alpha = 0.92
 		"evening":
 			glow_alpha = 0.28
+			shopkeeper_alpha = 0.88
+			regular_alpha = 0.70
 		"night":
 			glow_alpha = 0.0
+			shopkeeper_alpha = 0.24
+			regular_alpha = 0.0
 	for glow in _ambient_glows:
 		if glow == null:
 			continue
 		glow.color.a = glow_alpha
+	if not String(_view_model.get("request_title", "")).strip_edges().is_empty():
+		regular_alpha = maxf(regular_alpha, 0.78)
+	if _shopkeeper_npc != null:
+		_shopkeeper_npc.visible = shopkeeper_alpha > 0.03
+		_shopkeeper_npc.modulate = Color(1.0, 1.0, 1.0, clampf(shopkeeper_alpha, 0.0, 1.0))
+	if _regular_npc != null:
+		_regular_npc.visible = regular_alpha > 0.03
+		_regular_npc.modulate = Color(1.0, 1.0, 1.0, clampf(regular_alpha, 0.0, 1.0))
+
+
+func _update_prompt_reveal(delta: float) -> void:
+	var can_reveal := _active_popup_id.is_empty() and not _focused_zone_id.is_empty()
+	var changed := false
+	if not can_reveal:
+		changed = _prompt_is_revealed or _prompt_reveal_elapsed > 0.0
+		_prompt_reveal_elapsed = 0.0
+		_prompt_is_revealed = false
+	else:
+		_prompt_reveal_elapsed += delta
+		if not _prompt_is_revealed and _prompt_reveal_elapsed >= PROMPT_REVEAL_SECONDS:
+			_prompt_is_revealed = true
+			changed = true
+	if changed:
+		_apply_view_model()
 
 
 func _should_show_prompt_panel() -> bool:
-	return _active_popup_id.is_empty() and not _focused_zone_id.is_empty()
+	return _active_popup_id.is_empty() and not _focused_zone_id.is_empty() and _prompt_is_revealed
 
 
 func _compact_panel_inventory(summary: String) -> String:
@@ -1172,6 +1265,8 @@ func _zone_id_from_area(area: Area2D) -> String:
 
 func _on_player_focus_changed(zone_id: String) -> void:
 	_focused_zone_id = zone_id
+	_prompt_reveal_elapsed = 0.0
+	_prompt_is_revealed = false
 	_apply_view_model()
 
 
@@ -1209,6 +1304,9 @@ func _on_visibility_changed() -> void:
 		shop_player.reset_to_position(spawn_point.global_position)
 	if not visible and not _active_popup_id.is_empty():
 		_active_popup_id = ""
+	if not visible:
+		_prompt_reveal_elapsed = 0.0
+		_prompt_is_revealed = false
 	_update_popup_visibility()
 	_sync_visibility_state()
 	_apply_view_model()

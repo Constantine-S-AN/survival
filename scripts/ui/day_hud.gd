@@ -127,11 +127,13 @@ func _apply_hud_model() -> void:
 	guide_panel.tooltip_text = guide_text
 	guide_title_label.tooltip_text = guide_text
 	guide_body_label.tooltip_text = guide_text
-	prompt_label.text = _compact_prompt_text(String(_hud_model.get("prompt_text", _t("meta.world.prompt_idle"))))
+	var prompt_text := _compact_prompt_text(String(_hud_model.get("prompt_text", _t("meta.world.prompt_idle"))))
+	prompt_label.text = prompt_text
 	hint_label.text = String(_hud_model.get("move_hint", _t("meta.world.move_hint")))
 	var prompt_visible := bool(_hud_model.get("prompt_visible", true))
-	prompt_panel.visible = prompt_visible and (not prompt_label.text.strip_edges().is_empty() or not hint_label.text.strip_edges().is_empty())
-	hint_label.visible = prompt_panel.visible and not hint_label.text.strip_edges().is_empty()
+	var has_prompt_text := not prompt_text.strip_edges().is_empty()
+	prompt_panel.visible = prompt_visible and (has_prompt_text or not hint_label.text.strip_edges().is_empty())
+	hint_label.visible = prompt_panel.visible and not hint_label.text.strip_edges().is_empty() and not has_prompt_text
 	_apply_visual_theme(phase, night_ready)
 
 

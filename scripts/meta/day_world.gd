@@ -103,6 +103,9 @@ const HOTBAR_DIRECT_ACTIONS := [
 	"day_hotbar_slot_5",
 	"day_hotbar_slot_6"
 ]
+const PROMPT_REVEAL_SECONDS := 0.18
+const DIRECT_PROMPT_REVEAL_SECONDS := 0.08
+const FEEDBACK_DURATION := 0.42
 
 @onready var backdrop: Node2D = $Backdrop
 @onready var environment: Node2D = $Environment
@@ -165,6 +168,16 @@ var _transition_body_label: Label = null
 var _night_popup_open: bool = false
 var _transition_active: bool = false
 var _was_visible: bool = false
+var _ambient_motion_time: float = 0.0
+var _ambient_motion_items: Array[Dictionary] = []
+var _ambient_character_nodes: Dictionary = {}
+var _guide_glows: Dictionary = {}
+var _guide_glow_targets: Dictionary = {}
+var _guide_glow_colors: Dictionary = {}
+var _feedback_root: Node2D = null
+var _feedback_items: Array[Dictionary] = []
+var _prompt_reveal_elapsed: float = 0.0
+var _prompt_is_revealed: bool = false
 
 
 func _ready() -> void:
@@ -190,6 +203,7 @@ func _ready() -> void:
 	if DailyOrders != null and DailyOrders.has_signal("reward_claimed"):
 		DailyOrders.reward_claimed.connect(_on_daily_order_reward_claimed)
 	visibility_changed.connect(_on_visibility_changed)
+	set_process(true)
 	_apply_view_model()
 	_sync_visibility_state()
 
@@ -219,6 +233,20 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("day_cycle_farm_tool_next"):
 		_cycle_farm_tool(1)
 		get_viewport().set_input_as_handled()
+
+
+func _process(delta: float) -> void:
+	if not _world_built:
+		return
+	if visible:
+		_ambient_motion_time += delta
+		_update_prompt_reveal(delta)
+	else:
+		_prompt_reveal_elapsed = 0.0
+		_prompt_is_revealed = false
+	_update_ambient_motion()
+	_update_guide_glows()
+	_update_feedback_effects(delta)
 
 
 func set_view_model(model: Dictionary) -> void:
@@ -409,6 +437,10 @@ func _build_world_if_needed() -> void:
 	_pickup_root.name = "WorldPickups"
 	_pickup_root.z_index = 6
 	zones_root.add_child(_pickup_root)
+	_feedback_root = Node2D.new()
+	_feedback_root.name = "WorldFeedback"
+	_feedback_root.z_index = 20
+	environment.add_child(_feedback_root)
 	_apply_phase_presentation()
 
 
@@ -897,6 +929,11 @@ func _build_world_landmarks() -> void:
 	_restaurant_window_glows.clear()
 	_shop_window_glows.clear()
 	_town_npc_nodes.clear()
+	_ambient_character_nodes.clear()
+	_ambient_motion_items.clear()
+	_guide_glows.clear()
+	_guide_glow_targets.clear()
+	_guide_glow_colors.clear()
 	_dock_gate_items.clear()
 	_shop_sign = null
 	_restaurant_sign = null
@@ -931,6 +968,7 @@ func _build_world_landmarks() -> void:
 	_add_planter_box("FarmSunflowerBox", Vector2(216.0, 594.0), Color(0.95, 0.84, 0.42, 1.0))
 	_add_supply_cart("FarmSupplyCart", Vector2(344.0, 688.0), Color(0.73, 0.55, 0.34, 1.0))
 	_add_scarecrow("FarmScarecrow", Vector2(236.0, 724.0))
+	_register_guide_glow("farm", Vector2(304.0, 694.0), Vector2(276.0, 112.0), Color(0.56, 0.84, 0.44, 0.0))
 
 	# Restaurant frontage
 	_add_sprite(_scenery_root, "RestaurantGardenPatch", _make_region_texture(_get_zed_forest_sheet(), ZED_FOREST_PATCH_LIGHT_REGION), Vector2(980.0, 458.0), Vector2(1.35, 1.35), Color(1.0, 1.0, 1.0, 0.28), -2)
@@ -945,7 +983,9 @@ func _build_world_landmarks() -> void:
 	_add_planter_box("RestaurantPlanter", Vector2(1070.0, 436.0), Color(0.95, 0.62, 0.38, 1.0))
 	_add_stone_wall_line("RestaurantBorderNorth", Vector2(908.0, 374.0), 4, true)
 	_add_stone_wall_line("RestaurantBorderWest", Vector2(886.0, 430.0), 2, false)
-	_add_a_frame_sign("RestaurantMenuStand", Vector2(896.0, 468.0), Color(0.66, 0.46, 0.27, 1.0), Color(0.96, 0.68, 0.40, 1.0))
+	var restaurant_menu_stand := _add_a_frame_sign("RestaurantMenuStand", Vector2(896.0, 468.0), Color(0.66, 0.46, 0.27, 1.0), Color(0.96, 0.68, 0.40, 1.0))
+	_register_ambient_motion(restaurant_menu_stand, Vector2(0.0, 1.5), 1.1, 0.4)
+	_register_guide_glow("restaurant", Vector2(988.0, 458.0), Vector2(188.0, 80.0), Color(1.0, 0.71, 0.44, 0.0))
 
 	# Market stall
 	_add_sprite(_scenery_root, "ShopGardenPatch", _make_region_texture(_get_zed_forest_sheet(), ZED_FOREST_PATCH_LIGHT_REGION), Vector2(1294.0, 520.0), Vector2(1.08, 1.08), Color(1.0, 1.0, 1.0, 0.24), -2)
@@ -968,6 +1008,7 @@ func _build_world_landmarks() -> void:
 	_add_stone_wall_line("ShopBorderSouth", Vector2(1198.0, 610.0), 3, true)
 	var shop_open_board := _add_a_frame_sign("ShopOpenBoard", Vector2(1216.0, 522.0), Color(0.63, 0.45, 0.24, 1.0), Color(0.97, 0.83, 0.44, 1.0))
 	_shop_open_props.append(shop_open_board)
+	_register_ambient_motion(shop_open_board, Vector2(0.0, 1.4), 1.0, 1.1)
 	var shop_pennants := _add_pennant_string("ShopPennants", Vector2(1228.0, 432.0), 136.0, [
 		Color(0.37, 0.58, 0.84, 1.0),
 		Color(0.96, 0.80, 0.42, 1.0),
@@ -975,7 +1016,9 @@ func _build_world_landmarks() -> void:
 		Color(0.91, 0.59, 0.32, 1.0)
 	])
 	_shop_open_props.append(shop_pennants)
+	_register_ambient_motion(shop_pennants, Vector2(0.0, 3.4), 1.7, 0.8)
 	_shop_open_glows.append(_add_ellipse(_ambient_root, "ShopEntryGlow", Vector2(1288.0, 510.0), Vector2(174.0, 72.0), Color(1.0, 0.84, 0.56, 0.0), -1))
+	_register_guide_glow("shop", Vector2(1288.0, 514.0), Vector2(192.0, 78.0), Color(1.0, 0.84, 0.52, 0.0))
 
 	# Central board and overlook
 	_add_notice_board(Vector2(1078.0, 598.0))
@@ -992,6 +1035,7 @@ func _build_world_landmarks() -> void:
 		{"direction": "right", "color": Color(0.96, 0.82, 0.44, 1.0)},
 		{"direction": "right", "color": Color(0.50, 0.80, 1.0, 1.0)}
 	])
+	_register_guide_glow("orders", Vector2(1078.0, 612.0), Vector2(162.0, 72.0), Color(0.96, 0.81, 0.44, 0.0))
 
 	# Harbor and departure point
 	_add_sprite(_scenery_root, "HarborPatch", _make_region_texture(_get_zed_forest_sheet(), ZED_FOREST_POND_REGION), Vector2(1310.0, 776.0), Vector2(1.04, 1.04), Color(1.0, 1.0, 1.0, 0.70), -2)
@@ -1002,7 +1046,8 @@ func _build_world_landmarks() -> void:
 	_add_post_rope_span("PierRail", Vector2(1312.0, 724.0), 3, false)
 	_add_crate_cluster("DockCargo", Vector2(1108.0, 764.0), 3, Color(0.73, 0.55, 0.34, 1.0))
 	_add_barrel_prop("DockBarrel", Vector2(1164.0, 794.0), Color(0.54, 0.38, 0.24, 1.0))
-	_add_skiff(Vector2(1394.0, 846.0))
+	var dock_skiff := _add_skiff(Vector2(1394.0, 846.0))
+	_register_ambient_motion(dock_skiff, Vector2(4.0, 5.0), 0.76, 1.9, 0.02)
 	_add_water_rock_prop("HarborRockA", Vector2(1278.0, 748.0), 0)
 	_add_water_rock_prop("HarborRockB", Vector2(1362.0, 780.0), 1)
 	_add_water_rock_prop("HarborRockC", Vector2(1460.0, 830.0), 2)
@@ -1014,6 +1059,8 @@ func _build_world_landmarks() -> void:
 	_add_lamp_post("DockLampEast", Vector2(1240.0, 790.0), Color(0.74, 0.88, 1.0, 1.0))
 	_restaurant_sign = _add_hanging_sign("RestaurantSign", Vector2(996.0, 420.0), Color(0.95, 0.68, 0.40, 1.0), Color(0.48, 0.25, 0.13, 1.0))
 	_shop_sign = _add_hanging_sign("ShopSign", Vector2(1292.0, 470.0), Color(0.96, 0.82, 0.43, 1.0), Color(0.49, 0.33, 0.18, 1.0))
+	_register_ambient_motion(_restaurant_sign, Vector2(0.0, 2.0), 1.0, 0.2, 0.05)
+	_register_ambient_motion(_shop_sign, Vector2(0.0, 2.0), 1.05, 0.8, 0.05)
 	_night_beacon_glow = _add_ellipse(_ambient_root, "NightBeaconGlow", Vector2(1240.0, 614.0), Vector2(206.0, 138.0), Color(0.49, 0.79, 1.0, 0.0), -1)
 	var dock_signal_flags := _add_pennant_string("DockSignalFlags", Vector2(1188.0, 692.0), 132.0, [
 		Color(0.62, 0.86, 1.0, 1.0),
@@ -1022,9 +1069,13 @@ func _build_world_landmarks() -> void:
 		Color(0.95, 0.63, 0.38, 1.0)
 	])
 	_dock_ready_props.append(dock_signal_flags)
+	_register_ambient_motion(dock_signal_flags, Vector2(0.0, 4.0), 1.8, 1.7)
 	_dock_ready_glows.append(_add_ellipse(_ambient_root, "DockRunwayGlow", Vector2(1208.0, 792.0), Vector2(232.0, 84.0), Color(0.54, 0.82, 1.0, 0.0), -1))
-	_dock_ready_props.append(_add_a_frame_sign("DockDepartureStand", Vector2(1128.0, 778.0), Color(0.44, 0.33, 0.20, 1.0), Color(0.58, 0.84, 1.0, 1.0)))
+	var dock_departure_stand := _add_a_frame_sign("DockDepartureStand", Vector2(1128.0, 778.0), Color(0.44, 0.33, 0.20, 1.0), Color(0.58, 0.84, 1.0, 1.0))
+	_dock_ready_props.append(dock_departure_stand)
+	_register_ambient_motion(dock_departure_stand, Vector2(0.0, 1.2), 0.92, 1.3)
 	_dock_gate_root = _build_dock_gate(Vector2(1178.0, 786.0))
+	_register_guide_glow("dock", Vector2(1218.0, 792.0), Vector2(228.0, 94.0), Color(0.58, 0.84, 1.0, 0.0))
 
 	for tree_data in [
 		{"name": "TreeNorthWestA", "position": Vector2(92.0, 338.0), "sheet": 0, "scale": Vector2(0.58, 0.58)},
@@ -1064,6 +1115,16 @@ func _build_world_landmarks() -> void:
 
 	_town_npc_nodes["shopkeeper"] = _add_town_npc("ShopkeeperStall", Vector2(1352.0, 554.0), Color(0.76, 0.57, 0.34, 1.0), Color(0.27, 0.45, 0.33, 1.0))
 	_town_npc_nodes["regular"] = _add_town_npc("RegularWanderer", Vector2(986.0, 640.0), Color(0.52, 0.72, 0.84, 1.0), Color(0.61, 0.43, 0.25, 1.0))
+	_register_ambient_motion(_town_npc_nodes["shopkeeper"] as Node2D, Vector2(0.0, 2.4), 1.2, 0.9)
+	_register_ambient_motion(_town_npc_nodes["regular"] as Node2D, Vector2(0.0, 2.8), 1.4, 1.8)
+	_ambient_character_nodes["farmhand"] = _add_town_npc("Farmhand", Vector2(398.0, 696.0), Color(0.66, 0.78, 0.46, 1.0), Color(0.58, 0.39, 0.24, 1.0))
+	_ambient_character_nodes["restaurant_patron"] = _add_town_npc("RestaurantPatron", Vector2(912.0, 470.0), Color(0.93, 0.62, 0.42, 1.0), Color(0.69, 0.28, 0.22, 1.0))
+	_ambient_character_nodes["board_reader"] = _add_town_npc("BoardReader", Vector2(1142.0, 646.0), Color(0.48, 0.67, 0.84, 1.0), Color(0.58, 0.42, 0.26, 1.0))
+	_ambient_character_nodes["dockhand"] = _add_town_npc("Dockhand", Vector2(1140.0, 760.0), Color(0.62, 0.82, 0.90, 1.0), Color(0.44, 0.35, 0.25, 1.0))
+	_register_ambient_motion(_ambient_character_nodes["farmhand"] as Node2D, Vector2(0.0, 2.4), 1.2, 0.1)
+	_register_ambient_motion(_ambient_character_nodes["restaurant_patron"] as Node2D, Vector2(0.0, 2.8), 1.4, 0.7)
+	_register_ambient_motion(_ambient_character_nodes["board_reader"] as Node2D, Vector2(0.0, 2.0), 1.0, 1.4)
+	_register_ambient_motion(_ambient_character_nodes["dockhand"] as Node2D, Vector2(0.0, 2.6), 1.3, 2.2)
 
 
 func _make_sheet_frame(texture_sheet: Texture2D, frame_size: Vector2i, frame_index: int = 0) -> AtlasTexture:
@@ -2406,6 +2467,8 @@ func _apply_phase_presentation() -> void:
 			continue
 		gate_item.modulate = Color(1.0, 1.0, 1.0, 0.92 if not night_ready else 0.0)
 	_apply_town_npc_phase_state(phase)
+	_apply_ambient_character_phase_state(phase, night_ready)
+	_apply_landmark_guide_state(phase, night_ready)
 
 
 func _apply_town_npc_phase_state(phase: String) -> void:
@@ -2436,6 +2499,148 @@ func _update_town_npc_alpha(npc_id: String, alpha: float) -> void:
 		return
 	npc.visible = alpha > 0.03
 	npc.modulate = Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0))
+
+
+func _update_ambient_character_alpha(npc_id: String, alpha: float) -> void:
+	var npc := _ambient_character_nodes.get(npc_id, null) as Node2D
+	if npc == null:
+		return
+	npc.visible = alpha > 0.03
+	npc.modulate = Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0))
+
+
+func _apply_ambient_character_phase_state(phase: String, night_ready: bool) -> void:
+	var farmhand_alpha := 0.0
+	var patio_alpha := 0.0
+	var board_alpha := 0.0
+	var dockhand_alpha := 0.0
+	match phase:
+		"morning":
+			farmhand_alpha = 0.86
+			board_alpha = 0.58
+		"noon":
+			farmhand_alpha = 0.44
+			board_alpha = 0.70
+			patio_alpha = 0.28
+		"afternoon":
+			board_alpha = 0.20
+			patio_alpha = 0.86
+			dockhand_alpha = 0.36
+		"evening":
+			patio_alpha = 0.54
+			dockhand_alpha = 0.66
+		"night":
+			dockhand_alpha = 0.22
+	if night_ready:
+		dockhand_alpha = maxf(dockhand_alpha, 0.96)
+	_update_ambient_character_alpha("farmhand", farmhand_alpha)
+	_update_ambient_character_alpha("restaurant_patron", patio_alpha)
+	_update_ambient_character_alpha("board_reader", board_alpha)
+	_update_ambient_character_alpha("dockhand", dockhand_alpha)
+
+
+func _register_ambient_motion(node: Node2D, amplitude: Vector2, speed: float, phase_offset: float, rotation_amplitude: float = 0.0) -> void:
+	if node == null:
+		return
+	_ambient_motion_items.append({
+		"node": node,
+		"base_position": node.position,
+		"base_rotation": node.rotation,
+		"amplitude": amplitude,
+		"speed": speed,
+		"phase_offset": phase_offset,
+		"rotation_amplitude": rotation_amplitude
+	})
+
+
+func _update_ambient_motion() -> void:
+	for item_variant in _ambient_motion_items:
+		if not (item_variant is Dictionary):
+			continue
+		var item := item_variant as Dictionary
+		var node := item.get("node", null) as Node2D
+		if node == null:
+			continue
+		var base_position_variant: Variant = item.get("base_position", node.position)
+		var base_position: Vector2 = base_position_variant if base_position_variant is Vector2 else node.position
+		var amplitude_variant: Variant = item.get("amplitude", Vector2.ZERO)
+		var amplitude: Vector2 = amplitude_variant if amplitude_variant is Vector2 else Vector2.ZERO
+		var speed := float(item.get("speed", 1.0))
+		var phase_offset := float(item.get("phase_offset", 0.0))
+		var wave := sin((_ambient_motion_time * speed) + phase_offset)
+		var sway := cos((_ambient_motion_time * speed * 0.62) + (phase_offset * 0.7))
+		node.position = base_position + Vector2(amplitude.x * sway, amplitude.y * wave)
+		node.rotation = float(item.get("base_rotation", 0.0)) + (float(item.get("rotation_amplitude", 0.0)) * wave)
+
+
+func _register_guide_glow(guide_id: String, position: Vector2, size: Vector2, color: Color) -> void:
+	var glow := _add_ellipse(_ambient_root, "%sGuideGlow" % guide_id.capitalize(), position, size, color, -1)
+	_guide_glows[guide_id] = glow
+	_guide_glow_colors[guide_id] = Color(color.r, color.g, color.b, 1.0)
+	_guide_glow_targets[guide_id] = 0.0
+
+
+func _build_landmark_guide_weights(phase: String, night_ready: bool) -> Dictionary:
+	var current_day := maxi(1, int(_view_model.get("current_day", 1)))
+	var weights := {
+		"farm": 0.0,
+		"orders": 0.0,
+		"restaurant": 0.0,
+		"shop": 0.0,
+		"dock": 0.0
+	}
+	match current_day:
+		1:
+			weights["farm"] = 0.18 if phase in ["morning", "noon"] else 0.08
+			weights["orders"] = 0.12
+			weights["restaurant"] = 0.06 if phase == "morning" else 0.12
+			weights["shop"] = 0.10 if phase != "evening" else 0.06
+			weights["dock"] = 0.06 if phase != "evening" else 0.14
+		2:
+			weights["farm"] = 0.12 if phase in ["morning", "noon"] else 0.04
+			weights["orders"] = 0.10
+			weights["restaurant"] = 0.08
+			weights["shop"] = 0.08
+		_:
+			weights["orders"] = 0.06
+	if night_ready:
+		weights["dock"] = 0.26 if current_day == 1 else 0.18
+	var ready_orders := 0
+	if DailyOrders != null and DailyOrders.has_method("get_ready_to_claim_count"):
+		ready_orders = int(DailyOrders.call("get_ready_to_claim_count"))
+	if ready_orders > 0:
+		weights["orders"] = maxf(float(weights.get("orders", 0.0)), 0.22)
+	if _focused_zone_id == "orders":
+		weights["orders"] = float(weights.get("orders", 0.0)) * 0.35
+	if _focused_zone_id == "restaurant":
+		weights["restaurant"] = float(weights.get("restaurant", 0.0)) * 0.35
+	if _focused_zone_id == "shop":
+		weights["shop"] = float(weights.get("shop", 0.0)) * 0.35
+	if _focused_zone_id == "night":
+		weights["dock"] = float(weights.get("dock", 0.0)) * 0.35
+	if _is_farm_plot_zone(_focused_zone_id):
+		weights["farm"] = float(weights.get("farm", 0.0)) * 0.45
+	return weights
+
+
+func _apply_landmark_guide_state(phase: String, night_ready: bool) -> void:
+	var weights := _build_landmark_guide_weights(phase, night_ready)
+	for guide_id_variant in _guide_glows.keys():
+		var guide_id := String(guide_id_variant)
+		_guide_glow_targets[guide_id] = clampf(float(weights.get(guide_id, 0.0)), 0.0, 1.0)
+
+
+func _update_guide_glows() -> void:
+	for guide_id_variant in _guide_glows.keys():
+		var guide_id := String(guide_id_variant)
+		var glow := _guide_glows.get(guide_id, null) as Polygon2D
+		if glow == null:
+			continue
+		var base_color_variant: Variant = _guide_glow_colors.get(guide_id, Color.WHITE)
+		var base_color: Color = base_color_variant if base_color_variant is Color else Color.WHITE
+		var target_alpha := clampf(float(_guide_glow_targets.get(guide_id, 0.0)), 0.0, 1.0)
+		var wave := 0.82 + (0.18 * sin((_ambient_motion_time * 2.0) + float(posmod(guide_id.hash(), 11))))
+		glow.color = Color(base_color.r, base_color.g, base_color.b, target_alpha * wave)
 
 
 func _count_visible_town_npcs() -> int:
@@ -2649,12 +2854,40 @@ func _build_prompt_text() -> String:
 	]
 
 
+func _prompt_reveal_delay(zone_id: String) -> float:
+	if _is_pickup_zone(zone_id) or _is_farm_plot_zone(zone_id):
+		return DIRECT_PROMPT_REVEAL_SECONDS
+	return PROMPT_REVEAL_SECONDS
+
+
+func _update_prompt_reveal(delta: float) -> void:
+	var can_reveal := (
+		not _focused_zone_id.is_empty()
+		and (daily_orders_board == null or not daily_orders_board.visible)
+		and not _transition_active
+		and not _night_popup_open
+		and not _overlay_blocked
+	)
+	var changed := false
+	if not can_reveal:
+		changed = _prompt_is_revealed or _prompt_reveal_elapsed > 0.0
+		_prompt_is_revealed = false
+		_prompt_reveal_elapsed = 0.0
+	else:
+		_prompt_reveal_elapsed += delta
+		if not _prompt_is_revealed and _prompt_reveal_elapsed >= _prompt_reveal_delay(_focused_zone_id):
+			_prompt_is_revealed = true
+			changed = true
+	if changed:
+		_apply_view_model()
+
+
 func _should_show_context_prompt() -> bool:
 	if daily_orders_board != null and daily_orders_board.visible:
 		return false
 	if _transition_active or _night_popup_open or _overlay_blocked:
 		return false
-	return not _focused_zone_id.is_empty()
+	return not _focused_zone_id.is_empty() and _prompt_is_revealed
 
 
 func _refresh_zone_visuals() -> void:
@@ -2676,6 +2909,10 @@ func _apply_zone_visual(zone_id: String, zone: Dictionary, enabled: bool, focuse
 	var accent: Color = _zone_accent_for_state(zone_id, accent_variant if accent_variant is Color else Color.WHITE, enabled)
 	var subtle_marker_alpha := 0.12 if not _is_farm_plot_zone(zone_id) and not _is_pickup_zone(zone_id) else 0.0
 	var subtle_pulse_alpha := 0.06 if not _is_farm_plot_zone(zone_id) and not _is_pickup_zone(zone_id) else 0.0
+	var onboarding_boost := _zone_onboarding_boost(zone_id)
+	if onboarding_boost > 0.0:
+		subtle_marker_alpha += onboarding_boost * 0.14
+		subtle_pulse_alpha += onboarding_boost * 0.10
 	if not enabled:
 		subtle_marker_alpha *= 0.45
 		subtle_pulse_alpha *= 0.45
@@ -2696,6 +2933,23 @@ func _zone_accent_for_state(zone_id: String, base_accent: Color, enabled: bool) 
 	if zone_id == "shop" and phase == "evening":
 		return Color(1.0, 0.84, 0.49, 1.0)
 	return base_accent
+
+
+func _zone_onboarding_boost(zone_id: String) -> float:
+	var phase := String(_view_model.get("phase", "morning")).strip_edges().to_lower()
+	var weights := _build_landmark_guide_weights(phase, bool(_view_model.get("night_ready", false)))
+	if _is_farm_plot_zone(zone_id):
+		return float(weights.get("farm", 0.0)) * 0.12
+	match zone_id:
+		"orders":
+			return float(weights.get("orders", 0.0))
+		"restaurant":
+			return float(weights.get("restaurant", 0.0))
+		"shop":
+			return float(weights.get("shop", 0.0))
+		"night":
+			return float(weights.get("dock", 0.0))
+	return 0.0
 
 
 func _is_zone_enabled(zone_id: String) -> bool:
@@ -2743,6 +2997,131 @@ func _get_zone_tooltip(zone_id: String) -> String:
 	return ""
 
 
+func _zone_world_position(zone_id: String) -> Vector2:
+	var zone: Dictionary = {}
+	if _is_pickup_zone(zone_id):
+		zone = _pickup_zones.get(zone_id, {}) as Dictionary
+	elif _is_farm_plot_zone(zone_id):
+		zone = _farm_plot_zones.get(zone_id, {}) as Dictionary
+	else:
+		zone = _zones.get(zone_id, {}) as Dictionary
+	var area := zone.get("area", null) as Area2D
+	if area != null and area.get_parent() is Node2D:
+		return (area.get_parent() as Node2D).global_position
+	return Vector2.ZERO
+
+
+func _zone_feedback_accent(zone_id: String) -> Color:
+	var zone: Dictionary = {}
+	if _is_pickup_zone(zone_id):
+		zone = _pickup_zones.get(zone_id, {}) as Dictionary
+	elif _is_farm_plot_zone(zone_id):
+		zone = _farm_plot_zones.get(zone_id, {}) as Dictionary
+	else:
+		zone = _zones.get(zone_id, {}) as Dictionary
+	var accent_variant: Variant = zone.get("accent", Color(0.92, 0.84, 0.58, 1.0))
+	var accent: Color = accent_variant if accent_variant is Color else Color(0.92, 0.84, 0.58, 1.0)
+	return _zone_accent_for_state(zone_id, accent, _is_zone_enabled(zone_id))
+
+
+func _spawn_feedback_effect(position: Vector2, accent: Color, feedback_kind: String) -> void:
+	if _feedback_root == null:
+		return
+	var root := Node2D.new()
+	root.name = "Feedback%s" % feedback_kind.capitalize()
+	root.position = position
+	_feedback_root.add_child(root)
+
+	var ring := Polygon2D.new()
+	ring.name = "Ring"
+	ring.polygon = _ellipse_polygon(Vector2(42.0, 22.0), 18)
+	ring.color = Color(accent.r, accent.g, accent.b, 0.42)
+	root.add_child(ring)
+
+	var core := Polygon2D.new()
+	core.name = "Core"
+	core.polygon = PackedVector2Array([
+		Vector2(0.0, -10.0),
+		Vector2(10.0, 0.0),
+		Vector2(0.0, 10.0),
+		Vector2(-10.0, 0.0)
+	])
+	core.position = Vector2(0.0, -8.0)
+	core.color = Color(1.0, 1.0, 1.0, 0.84).lerp(accent, 0.34)
+	root.add_child(core)
+
+	var duration := FEEDBACK_DURATION
+	var lift := 18.0
+	match feedback_kind:
+		"water":
+			duration = 0.34
+			lift = 12.0
+		"harvest":
+			duration = 0.48
+			lift = 22.0
+			core.scale = Vector2(1.16, 1.16)
+		"pickup":
+			duration = 0.38
+			lift = 16.0
+			core.scale = Vector2(0.88, 0.88)
+	_feedback_items.append({
+		"root": root,
+		"ring": ring,
+		"core": core,
+		"origin": position,
+		"ring_scale": ring.scale,
+		"core_scale": core.scale,
+		"life": 0.0,
+		"duration": duration,
+		"lift": lift
+	})
+
+
+func _update_feedback_effects(delta: float) -> void:
+	if _feedback_items.is_empty():
+		return
+	var remaining: Array[Dictionary] = []
+	for effect_variant in _feedback_items:
+		if not (effect_variant is Dictionary):
+			continue
+		var effect := effect_variant as Dictionary
+		var root := effect.get("root", null) as Node2D
+		var ring := effect.get("ring", null) as Polygon2D
+		var core := effect.get("core", null) as Polygon2D
+		if root == null:
+			continue
+		var life := float(effect.get("life", 0.0)) + delta
+		var duration := maxf(0.001, float(effect.get("duration", FEEDBACK_DURATION)))
+		var progress := clampf(life / duration, 0.0, 1.0)
+		var origin_variant: Variant = effect.get("origin", root.position)
+		var origin: Vector2 = origin_variant if origin_variant is Vector2 else root.position
+		root.position = origin + Vector2(0.0, -float(effect.get("lift", 18.0)) * progress)
+		if ring != null:
+			var ring_scale_variant: Variant = effect.get("ring_scale", Vector2.ONE)
+			var ring_scale: Vector2 = ring_scale_variant if ring_scale_variant is Vector2 else Vector2.ONE
+			ring.scale = ring_scale * lerpf(0.72, 1.92, progress)
+			ring.color = Color(ring.color.r, ring.color.g, ring.color.b, (1.0 - progress) * 0.44)
+		if core != null:
+			var core_scale_variant: Variant = effect.get("core_scale", Vector2.ONE)
+			var core_scale: Vector2 = core_scale_variant if core_scale_variant is Vector2 else Vector2.ONE
+			core.scale = core_scale.lerp(Vector2(0.18, 0.18), progress)
+			core.rotation = progress * 1.9
+			core.color = Color(core.color.r, core.color.g, core.color.b, (1.0 - progress) * 0.86)
+		if progress >= 1.0:
+			root.queue_free()
+			continue
+		effect["life"] = life
+		remaining.append(effect)
+	_feedback_items = remaining
+
+
+func _play_zone_feedback(zone_id: String, feedback_kind: String = "interact") -> void:
+	var position := _zone_world_position(zone_id)
+	if position == Vector2.ZERO:
+		return
+	_spawn_feedback_effect(position, _zone_feedback_accent(zone_id), feedback_kind)
+
+
 func _activate_zone(zone_id: String) -> bool:
 	if zone_id.is_empty():
 		return false
@@ -2757,18 +3136,23 @@ func _activate_zone(zone_id: String) -> bool:
 		return false
 	match zone_id:
 		"restaurant":
+			_play_zone_feedback(zone_id)
 			restaurant_requested.emit()
 			return true
 		"shop":
+			_play_zone_feedback(zone_id)
 			shop_requested.emit()
 			return true
 		"orders":
+			_play_zone_feedback(zone_id)
 			_toggle_daily_orders_board()
 			return true
 		"wait":
+			_play_zone_feedback(zone_id)
 			wait_requested.emit()
 			return true
 		"night":
+			_play_zone_feedback(zone_id)
 			_open_night_popup()
 			return true
 	return false
@@ -2783,6 +3167,7 @@ func _activate_farm_plot(zone_id: String) -> bool:
 		if not _plot_is_harvestable(plot):
 			_apply_view_model()
 			return false
+		_play_zone_feedback(zone_id, "harvest")
 		farm_plot_action_requested.emit(
 			int(plot.get("index", -1)),
 			"harvest",
@@ -2793,9 +3178,11 @@ func _activate_farm_plot(zone_id: String) -> bool:
 	if tool.is_empty():
 		_apply_view_model()
 		return false
+	var tool_id := String(tool.get("id", "")).strip_edges().to_lower()
+	_play_zone_feedback(zone_id, tool_id if not tool_id.is_empty() else "interact")
 	farm_plot_action_requested.emit(
 		int(plot.get("index", -1)),
-		String(tool.get("id", "")),
+		tool_id,
 		String(tool.get("seed_id", ""))
 	)
 	return true
@@ -2806,6 +3193,11 @@ func _activate_pickup(zone_id: String) -> bool:
 	if pickup.is_empty():
 		_apply_view_model()
 		return false
+	_play_zone_feedback(zone_id, "pickup")
+	var area := (_pickup_zones.get(zone_id, {}) as Dictionary).get("area", null) as Area2D
+	if area != null and area.get_parent() is Node2D:
+		var pickup_root := area.get_parent() as Node2D
+		pickup_root.modulate = Color(1.0, 1.0, 1.0, 0.32)
 	world_pickup_requested.emit(String(pickup.get("id", "")))
 	return true
 
@@ -3085,6 +3477,8 @@ func _zone_id_from_area(area: Area2D) -> String:
 
 func _on_player_focus_changed(zone_id: String) -> void:
 	_focused_zone_id = zone_id
+	_prompt_reveal_elapsed = 0.0
+	_prompt_is_revealed = false
 	_apply_view_model()
 
 
@@ -3098,6 +3492,8 @@ func _on_visibility_changed() -> void:
 	if not visible:
 		_night_popup_open = false
 		_transition_active = false
+		_prompt_reveal_elapsed = 0.0
+		_prompt_is_revealed = false
 		_set_transition_visible(false)
 	_sync_visibility_state()
 	_apply_view_model()

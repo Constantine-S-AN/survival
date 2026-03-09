@@ -38,6 +38,7 @@ const PATRON_COLORS := [
 	Color(0.66, 0.83, 0.58, 1.0),
 	Color(0.87, 0.54, 0.63, 1.0)
 ]
+const PROMPT_REVEAL_SECONDS := 0.14
 
 @onready var world_root: Node2D = $WorldRoot
 @onready var backdrop: Node2D = $WorldRoot/Backdrop
@@ -107,6 +108,10 @@ var _popup_panels: Dictionary = {}
 var _lights_on: bool = false
 var _customer_count: int = 0
 var _was_visible: bool = false
+var _ambient_motion_time: float = 0.0
+var _ambient_motion_items: Array[Dictionary] = []
+var _prompt_reveal_elapsed: float = 0.0
+var _prompt_is_revealed: bool = false
 
 
 func _ready() -> void:
@@ -138,6 +143,7 @@ func _ready() -> void:
 	if Localization != null and Localization.has_signal("language_changed"):
 		Localization.language_changed.connect(_on_language_changed)
 	visibility_changed.connect(_on_visibility_changed)
+	set_process(true)
 	_apply_view_model()
 	_sync_visibility_state()
 
@@ -160,6 +166,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	_close_popups()
 	get_viewport().set_input_as_handled()
+
+
+func _process(delta: float) -> void:
+	if not _world_built:
+		return
+	if visible:
+		_ambient_motion_time += delta
+		_update_prompt_reveal(delta)
+	else:
+		_prompt_reveal_elapsed = 0.0
+		_prompt_is_revealed = false
+	_update_ambient_motion()
 
 
 func set_view_model(model: Dictionary) -> void:
@@ -436,6 +454,7 @@ func _refresh_service_ambience() -> void:
 		child.free()
 	for child in _patron_root.get_children():
 		child.free()
+	_ambient_motion_items.clear()
 	_customer_count = 0
 	var selected_menu_count := _selected_menu_count()
 	var service_completed_today := _service_completed_today()
@@ -445,12 +464,18 @@ func _refresh_service_ambience() -> void:
 			_add_glow(_ambient_root, glow_position, Vector2(140.0, 74.0), Color(1.0, 0.76, 0.42, 0.14))
 		for table_position in TABLE_POSITIONS:
 			_add_plate_cluster(_ambient_root, table_position + Vector2(0.0, -6.0))
+		var host := _add_floor_runner(Vector2(1128.0, 340.0), Color(0.92, 0.64, 0.40, 1.0), Color(0.33, 0.22, 0.18, 1.0))
+		_register_ambient_motion(host, Vector2(0.0, 2.4), 1.2, 0.6)
+		for steam_position in [Vector2(352.0, 476.0), Vector2(386.0, 470.0)]:
+			var steam := _add_glow(_ambient_root, steam_position, Vector2(40.0, 26.0), Color(0.92, 0.94, 0.98, 0.22))
+			_register_ambient_motion(steam, Vector2(0.0, 10.0), 0.96, steam_position.x * 0.01)
 	if not service_completed_today:
 		return
 	var served_customers := int(_get_last_service_summary().get("served_customers", 0))
 	var patron_count := clampi(int(ceil(float(served_customers) / 4.0)), 2, PATRON_POSITIONS.size())
 	for patron_index in range(patron_count):
-		_add_patron(PATRON_POSITIONS[patron_index], PATRON_COLORS[patron_index % PATRON_COLORS.size()])
+		var patron := _add_patron(PATRON_POSITIONS[patron_index], PATRON_COLORS[patron_index % PATRON_COLORS.size()])
+		_register_ambient_motion(patron, Vector2(0.0, 2.6), 1.15 + (float(patron_index) * 0.08), 0.5 + float(patron_index))
 	_customer_count = patron_count
 
 
@@ -642,7 +667,7 @@ func _add_plate_cluster(parent: Node2D, position: Vector2) -> void:
 		parent.add_child(plate)
 
 
-func _add_patron(position: Vector2, body_color: Color) -> void:
+func _add_patron(position: Vector2, body_color: Color) -> Node2D:
 	var root := Node2D.new()
 	root.name = "Patron%s" % str(position)
 	root.position = position
@@ -663,14 +688,71 @@ func _add_patron(position: Vector2, body_color: Color) -> void:
 	head.polygon = _ellipse_polygon(Vector2(18.0, 18.0), 10)
 	head.color = Color(0.96, 0.78, 0.62, 1.0)
 	root.add_child(head)
+	return root
 
 
-func _add_glow(parent: Node2D, position: Vector2, size: Vector2, color: Color) -> void:
+func _add_floor_runner(position: Vector2, body_color: Color, apron_color: Color) -> Node2D:
+	var root := Node2D.new()
+	root.name = "FloorRunner%s" % str(position)
+	root.position = position
+	_patron_root.add_child(root)
+	_add_shadow(root, "Shadow", Vector2(0.0, 16.0), Vector2(34.0, 12.0), Color(0.04, 0.02, 0.01, 0.18), -2)
+	var body := Polygon2D.new()
+	body.position = Vector2(0.0, 2.0)
+	body.polygon = _rect_polygon(Vector2(20.0, 32.0))
+	body.color = body_color
+	root.add_child(body)
+	var apron := Polygon2D.new()
+	apron.position = Vector2(0.0, 8.0)
+	apron.polygon = _rect_polygon(Vector2(12.0, 18.0))
+	apron.color = apron_color
+	root.add_child(apron)
+	var head := Polygon2D.new()
+	head.position = Vector2(0.0, -18.0)
+	head.polygon = _ellipse_polygon(Vector2(18.0, 18.0), 10)
+	head.color = Color(0.95, 0.77, 0.62, 1.0)
+	root.add_child(head)
+	return root
+
+
+func _add_glow(parent: Node2D, position: Vector2, size: Vector2, color: Color) -> Polygon2D:
 	var glow := Polygon2D.new()
 	glow.position = position
 	glow.polygon = _ellipse_polygon(size, 16)
 	glow.color = color
 	parent.add_child(glow)
+	return glow
+
+
+func _register_ambient_motion(node: Node2D, amplitude: Vector2, speed: float, phase_offset: float) -> void:
+	if node == null:
+		return
+	_ambient_motion_items.append({
+		"node": node,
+		"base_position": node.position,
+		"amplitude": amplitude,
+		"speed": speed,
+		"phase_offset": phase_offset
+	})
+
+
+func _update_ambient_motion() -> void:
+	for item_variant in _ambient_motion_items:
+		if not (item_variant is Dictionary):
+			continue
+		var item := item_variant as Dictionary
+		var node := item.get("node", null) as Node2D
+		if node == null:
+			continue
+		var base_position_variant: Variant = item.get("base_position", node.position)
+		var base_position: Vector2 = base_position_variant if base_position_variant is Vector2 else node.position
+		var amplitude_variant: Variant = item.get("amplitude", Vector2.ZERO)
+		var amplitude: Vector2 = amplitude_variant if amplitude_variant is Vector2 else Vector2.ZERO
+		var speed := float(item.get("speed", 1.0))
+		var phase_offset := float(item.get("phase_offset", 0.0))
+		var wave := sin((_ambient_motion_time * speed) + phase_offset)
+		var drift := cos((_ambient_motion_time * speed * 0.66) + (phase_offset * 0.6))
+		node.position = base_position + Vector2(amplitude.x * drift, amplitude.y * wave)
 
 
 func _add_shadow(parent: Node2D, name: String, position: Vector2, size: Vector2, color: Color, z_index: int) -> void:
@@ -805,7 +887,7 @@ func _apply_view_model() -> void:
 	hint_label.text = _t("meta.restaurant.world_move_hint")
 	prompt_label.text = _build_prompt_text()
 	prompt_panel.visible = _should_show_prompt_panel()
-	hint_label.visible = prompt_panel.visible
+	hint_label.visible = prompt_panel.visible and prompt_label.text.strip_edges().is_empty()
 
 	menu_title_label.text = _t("meta.restaurant.popup_menu_title")
 	menu_subtitle_label.text = _t("meta.restaurant.popup_menu_subtitle")
@@ -857,7 +939,23 @@ func _apply_view_model() -> void:
 
 
 func _should_show_prompt_panel() -> bool:
-	return _active_popup_id.is_empty() and not _focused_zone_id.is_empty()
+	return _active_popup_id.is_empty() and not _focused_zone_id.is_empty() and _prompt_is_revealed
+
+
+func _update_prompt_reveal(delta: float) -> void:
+	var can_reveal := _active_popup_id.is_empty() and not _focused_zone_id.is_empty()
+	var changed := false
+	if not can_reveal:
+		changed = _prompt_is_revealed or _prompt_reveal_elapsed > 0.0
+		_prompt_reveal_elapsed = 0.0
+		_prompt_is_revealed = false
+	else:
+		_prompt_reveal_elapsed += delta
+		if not _prompt_is_revealed and _prompt_reveal_elapsed >= PROMPT_REVEAL_SECONDS:
+			_prompt_is_revealed = true
+			changed = true
+	if changed:
+		_apply_view_model()
 
 
 func _compact_panel_line(text: String, max_length: int) -> String:
@@ -1117,6 +1215,8 @@ func _zone_id_from_area(area: Area2D) -> String:
 
 func _on_player_focus_changed(zone_id: String) -> void:
 	_focused_zone_id = zone_id
+	_prompt_reveal_elapsed = 0.0
+	_prompt_is_revealed = false
 	_apply_view_model()
 
 
@@ -1146,6 +1246,9 @@ func _on_visibility_changed() -> void:
 		restaurant_player.reset_to_position(spawn_point.global_position)
 	if not visible and not _active_popup_id.is_empty():
 		_active_popup_id = ""
+	if not visible:
+		_prompt_reveal_elapsed = 0.0
+		_prompt_is_revealed = false
 	_update_popup_visibility()
 	_sync_visibility_state()
 	_apply_view_model()
