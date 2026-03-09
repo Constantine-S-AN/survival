@@ -19,10 +19,16 @@ const CAINOS_PLANT_SHEET_PATH := "res://assets/external/stardew_like_candidates/
 const HARVEST_TILE_SHEET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Harvest-Farm---Free-pack/Tilesets/harvest_farm_tileset.png"
 const HARVEST_ENV_SHEET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Harvest-Farm---Free-pack/Objects/environment_sprite_sheet.png"
 const SUNNYSIDE_TILESET_PATH := "res://assets/external/stardew_like_candidates/unpacked/Sunnyside-World-ASSET-PACK-V2-1/Sunnyside_World_ASSET_PACK_V2.1/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png"
+const SUNNYSIDE_TREE_ROUND_STRIP_PATH := "res://assets/external/stardew_like_candidates/unpacked/Sunnyside-World-ASSET-PACK-V2-1/Sunnyside_World_ASSET_PACK_V2.1/Sunnyside_World_Assets/Elements/Plants/spr_deco_tree_01_strip4.png"
+const SUNNYSIDE_TREE_SLIM_STRIP_PATH := "res://assets/external/stardew_like_candidates/unpacked/Sunnyside-World-ASSET-PACK-V2-1/Sunnyside_World_ASSET_PACK_V2.1/Sunnyside_World_Assets/Elements/Plants/spr_deco_tree_02_strip4.png"
+const SUNNYSIDE_ROCK_PATH := "res://assets/external/stardew_like_candidates/unpacked/Sunnyside-World-ASSET-PACK-V2-1/Sunnyside_World_ASSET_PACK_V2.1/Sunnyside_World_Assets/Elements/Crops/rock.png"
 const SUNNYSIDE_BUILDING_FARM_REGION := Rect2i(288, 272, 176, 112)
 const SUNNYSIDE_BUILDING_RESTAURANT_REGION := Rect2i(288, 400, 176, 112)
 const SUNNYSIDE_BUILDING_SHOP_REGION := Rect2i(288, 528, 176, 112)
 const SUNNYSIDE_BUILDING_DOCK_REGION := Rect2i(288, 656, 176, 112)
+const SUNNYSIDE_TREE_ROUND_FRAME_SIZE := Vector2i(32, 34)
+const SUNNYSIDE_TREE_SLIM_FRAME_SIZE := Vector2i(28, 43)
+const SUNNYSIDE_TREE_FRAME_COUNT := 4
 const CAINOS_TREE_LARGE_REGION := Rect2i(24, 14, 113, 139)
 const CAINOS_TREE_ROUND_REGION := Rect2i(161, 17, 96, 136)
 const CAINOS_TREE_SLIM_REGION := Rect2i(295, 31, 79, 120)
@@ -1040,8 +1046,8 @@ func _build_world_landmarks() -> void:
 	_add_shadow(_scenery_root, "FarmHouseShadow", Vector2(274.0, 568.0), Vector2(174.0, 40.0), Color(0.10, 0.13, 0.12, 0.16), -1)
 	_add_sprite(_scenery_root, "FarmHouse", _sunnyside_farm_texture, Vector2(274.0, 518.0), Vector2(1.34, 1.34), Color.WHITE, 0)
 	_add_external_sprite(_scenery_root, "FarmWindmill", "spr_deco_windmill_withshadow", Vector2(152.0, 470.0), Vector2(1.40, 1.40), -1)
-	_add_sheet_region_sprite(_scenery_root, "FarmTreeWest", CAINOS_PLANT_SHEET_PATH, CAINOS_TREE_LARGE_REGION, Vector2(90.0, 392.0), Vector2(1.06, 1.06), -1)
-	_add_sheet_region_sprite(_scenery_root, "FarmTreeNorth", CAINOS_PLANT_SHEET_PATH, CAINOS_TREE_ROUND_REGION, Vector2(216.0, 340.0), Vector2(0.96, 0.96), -1)
+	_add_tree_prop("FarmTreeWest", Vector2(90.0, 392.0), 0, Vector2(1.08, 1.08))
+	_add_tree_prop("FarmTreeNorth", Vector2(216.0, 340.0), 1, Vector2(0.98, 0.98))
 	_add_stone_wall_line("FarmWallNorth", Vector2(188.0, 546.0), 4, true)
 	_add_stone_wall_line("FarmWallEast", Vector2(500.0, 612.0), 3, false)
 	_add_stone_wall_line("FarmWallSouth", Vector2(226.0, 796.0), 4, true)
@@ -1060,9 +1066,12 @@ func _build_world_landmarks() -> void:
 	_add_barrel_prop("FarmBarrel", Vector2(454.0, 622.0), Color.WHITE)
 	_add_planter_box("FarmFlowerBox", Vector2(216.0, 594.0), Color(0.95, 0.84, 0.42, 1.0))
 	_add_planter_box("FarmHerbPatch", Vector2(452.0, 706.0), Color(0.50, 0.82, 0.42, 1.0))
-	for stump_position in [Vector2(390.0, 618.0), Vector2(432.0, 654.0)]:
-		_add_shadow(_scenery_root, "StumpShadow%s" % str(stump_position), stump_position + Vector2(0.0, 6.0), Vector2(24.0, 10.0), Color(0.10, 0.13, 0.12, 0.14), -1)
-		_add_sheet_region_sprite(_scenery_root, "Stump%s" % str(stump_position), HARVEST_ENV_SHEET_PATH, HARVEST_STUMP_REGION, stump_position - Vector2(0.0, 18.0), Vector2(2.6, 2.6), 0)
+	var farm_yard_positions := [Vector2(390.0, 618.0), Vector2(432.0, 654.0)]
+	for farm_yard_index in range(farm_yard_positions.size()):
+		var yard_position: Vector2 = farm_yard_positions[farm_yard_index]
+		_add_rock_prop("FarmYardStone%d" % farm_yard_index, yard_position, farm_yard_index, Vector2(0.78, 0.78))
+		if farm_yard_index == 0:
+			_add_bush_prop("FarmYardBloom", yard_position + Vector2(22.0, 6.0), 0, Vector2(0.98, 0.98))
 	_farm_window_glows.append(_add_window_glow(_ambient_root, "FarmWindowGlow", Vector2(260.0, 522.0), Vector2(70.0, 30.0), Color(1.0, 0.86, 0.54, 0.0)))
 	_register_guide_glow("farm", Vector2(304.0, 694.0), Vector2(286.0, 120.0), Color(0.56, 0.84, 0.44, 0.0))
 
@@ -1229,65 +1238,87 @@ func _make_region_texture(texture_sheet: Texture2D, region: Rect2i) -> AtlasText
 	return atlas
 
 
+func _make_strip_frame_texture(texture_path: String, frame_size: Vector2i, frame_index: int = 0) -> AtlasTexture:
+	var texture := StardewLikeAssets.get_texture(texture_path)
+	if texture == null:
+		return null
+	return _make_sheet_frame(texture, frame_size, frame_index)
+
+
 func _add_tree_prop(name: String, base_position: Vector2, sheet_index: int, scale_value: Vector2 = Vector2(0.56, 0.56)) -> void:
-	var region := CAINOS_TREE_LARGE_REGION
-	var y_shift_factor := 0.42
+	var root := Node2D.new()
+	root.name = name
+	root.position = base_position
+	_scenery_root.add_child(root)
+	var normalized_scale := clampf((scale_value.x + scale_value.y) * 0.5, 0.74, 1.18)
+	var texture_path := SUNNYSIDE_TREE_ROUND_STRIP_PATH
+	var frame_size := SUNNYSIDE_TREE_ROUND_FRAME_SIZE
+	var render_scale := Vector2.ONE * (4.05 * normalized_scale)
+	var y_shift_factor := 0.68
 	match posmod(sheet_index, 3):
 		1:
-			region = CAINOS_TREE_ROUND_REGION
-			y_shift_factor = 0.40
+			render_scale = Vector2.ONE * (3.86 * normalized_scale)
+			y_shift_factor = 0.69
 		2:
-			region = CAINOS_TREE_SLIM_REGION
-			y_shift_factor = 0.44
-	var shadow_width := maxf(46.0, float(region.size.x) * scale_value.x * 0.40)
-	var shadow_height := maxf(16.0, float(region.size.y) * scale_value.y * 0.10)
-	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 12.0), Vector2(shadow_width, shadow_height), Color(0.10, 0.13, 0.12, 0.14), -1)
-	_add_sheet_region_sprite(
-		_scenery_root,
-		name,
-		CAINOS_PLANT_SHEET_PATH,
-		region,
-		base_position - Vector2(0.0, float(region.size.y) * scale_value.y * y_shift_factor),
-		scale_value,
+			texture_path = SUNNYSIDE_TREE_SLIM_STRIP_PATH
+			frame_size = SUNNYSIDE_TREE_SLIM_FRAME_SIZE
+			render_scale = Vector2.ONE * (3.16 * normalized_scale)
+			y_shift_factor = 0.76
+	var shadow_width := maxf(54.0, float(frame_size.x) * render_scale.x * 0.54)
+	var shadow_height := maxf(18.0, float(frame_size.y) * render_scale.y * 0.15)
+	_add_shadow(root, "Shadow", Vector2(0.0, 12.0), Vector2(shadow_width, shadow_height), Color(0.08, 0.10, 0.08, 0.16), -1)
+	_add_sprite(
+		root,
+		"Body",
+		_make_strip_frame_texture(texture_path, frame_size, posmod(sheet_index, SUNNYSIDE_TREE_FRAME_COUNT)),
+		Vector2(0.0, -float(frame_size.y) * render_scale.y * y_shift_factor),
+		render_scale,
+		Color(1.0, 1.0, 1.0, 0.98),
 		0
 	)
+	_register_ambient_motion(root, Vector2(0.8, 2.1), 0.26 + (0.02 * float(posmod(sheet_index, 4))), base_position.x * 0.01, 0.012)
 
 
 func _add_bush_prop(name: String, base_position: Vector2, sheet_index: int, scale_value: Vector2 = Vector2(0.92, 0.92)) -> void:
-	var region := CAINOS_BUSH_ROUND_REGION if posmod(sheet_index, 2) == 0 else CAINOS_BUSH_TALL_REGION
-	var shadow_width := maxf(28.0, float(region.size.x) * scale_value.x * 0.46)
-	var shadow_height := maxf(12.0, float(region.size.y) * scale_value.y * 0.16)
-	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 8.0), Vector2(shadow_width, shadow_height), Color(0.10, 0.13, 0.12, 0.10), -1)
-	_add_sheet_region_sprite(
-		_scenery_root,
-		name,
-		CAINOS_PLANT_SHEET_PATH,
-		region,
-		base_position - Vector2(0.0, float(region.size.y) * scale_value.y * 0.34),
-		scale_value * 0.96,
-		0,
-		Color(1.0, 1.0, 1.0, 0.96)
-	)
+	var root := Node2D.new()
+	root.name = name
+	root.position = base_position
+	_scenery_root.add_child(root)
+	var normalized_scale := clampf((scale_value.x + scale_value.y) * 0.5, 0.72, 1.14)
+	var render_scale := Vector2.ONE * (2.18 * normalized_scale)
+	var sprite_name := "spr_deco_flowers_house_01" if posmod(sheet_index, 2) == 0 else "spr_deco_flowers_house_02"
+	_add_shadow(root, "Shadow", Vector2(0.0, 8.0), Vector2(30.0 * normalized_scale, 11.0 * normalized_scale), Color(0.08, 0.10, 0.08, 0.09), -1)
+	_add_external_sprite(root, "Bloom", sprite_name, Vector2(0.0, -6.0), render_scale, 0, Color(1.0, 1.0, 1.0, 0.97))
 
 
 func _add_rock_prop(name: String, base_position: Vector2, texture_index: int, scale_value: Vector2 = Vector2.ONE) -> void:
-	var region := HARVEST_ROCK_CLUSTER_REGION
+	var normalized_scale := clampf((scale_value.x + scale_value.y) * 0.5, 0.64, 1.24)
+	var render_scale := Vector2.ONE
+	var tint := Color.WHITE
 	match posmod(texture_index, 3):
 		1:
-			region = HARVEST_ROCK_FLAT_REGION
+			render_scale = Vector2.ONE * (3.88 * normalized_scale)
+			tint = Color(0.92, 0.96, 1.0, 1.0)
 		2:
-			region = HARVEST_ROCK_SMALL_REGION
-	var render_scale := scale_value * 2.0
-	var shadow_width := maxf(18.0, float(region.size.x) * render_scale.x * 0.52)
-	var shadow_height := maxf(8.0, float(region.size.y) * render_scale.y * 0.16)
-	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 6.0), Vector2(shadow_width, shadow_height), Color(0.10, 0.13, 0.12, 0.12), -1)
-	_add_sheet_region_sprite(
+			render_scale = Vector2.ONE * (3.24 * normalized_scale)
+			tint = Color(0.84, 0.89, 0.98, 1.0)
+		_:
+			render_scale = Vector2.ONE * (4.42 * normalized_scale)
+			tint = Color(1.0, 1.0, 1.0, 1.0)
+	var rock_texture := StardewLikeAssets.get_texture(SUNNYSIDE_ROCK_PATH)
+	if rock_texture == null:
+		return
+	var texture_size := rock_texture.get_size()
+	var shadow_width := maxf(20.0, float(texture_size.x) * render_scale.x * 0.92)
+	var shadow_height := maxf(8.0, float(texture_size.y) * render_scale.y * 0.32)
+	_add_shadow(_scenery_root, "%sShadow" % name, base_position + Vector2(0.0, 6.0), Vector2(shadow_width, shadow_height), Color(0.08, 0.10, 0.10, 0.13), -1)
+	_add_sprite(
 		_scenery_root,
 		name,
-		HARVEST_ENV_SHEET_PATH,
-		region,
-		base_position - Vector2(0.0, float(region.size.y) * render_scale.y * 0.30),
+		rock_texture,
+		base_position - Vector2(0.0, float(texture_size.y) * render_scale.y * 0.30),
 		render_scale,
+		tint,
 		0
 	)
 
@@ -1297,10 +1328,21 @@ func _add_water_rock_prop(name: String, base_position: Vector2, sheet_index: int
 	root.name = name
 	root.position = base_position
 	_ambient_root.add_child(root)
-	var region := HARVEST_ROCK_SMALL_REGION if posmod(sheet_index, 2) == 0 else HARVEST_ROCK_FLAT_REGION
-	var render_scale := Vector2(1.8, 1.8) if region == HARVEST_ROCK_SMALL_REGION else Vector2(1.6, 1.6)
+	var render_scale := Vector2.ONE * (3.02 if posmod(sheet_index, 2) == 0 else 3.48)
+	var rock_texture := StardewLikeAssets.get_texture(SUNNYSIDE_ROCK_PATH)
+	if rock_texture == null:
+		return
+	var texture_size := rock_texture.get_size()
 	_add_ellipse(root, "Foam", Vector2(0.0, 8.0), Vector2(42.0, 16.0), Color(0.88, 0.95, 1.0, 0.22), -1)
-	_add_sheet_region_sprite(root, "Rock", HARVEST_ENV_SHEET_PATH, region, Vector2.ZERO, render_scale, 0)
+	_add_sprite(
+		root,
+		"Rock",
+		rock_texture,
+		Vector2(0.0, -float(texture_size.y) * render_scale.y * 0.28),
+		render_scale,
+		Color(0.90, 0.95, 1.0, 0.98),
+		0
+	)
 
 
 func _add_fence_line(name: String, start_position: Vector2, segments: int, horizontal: bool) -> Node2D:
