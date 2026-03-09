@@ -60,6 +60,8 @@ class DummyDamageEnemy:
 
 var failed: int = 0
 var _profile_test_session_started: bool = false
+var _embedded_night_duration_finished: bool = false
+var _embedded_night_duration_summary: Dictionary = {}
 
 
 func _ready() -> void:
@@ -86,6 +88,7 @@ func _ready() -> void:
 	await _run_enemy_pool_perf_tests()
 	await _run_boss_showcase_tests()
 	await _run_meta_loop_scaffold_tests()
+	await _run_embedded_night_duration_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
 	_cleanup_profile_isolation()
@@ -2441,6 +2444,7 @@ func _run_meta_loop_scaffold_tests() -> void:
 	snapshot = meta_root.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("current_screen", "")), "night", "meta loop launches embedded night combat")
 	_assert_true(bool(snapshot.get("night_active", false)), "meta loop night combat wrapper becomes active")
+	_assert_equal(float(snapshot.get("night_session_duration_sec", 0.0)), 60.0, "day 1 night combat duration is 60 seconds")
 
 	meta_root.call("debug_complete_active_night", {
 		"time_survived_sec": 30.0,
@@ -2660,6 +2664,7 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	reload_snapshot = meta_root_reload.call("debug_get_snapshot")
 	_assert_equal(String(reload_snapshot.get("current_screen", "")), "night", "second night launch still works after reload")
+	_assert_equal(float(reload_snapshot.get("night_session_duration_sec", 0.0)), 120.0, "day 2 night combat duration scales to 120 seconds")
 	meta_root_reload.call("debug_complete_active_night", {
 		"time_survived_sec": 30.0,
 		"kills": 5,
@@ -2830,6 +2835,42 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true((shop_reload_snapshot.get("owned_restaurant_upgrade_ids", []) as Array).has("decor_window_box"), "save/load preserves purchased restaurant upgrades")
 	meta_root_shop_reload.queue_free()
 	await get_tree().process_frame
+
+
+func _run_embedded_night_duration_tests() -> void:
+	var game_scene: PackedScene = load("res://scenes/game/GameRoot.tscn")
+	if game_scene == null:
+		_assert_true(false, "embedded night duration test could not load GameRoot")
+		return
+	var game_root: Node = game_scene.instantiate()
+	_embedded_night_duration_finished = false
+	_embedded_night_duration_summary.clear()
+	if game_root.has_signal("embedded_session_finished"):
+		game_root.connect("embedded_session_finished", Callable(self, "_on_embedded_night_duration_finished"))
+	game_root.call("set_embedded_session_request", {
+		"day": 3,
+		"character_id": DataRegistry.get_default_character_id(),
+		"map_id": DataRegistry.get_default_map_id(),
+		"contract_ids": [],
+		"seed": 424244,
+		"session_duration_sec": 0.05
+	})
+	get_tree().root.add_child(game_root)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().create_timer(0.5).timeout
+	await get_tree().process_frame
+	_assert_true(_embedded_night_duration_finished, "embedded night combat auto-completes when its configured duration elapses")
+	_assert_equal(String(_embedded_night_duration_summary.get("exit_reason", "")), "completed", "timed night completion uses the normal completed return flow")
+	_assert_true(float(_embedded_night_duration_summary.get("time_survived_sec", 0.0)) >= 0.05, "timed night completion records survived time before returning to daytime")
+	if game_root != null and is_instance_valid(game_root):
+		game_root.free()
+	await get_tree().process_frame
+
+
+func _on_embedded_night_duration_finished(summary: Dictionary) -> void:
+	_embedded_night_duration_finished = true
+	_embedded_night_duration_summary = summary.duplicate(true)
 
 
 func _assert_true(condition: bool, label: String) -> void:

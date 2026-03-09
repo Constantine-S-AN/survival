@@ -66,11 +66,13 @@ var kill_streak_timer: float = 0.0
 var kill_streak_reward_tier: int = 0
 var embedded_session_mode: bool = false
 var embedded_session_request: Dictionary = {}
+var embedded_session_duration_sec: float = 0.0
 
 
 func set_embedded_session_request(request: Dictionary) -> void:
 	embedded_session_mode = true
 	embedded_session_request = request.duplicate(true)
+	embedded_session_duration_sec = maxf(0.0, float(embedded_session_request.get("session_duration_sec", 0.0)))
 
 
 func is_embedded_session_mode() -> bool:
@@ -245,6 +247,10 @@ func _process(delta: float) -> void:
 		return
 	elapsed_time += delta
 	run_stats.survive_time_seconds = elapsed_time
+	if embedded_session_mode and embedded_session_duration_sec > 0.0 and elapsed_time >= embedded_session_duration_sec:
+		_complete_embedded_session()
+		_push_debug_snapshot()
+		return
 	var map_snapshot: Dictionary = world.update_map_runtime(delta)
 	if not map_snapshot.is_empty():
 		_sync_runtime_fog_overlay()
@@ -755,6 +761,15 @@ func _on_player_died() -> void:
 		embedded_session_finished.emit(summary_state)
 		return
 	ui.show_game_over(summary_state)
+
+
+func _complete_embedded_session() -> void:
+	if run_state != STATE_PLAYING or not embedded_session_mode or _game_over_latched:
+		return
+	_game_over_latched = true
+	var summary_state := _build_embedded_session_summary("completed")
+	_set_state(STATE_GAME_OVER)
+	embedded_session_finished.emit(summary_state)
 
 
 func _on_retry_requested() -> void:

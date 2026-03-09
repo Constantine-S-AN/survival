@@ -26,6 +26,14 @@ func is_session_active() -> bool:
 	return _game_root != null and is_instance_valid(_game_root)
 
 
+func debug_get_snapshot() -> Dictionary:
+	return {
+		"active": is_session_active(),
+		"day": int(_active_request.get("day", 0)),
+		"session_duration_sec": float(_active_request.get("session_duration_sec", 0.0))
+	}
+
+
 func stop_session() -> void:
 	_teardown_session()
 	get_tree().paused = false
@@ -83,6 +91,7 @@ func _teardown_session() -> void:
 	if _game_root != null and is_instance_valid(_game_root):
 		_game_root.queue_free()
 	_game_root = null
+	_active_request.clear()
 
 
 func _resolve_contract_names(contract_ids_variant: Variant) -> Array[String]:

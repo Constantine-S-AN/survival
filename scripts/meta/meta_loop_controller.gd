@@ -706,6 +706,7 @@ func _launch_night() -> bool:
 		map_id = DataRegistry.get_default_map_id()
 	var request := {
 		"day": _day_state.current_day,
+		"session_duration_sec": float(maxi(1, _day_state.current_day) * 60),
 		"character_id": character_id,
 		"map_id": map_id,
 		"contract_ids": ProfileStore.get_selected_contract_ids(),
@@ -3146,9 +3147,13 @@ func debug_get_snapshot() -> Dictionary:
 	var farm_model := _build_farm_model()
 	var restaurant_model := _build_restaurant_model()
 	var shop_model := _build_shop_model()
+	var night_combat_snapshot: Dictionary = {}
 	var day_world_snapshot := _get_day_world_debug_snapshot()
 	var restaurant_view_snapshot := _get_restaurant_view_debug_snapshot()
 	var shop_view_snapshot := _get_shop_view_debug_snapshot()
+	if night_combat_root != null and night_combat_root.has_method("debug_get_snapshot"):
+		var night_combat_variant: Variant = night_combat_root.call("debug_get_snapshot")
+		night_combat_snapshot = night_combat_variant if night_combat_variant is Dictionary else {}
 	var dialogue_layer_snapshot: Dictionary = {}
 	if day_hub_intro_dialogue_layer != null and day_hub_intro_dialogue_layer.has_method("debug_get_snapshot"):
 		var dialogue_variant: Variant = day_hub_intro_dialogue_layer.call("debug_get_snapshot")
@@ -3245,9 +3250,11 @@ func debug_get_snapshot() -> Dictionary:
 		"day_world_selected_farm_tool_action_id": String(day_world_snapshot.get("selected_farm_tool_action_id", "")),
 		"day_world_selected_farm_tool_seed_id": String(day_world_snapshot.get("selected_farm_tool_seed_id", "")),
 		"day_world_selected_farm_tool_label": String(day_world_snapshot.get("selected_farm_tool_label", "")),
-			"pending_summary": not _pending_return_summary.is_empty(),
-			"return_summary_payload": _pending_return_summary.duplicate(true),
+		"pending_summary": not _pending_return_summary.is_empty(),
+		"return_summary_payload": _pending_return_summary.duplicate(true),
 		"night_active": night_combat_root.is_session_active() if night_combat_root != null else false,
+		"night_session_day": int(night_combat_snapshot.get("day", 0)),
+		"night_session_duration_sec": float(night_combat_snapshot.get("session_duration_sec", 0.0)),
 		"farm_status_text": _farm_status_text,
 		"farm_bridge_summary": String(farm_model.get("bridge_summary", "")),
 		"farm_bridge_tooltip": String(farm_model.get("bridge_tooltip", "")),
