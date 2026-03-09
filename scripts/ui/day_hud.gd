@@ -148,6 +148,7 @@ func _apply_hud_model() -> void:
 	var has_prompt_text := not prompt_text.strip_edges().is_empty()
 	prompt_panel.visible = prompt_visible and (has_prompt_text or not hint_label.text.strip_edges().is_empty())
 	hint_label.visible = prompt_panel.visible and not hint_label.text.strip_edges().is_empty() and not has_prompt_text
+	guide_panel.visible = guide_panel.visible and not (prompt_panel.visible and has_prompt_text)
 	_apply_visual_theme(phase, night_ready)
 	_apply_interaction_lock()
 	_apply_transition_state()

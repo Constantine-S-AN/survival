@@ -2368,6 +2368,8 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(int(snapshot.get("action_budget", 0)), 5, "meta loop starts with a full daytime action budget")
 	_assert_true(not String(snapshot.get("day_hub_guide_title", "")).is_empty(), "day hub shows an early-day onboarding title")
 	_assert_true(String(snapshot.get("day_hub_guide_text", "")).to_lower().find("night combat") >= 0, "day hub onboarding explains the hybrid loop")
+	_assert_true(not String(snapshot.get("day_hub_guide_focus_text", "")).is_empty(), "day hub onboarding exposes a focused next step")
+	_assert_true(String(snapshot.get("day_world_prompt_text", "")).find(String(snapshot.get("day_hub_guide_focus_text", ""))) >= 0, "day world idle prompt surfaces the current focused guide step")
 	_assert_true(String(snapshot.get("day_hub_restaurant_button_tooltip", "")).find("3") >= 0, "day hub restaurant tooltip explains the major action cost")
 	_assert_true(bool(snapshot.get("night_button_disabled", false)), "night combat stays locked before evening")
 	meta_root.call("debug_use_legacy_day_hub")
@@ -2492,6 +2494,8 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(int(snapshot.get("action_budget", 0)), 5, "next day restores the daytime action budget")
 	_assert_true(bool(snapshot.get("night_button_disabled", false)), "night combat locks again at the start of the next day")
 	_assert_equal(String(snapshot.get("day_hub_guide_title", "")), "Day 2 Guide", "day hub onboarding advances to the second-day guidance")
+	_assert_true(bool(snapshot.get("day_world_arrival_banner_visible", false)), "next-day handoff banner appears after the first return")
+	_assert_true(String(snapshot.get("day_world_arrival_banner_body_text", "")).find("Water yesterday's crops") >= 0, "next-day handoff banner points at the day 2 carry-over farm step")
 	_assert_true(String(snapshot.get("day_hub_guide_text", "")).find("Water yesterday's crops") >= 0, "day 2 guide highlights the carry-over farm step")
 	var day2_featured_cards: Array = DailyOrders.call("get_featured_order_cards", 3) if DailyOrders != null and DailyOrders.has_method("get_featured_order_cards") else []
 	var day2_featured_titles := _extract_order_titles(day2_featured_cards)
@@ -2679,6 +2683,8 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_equal(String(reload_snapshot.get("phase", "")), "morning", "day 3 starts back at the morning phase")
 	_assert_equal(int(reload_snapshot.get("action_budget", 0)), 5, "day 3 restores the daytime budget after night combat")
 	_assert_equal(String(reload_snapshot.get("day_hub_guide_title", "")), "Day 3 Guide", "day hub onboarding advances to the third-day guidance")
+	_assert_true(bool(reload_snapshot.get("day_world_arrival_banner_visible", false)), "second next-day handoff banner appears after the return summary")
+	_assert_true(String(reload_snapshot.get("day_world_arrival_banner_body_text", "")).find("Harvest first") >= 0, "day 3 handoff banner points at the first harvest payoff")
 	_assert_true(String(reload_snapshot.get("day_hub_guide_text", "")).find("Harvest first") >= 0, "day 3 guide turns the first harvest into the main short-term goal")
 	var day3_featured_cards: Array = DailyOrders.call("get_featured_order_cards", 3) if DailyOrders != null and DailyOrders.has_method("get_featured_order_cards") else []
 	var day3_featured_titles := _extract_order_titles(day3_featured_cards)

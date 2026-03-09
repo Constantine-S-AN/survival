@@ -56,6 +56,13 @@ func _assert_day_guidance(current_day: int, guide_title_key: String, required_fr
 	var guide_text := String(snapshot.get("day_hub_guide_text", ""))
 	if not _require(String(snapshot.get("day_world_hud_guide_text", "")) == guide_text, "Day %d world HUD guide text should match the shared onboarding guide text" % current_day):
 		return false
+	var focus_text := String(snapshot.get("day_hub_guide_focus_text", ""))
+	if not _require(not focus_text.is_empty(), "Day %d guide should expose a focused next-step line" % current_day):
+		return false
+	if not _require(String(snapshot.get("day_world_guide_focus_text", "")) == focus_text, "Day %d world focus line should stay aligned with the day hub guidance" % current_day):
+		return false
+	if not _require(String(snapshot.get("day_world_prompt_text", "")).find(focus_text) >= 0, "Day %d idle world prompt should surface the current guide focus" % current_day):
+		return false
 	for fragment in required_fragments:
 		if not _require(guide_text.find(fragment) >= 0, "Day %d guide should still contain '%s'" % [current_day, fragment]):
 			return false
@@ -130,6 +137,11 @@ func _advance_to_day_two() -> bool:
 		push_error("Onboarding guidance smoke could not continue from the first return summary")
 		_cleanup(true)
 		return false
+	var snapshot: Dictionary = _helper.snapshot()
+	if not _require(bool(snapshot.get("day_world_arrival_banner_visible", false)), "Day 2 should briefly surface the next-day handoff banner"):
+		return false
+	if not _require(String(snapshot.get("day_world_arrival_banner_body_text", "")).find("Water yesterday's crops") >= 0, "Day 2 handoff banner should point at the carry-over farm step"):
+		return false
 	return int(_helper.snapshot().get("current_day", 0)) == 2
 
 
@@ -158,6 +170,11 @@ func _advance_to_day_three() -> bool:
 	if not await _helper.continue_summary():
 		push_error("Onboarding guidance smoke could not continue from the second return summary")
 		_cleanup(true)
+		return false
+	var snapshot: Dictionary = _helper.snapshot()
+	if not _require(bool(snapshot.get("day_world_arrival_banner_visible", false)), "Day 3 should briefly surface the next-day handoff banner"):
+		return false
+	if not _require(String(snapshot.get("day_world_arrival_banner_body_text", "")).find("Harvest first") >= 0, "Day 3 handoff banner should point at the first harvest follow-through"):
 		return false
 	return int(_helper.snapshot().get("current_day", 0)) == 3
 

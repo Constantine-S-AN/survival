@@ -1174,6 +1174,8 @@ func _build_day_hub_model() -> Dictionary:
 		"bridge_tooltip": String(bridge_info.get("tooltip", "")),
 		"guide_title": String(onboarding_info.get("title", "")),
 		"guide_text": String(onboarding_info.get("text", "")),
+		"guide_focus_text": String(onboarding_info.get("focus_text", "")),
+		"guide_focus_zone": String(onboarding_info.get("focus_zone", "")),
 		"farm_button_tooltip": _build_day_hub_farm_tooltip(),
 		"restaurant_button_tooltip": _build_day_hub_restaurant_tooltip(),
 		"shop_button_text": _t("meta.hub.shop"),
@@ -1209,24 +1211,30 @@ func _build_night_button_tooltip() -> String:
 
 func _build_day_hub_onboarding_info() -> Dictionary:
 	var guide_title := ""
-	var guide_text := ""
 	if _day_state.current_day <= 1:
 		guide_title = _t("meta.hub.guide_title_day1")
-		guide_text = _t("meta.hub.guide_body_day1")
 	elif _day_state.current_day == 2:
 		guide_title = _t("meta.hub.guide_title_day2")
-		guide_text = _t("meta.hub.guide_body_day2", {"value": RESTAURANT_SERVICE_ACTION_COST})
 	elif _day_state.current_day == 3:
 		guide_title = _t("meta.hub.guide_title_day3")
-		guide_text = _t("meta.hub.guide_body_day3")
-	if guide_title.is_empty() and guide_text.is_empty():
+	if guide_title.is_empty():
 		return {}
-	var featured_orders_text := _build_starter_order_focus_text(2)
-	if not featured_orders_text.is_empty():
-		guide_text = "%s\n%s" % [guide_text, featured_orders_text]
+	var guide_config := _build_first_session_guide_config(_day_state.current_day)
+	var guide_lines_variant: Variant = guide_config.get("lines", [])
+	var guide_lines: Array[String] = []
+	if guide_lines_variant is Array:
+		for line_variant in guide_lines_variant:
+			var line := String(line_variant).strip_edges()
+			if line.is_empty():
+				continue
+			guide_lines.append(line)
+	if guide_lines.is_empty():
+		return {}
 	return {
 		"title": guide_title,
-		"text": guide_text
+		"text": "\n".join(guide_lines),
+		"focus_text": guide_lines[0],
+		"focus_zone": String(guide_config.get("focus_zone", ""))
 	}
 
 
@@ -1604,6 +1612,139 @@ func _build_starter_order_focus_text(limit: int = 2) -> String:
 	if titles.is_empty():
 		return ""
 	return _t("meta.hub.guide_orders", {"value": ", ".join(titles)})
+
+
+func _build_first_session_guide_config(current_day: int) -> Dictionary:
+	var lines: Array[String] = []
+	var focus_zone := ""
+	var ready_orders := _get_ready_daily_order_count()
+	var planted_plot_count := _count_planted_plots()
+	var waterable_plot_count := _count_waterable_plots()
+	var harvestable_plot_count := _count_harvestable_plots()
+	var menu_planned := _has_restaurant_menu_plan()
+	var service_completed := _restaurant_service_completed_today()
+
+	if ready_orders > 0:
+		focus_zone = "orders"
+		_append_guide_line(lines, _t("meta.hub.guide_focus_orders_ready", {"value": ready_orders}))
+	elif _day_state.can_launch_night():
+		focus_zone = "dock"
+		_append_guide_line(lines, _t("meta.hub.guide_focus_night_ready"))
+	else:
+		match current_day:
+			1:
+				if planted_plot_count == 0 and menu_planned:
+					focus_zone = "farm"
+					_append_guide_line(lines, _t("meta.hub.guide_focus_day1_farm"))
+				elif planted_plot_count >= 2 and not menu_planned:
+					focus_zone = "restaurant"
+					_append_guide_line(lines, _t("meta.hub.guide_focus_day1_menu"))
+				else:
+					focus_zone = "orders"
+					_append_guide_line(lines, _t("meta.hub.guide_focus_day1_choice"))
+			2:
+				if waterable_plot_count > 0:
+					focus_zone = "farm"
+					_append_guide_line(lines, _t("meta.hub.guide_focus_day2_water"))
+				elif not service_completed:
+					focus_zone = "restaurant"
+					if menu_planned and _can_open_restaurant_service():
+						_append_guide_line(lines, _t("meta.hub.guide_focus_day2_service"))
+					elif menu_planned:
+						_append_guide_line(lines, _t("meta.hub.guide_focus_stock_check"))
+					else:
+						_append_guide_line(lines, _t("meta.hub.guide_focus_day2_menu", {"value": RESTAURANT_SERVICE_ACTION_COST}))
+				else:
+					focus_zone = "shop"
+					_append_guide_line(lines, _t("meta.hub.guide_focus_day2_shop"))
+			3:
+				if harvestable_plot_count > 0:
+					focus_zone = "farm"
+					_append_guide_line(lines, _t("meta.hub.guide_focus_day3_harvest"))
+				elif not service_completed:
+					focus_zone = "restaurant"
+					if menu_planned and _can_open_restaurant_service():
+						_append_guide_line(lines, _t("meta.hub.guide_focus_day3_service"))
+					elif menu_planned:
+						_append_guide_line(lines, _t("meta.hub.guide_focus_stock_check"))
+					else:
+						_append_guide_line(lines, _t("meta.hub.guide_focus_day3_menu"))
+				else:
+					focus_zone = "shop"
+					_append_guide_line(lines, _t("meta.hub.guide_focus_day3_route"))
+
+	_append_guide_line(lines, _build_first_session_support_line(current_day))
+	var order_footer := _build_first_session_order_footer(2, ready_orders)
+	if not order_footer.is_empty():
+		_append_guide_line(lines, order_footer)
+	return {
+		"focus_zone": focus_zone,
+		"lines": lines
+	}
+
+
+func _build_first_session_support_line(current_day: int) -> String:
+	match current_day:
+		1:
+			return _t("meta.hub.guide_body_day1")
+		2:
+			return _t("meta.hub.guide_body_day2", {"value": RESTAURANT_SERVICE_ACTION_COST})
+		3:
+			return _t("meta.hub.guide_body_day3")
+	return ""
+
+
+func _build_first_session_order_footer(limit: int, ready_orders: int) -> String:
+	if ready_orders > 0:
+		return ""
+	return _build_starter_order_focus_text(limit)
+
+
+func _append_guide_line(lines: Array[String], text: String) -> void:
+	var normalized_text := text.strip_edges()
+	if normalized_text.is_empty() or lines.has(normalized_text):
+		return
+	lines.append(normalized_text)
+
+
+func _count_planted_plots() -> int:
+	var count := 0
+	for plot_variant in _get_farm_plots():
+		if not (plot_variant is Dictionary):
+			continue
+		var crop_state: Dictionary = _crop_from_dict((plot_variant as Dictionary).get("crop", {}))
+		if _crop_is_empty(crop_state):
+			continue
+		count += 1
+	return count
+
+
+func _count_waterable_plots() -> int:
+	var count := 0
+	for plot_variant in _get_farm_plots():
+		if not (plot_variant is Dictionary):
+			continue
+		var crop_state: Dictionary = _crop_from_dict((plot_variant as Dictionary).get("crop", {}))
+		if _crop_is_empty(crop_state) or _crop_is_harvestable(crop_state):
+			continue
+		if _crop_can_water(crop_state, _day_state.current_day):
+			count += 1
+	return count
+
+
+func _count_harvestable_plots() -> int:
+	var count := 0
+	for plot_variant in _get_farm_plots():
+		if not (plot_variant is Dictionary):
+			continue
+		var crop_state: Dictionary = _crop_from_dict((plot_variant as Dictionary).get("crop", {}))
+		if _crop_is_harvestable(crop_state):
+			count += 1
+	return count
+
+
+func _has_restaurant_menu_plan() -> bool:
+	return not _normalize_string_id_array(_restaurant_state.get("selected_menu_recipe_ids", [])).is_empty()
 
 
 func _build_shop_seed_offers() -> Array[Dictionary]:
@@ -3010,6 +3151,8 @@ func debug_get_snapshot() -> Dictionary:
 		"day_hub_status_text": String(day_hub_model.get("status_text", "")),
 		"day_hub_guide_title": String(day_hub_model.get("guide_title", "")),
 		"day_hub_guide_text": String(day_hub_model.get("guide_text", "")),
+		"day_hub_guide_focus_text": String(day_hub_model.get("guide_focus_text", "")),
+		"day_hub_guide_focus_zone": String(day_hub_model.get("guide_focus_zone", "")),
 		"day_hub_farm_button_tooltip": String(day_hub_model.get("farm_button_tooltip", "")),
 		"day_hub_restaurant_button_tooltip": String(day_hub_model.get("restaurant_button_tooltip", "")),
 		"day_hub_shop_button_tooltip": String(day_hub_model.get("shop_button_tooltip", "")),
@@ -3018,6 +3161,8 @@ func debug_get_snapshot() -> Dictionary:
 			"day_hub_bridge_summary": String(day_hub_model.get("bridge_summary", "")),
 			"day_hub_bridge_tooltip": String(day_hub_model.get("bridge_tooltip", "")),
 		"day_world_focus_id": String(day_world_snapshot.get("focused_zone_id", "")),
+		"day_world_guide_focus_text": String(day_world_snapshot.get("guide_focus_text", "")),
+		"day_world_guide_focus_zone": String(day_world_snapshot.get("guide_focus_zone", "")),
 		"day_world_prompt_text": String(day_world_snapshot.get("prompt_text", "")),
 		"day_world_phase_idle_cue": String(day_world_snapshot.get("phase_idle_cue", "")),
 		"day_world_restaurant_cue": String(day_world_snapshot.get("restaurant_cue", "")),
@@ -3051,6 +3196,10 @@ func debug_get_snapshot() -> Dictionary:
 		"day_world_orders_open": bool(day_world_snapshot.get("orders_open", false)),
 		"day_world_night_popup_open": bool(day_world_snapshot.get("night_popup_open", false)),
 		"day_world_transition_active": bool(day_world_snapshot.get("transition_active", false)),
+		"day_world_arrival_banner_visible": bool(day_world_snapshot.get("arrival_banner_visible", false)),
+		"day_world_arrival_banner_title_text": String(day_world_snapshot.get("arrival_banner_title_text", "")),
+		"day_world_arrival_banner_body_text": String(day_world_snapshot.get("arrival_banner_body_text", "")),
+		"day_world_arrival_banner_meta_text": String(day_world_snapshot.get("arrival_banner_meta_text", "")),
 		"day_world_visible_pickup_ids": (day_world_snapshot.get("visible_pickup_ids", []) as Array).duplicate(true) if day_world_snapshot.get("visible_pickup_ids", []) is Array else [],
 		"day_world_selected_hotbar_id": String(day_world_snapshot.get("selected_hotbar_id", "")),
 		"day_world_selected_hotbar_label": String(day_world_snapshot.get("selected_hotbar_label", "")),

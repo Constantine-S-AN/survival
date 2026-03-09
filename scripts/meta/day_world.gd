@@ -327,8 +327,8 @@ func play_next_day_handoff(summary_variant: Variant = {}) -> void:
 	_apply_guide_override_from_summary(summary)
 	_show_arrival_banner(
 		_t("meta.world.fresh_day_title", {"day": int(summary.get("next_day", int(_view_model.get("current_day", 1))))}),
-		String(summary.get("tomorrow_text", _t("meta.summary.tomorrow_generic"))),
-		_t("meta.world.fresh_day_meta")
+		_build_next_day_handoff_body(summary),
+		_build_next_day_handoff_meta(summary)
 	)
 	_set_next_day_intro_progress(0.0)
 	_next_day_intro_tween = create_tween()
@@ -405,6 +405,8 @@ func debug_get_snapshot() -> Dictionary:
 		orders_board_snapshot = orders_variant if orders_variant is Dictionary else {}
 	return {
 		"focused_zone_id": _focused_zone_id,
+		"guide_focus_text": _get_guide_focus_text(),
+		"guide_focus_zone": _get_guide_focus_zone(),
 		"prompt_text": _build_prompt_text(),
 		"phase_idle_cue": _build_phase_idle_cue(),
 		"restaurant_cue": _build_restaurant_cue(),
@@ -422,6 +424,10 @@ func debug_get_snapshot() -> Dictionary:
 		"overlay_blocked": _overlay_blocked,
 		"night_popup_open": _night_popup_open,
 		"transition_active": _transition_active,
+		"arrival_banner_visible": _arrival_banner.visible if _arrival_banner != null else false,
+		"arrival_banner_title_text": _arrival_banner_title_label.text if _arrival_banner_title_label != null else "",
+		"arrival_banner_body_text": _arrival_banner_body_label.text if _arrival_banner_body_label != null else "",
+		"arrival_banner_meta_text": _arrival_banner_meta_label.text if _arrival_banner_meta_label != null else "",
 		"hud_phase": String(hud_snapshot.get("phase", "")),
 		"hud_actions_until_evening": int(hud_snapshot.get("actions_until_evening", 0)),
 		"hud_clock_status_text": String(hud_snapshot.get("clock_status_text", "")),
@@ -2536,6 +2542,8 @@ func _apply_view_model() -> void:
 		"status_text": String(_view_model.get("status_text", "")),
 		"guide_title": String(_view_model.get("guide_title", "")),
 		"guide_text": String(_view_model.get("guide_text", "")),
+		"guide_focus_text": _get_guide_focus_text(),
+		"guide_focus_zone": _get_guide_focus_zone(),
 		"move_hint": _t("meta.world.move_hint"),
 		"prompt_text": _build_prompt_text(),
 		"prompt_visible": _should_show_context_prompt(),
@@ -3111,6 +3119,9 @@ func _build_landmark_guide_weights(phase: String, night_ready: bool) -> Dictiona
 		ready_orders = int(DailyOrders.call("get_ready_to_claim_count"))
 	if ready_orders > 0:
 		weights["orders"] = maxf(float(weights.get("orders", 0.0)), 0.22)
+	var focus_zone := _get_guide_focus_zone()
+	if not focus_zone.is_empty():
+		weights[focus_zone] = maxf(float(weights.get(focus_zone, 0.0)), 0.26 if current_day <= 3 else 0.18)
 	if _focused_zone_id == "orders":
 		weights["orders"] = float(weights.get("orders", 0.0)) * 0.35
 	if _focused_zone_id == "restaurant":
@@ -3126,6 +3137,39 @@ func _build_landmark_guide_weights(phase: String, night_ready: bool) -> Dictiona
 			var guide_id := String(guide_id_variant)
 			weights[guide_id] = maxf(float(weights.get(guide_id, 0.0)), float(_guide_override_weights.get(guide_id_variant, 0.0)))
 	return weights
+
+
+func _build_next_day_handoff_body(summary: Dictionary) -> String:
+	var focus_text := _get_guide_focus_text()
+	if not focus_text.is_empty():
+		return focus_text
+	return String(summary.get("tomorrow_text", _t("meta.summary.tomorrow_generic")))
+
+
+func _build_next_day_handoff_meta(summary: Dictionary) -> String:
+	var tomorrow_text := String(summary.get("tomorrow_text", "")).strip_edges()
+	if not tomorrow_text.is_empty() and tomorrow_text != _get_guide_focus_text():
+		return tomorrow_text
+	return _t("meta.world.fresh_day_meta")
+
+
+func _get_guide_focus_text() -> String:
+	return String(_view_model.get("guide_focus_text", "")).strip_edges()
+
+
+func _get_guide_focus_zone() -> String:
+	match String(_view_model.get("guide_focus_zone", "")).strip_edges().to_lower():
+		"farm":
+			return "farm"
+		"orders":
+			return "orders"
+		"restaurant":
+			return "restaurant"
+		"shop":
+			return "shop"
+		"dock", "night":
+			return "dock"
+	return ""
 
 
 func _apply_landmark_guide_state(phase: String, night_ready: bool) -> void:
@@ -3308,6 +3352,17 @@ func _build_night_cue() -> String:
 	return _t("meta.world.night_cue_locked", {"value": actions_until_evening})
 
 
+func _build_idle_prompt_headline() -> String:
+	var focus_text := _get_guide_focus_text()
+	if not focus_text.is_empty():
+		return focus_text
+	return _t("meta.world.prompt_idle")
+
+
+func _is_next_day_intro_active() -> bool:
+	return _next_day_intro_tween != null and is_instance_valid(_next_day_intro_tween)
+
+
 func _build_prompt_text() -> String:
 	if daily_orders_board != null and daily_orders_board.visible:
 		return _t("meta.world.prompt_orders_open")
@@ -3317,8 +3372,10 @@ func _build_prompt_text() -> String:
 		return "%s\n%s" % [_t("meta.world.night_confirm_title"), _build_night_confirmation_text()]
 	if _overlay_blocked:
 		return _build_phase_idle_cue()
+	if _is_next_day_intro_active():
+		return "%s\n%s" % [_build_idle_prompt_headline(), _build_phase_idle_cue()]
 	if _focused_zone_id.is_empty():
-		return "%s\n%s" % [_t("meta.world.prompt_idle"), _build_phase_idle_cue()]
+		return "%s\n%s" % [_build_idle_prompt_headline(), _build_phase_idle_cue()]
 	if _is_pickup_zone(_focused_zone_id):
 		return "%s\n%s" % [
 			_t("meta.world.prompt_pickup", {"value": _get_zone_name(_focused_zone_id)}),
@@ -3390,7 +3447,7 @@ func _update_prompt_reveal(delta: float) -> void:
 func _should_show_context_prompt() -> bool:
 	if daily_orders_board != null and daily_orders_board.visible:
 		return false
-	if _transition_active or _night_popup_open or _overlay_blocked:
+	if _transition_active or _night_popup_open or _overlay_blocked or _is_next_day_intro_active():
 		return false
 	return not _focused_zone_id.is_empty() and _prompt_is_revealed
 
