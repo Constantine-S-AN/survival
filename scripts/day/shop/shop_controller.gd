@@ -37,8 +37,13 @@ const ZED_INTERIOR_STOOL_REGION := Rect2i(99, 115, 12, 13)
 const ZED_INTERIOR_CHAIR_LEFT_REGION := Rect2i(145, 142, 14, 18)
 const ZED_INTERIOR_CHAIR_RIGHT_REGION := Rect2i(161, 141, 13, 19)
 const PROMPT_REVEAL_SECONDS := 0.14
+const INFO_PANEL_PREVIEW_ITEMS := 2
+const INFO_PANEL_ENTRY_MAX_LENGTH := 18
+const PROMPT_LINE_MAX_LENGTH := 58
+const PROMPT_MAX_LINES := 2
 
 @onready var world_root: Node2D = $WorldRoot
+@onready var hud_layer: CanvasLayer = $HUDLayer
 @onready var backdrop: Node2D = $WorldRoot/Backdrop
 @onready var environment: Node2D = $WorldRoot/Environment
 @onready var zones_root: Node2D = $WorldRoot/Zones
@@ -77,7 +82,9 @@ const PROMPT_REVEAL_SECONDS := 0.14
 @onready var customer_title_label: Label = $HUDLayer/PopupHost/CustomerPopup/Margin/VBox/Title
 @onready var customer_dialogue_label: Label = $HUDLayer/PopupHost/CustomerPopup/Margin/VBox/Dialogue
 @onready var request_title_label: Label = $HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox/RequestTitle
-@onready var request_body_label: Label = $HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox/RequestBody
+@onready var request_scroll: ScrollContainer = $HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox/RequestScroll
+@onready var request_body_box: VBoxContainer = $HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox/RequestScroll/BodyVBox
+@onready var request_body_label: Label = $HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox/RequestScroll/BodyVBox/RequestBody
 @onready var request_reward_label: Label = $HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox/Reward
 @onready var request_status_label: Label = $HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox/Status
 @onready var customer_close_button: Button = $HUDLayer/PopupHost/CustomerPopup/Margin/VBox/CloseButton
@@ -136,18 +143,23 @@ func _ready() -> void:
 	seed_scroll.resized.connect(_sync_scroll_content_widths)
 	sell_scroll.resized.connect(_sync_scroll_content_widths)
 	upgrade_scroll.resized.connect(_sync_scroll_content_widths)
+	request_scroll.resized.connect(_sync_customer_request_width)
 	set_process(true)
 	_apply_view_model()
 	_sync_visibility_state()
 
 
 func _apply_ui_font_overrides() -> void:
-	info_title_label.add_theme_font_size_override("font_size", 20)
-	info_stats_label.add_theme_font_size_override("font_size", 13)
-	info_inventory_label.add_theme_font_size_override("font_size", 13)
+	info_title_label.add_theme_font_size_override("font_size", 19)
+	info_stats_label.add_theme_font_size_override("font_size", 12)
+	info_inventory_label.add_theme_font_size_override("font_size", 12)
 	status_label.add_theme_font_size_override("font_size", 13)
-	prompt_label.add_theme_font_size_override("font_size", 14)
+	prompt_label.add_theme_font_size_override("font_size", 15)
 	hint_label.add_theme_font_size_override("font_size", 12)
+	customer_dialogue_label.add_theme_font_size_override("font_size", 13)
+	request_body_label.add_theme_font_size_override("font_size", 13)
+	request_reward_label.add_theme_font_size_override("font_size", 13)
+	request_status_label.add_theme_font_size_override("font_size", 13)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1032,7 +1044,9 @@ func _apply_view_model() -> void:
 	status_label.text = String(_view_model.get("status_text", ""))
 	status_panel.visible = not status_label.text.strip_edges().is_empty()
 	hint_label.text = _t("meta.shop.world_move_hint")
-	prompt_label.text = _build_prompt_text()
+	var prompt_text := _build_prompt_text()
+	prompt_label.text = _compact_prompt_text(prompt_text)
+	prompt_label.tooltip_text = prompt_text
 	prompt_panel.visible = _should_show_prompt_panel()
 	hint_label.visible = prompt_panel.visible and prompt_label.text.strip_edges().is_empty()
 
@@ -1062,18 +1076,23 @@ func _apply_view_model() -> void:
 
 	customer_title_label.text = _t("meta.shop.popup_customer_title")
 	customer_dialogue_label.text = String(_view_model.get("customer_line", ""))
+	customer_dialogue_label.tooltip_text = customer_dialogue_label.text
 	request_title_label.text = String(_view_model.get("request_title", _t("meta.shop.request_none_title")))
 	request_body_label.text = String(_view_model.get("request_body", _t("meta.shop.request_none_body")))
+	request_body_label.tooltip_text = request_body_label.text
 	var request_reward := String(_view_model.get("request_reward", "")).strip_edges()
 	request_reward_label.text = _t("meta.shop.request_reward", {
 		"value": request_reward if not request_reward.is_empty() else _t("meta.common.none")
 	})
+	request_reward_label.tooltip_text = request_reward_label.text
 	request_status_label.text = _t("meta.shop.request_status", {
 		"value": String(_view_model.get("request_status", _t("meta.shop.request_none_status")))
 	})
+	request_status_label.tooltip_text = request_status_label.text
 	customer_close_button.text = _t("meta.common.close")
 
 	_sync_scroll_content_widths()
+	_sync_customer_request_width()
 	_refresh_zone_visuals()
 	_update_popup_visibility()
 	_apply_micro_feedback(
@@ -1145,14 +1164,31 @@ func _compact_panel_inventory(summary: String) -> String:
 	if source.is_empty():
 		return _t("meta.common.none")
 	var parts := source.split(", ", false)
-	if parts.size() <= 3:
-		return source
-	var preview := ""
-	for part_index in range(3):
-		if part_index > 0:
-			preview += ", "
-		preview += String(parts[part_index])
-	return "%s, +%d" % [preview, parts.size() - 3]
+	var preview_parts: Array[String] = []
+	var preview_count := mini(INFO_PANEL_PREVIEW_ITEMS, parts.size())
+	for part_index in range(preview_count):
+		preview_parts.append(_trim_info_panel_entry(String(parts[part_index]).strip_edges()))
+	var preview := " · ".join(preview_parts)
+	if parts.size() <= preview_count:
+		return preview
+	return "%s\n%s" % [
+		preview,
+		_t("meta.shop.inventory_more", {"value": parts.size() - preview_count})
+	]
+
+
+func _trim_info_panel_entry(entry: String) -> String:
+	var text := entry.strip_edges()
+	if text.length() <= INFO_PANEL_ENTRY_MAX_LENGTH:
+		return text
+	return "%s..." % text.substr(0, maxi(0, INFO_PANEL_ENTRY_MAX_LENGTH - 3)).strip_edges()
+
+
+func _compact_panel_line(text: String, max_length: int) -> String:
+	var compact := text.replace("\n", "  |  ").strip_edges()
+	if compact.length() <= max_length:
+		return compact
+	return "%s..." % compact.substr(0, maxi(0, max_length - 3)).strip_edges()
 
 
 func _build_panel_tooltip(summary: String, tooltip: String) -> String:
@@ -1214,6 +1250,13 @@ func _sync_scroll_content_widths() -> void:
 	_sync_scroll_content_width(seed_scroll, seed_list)
 	_sync_scroll_content_width(sell_scroll, sell_list)
 	_sync_scroll_content_width(upgrade_scroll, upgrade_list)
+	_sync_customer_request_width()
+
+
+func _sync_customer_request_width() -> void:
+	if request_scroll == null or request_body_box == null:
+		return
+	_sync_scroll_content_width(request_scroll, request_body_box)
 
 
 func _sync_scroll_content_width(scroll: ScrollContainer, container: VBoxContainer) -> void:
@@ -1247,6 +1290,21 @@ func _build_prompt_text() -> String:
 				_t("meta.shop.leave")
 			]
 	return _t("meta.shop.world_prompt_idle")
+
+
+func _compact_prompt_text(text: String) -> String:
+	var source := text.strip_edges()
+	if source.is_empty():
+		return ""
+	var compact_lines: Array[String] = []
+	for line_variant in source.split("\n", false):
+		var line := String(line_variant).strip_edges()
+		if line.is_empty():
+			continue
+		compact_lines.append(_compact_panel_line(line, PROMPT_LINE_MAX_LENGTH))
+		if compact_lines.size() >= PROMPT_MAX_LINES:
+			break
+	return "\n".join(compact_lines)
 
 
 func _refresh_zone_visuals() -> void:
@@ -1321,6 +1379,8 @@ func _update_popup_visibility() -> void:
 
 func _sync_visibility_state() -> void:
 	var ui_visible := visible
+	if hud_layer != null:
+		hud_layer.visible = ui_visible
 	if shop_player != null:
 		shop_player.set_camera_active(ui_visible)
 		shop_player.set_controls_enabled(ui_visible and _active_popup_id.is_empty())

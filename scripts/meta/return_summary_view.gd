@@ -6,15 +6,19 @@ signal menu_requested
 
 @onready var background: ColorRect = $Background
 @onready var content_panel: Panel = $ContentPanel
-@onready var title_label: Label = $ContentPanel/Margin/VBox/Title
-@onready var subtitle_label: Label = $ContentPanel/Margin/VBox/Subtitle
-@onready var outcome_label: Label = $ContentPanel/Margin/VBox/OutcomeLabel
-@onready var run_label: Label = $ContentPanel/Margin/VBox/RunLabel
-@onready var rewards_label: Label = $ContentPanel/Margin/VBox/RewardsLabel
-@onready var unlocks_label: Label = $ContentPanel/Margin/VBox/UnlocksLabel
-@onready var progress_label: Label = $ContentPanel/Margin/VBox/ProgressLabel
-@onready var penalty_label: Label = $ContentPanel/Margin/VBox/PenaltyLabel
-@onready var inventory_label: Label = $ContentPanel/Margin/VBox/InventoryLabel
+@onready var header_box: VBoxContainer = $ContentPanel/Margin/VBox/Header
+@onready var title_label: Label = $ContentPanel/Margin/VBox/Header/Title
+@onready var subtitle_label: Label = $ContentPanel/Margin/VBox/Header/Subtitle
+@onready var input_hint_label: Label = $ContentPanel/Margin/VBox/Header/InputHint
+@onready var summary_scroll: ScrollContainer = $ContentPanel/Margin/VBox/Scroll
+@onready var outcome_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/OutcomeLabel
+@onready var run_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/RunLabel
+@onready var rewards_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/RewardsLabel
+@onready var unlocks_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/UnlocksLabel
+@onready var progress_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/ProgressLabel
+@onready var penalty_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/PenaltyLabel
+@onready var inventory_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/InventoryLabel
+@onready var actions_box: HBoxContainer = $ContentPanel/Margin/VBox/Actions
 @onready var continue_button: Button = $ContentPanel/Margin/VBox/Actions/ContinueButton
 @onready var menu_button: Button = $ContentPanel/Margin/VBox/Actions/MenuButton
 
@@ -29,24 +33,12 @@ func _ready() -> void:
 	visibility_changed.connect(_on_visibility_changed)
 	_bind_button_feedback(continue_button, true)
 	_bind_button_feedback(menu_button, false)
-	continue_button.pressed.connect(func() -> void:
-		continue_requested.emit()
-	)
-	menu_button.pressed.connect(func() -> void:
-		menu_requested.emit()
-	)
+	continue_button.pressed.connect(_emit_continue_requested)
+	menu_button.pressed.connect(_emit_menu_requested)
 	_summary_rows = [
-		title_label,
-		subtitle_label,
-		outcome_label,
-		run_label,
-		rewards_label,
-		unlocks_label,
-		progress_label,
-		penalty_label,
-		inventory_label,
-		continue_button,
-		menu_button
+		header_box,
+		summary_scroll,
+		actions_box
 	]
 	if Localization != null and Localization.has_signal("language_changed"):
 		Localization.language_changed.connect(_on_language_changed)
@@ -73,8 +65,11 @@ func _apply_summary() -> void:
 	var next_day := int(_summary.get("next_day", int(_summary.get("current_day", 1)) + 1))
 	title_label.text = _t("meta.summary.title")
 	subtitle_label.text = String(_summary.get("arrival_text", _t("meta.summary.subtitle")))
+	input_hint_label.text = _t("meta.summary.input_hint", {"day": next_day})
 	continue_button.text = _t("meta.summary.continue", {"day": next_day})
+	continue_button.tooltip_text = _t("meta.summary.input_hint", {"day": next_day})
 	menu_button.text = _t("meta.hub.menu")
+	menu_button.tooltip_text = _t("meta.hub.menu")
 	var exit_reason := String(_summary.get("exit_reason", "completed"))
 	var outcome_key := "meta.summary.outcome_completed"
 	if exit_reason == "abandoned":
@@ -104,6 +99,8 @@ func _apply_summary() -> void:
 		"value": String(_summary.get("tomorrow_text", _t("meta.summary.tomorrow_generic"))),
 		"inventory": String(_summary.get("inventory_summary", "-"))
 	})
+	if summary_scroll != null:
+		summary_scroll.scroll_vertical = 0
 
 
 func _on_language_changed(_language_code: String) -> void:
@@ -119,6 +116,15 @@ func _on_visibility_changed() -> void:
 	else:
 		_reset_presentation_state()
 	_animate_in_on_visible = false
+	call_deferred("_focus_continue_button")
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if event.is_action_pressed("ui_accept") or event.is_action_pressed("day_interact"):
+		_emit_continue_requested()
+		get_viewport().set_input_as_handled()
 
 
 func _play_enter_animation() -> void:
@@ -153,6 +159,7 @@ func _play_enter_animation() -> void:
 		_enter_tween.parallel().tween_property(row, "scale", Vector2.ONE, 0.20).set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		_enter_tween.parallel().tween_property(row, "modulate:a", 1.0, 0.18).set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_play_summary_feedback()
+	call_deferred("_focus_continue_button")
 
 
 func _reset_presentation_state() -> void:
@@ -183,6 +190,24 @@ func _bind_button_feedback(button: Button, confirm: bool) -> void:
 		else:
 			UISfx.play_click()
 	)
+
+
+func _emit_continue_requested() -> void:
+	if not visible:
+		return
+	continue_requested.emit()
+
+
+func _emit_menu_requested() -> void:
+	if not visible:
+		return
+	menu_requested.emit()
+
+
+func _focus_continue_button() -> void:
+	if continue_button == null or not visible:
+		return
+	continue_button.grab_focus()
 
 
 func _play_summary_feedback() -> void:

@@ -41,7 +41,12 @@ grow_vertical = 2
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 22
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 22
@@ -49,6 +54,8 @@ theme_override_constants/margin_bottom = 20
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox"]
@@ -68,10 +75,16 @@ theme_type_variation = &"BodyMutedLabel"
 visible = false
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel/Margin/VBox/GuidePanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 16
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 16
@@ -79,6 +92,8 @@ theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin/VBox/GuidePanel/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 6
 
 [node name="GuideTitle" type="Label" parent="ContentPanel/Margin/VBox/GuidePanel/Margin/VBox"]
@@ -95,6 +110,7 @@ theme_type_variation = &"BodyMutedLabel"
 
 [node name="Stats" type="VBoxContainer" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
 [node name="DayLabel" type="Label" parent="ContentPanel/Margin/VBox/Stats"]
@@ -168,6 +184,7 @@ theme_type_variation = &"BodyMutedLabel"
 [node name="Actions" type="GridContainer" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 0
 columns = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 12

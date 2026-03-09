@@ -35,7 +35,12 @@ grow_vertical = 2
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="ContentPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 22
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 22
@@ -43,6 +48,8 @@ theme_override_constants/margin_bottom = 20
 
 [node name="VBox" type="VBoxContainer" parent="ContentPanel/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="ContentPanel/Margin/VBox"]
@@ -83,11 +90,13 @@ text = "Selected tool: Till"
 
 [node name="ToolButtons" type="FlowContainer" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 10
 
 [node name="PlotGrid" type="GridContainer" parent="ContentPanel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 columns = 3
 theme_override_constants/h_separation = 10
@@ -96,4 +105,5 @@ theme_override_constants/v_separation = 10
 [node name="BackButton" type="Button" parent="ContentPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Back"

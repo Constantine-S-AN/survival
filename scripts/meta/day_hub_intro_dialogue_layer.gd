@@ -203,17 +203,10 @@ func _maybe_show_restaurant_dialogue() -> void:
 
 
 func _maybe_show_return_summary_dialogue() -> void:
-	if not _should_show_return_summary_dialogue():
-		return
-	var summary := _get_pending_return_summary()
-	var seen_dialogue_ids := _get_seen_dialogue_ids()
-	var dialogue_id := _select_return_summary_dialogue_id(summary, seen_dialogue_ids)
-	if dialogue_id.is_empty():
-		return
-	var dialogue_title := _get_return_summary_dialogue_title(dialogue_id)
-	if dialogue_title.is_empty():
-		return
-	_show_dialogue(RETURN_SUMMARY_DIALOGUE_PATH, dialogue_title, dialogue_id)
+	# Return summary already carries the "what mattered tonight / what tomorrow opens"
+	# guidance inline. Reusing the dialogue balloon here hides the continue action on
+	# smaller layouts and makes the return flow harder to exit.
+	return
 
 
 func _should_show_day_hub_intro_dialogue() -> bool:

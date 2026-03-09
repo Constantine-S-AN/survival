@@ -3816,6 +3816,8 @@ func _toggle_daily_orders_board() -> void:
 
 func _sync_visibility_state() -> void:
 	var ui_visible := visible
+	if hud_layer != null:
+		hud_layer.visible = ui_visible
 	if hud != null:
 		hud.visible = ui_visible
 		if hud.has_method("set_interaction_locked"):

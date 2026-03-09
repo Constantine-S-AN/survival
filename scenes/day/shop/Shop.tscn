@@ -63,16 +63,22 @@ zoom = Vector2(1.08, 1.08)
 layer = 5
 
 [node name="InfoPanel" type="Panel" parent="HUDLayer"]
-custom_minimum_size = Vector2(432, 0)
+clip_contents = true
+custom_minimum_size = Vector2(392, 0)
 layout_mode = 1
 offset_left = 24.0
 offset_top = 20.0
-offset_right = 456.0
-offset_bottom = 252.0
+offset_right = 416.0
+offset_bottom = 214.0
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="HUDLayer/InfoPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 16
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 16
@@ -80,7 +86,9 @@ theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="HUDLayer/InfoPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 6
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="HUDLayer/InfoPanel/Margin/VBox"]
 layout_mode = 2
@@ -92,12 +100,15 @@ text = "Supply House"
 layout_mode = 2
 size_flags_horizontal = 3
 autowrap_mode = 3
+max_lines_visible = 2
+theme_type_variation = &"BodyMutedLabel"
 text = "Day 1 · Morning · Gold 0 · Actions 0/0"
 
 [node name="Inventory" type="Label" parent="HUDLayer/InfoPanel/Margin/VBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 autowrap_mode = 3
+max_lines_visible = 2
 theme_type_variation = &"BodyMutedLabel"
 text = "Inventory: None"
 
@@ -130,7 +141,12 @@ grow_vertical = 0
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="HUDLayer/StatusPanel"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
@@ -144,35 +160,44 @@ theme_type_variation = &"BodyMutedLabel"
 text = ""
 
 [node name="PromptPanel" type="Panel" parent="HUDLayer"]
-custom_minimum_size = Vector2(620, 0)
+clip_contents = true
+custom_minimum_size = Vector2(840, 0)
 layout_mode = 1
 anchors_preset = 10
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -310.0
+offset_left = -420.0
 offset_top = -104.0
-offset_right = 310.0
-offset_bottom = -18.0
+offset_right = 420.0
+offset_bottom = -20.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_type_variation = &"CardPanel"
 
 [node name="Margin" type="MarginContainer" parent="HUDLayer/PromptPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 18
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
 theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 18
+theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="HUDLayer/PromptPanel/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 4
 
 [node name="Hint" type="Label" parent="HUDLayer/PromptPanel/Margin/VBox"]
 layout_mode = 2
 size_flags_horizontal = 3
+max_lines_visible = 1
 theme_type_variation = &"BodyMutedLabel"
 text = "WASD / Arrows move"
 
@@ -180,6 +205,7 @@ text = "WASD / Arrows move"
 layout_mode = 2
 size_flags_horizontal = 3
 autowrap_mode = 3
+max_lines_visible = 2
 text = "Walk to a station and press E."
 
 [node name="PopupShade" type="ColorRect" parent="HUDLayer"]
@@ -220,7 +246,12 @@ grow_vertical = 2
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/MerchantPopup"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 18
@@ -228,6 +259,8 @@ theme_override_constants/margin_bottom = 16
 
 [node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox"]
@@ -261,6 +294,7 @@ text = ""
 [node name="Columns" type="HBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox"]
 custom_minimum_size = Vector2(0, 324)
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 12
 
@@ -272,7 +306,12 @@ size_flags_vertical = 3
 theme_type_variation = &"CardPanel"
 
 [node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SeedCard"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
@@ -280,6 +319,8 @@ theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SeedCard/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SeedCard/Margin/VBox"]
@@ -296,6 +337,7 @@ text = ""
 [node name="Scroll" type="ScrollContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SeedCard/Margin/VBox"]
 custom_minimum_size = Vector2(0, 236)
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
@@ -312,7 +354,12 @@ size_flags_vertical = 3
 theme_type_variation = &"CardPanel"
 
 [node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SellCard"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
@@ -320,6 +367,8 @@ theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SellCard/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SellCard/Margin/VBox"]
@@ -336,6 +385,7 @@ text = ""
 [node name="Scroll" type="ScrollContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/SellCard/Margin/VBox"]
 custom_minimum_size = Vector2(0, 236)
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
@@ -352,7 +402,12 @@ size_flags_vertical = 3
 theme_type_variation = &"CardPanel"
 
 [node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/UpgradeCard"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
@@ -360,6 +415,8 @@ theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/UpgradeCard/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/UpgradeCard/Margin/VBox"]
@@ -376,6 +433,7 @@ text = ""
 [node name="Scroll" type="ScrollContainer" parent="HUDLayer/PopupHost/MerchantPopup/Margin/VBox/Columns/UpgradeCard/Margin/VBox"]
 custom_minimum_size = Vector2(0, 236)
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
@@ -392,23 +450,28 @@ text = "Close"
 
 [node name="CustomerPopup" type="Panel" parent="HUDLayer/PopupHost"]
 visible = false
-custom_minimum_size = Vector2(520, 0)
+custom_minimum_size = Vector2(620, 0)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -260.0
-offset_top = -210.0
-offset_right = 260.0
-offset_bottom = 210.0
+offset_left = -310.0
+offset_top = -250.0
+offset_right = 310.0
+offset_bottom = 250.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"OverlayPanel"
 
 [node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/CustomerPopup"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 18
@@ -416,24 +479,37 @@ theme_override_constants/margin_bottom = 16
 
 [node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/CustomerPopup/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"HeadingLabel"
 text = "Town Regular"
 
 [node name="Dialogue" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
+max_lines_visible = 4
 text = ""
 
 [node name="RequestCard" type="Panel" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox"]
+custom_minimum_size = Vector2(0, 248)
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_type_variation = &"CardPanel"
 
 [node name="Margin" type="MarginContainer" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard"]
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
@@ -441,26 +517,44 @@ theme_override_constants/margin_bottom = 14
 
 [node name="VBox" type="VBoxContainer" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="RequestTitle" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"HeadingLabel"
 text = "No Request Yet"
 
-[node name="RequestBody" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox"]
+[node name="RequestScroll" type="ScrollContainer" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox"]
+custom_minimum_size = Vector2(0, 118)
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="BodyVBox" type="VBoxContainer" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox/RequestScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="RequestBody" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox/RequestScroll/BodyVBox"]
+layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 text = ""
 
 [node name="Reward" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
 text = ""
 
 [node name="Status" type="Label" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox/RequestCard/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
 text = ""
@@ -468,5 +562,6 @@ text = ""
 [node name="CloseButton" type="Button" parent="HUDLayer/PopupHost/CustomerPopup/Margin/VBox"]
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
+size_flags_horizontal = 8
 theme_type_variation = &"SecondaryButton"
 text = "Close"

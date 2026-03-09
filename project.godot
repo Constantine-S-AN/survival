@@ -29,7 +29,7 @@ TelegraphBus="*res://scripts/core/telegraph_bus.gd"
 ProfileStore="*res://scripts/core/profile_store.gd"
 Localization="*res://scripts/core/localization.gd"
 DialogueManager="*res://addons/dialogue_manager/dialogue_manager.gd"
-QuestSystem="*res://addons/quest_system/quest_manager.gd"
+QuestSystem="*uid://b77kvbliweux5"
 DailyOrders="*res://scripts/meta/daily_orders.gd"
 
 [display]

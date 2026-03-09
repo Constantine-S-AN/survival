@@ -43,8 +43,11 @@ const PATRON_COLORS := [
 	Color(0.87, 0.54, 0.63, 1.0)
 ]
 const PROMPT_REVEAL_SECONDS := 0.14
+const PROMPT_LINE_MAX_LENGTH := 58
+const PROMPT_MAX_LINES := 2
 
 @onready var world_root: Node2D = $WorldRoot
+@onready var hud_layer: CanvasLayer = $HUDLayer
 @onready var backdrop: Node2D = $WorldRoot/Backdrop
 @onready var environment: Node2D = $WorldRoot/Environment
 @onready var zones_root: Node2D = $WorldRoot/Zones
@@ -166,7 +169,7 @@ func _apply_ui_font_overrides() -> void:
 	info_stats_label.add_theme_font_size_override("font_size", 13)
 	info_bridge_label.add_theme_font_size_override("font_size", 13)
 	status_label.add_theme_font_size_override("font_size", 13)
-	prompt_label.add_theme_font_size_override("font_size", 14)
+	prompt_label.add_theme_font_size_override("font_size", 15)
 	hint_label.add_theme_font_size_override("font_size", 12)
 
 
@@ -864,7 +867,9 @@ func _apply_view_model() -> void:
 	status_label.text = String(_view_model.get("status_text", ""))
 	status_panel.visible = not status_label.text.strip_edges().is_empty()
 	hint_label.text = _t("meta.restaurant.world_move_hint")
-	prompt_label.text = _build_prompt_text()
+	var prompt_text := _build_prompt_text()
+	prompt_label.text = _compact_prompt_text(prompt_text)
+	prompt_label.tooltip_text = prompt_text
 	prompt_panel.visible = _should_show_prompt_panel()
 	hint_label.visible = prompt_panel.visible and prompt_label.text.strip_edges().is_empty()
 
@@ -998,6 +1003,7 @@ func _rebuild_selected_menu(target: VBoxContainer) -> void:
 	if selected_menu_entries.is_empty():
 		var empty_label := Label.new()
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		empty_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		empty_label.theme_type_variation = &"BodyMutedLabel"
 		empty_label.text = _t("meta.restaurant.menu_empty")
 		target.add_child(empty_label)
@@ -1007,6 +1013,7 @@ func _rebuild_selected_menu(target: VBoxContainer) -> void:
 			continue
 		var entry_label := Label.new()
 		entry_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		entry_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		entry_label.theme_type_variation = &"BodyMutedLabel"
 		entry_label.text = String((entry_variant as Dictionary).get("label", ""))
 		target.add_child(entry_label)
@@ -1085,6 +1092,21 @@ func _build_prompt_text() -> String:
 				_t("meta.restaurant.leave")
 			]
 	return _t("meta.restaurant.world_prompt_idle")
+
+
+func _compact_prompt_text(text: String) -> String:
+	var source := text.strip_edges()
+	if source.is_empty():
+		return ""
+	var compact_lines: Array[String] = []
+	for line_variant in source.split("\n", false):
+		var line := String(line_variant).strip_edges()
+		if line.is_empty():
+			continue
+		compact_lines.append(_compact_panel_line(line, PROMPT_LINE_MAX_LENGTH))
+		if compact_lines.size() >= PROMPT_MAX_LINES:
+			break
+	return "\n".join(compact_lines)
 
 
 func _refresh_zone_visuals() -> void:
@@ -1172,6 +1194,8 @@ func _update_popup_visibility() -> void:
 
 func _sync_visibility_state() -> void:
 	var ui_visible := visible
+	if hud_layer != null:
+		hud_layer.visible = ui_visible
 	if restaurant_player != null:
 		restaurant_player.set_camera_active(ui_visible)
 		restaurant_player.set_controls_enabled(ui_visible and _active_popup_id.is_empty())
