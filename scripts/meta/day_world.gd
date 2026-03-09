@@ -544,19 +544,74 @@ func _ensure_world_layers() -> void:
 func _build_world_tileset() -> TileSet:
 	if _world_tile_set != null:
 		return _world_tile_set
-	_world_tile_set = StardewLikeAssets.build_tileset([
-		{"path": CAINOS_GRASS_SHEET_PATH, "cell": Vector2i(0, 0), "cell_size": 16},
-		{"path": CAINOS_GRASS_SHEET_PATH, "cell": Vector2i(4, 1), "cell_size": 16},
-		{"path": HARVEST_TILE_SHEET_PATH, "cell": Vector2i(17, 1), "cell_size": 16},
-		{"path": CAINOS_STONE_SHEET_PATH, "cell": Vector2i(0, 0), "cell_size": 16},
-		{"path": HARVEST_TILE_SHEET_PATH, "cell": Vector2i(15, 4), "cell_size": 16},
-		{"sprite_name": "water"},
-		{"sprite_name": "wood"},
-		{"path": CAINOS_GRASS_SHEET_PATH, "cell": Vector2i(7, 3), "cell_size": 16},
-		{"path": CAINOS_GRASS_SHEET_PATH, "cell": Vector2i(11, 4), "cell_size": 16},
-		{"path": HARVEST_TILE_SHEET_PATH, "cell": Vector2i(14, 0), "cell_size": 16},
-		{"path": CAINOS_STONE_SHEET_PATH, "cell": Vector2i(1, 1), "cell_size": 16}
-	], TILE_SIZE)
+	var atlas_image := Image.create(TILE_SIZE * 11, TILE_SIZE, false, Image.FORMAT_RGBA8)
+	atlas_image.fill(Color(0.0, 0.0, 0.0, 0.0))
+	_draw_grass_tile(
+		atlas_image,
+		TILE_GRASS.x,
+		Color(0.46, 0.53, 0.19, 1.0),
+		Color(0.58, 0.66, 0.29, 1.0),
+		Color(0.35, 0.41, 0.14, 1.0)
+	)
+	_draw_grass_tile(
+		atlas_image,
+		TILE_MEADOW.x,
+		Color(0.50, 0.57, 0.23, 1.0),
+		Color(0.62, 0.70, 0.34, 1.0),
+		Color(0.39, 0.45, 0.18, 1.0)
+	)
+	_draw_path_tile(
+		atlas_image,
+		TILE_PATH.x,
+		Color(0.70, 0.49, 0.31, 1.0),
+		Color(0.82, 0.62, 0.42, 1.0),
+		Color(0.53, 0.36, 0.23, 1.0)
+	)
+	_draw_stone_tile(
+		atlas_image,
+		TILE_STONE.x,
+		Color(0.59, 0.56, 0.48, 1.0),
+		Color(0.72, 0.69, 0.61, 1.0),
+		Color(0.43, 0.40, 0.34, 1.0)
+	)
+	_draw_soil_tile(
+		atlas_image,
+		TILE_SOIL.x,
+		Color(0.54, 0.34, 0.22, 1.0),
+		Color(0.66, 0.45, 0.31, 1.0),
+		Color(0.37, 0.22, 0.14, 1.0)
+	)
+	_draw_water_tile(
+		atlas_image,
+		TILE_WATER.x,
+		Color(0.36, 0.59, 0.75, 1.0),
+		Color(0.68, 0.86, 0.94, 1.0),
+		Color(0.23, 0.41, 0.56, 1.0)
+	)
+	_draw_dock_tile(
+		atlas_image,
+		TILE_DOCK.x,
+		Color(0.52, 0.35, 0.21, 1.0),
+		Color(0.67, 0.49, 0.31, 1.0),
+		Color(0.34, 0.22, 0.14, 1.0)
+	)
+	_draw_grass_tile(
+		atlas_image,
+		TILE_DARK_GRASS.x,
+		Color(0.41, 0.47, 0.16, 1.0),
+		Color(0.51, 0.58, 0.24, 1.0),
+		Color(0.30, 0.35, 0.11, 1.0)
+	)
+	_draw_flower_tile(atlas_image, TILE_FLOWERS.x)
+	_draw_path_tile(
+		atlas_image,
+		TILE_SAND.x,
+		Color(0.77, 0.66, 0.45, 1.0),
+		Color(0.88, 0.78, 0.58, 1.0),
+		Color(0.60, 0.48, 0.31, 1.0)
+	)
+	_draw_foam_tile(atlas_image, TILE_FOAM.x)
+	_world_tile_set = StardewLikeAssets.build_tileset_from_atlas_image(atlas_image, 11, TILE_SIZE)
 	return _world_tile_set
 
 

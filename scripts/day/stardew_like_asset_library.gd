@@ -166,13 +166,17 @@ static func build_tileset(tile_specs: Array, tile_size: int) -> TileSet:
 		if tile_image == null:
 			continue
 		atlas_image.blit_rect(tile_image, Rect2i(Vector2i.ZERO, tile_image.get_size()), Vector2i(tile_index * tile_size, 0))
+	return build_tileset_from_atlas_image(atlas_image, maxi(1, tile_specs.size()), tile_size)
+
+
+static func build_tileset_from_atlas_image(atlas_image: Image, tile_count: int, tile_size: int) -> TileSet:
 	var atlas_texture := ImageTexture.create_from_image(atlas_image)
 	var tile_set := TileSet.new()
 	tile_set.tile_size = Vector2i(tile_size, tile_size)
 	var source := TileSetAtlasSource.new()
 	source.texture = atlas_texture
 	source.texture_region_size = Vector2i(tile_size, tile_size)
-	for tile_index in range(maxi(1, tile_specs.size())):
+	for tile_index in range(maxi(1, tile_count)):
 		source.create_tile(Vector2i(tile_index, 0))
 	tile_set.add_source(source, 0)
 	return tile_set

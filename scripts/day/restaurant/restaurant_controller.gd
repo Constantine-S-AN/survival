@@ -309,15 +309,38 @@ func _ensure_world_layers() -> void:
 func _build_world_tileset() -> TileSet:
 	if _world_tile_set != null:
 		return _world_tile_set
-	_world_tile_set = StardewLikeAssets.build_tileset([
-		{"sprite_name": "wood"},
-		{"sprite_name": "crate_base"},
-		{"path": CAINOS_STONE_SHEET_PATH, "cell": Vector2i(0, 0), "cell_size": 16},
-		{"path": CAINOS_STONE_SHEET_PATH, "cell": Vector2i(1, 0), "cell_size": 16},
-		{"sprite_name": "spr_deco_rug_01"},
-		{"path": CAINOS_STONE_SHEET_PATH, "cell": Vector2i(2, 0), "cell_size": 16},
-		{"path": HARVEST_TILE_SHEET_PATH, "cell": Vector2i(15, 4), "cell_size": 16}
-	], TILE_SIZE)
+	var atlas_image := Image.create(TILE_SIZE * 7, TILE_SIZE, false, Image.FORMAT_RGBA8)
+	atlas_image.fill(Color(0.0, 0.0, 0.0, 0.0))
+	_draw_wood_tile(
+		atlas_image,
+		TILE_WOOD_LIGHT.x,
+		Color(0.58, 0.39, 0.23, 1.0),
+		Color(0.70, 0.49, 0.31, 1.0),
+		Color(0.39, 0.25, 0.16, 1.0)
+	)
+	_draw_wood_tile(
+		atlas_image,
+		TILE_WOOD_DARK.x,
+		Color(0.50, 0.31, 0.18, 1.0),
+		Color(0.60, 0.41, 0.24, 1.0),
+		Color(0.33, 0.20, 0.12, 1.0)
+	)
+	_draw_checker_tile(
+		atlas_image,
+		TILE_CHECKER_LIGHT.x,
+		Color(0.77, 0.72, 0.61, 1.0),
+		Color(0.65, 0.59, 0.50, 1.0)
+	)
+	_draw_checker_tile(
+		atlas_image,
+		TILE_CHECKER_DARK.x,
+		Color(0.71, 0.66, 0.56, 1.0),
+		Color(0.58, 0.52, 0.45, 1.0)
+	)
+	_draw_rug_tile(atlas_image, TILE_RUG.x)
+	_draw_wall_tile(atlas_image, TILE_WALL.x)
+	_draw_mat_tile(atlas_image, TILE_MAT.x)
+	_world_tile_set = StardewLikeAssets.build_tileset_from_atlas_image(atlas_image, 7, TILE_SIZE)
 	return _world_tile_set
 
 
