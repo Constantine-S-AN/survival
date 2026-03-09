@@ -63,7 +63,9 @@ const FARM_PLOT_ORIGIN := Vector2(214.0, 628.0)
 const FARM_PLOT_STEP := Vector2(104.0, 84.0)
 const FARM_PLOT_SIZE := Vector2(82.0, 60.0)
 const NIGHT_DOCK_POSITION := Vector2(1218.0, 818.0)
-const NIGHT_TRANSITION_SECONDS := 0.55
+const NIGHT_TRANSITION_SECONDS := 0.68
+const NIGHT_TRANSITION_CAMERA_ZOOM_MULTIPLIER := 1.14
+const NIGHT_TRANSITION_CAMERA_OFFSET := Vector2(68.0, -32.0)
 const HOTBAR_HAND_KEY := "hand::"
 const HOTBAR_DIRECT_ACTIONS := [
 	"day_hotbar_slot_1",
@@ -133,8 +135,11 @@ var _night_popup_body_label: Label = null
 var _night_popup_confirm_button: Button = null
 var _night_popup_cancel_button: Button = null
 var _transition_shade: ColorRect = null
+var _transition_box: VBoxContainer = null
 var _transition_title_label: Label = null
 var _transition_body_label: Label = null
+var _transition_meta_label: Label = null
+var _night_popup_meta_label: Label = null
 var _night_popup_open: bool = false
 var _transition_active: bool = false
 var _was_visible: bool = false
@@ -148,6 +153,10 @@ var _feedback_root: Node2D = null
 var _feedback_items: Array[Dictionary] = []
 var _prompt_reveal_elapsed: float = 0.0
 var _prompt_is_revealed: bool = false
+var _departure_transition_progress: float = 0.0
+var _transition_tween: Tween = null
+var _camera_default_zoom: Vector2 = Vector2(0.98, 0.98)
+var _camera_default_offset: Vector2 = Vector2.ZERO
 var _sunnyside_farm_texture: Texture2D = null
 var _sunnyside_restaurant_texture: Texture2D = null
 var _sunnyside_shop_texture: Texture2D = null
@@ -158,6 +167,7 @@ func _ready() -> void:
 	visible = false
 	_build_world_if_needed()
 	_build_overlay_ui()
+	_capture_departure_camera_defaults()
 	_register_zones()
 	_rebuild_farm_plots()
 	_rebuild_pickups()
@@ -190,6 +200,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_night_popup()
 			get_viewport().set_input_as_handled()
 		return
+	if _transition_active:
+		if event.is_pressed():
+			get_viewport().set_input_as_handled()
+		return
 	if daily_orders_board != null and daily_orders_board.visible:
 		return
 	if _overlay_blocked:
@@ -219,6 +233,7 @@ func _process(delta: float) -> void:
 		_prompt_reveal_elapsed = 0.0
 		_prompt_is_revealed = false
 	_update_ambient_motion()
+	_update_departure_visual_pulse()
 	_update_guide_glows()
 	_update_feedback_effects(delta)
 
@@ -427,7 +442,7 @@ func _build_overlay_ui() -> void:
 	_transition_shade = ColorRect.new()
 	_transition_shade.name = "NightTransitionShade"
 	_transition_shade.visible = false
-	_transition_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_transition_shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	_transition_shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_transition_shade.color = Color(0.04, 0.07, 0.12, 0.0)
 	hud_layer.add_child(_transition_shade)
@@ -441,26 +456,36 @@ func _build_overlay_ui() -> void:
 	transition_margin.add_theme_constant_override("margin_bottom", 24)
 	_transition_shade.add_child(transition_margin)
 
-	var transition_box := VBoxContainer.new()
-	transition_box.name = "TransitionBox"
-	transition_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	transition_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	transition_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	transition_box.add_theme_constant_override("separation", 10)
-	transition_margin.add_child(transition_box)
+	_transition_box = VBoxContainer.new()
+	_transition_box.name = "TransitionBox"
+	_transition_box.visible = false
+	_transition_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	_transition_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_transition_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_transition_box.add_theme_constant_override("separation", 12)
+	transition_margin.add_child(_transition_box)
 
 	_transition_title_label = Label.new()
 	_transition_title_label.theme_type_variation = &"HeadingLabel"
 	_transition_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_transition_title_label.text = _t("meta.world.night_transition_title")
-	transition_box.add_child(_transition_title_label)
+	_transition_box.add_child(_transition_title_label)
 
 	_transition_body_label = Label.new()
+	_transition_body_label.custom_minimum_size = Vector2(520.0, 0.0)
 	_transition_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_transition_body_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_transition_body_label.theme_type_variation = &"BodyMutedLabel"
 	_transition_body_label.text = _t("meta.world.night_transition_body")
-	transition_box.add_child(_transition_body_label)
+	_transition_box.add_child(_transition_body_label)
+
+	_transition_meta_label = Label.new()
+	_transition_meta_label.custom_minimum_size = Vector2(520.0, 0.0)
+	_transition_meta_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_transition_meta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_transition_meta_label.theme_type_variation = &"BodyMutedLabel"
+	_transition_meta_label.add_theme_font_size_override("font_size", 13)
+	_transition_box.add_child(_transition_meta_label)
 
 	_night_popup = Panel.new()
 	_night_popup.name = "NightDeparturePopup"
@@ -491,6 +516,12 @@ func _build_overlay_ui() -> void:
 	_night_popup_body_label = Label.new()
 	_night_popup_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	popup_vbox.add_child(_night_popup_body_label)
+
+	_night_popup_meta_label = Label.new()
+	_night_popup_meta_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_night_popup_meta_label.theme_type_variation = &"BodyMutedLabel"
+	_night_popup_meta_label.add_theme_font_size_override("font_size", 13)
+	popup_vbox.add_child(_night_popup_meta_label)
 
 	var button_row := HBoxContainer.new()
 	button_row.name = "Buttons"
@@ -1162,6 +1193,7 @@ func _build_world_landmarks() -> void:
 	_add_lamp_post("BoardLamp", Vector2(1138.0, 628.0), Color(0.92, 0.80, 0.56, 1.0))
 	_add_lamp_post("DockLampWest", Vector2(1174.0, 770.0), Color(0.74, 0.88, 1.0, 1.0))
 	_add_lamp_post("DockLampEast", Vector2(1240.0, 790.0), Color(0.74, 0.88, 1.0, 1.0))
+	_add_lamp_post("DockBeaconPost", Vector2(1292.0, 708.0), Color(0.62, 0.90, 1.0, 1.0))
 	_restaurant_sign = _add_hanging_sign("RestaurantSign", Vector2(998.0, 420.0), Color(0.95, 0.68, 0.40, 1.0), Color(0.48, 0.25, 0.13, 1.0))
 	_shop_sign = _add_hanging_sign("ShopSign", Vector2(1294.0, 470.0), Color(0.96, 0.82, 0.43, 1.0), Color(0.49, 0.33, 0.18, 1.0))
 	_register_ambient_motion(_restaurant_sign, Vector2(0.0, 2.0), 1.0, 0.2, 0.05)
@@ -1176,9 +1208,18 @@ func _build_world_landmarks() -> void:
 	_dock_ready_props.append(dock_signal_flags)
 	_register_ambient_motion(dock_signal_flags, Vector2(0.0, 4.0), 1.8, 1.7)
 	_dock_ready_glows.append(_add_ellipse(_ambient_root, "DockRunwayGlow", Vector2(1208.0, 792.0), Vector2(232.0, 84.0), Color(0.54, 0.82, 1.0, 0.0), -1))
+	_dock_ready_glows.append(_add_ellipse(_ambient_root, "DockBeaconHalo", Vector2(1266.0, 720.0), Vector2(164.0, 76.0), Color(0.64, 0.90, 1.0, 0.0), -1))
+	_dock_ready_glows.append(_add_ellipse(_ambient_root, "DockRampGlow", Vector2(1168.0, 806.0), Vector2(132.0, 50.0), Color(0.68, 0.90, 1.0, 0.0), -1))
 	var dock_departure_stand := _add_a_frame_sign("DockDepartureStand", Vector2(1128.0, 778.0), Color(0.44, 0.33, 0.20, 1.0), Color(0.58, 0.84, 1.0, 1.0))
 	_dock_ready_props.append(dock_departure_stand)
 	_register_ambient_motion(dock_departure_stand, Vector2(0.0, 1.2), 0.92, 1.3)
+	var dock_manifest_table := _add_market_display("DockManifestTable", Vector2(1198.0, 734.0), [
+		Color(0.90, 0.84, 0.62, 1.0),
+		Color(0.58, 0.84, 1.0, 1.0),
+		Color(0.93, 0.66, 0.42, 1.0)
+	])
+	_dock_ready_props.append(dock_manifest_table)
+	_register_ambient_motion(dock_manifest_table, Vector2(0.0, 1.2), 0.88, 1.9)
 	_dock_gate_root = _build_dock_gate(Vector2(1178.0, 786.0))
 	_register_guide_glow("dock", Vector2(1218.0, 792.0), Vector2(228.0, 94.0), Color(0.58, 0.84, 1.0, 0.0))
 
@@ -2395,6 +2436,8 @@ func _update_night_popup_copy() -> void:
 		_night_popup_title_label.text = _t("meta.world.night_confirm_title")
 	if _night_popup_body_label != null:
 		_night_popup_body_label.text = _build_night_confirmation_text()
+	if _night_popup_meta_label != null:
+		_night_popup_meta_label.text = _build_night_confirmation_meta_text()
 	if _night_popup_confirm_button != null:
 		_night_popup_confirm_button.text = _t("meta.world.night_confirm_launch")
 		_night_popup_confirm_button.disabled = _transition_active or not bool(_view_model.get("night_ready", false))
@@ -2404,13 +2447,32 @@ func _update_night_popup_copy() -> void:
 	if _transition_title_label != null:
 		_transition_title_label.text = _t("meta.world.night_transition_title")
 	if _transition_body_label != null:
-		_transition_body_label.text = _t("meta.world.night_transition_body")
+		_transition_body_label.text = _build_night_transition_body()
+	if _transition_meta_label != null:
+		_transition_meta_label.text = _build_night_transition_meta_text()
 
 
 func _build_night_confirmation_text() -> String:
 	if bool(_view_model.get("night_ready", false)):
 		return _t("meta.world.night_confirm_ready")
 	return _build_night_cue()
+
+
+func _build_night_confirmation_meta_text() -> String:
+	return _t("meta.world.night_confirm_note", {
+		"day": int(_view_model.get("current_day", 1)),
+		"phase": _t("meta.phase.%s" % String(_view_model.get("phase", "evening")).strip_edges().to_lower())
+	})
+
+
+func _build_night_transition_body() -> String:
+	return _t("meta.world.night_transition_body")
+
+
+func _build_night_transition_meta_text() -> String:
+	return _t("meta.world.night_transition_note", {
+		"day": int(_view_model.get("current_day", 1))
+	})
 
 
 func _open_night_popup() -> void:
@@ -2433,18 +2495,26 @@ func _close_night_popup() -> void:
 func _begin_night_departure_transition() -> void:
 	if _overlay_blocked or _transition_active or not bool(_view_model.get("night_ready", false)):
 		return
+	if _transition_tween != null and is_instance_valid(_transition_tween):
+		_transition_tween.kill()
 	_night_popup_open = false
 	_transition_active = true
+	_departure_transition_progress = 0.0
+	_set_departure_transition_progress(0.0)
 	_set_transition_visible(true)
 	_sync_visibility_state()
-	var timer := get_tree().create_timer(NIGHT_TRANSITION_SECONDS)
-	timer.timeout.connect(_emit_night_departure, CONNECT_ONE_SHOT)
+	_apply_view_model()
+	_transition_tween = create_tween()
+	_transition_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_transition_tween.tween_method(_set_departure_transition_progress, 0.0, 1.0, NIGHT_TRANSITION_SECONDS)
+	_transition_tween.tween_callback(_emit_night_departure)
 
 
 func _emit_night_departure() -> void:
 	if not _transition_active:
 		return
 	_transition_active = false
+	_reset_departure_transition_visuals()
 	_set_transition_visible(false)
 	night_requested.emit()
 
@@ -2452,8 +2522,57 @@ func _emit_night_departure() -> void:
 func _set_transition_visible(active: bool) -> void:
 	if _transition_shade == null:
 		return
-	_transition_shade.visible = active and visible
-	_transition_shade.color = Color(0.04, 0.07, 0.12, 0.82 if active else 0.0)
+	var show_popup_backdrop := _night_popup_open and not active
+	_transition_shade.visible = visible and (active or show_popup_backdrop)
+	if _transition_box != null:
+		_transition_box.visible = visible and active
+	if active:
+		_transition_shade.color = Color(0.04, 0.07, 0.12, lerpf(0.0, 0.90, _departure_transition_progress))
+	elif show_popup_backdrop:
+		_transition_shade.color = Color(0.04, 0.07, 0.12, 0.28)
+	else:
+		_transition_shade.color = Color(0.04, 0.07, 0.12, 0.0)
+
+
+func _capture_departure_camera_defaults() -> void:
+	if day_player == null or day_player.camera == null:
+		return
+	_camera_default_zoom = day_player.camera.zoom
+	_camera_default_offset = day_player.camera.offset
+
+
+func _set_departure_transition_progress(progress: float) -> void:
+	_departure_transition_progress = clampf(progress, 0.0, 1.0)
+	if hud != null and hud.has_method("set_transition_progress"):
+		hud.call("set_transition_progress", _departure_transition_progress)
+	if day_player != null and day_player.camera != null:
+		day_player.camera.zoom = _camera_default_zoom.lerp(_camera_default_zoom * NIGHT_TRANSITION_CAMERA_ZOOM_MULTIPLIER, _departure_transition_progress)
+		day_player.camera.offset = _camera_default_offset.lerp(NIGHT_TRANSITION_CAMERA_OFFSET, _departure_transition_progress)
+	if _transition_title_label != null:
+		_transition_title_label.modulate = Color(1.0, 1.0, 1.0, clampf(_departure_transition_progress * 1.35, 0.0, 1.0))
+	if _transition_body_label != null:
+		_transition_body_label.modulate = Color(1.0, 1.0, 1.0, clampf((_departure_transition_progress - 0.08) / 0.92, 0.0, 1.0))
+	if _transition_meta_label != null:
+		_transition_meta_label.modulate = Color(1.0, 1.0, 1.0, clampf((_departure_transition_progress - 0.16) / 0.84, 0.0, 1.0))
+	_set_transition_visible(_transition_active)
+
+
+func _reset_departure_transition_visuals() -> void:
+	if _transition_tween != null and is_instance_valid(_transition_tween):
+		_transition_tween.kill()
+	_transition_tween = null
+	_departure_transition_progress = 0.0
+	if hud != null and hud.has_method("set_transition_progress"):
+		hud.call("set_transition_progress", 0.0)
+	if day_player != null and day_player.camera != null:
+		day_player.camera.zoom = _camera_default_zoom
+		day_player.camera.offset = _camera_default_offset
+	if _transition_title_label != null:
+		_transition_title_label.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	if _transition_body_label != null:
+		_transition_body_label.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	if _transition_meta_label != null:
+		_transition_meta_label.modulate = Color(1.0, 1.0, 1.0, 1.0)
 
 
 func _apply_phase_presentation() -> void:
@@ -2558,6 +2677,48 @@ func _apply_phase_presentation() -> void:
 	_apply_town_npc_phase_state(phase)
 	_apply_ambient_character_phase_state(phase, night_ready)
 	_apply_landmark_guide_state(phase, night_ready)
+	_update_departure_visual_pulse()
+
+
+func _update_departure_visual_pulse() -> void:
+	var phase := String(_view_model.get("phase", "morning")).strip_edges().to_lower()
+	var night_ready := bool(_view_model.get("night_ready", false))
+	var pulse := 0.5 + (0.5 * sin((_ambient_motion_time * 2.8) + 0.7))
+	var overlay_progress := _departure_transition_progress if _transition_active else 0.0
+	if _harbor_glow != null:
+		var harbor_color_variant: Variant = _get_phase_palette(phase).get("harbor", Color(0.54, 0.78, 1.0, 0.08))
+		var harbor_color: Color = harbor_color_variant if harbor_color_variant is Color else Color(0.54, 0.78, 1.0, 0.08)
+		var harbor_alpha := harbor_color.a
+		if phase == "evening":
+			harbor_alpha += 0.03
+		if night_ready:
+			harbor_alpha += 0.05 + (0.06 * pulse)
+		harbor_alpha += overlay_progress * 0.16
+		_harbor_glow.color = Color(harbor_color.r, harbor_color.g, harbor_color.b, clampf(harbor_alpha, 0.0, 0.48))
+	if _night_beacon_glow != null:
+		var beacon_alpha := 0.18 if not night_ready else 0.56 + (0.12 * pulse)
+		if phase == "afternoon" and not night_ready:
+			beacon_alpha = 0.22 + (0.05 * pulse)
+		beacon_alpha += overlay_progress * 0.18
+		_night_beacon_glow.color = Color(0.50, 0.82, 1.0, clampf(beacon_alpha, 0.0, 0.92))
+	var dock_ready_alpha := 0.18
+	var dock_ready_glow_alpha := 0.04
+	if night_ready:
+		dock_ready_alpha = 0.92 + (0.08 * pulse)
+		dock_ready_glow_alpha = 0.24 + (0.08 * pulse)
+	elif phase == "afternoon":
+		dock_ready_alpha = 0.32
+		dock_ready_glow_alpha = 0.08
+	dock_ready_alpha = clampf(dock_ready_alpha + (overlay_progress * 0.12), 0.0, 1.0)
+	dock_ready_glow_alpha = clampf(dock_ready_glow_alpha + (overlay_progress * 0.18), 0.0, 0.72)
+	for cue in _dock_ready_props:
+		if cue == null:
+			continue
+		cue.modulate = Color(1.0, 1.0, 1.0, dock_ready_alpha)
+	for glow in _dock_ready_glows:
+		if glow == null:
+			continue
+		glow.color.a = dock_ready_glow_alpha
 
 
 func _apply_town_npc_phase_state(phase: String) -> void:
@@ -2896,7 +3057,7 @@ func _build_prompt_text() -> String:
 	if daily_orders_board != null and daily_orders_board.visible:
 		return _t("meta.world.prompt_orders_open")
 	if _transition_active:
-		return "%s\n%s" % [_t("meta.world.night_transition_title"), _t("meta.world.night_transition_body")]
+		return "%s\n%s" % [_t("meta.world.night_transition_title"), _build_night_transition_body()]
 	if _night_popup_open:
 		return "%s\n%s" % [_t("meta.world.night_confirm_title"), _build_night_confirmation_text()]
 	if _overlay_blocked:
@@ -3214,7 +3375,7 @@ func _play_zone_feedback(zone_id: String, feedback_kind: String = "interact") ->
 func _activate_zone(zone_id: String) -> bool:
 	if zone_id.is_empty():
 		return false
-	if _overlay_blocked or _transition_active:
+	if _overlay_blocked or _transition_active or _night_popup_open:
 		return false
 	if _is_pickup_zone(zone_id):
 		return _activate_pickup(zone_id)
@@ -3294,7 +3455,7 @@ func _activate_pickup(zone_id: String) -> bool:
 func _toggle_daily_orders_board() -> void:
 	if daily_orders_board == null:
 		return
-	if _overlay_blocked or _transition_active:
+	if _overlay_blocked or _transition_active or _night_popup_open:
 		return
 	if daily_orders_board.visible:
 		daily_orders_board.close_board()
@@ -3308,6 +3469,19 @@ func _sync_visibility_state() -> void:
 	var ui_visible := visible
 	if hud != null:
 		hud.visible = ui_visible
+		if hud.has_method("set_interaction_locked"):
+			hud.call(
+				"set_interaction_locked",
+				ui_visible
+				and (
+					_overlay_blocked
+					or _transition_active
+					or _night_popup_open
+					or (daily_orders_board != null and daily_orders_board.visible)
+				)
+			)
+		if not _transition_active and hud.has_method("set_transition_progress"):
+			hud.call("set_transition_progress", 0.0)
 	if not ui_visible and daily_orders_board != null and daily_orders_board.visible:
 		daily_orders_board.close_board()
 	if day_player != null:
@@ -3321,8 +3495,7 @@ func _sync_visibility_state() -> void:
 		)
 	if _night_popup != null:
 		_night_popup.visible = ui_visible and _night_popup_open
-	if _transition_shade != null:
-		_transition_shade.visible = ui_visible and _transition_active
+	_set_transition_visible(_transition_active)
 	_schedule_focus_refresh()
 
 
@@ -3583,6 +3756,7 @@ func _on_visibility_changed() -> void:
 		_transition_active = false
 		_prompt_reveal_elapsed = 0.0
 		_prompt_is_revealed = false
+		_reset_departure_transition_visuals()
 		_set_transition_visible(false)
 	_sync_visibility_state()
 	_apply_view_model()

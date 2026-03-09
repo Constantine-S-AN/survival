@@ -8,6 +8,8 @@ const PHASE_ORDER := ["morning", "noon", "afternoon", "evening"]
 const HUD_FONT := preload("res://assets/fonts/google/Exo2-Variable.ttf")
 
 @onready var info_panel: Panel = $InfoPanel
+@onready var actions_column: VBoxContainer = $ActionsColumn
+@onready var bottom_left_column: VBoxContainer = $BottomLeftColumn
 @onready var title_label: Label = $InfoPanel/Margin/VBox/Title
 @onready var subtitle_label: Label = $InfoPanel/Margin/VBox/Subtitle
 @onready var clock_status_label: Label = $InfoPanel/Margin/VBox/ClockStatus
@@ -36,6 +38,8 @@ const HUD_FONT := preload("res://assets/fonts/google/Exo2-Variable.ttf")
 @onready var prompt_label: Label = $PromptPanel/Margin/VBox/Prompt
 
 var _hud_model: Dictionary = {}
+var _interaction_locked: bool = false
+var _transition_progress: float = 0.0
 
 
 func _ready() -> void:
@@ -53,6 +57,16 @@ func _ready() -> void:
 func set_hud_model(model: Dictionary) -> void:
 	_hud_model = model.duplicate(true)
 	_apply_hud_model()
+
+
+func set_interaction_locked(locked: bool) -> void:
+	_interaction_locked = locked
+	_apply_interaction_lock()
+
+
+func set_transition_progress(progress: float) -> void:
+	_transition_progress = clampf(progress, 0.0, 1.0)
+	_apply_transition_state()
 
 
 func debug_get_snapshot() -> Dictionary:
@@ -135,6 +149,8 @@ func _apply_hud_model() -> void:
 	prompt_panel.visible = prompt_visible and (has_prompt_text or not hint_label.text.strip_edges().is_empty())
 	hint_label.visible = prompt_panel.visible and not hint_label.text.strip_edges().is_empty() and not has_prompt_text
 	_apply_visual_theme(phase, night_ready)
+	_apply_interaction_lock()
+	_apply_transition_state()
 
 
 func _compact_guide_text(text: String) -> String:
@@ -403,6 +419,29 @@ func _apply_button_theme(button: Button, fill: Color, border: Color, text_color:
 	button.add_theme_color_override("font_hover_color", text_color)
 	button.add_theme_color_override("font_pressed_color", text_color)
 	button.add_theme_color_override("font_focus_color", text_color)
+
+
+func _apply_interaction_lock() -> void:
+	if orders_button != null:
+		orders_button.disabled = _interaction_locked
+	if legacy_button != null:
+		legacy_button.disabled = _interaction_locked
+
+
+func _apply_transition_state() -> void:
+	var progress := clampf(_transition_progress, 0.0, 1.0)
+	_apply_transition_to_control(info_panel, lerpf(1.0, 0.22, progress), lerpf(1.0, 0.96, progress))
+	_apply_transition_to_control(actions_column, lerpf(1.0, 0.14, progress), lerpf(1.0, 0.97, progress))
+	_apply_transition_to_control(bottom_left_column, lerpf(1.0, 0.10, progress), lerpf(1.0, 0.98, progress))
+	_apply_transition_to_control(prompt_panel, lerpf(1.0, 0.02, progress), lerpf(1.0, 0.99, progress))
+
+
+func _apply_transition_to_control(control: Control, alpha: float, scale_value: float) -> void:
+	if control == null:
+		return
+	control.pivot_offset = control.size * 0.5
+	control.scale = Vector2.ONE * scale_value
+	control.modulate = Color(1.0, 1.0, 1.0, alpha)
 
 
 func _make_hotbar_slot_style(slot: Dictionary, selected: bool) -> StyleBoxFlat:
