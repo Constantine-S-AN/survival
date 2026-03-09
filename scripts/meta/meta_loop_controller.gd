@@ -566,6 +566,7 @@ func _on_play_requested() -> void:
 	_refresh_views()
 	if not _pending_return_summary.is_empty():
 		_show_state(STATE_RETURN_SUMMARY)
+		_present_return_summary(false)
 		return
 	_daytime_shell_mode = _normalize_daytime_shell_mode(String(_resume_state.get("daytime_shell_mode", _daytime_shell_mode)))
 	_show_state(_get_resume_screen())
@@ -729,11 +730,13 @@ func _on_night_session_completed(summary: Dictionary) -> void:
 	_save_meta_progress()
 	_refresh_views()
 	_show_state(STATE_RETURN_SUMMARY)
+	_present_return_summary(true)
 
 
 func _on_return_summary_continue_requested() -> void:
 	if _current_state != STATE_RETURN_SUMMARY or _pending_return_summary.is_empty():
 		return
+	var settled_summary := _pending_return_summary.duplicate(true)
 	var previous_day: int = _day_state.current_day
 	_day_state.begin_next_day()
 	_advance_farm_for_new_day(previous_day)
@@ -746,6 +749,22 @@ func _on_return_summary_continue_requested() -> void:
 	_save_meta_progress()
 	_refresh_views()
 	_show_state(STATE_DAY_HUB)
+	_play_next_day_handoff(settled_summary)
+
+
+func _present_return_summary(animate: bool) -> void:
+	if return_summary_view != null:
+		if return_summary_view.has_method("present_summary"):
+			return_summary_view.call("present_summary", _pending_return_summary, animate)
+		elif return_summary_view.has_method("set_summary"):
+			return_summary_view.call("set_summary", _pending_return_summary)
+	if day_world != null and day_world.has_method("present_night_return"):
+		day_world.call("present_night_return", _pending_return_summary, animate)
+
+
+func _play_next_day_handoff(summary: Dictionary) -> void:
+	if day_world != null and day_world.has_method("play_next_day_handoff"):
+		day_world.call("play_next_day_handoff", summary)
 
 
 func _advance_farm_for_new_day(previous_day: int) -> void:
@@ -1101,8 +1120,7 @@ func _apply_night_rewards(summary: Dictionary) -> Dictionary:
 	var penalty: Dictionary = penalty_variant if penalty_variant is Dictionary else {}
 	var unlock_progress_variant: Variant = reward_result.get("unlock_progress", [])
 	var unlock_progress: Array = unlock_progress_variant if unlock_progress_variant is Array else []
-
-	return {
+	var return_payload := {
 		"current_day": _day_state.current_day,
 		"next_day": _day_state.current_day + 1,
 		"exit_reason": String(session.get("exit_reason", "completed")),
@@ -1124,6 +1142,9 @@ func _apply_night_rewards(summary: Dictionary) -> Dictionary:
 		"penalty_text": _build_penalty_text(penalty),
 		"raw_summary": summary.duplicate(true)
 	}
+	return_payload["arrival_text"] = _build_return_arrival_text(return_payload)
+	return_payload["tomorrow_text"] = _build_return_tomorrow_text(return_payload)
+	return return_payload
 
 
 func _build_day_hub_model() -> Dictionary:
@@ -2488,6 +2509,46 @@ func _build_penalty_text(penalty: Dictionary) -> String:
 		"value": int(penalty.get("stamina_loss", 0)),
 		"next": int(penalty.get("next_day_stamina", _day_state.preview_next_day_stamina()))
 	})
+
+
+func _build_return_arrival_text(summary: Dictionary) -> String:
+	var exit_reason := String(summary.get("exit_reason", "completed")).strip_edges().to_lower()
+	if exit_reason == "abandoned":
+		return _t("meta.summary.arrival_abandoned")
+	return _t("meta.summary.arrival_completed")
+
+
+func _build_return_tomorrow_text(summary: Dictionary) -> String:
+	var materials_variant: Variant = summary.get("materials_reward", {})
+	var materials: Dictionary = materials_variant if materials_variant is Dictionary else {}
+	var unlock_names_variant: Variant = summary.get("unlock_names", [])
+	var unlock_names: Array = unlock_names_variant if unlock_names_variant is Array else []
+	var has_farm_cue := int(materials.get("moon_spore", 0)) > 0
+	var has_kitchen_cue := (
+		int(materials.get("abyssfin", 0)) > 0
+		or int(materials.get("reef_salt", 0)) > 0
+		or int(materials.get("glow_kelp", 0)) > 0
+	)
+	for unlock_name_variant in unlock_names:
+		var unlock_name := String(unlock_name_variant).to_lower()
+		if unlock_name.find("seed") >= 0 or unlock_name.find("spore") >= 0 or unlock_name.find("cap") >= 0:
+			has_farm_cue = true
+		if unlock_name.find("stew") >= 0 or unlock_name.find("tea") >= 0 or unlock_name.find("tart") >= 0 or unlock_name.find("noodle") >= 0 or unlock_name.find("hotpot") >= 0 or unlock_name.find("crudo") >= 0 or unlock_name.find("flatbread") >= 0:
+			has_kitchen_cue = true
+	var fatigue_applied := bool((summary.get("penalty", {}) as Dictionary).get("applied", false))
+	if has_farm_cue and has_kitchen_cue:
+		return _t("meta.summary.tomorrow_mixed")
+	if has_farm_cue:
+		return _t("meta.summary.tomorrow_farm")
+	if has_kitchen_cue:
+		return _t("meta.summary.tomorrow_kitchen")
+	if int(summary.get("gold_reward", 0)) > 0:
+		return _t("meta.summary.tomorrow_shop")
+	if fatigue_applied:
+		return _t("meta.summary.tomorrow_fatigue", {
+			"next": int((summary.get("penalty", {}) as Dictionary).get("next_day_stamina", _day_state.preview_next_day_stamina()))
+		})
+	return _t("meta.summary.tomorrow_generic")
 
 
 func _extract_unlock_names(unlocks_variant: Variant) -> Array[String]:

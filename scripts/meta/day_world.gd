@@ -66,6 +66,12 @@ const NIGHT_DOCK_POSITION := Vector2(1218.0, 818.0)
 const NIGHT_TRANSITION_SECONDS := 0.68
 const NIGHT_TRANSITION_CAMERA_ZOOM_MULTIPLIER := 1.14
 const NIGHT_TRANSITION_CAMERA_OFFSET := Vector2(68.0, -32.0)
+const RETURN_ARRIVAL_SECONDS := 0.76
+const RETURN_SUMMARY_CAMERA_ZOOM_MULTIPLIER := 1.05
+const RETURN_SUMMARY_CAMERA_OFFSET := Vector2(44.0, -18.0)
+const RETURN_ARRIVAL_CAMERA_ZOOM_MULTIPLIER := 1.10
+const RETURN_ARRIVAL_CAMERA_OFFSET := Vector2(112.0, -38.0)
+const FRESH_DAY_REENTRY_SECONDS := 0.56
 const HOTBAR_HAND_KEY := "hand::"
 const HOTBAR_DIRECT_ACTIONS := [
 	"day_hotbar_slot_1",
@@ -140,6 +146,10 @@ var _transition_title_label: Label = null
 var _transition_body_label: Label = null
 var _transition_meta_label: Label = null
 var _night_popup_meta_label: Label = null
+var _arrival_banner: Panel = null
+var _arrival_banner_title_label: Label = null
+var _arrival_banner_body_label: Label = null
+var _arrival_banner_meta_label: Label = null
 var _night_popup_open: bool = false
 var _transition_active: bool = false
 var _was_visible: bool = false
@@ -157,6 +167,13 @@ var _departure_transition_progress: float = 0.0
 var _transition_tween: Tween = null
 var _camera_default_zoom: Vector2 = Vector2(0.98, 0.98)
 var _camera_default_offset: Vector2 = Vector2.ZERO
+var _return_summary_context: Dictionary = {}
+var _return_arrival_progress: float = 0.0
+var _return_arrival_tween: Tween = null
+var _next_day_intro_progress: float = 0.0
+var _next_day_intro_tween: Tween = null
+var _guide_override_weights: Dictionary = {}
+var _guide_override_time: float = 0.0
 var _sunnyside_farm_texture: Texture2D = null
 var _sunnyside_restaurant_texture: Texture2D = null
 var _sunnyside_shop_texture: Texture2D = null
@@ -228,6 +245,12 @@ func _process(delta: float) -> void:
 		return
 	if visible:
 		_ambient_motion_time += delta
+		if _guide_override_time > 0.0:
+			var previous_override_time := _guide_override_time
+			_guide_override_time = maxf(0.0, _guide_override_time - delta)
+			if previous_override_time > 0.0 and _guide_override_time == 0.0:
+				_guide_override_weights.clear()
+				_apply_landmark_guide_state(String(_view_model.get("phase", "morning")).strip_edges().to_lower(), bool(_view_model.get("night_ready", false)))
 		_update_prompt_reveal(delta)
 	else:
 		_prompt_reveal_elapsed = 0.0
@@ -255,6 +278,8 @@ func set_overlay_blocked(blocked: bool) -> void:
 	_overlay_blocked = blocked
 	if blocked:
 		_close_night_popup()
+	elif _return_summary_context.is_empty() and (_next_day_intro_tween == null or not is_instance_valid(_next_day_intro_tween)):
+		_apply_return_summary_camera_focus(0.0)
 	_sync_visibility_state()
 	_apply_view_model()
 
@@ -263,6 +288,53 @@ func snap_player_to_night_dock() -> void:
 	if day_player == null:
 		return
 	day_player.reset_to_position(NIGHT_DOCK_POSITION)
+
+
+func present_night_return(summary_variant: Variant, animate: bool = false) -> void:
+	_return_summary_context = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
+	snap_player_to_night_dock()
+	_reset_next_day_intro_visuals()
+	if _return_arrival_tween != null and is_instance_valid(_return_arrival_tween):
+		_return_arrival_tween.kill()
+	_return_arrival_tween = null
+	if _return_summary_context.is_empty():
+		_hide_arrival_banner()
+		_apply_return_summary_camera_focus(0.0)
+		return
+	_apply_return_summary_camera_focus(1.0)
+	if not animate:
+		_hide_arrival_banner()
+		return
+	_show_arrival_banner(
+		_t("meta.world.return_arrival_title"),
+		String(_return_summary_context.get("arrival_text", _t("meta.summary.subtitle"))),
+		String(_return_summary_context.get("tomorrow_text", ""))
+	)
+	_set_return_arrival_progress(0.0)
+	_return_arrival_tween = create_tween()
+	_return_arrival_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_return_arrival_tween.tween_method(_set_return_arrival_progress, 0.0, 1.0, RETURN_ARRIVAL_SECONDS)
+	_return_arrival_tween.tween_callback(_finish_return_arrival)
+
+
+func play_next_day_handoff(summary_variant: Variant = {}) -> void:
+	var summary: Dictionary = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
+	_return_summary_context.clear()
+	_reset_return_arrival_visuals()
+	if summary.is_empty():
+		_hide_arrival_banner()
+		return
+	_apply_guide_override_from_summary(summary)
+	_show_arrival_banner(
+		_t("meta.world.fresh_day_title", {"day": int(summary.get("next_day", int(_view_model.get("current_day", 1))))}),
+		String(summary.get("tomorrow_text", _t("meta.summary.tomorrow_generic"))),
+		_t("meta.world.fresh_day_meta")
+	)
+	_set_next_day_intro_progress(0.0)
+	_next_day_intro_tween = create_tween()
+	_next_day_intro_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_next_day_intro_tween.tween_method(_set_next_day_intro_progress, 0.0, 1.0, FRESH_DAY_REENTRY_SECONDS)
+	_next_day_intro_tween.tween_callback(_finish_next_day_intro)
 
 
 func debug_activate_zone(zone_id: String) -> bool:
@@ -486,6 +558,55 @@ func _build_overlay_ui() -> void:
 	_transition_meta_label.theme_type_variation = &"BodyMutedLabel"
 	_transition_meta_label.add_theme_font_size_override("font_size", 13)
 	_transition_box.add_child(_transition_meta_label)
+
+	_arrival_banner = Panel.new()
+	_arrival_banner.name = "ArrivalBanner"
+	_arrival_banner.visible = false
+	_arrival_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_arrival_banner.custom_minimum_size = Vector2(520.0, 0.0)
+	_arrival_banner.theme_type_variation = &"OverlayPanel"
+	_arrival_banner.anchor_left = 0.5
+	_arrival_banner.anchor_top = 0.0
+	_arrival_banner.anchor_right = 0.5
+	_arrival_banner.anchor_bottom = 0.0
+	_arrival_banner.offset_left = -260.0
+	_arrival_banner.offset_top = 28.0
+	_arrival_banner.offset_right = 260.0
+	_arrival_banner.offset_bottom = 152.0
+	hud_layer.add_child(_arrival_banner)
+
+	var arrival_margin := MarginContainer.new()
+	arrival_margin.name = "Margin"
+	arrival_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	arrival_margin.add_theme_constant_override("margin_left", 18)
+	arrival_margin.add_theme_constant_override("margin_top", 14)
+	arrival_margin.add_theme_constant_override("margin_right", 18)
+	arrival_margin.add_theme_constant_override("margin_bottom", 14)
+	_arrival_banner.add_child(arrival_margin)
+
+	var arrival_vbox := VBoxContainer.new()
+	arrival_vbox.name = "VBox"
+	arrival_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	arrival_vbox.add_theme_constant_override("separation", 6)
+	arrival_margin.add_child(arrival_vbox)
+
+	_arrival_banner_title_label = Label.new()
+	_arrival_banner_title_label.theme_type_variation = &"HeadingLabel"
+	_arrival_banner_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	arrival_vbox.add_child(_arrival_banner_title_label)
+
+	_arrival_banner_body_label = Label.new()
+	_arrival_banner_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_arrival_banner_body_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_arrival_banner_body_label.theme_type_variation = &"BodyMutedLabel"
+	arrival_vbox.add_child(_arrival_banner_body_label)
+
+	_arrival_banner_meta_label = Label.new()
+	_arrival_banner_meta_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_arrival_banner_meta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_arrival_banner_meta_label.theme_type_variation = &"BodyMutedLabel"
+	_arrival_banner_meta_label.add_theme_font_size_override("font_size", 13)
+	arrival_vbox.add_child(_arrival_banner_meta_label)
 
 	_night_popup = Panel.new()
 	_night_popup.name = "NightDeparturePopup"
@@ -2575,6 +2696,121 @@ func _reset_departure_transition_visuals() -> void:
 		_transition_meta_label.modulate = Color(1.0, 1.0, 1.0, 1.0)
 
 
+func _show_arrival_banner(title: String, body: String, meta: String) -> void:
+	if _arrival_banner == null:
+		return
+	_arrival_banner.visible = visible
+	if _arrival_banner_title_label != null:
+		_arrival_banner_title_label.text = title
+	if _arrival_banner_body_label != null:
+		_arrival_banner_body_label.text = body
+	if _arrival_banner_meta_label != null:
+		_arrival_banner_meta_label.text = meta
+
+
+func _hide_arrival_banner() -> void:
+	if _arrival_banner == null:
+		return
+	_arrival_banner.visible = false
+	_arrival_banner.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	_arrival_banner.scale = Vector2.ONE
+
+
+func _apply_return_summary_camera_focus(strength: float) -> void:
+	if day_player == null or day_player.camera == null:
+		return
+	var focus := clampf(strength, 0.0, 1.0)
+	day_player.camera.zoom = _camera_default_zoom.lerp(_camera_default_zoom * RETURN_SUMMARY_CAMERA_ZOOM_MULTIPLIER, focus)
+	day_player.camera.offset = _camera_default_offset.lerp(RETURN_SUMMARY_CAMERA_OFFSET, focus)
+
+
+func _set_return_arrival_progress(progress: float) -> void:
+	_return_arrival_progress = clampf(progress, 0.0, 1.0)
+	if day_player != null and day_player.camera != null:
+		var zoom_start := _camera_default_zoom * RETURN_ARRIVAL_CAMERA_ZOOM_MULTIPLIER
+		var zoom_end := _camera_default_zoom * RETURN_SUMMARY_CAMERA_ZOOM_MULTIPLIER
+		day_player.camera.zoom = zoom_start.lerp(zoom_end, _return_arrival_progress)
+		day_player.camera.offset = RETURN_ARRIVAL_CAMERA_OFFSET.lerp(RETURN_SUMMARY_CAMERA_OFFSET, _return_arrival_progress)
+	if _arrival_banner != null:
+		var alpha := sin(clampf(_return_arrival_progress, 0.0, 1.0) * PI)
+		_arrival_banner.visible = visible and alpha > 0.02
+		_arrival_banner.modulate = Color(1.0, 1.0, 1.0, alpha)
+		_arrival_banner.scale = Vector2.ONE * lerpf(0.985, 1.0, _return_arrival_progress)
+
+
+func _finish_return_arrival() -> void:
+	_apply_return_summary_camera_focus(1.0)
+	_reset_return_arrival_visuals()
+
+
+func _reset_return_arrival_visuals() -> void:
+	if _return_arrival_tween != null and is_instance_valid(_return_arrival_tween):
+		_return_arrival_tween.kill()
+	_return_arrival_tween = null
+	_return_arrival_progress = 0.0
+	_hide_arrival_banner()
+	if _overlay_blocked and not _return_summary_context.is_empty():
+		_apply_return_summary_camera_focus(1.0)
+
+
+func _set_next_day_intro_progress(progress: float) -> void:
+	_next_day_intro_progress = clampf(progress, 0.0, 1.0)
+	if hud != null and hud.has_method("set_transition_progress"):
+		hud.call("set_transition_progress", lerpf(0.42, 0.0, _next_day_intro_progress))
+	if day_player != null and day_player.camera != null:
+		var zoom_start := _camera_default_zoom * RETURN_SUMMARY_CAMERA_ZOOM_MULTIPLIER
+		day_player.camera.zoom = zoom_start.lerp(_camera_default_zoom, _next_day_intro_progress)
+		day_player.camera.offset = RETURN_SUMMARY_CAMERA_OFFSET.lerp(_camera_default_offset, _next_day_intro_progress)
+	if _arrival_banner != null:
+		var alpha := 1.0 - _next_day_intro_progress
+		_arrival_banner.visible = visible and alpha > 0.02
+		_arrival_banner.modulate = Color(1.0, 1.0, 1.0, alpha)
+		_arrival_banner.scale = Vector2.ONE * lerpf(1.0, 1.02, _next_day_intro_progress)
+
+
+func _finish_next_day_intro() -> void:
+	_reset_next_day_intro_visuals()
+
+
+func _reset_next_day_intro_visuals() -> void:
+	if _next_day_intro_tween != null and is_instance_valid(_next_day_intro_tween):
+		_next_day_intro_tween.kill()
+	_next_day_intro_tween = null
+	_next_day_intro_progress = 0.0
+	if hud != null and hud.has_method("set_transition_progress"):
+		hud.call("set_transition_progress", 0.0)
+	if day_player != null and day_player.camera != null and (_return_summary_context.is_empty() or not _overlay_blocked):
+		day_player.camera.zoom = _camera_default_zoom
+		day_player.camera.offset = _camera_default_offset
+	_hide_arrival_banner()
+
+
+func _apply_guide_override_from_summary(summary: Dictionary) -> void:
+	var weights := {
+		"farm": 0.0,
+		"restaurant": 0.0,
+		"shop": 0.0,
+		"orders": 0.0,
+		"dock": 0.0
+	}
+	var materials_variant: Variant = summary.get("materials_reward", {})
+	var materials: Dictionary = materials_variant if materials_variant is Dictionary else {}
+	if int(materials.get("moon_spore", 0)) > 0:
+		weights["farm"] = maxf(float(weights.get("farm", 0.0)), 0.16)
+	if int(materials.get("abyssfin", 0)) > 0 or int(materials.get("reef_salt", 0)) > 0 or int(materials.get("glow_kelp", 0)) > 0:
+		weights["restaurant"] = maxf(float(weights.get("restaurant", 0.0)), 0.18)
+	if int(summary.get("gold_reward", 0)) > 0:
+		weights["shop"] = maxf(float(weights.get("shop", 0.0)), 0.10)
+	var unlock_names_variant: Variant = summary.get("unlock_names", [])
+	var unlock_names: Array = unlock_names_variant if unlock_names_variant is Array else []
+	if not unlock_names.is_empty():
+		weights["farm"] = maxf(float(weights.get("farm", 0.0)), 0.10)
+		weights["restaurant"] = maxf(float(weights.get("restaurant", 0.0)), 0.12)
+	_guide_override_weights = weights
+	_guide_override_time = 1.8
+	_apply_landmark_guide_state(String(_view_model.get("phase", "morning")).strip_edges().to_lower(), bool(_view_model.get("night_ready", false)))
+
+
 func _apply_phase_presentation() -> void:
 	var phase := String(_view_model.get("phase", "morning")).strip_edges().to_lower()
 	var night_ready := bool(_view_model.get("night_ready", false))
@@ -2685,6 +2921,13 @@ func _update_departure_visual_pulse() -> void:
 	var night_ready := bool(_view_model.get("night_ready", false))
 	var pulse := 0.5 + (0.5 * sin((_ambient_motion_time * 2.8) + 0.7))
 	var overlay_progress := _departure_transition_progress if _transition_active else 0.0
+	var return_focus := 0.0
+	if _overlay_blocked and not _return_summary_context.is_empty():
+		return_focus = maxf(return_focus, 0.74)
+	if _return_arrival_tween != null and is_instance_valid(_return_arrival_tween):
+		return_focus = maxf(return_focus, 1.0 - (_return_arrival_progress * 0.25))
+	if _next_day_intro_tween != null and is_instance_valid(_next_day_intro_tween):
+		return_focus = maxf(return_focus, 1.0 - _next_day_intro_progress)
 	if _harbor_glow != null:
 		var harbor_color_variant: Variant = _get_phase_palette(phase).get("harbor", Color(0.54, 0.78, 1.0, 0.08))
 		var harbor_color: Color = harbor_color_variant if harbor_color_variant is Color else Color(0.54, 0.78, 1.0, 0.08)
@@ -2694,12 +2937,14 @@ func _update_departure_visual_pulse() -> void:
 		if night_ready:
 			harbor_alpha += 0.05 + (0.06 * pulse)
 		harbor_alpha += overlay_progress * 0.16
+		harbor_alpha += return_focus * 0.18
 		_harbor_glow.color = Color(harbor_color.r, harbor_color.g, harbor_color.b, clampf(harbor_alpha, 0.0, 0.48))
 	if _night_beacon_glow != null:
 		var beacon_alpha := 0.18 if not night_ready else 0.56 + (0.12 * pulse)
 		if phase == "afternoon" and not night_ready:
 			beacon_alpha = 0.22 + (0.05 * pulse)
 		beacon_alpha += overlay_progress * 0.18
+		beacon_alpha += return_focus * 0.16
 		_night_beacon_glow.color = Color(0.50, 0.82, 1.0, clampf(beacon_alpha, 0.0, 0.92))
 	var dock_ready_alpha := 0.18
 	var dock_ready_glow_alpha := 0.04
@@ -2711,6 +2956,8 @@ func _update_departure_visual_pulse() -> void:
 		dock_ready_glow_alpha = 0.08
 	dock_ready_alpha = clampf(dock_ready_alpha + (overlay_progress * 0.12), 0.0, 1.0)
 	dock_ready_glow_alpha = clampf(dock_ready_glow_alpha + (overlay_progress * 0.18), 0.0, 0.72)
+	dock_ready_alpha = clampf(dock_ready_alpha + (return_focus * 0.18), 0.0, 1.0)
+	dock_ready_glow_alpha = clampf(dock_ready_glow_alpha + (return_focus * 0.16), 0.0, 0.72)
 	for cue in _dock_ready_props:
 		if cue == null:
 			continue
@@ -2783,6 +3030,10 @@ func _apply_ambient_character_phase_state(phase: String, night_ready: bool) -> v
 			dockhand_alpha = 0.22
 	if night_ready:
 		dockhand_alpha = maxf(dockhand_alpha, 0.96)
+	if _overlay_blocked and not _return_summary_context.is_empty():
+		dockhand_alpha = maxf(dockhand_alpha, 0.92)
+	if _next_day_intro_tween != null and is_instance_valid(_next_day_intro_tween):
+		dockhand_alpha = maxf(dockhand_alpha, 0.56)
 	_update_ambient_character_alpha("farmhand", farmhand_alpha)
 	_update_ambient_character_alpha("restaurant_patron", patio_alpha)
 	_update_ambient_character_alpha("board_reader", board_alpha)
@@ -2870,6 +3121,10 @@ func _build_landmark_guide_weights(phase: String, night_ready: bool) -> Dictiona
 		weights["dock"] = float(weights.get("dock", 0.0)) * 0.35
 	if _is_farm_plot_zone(_focused_zone_id):
 		weights["farm"] = float(weights.get("farm", 0.0)) * 0.45
+	if _guide_override_time > 0.0:
+		for guide_id_variant in _guide_override_weights.keys():
+			var guide_id := String(guide_id_variant)
+			weights[guide_id] = maxf(float(weights.get(guide_id, 0.0)), float(_guide_override_weights.get(guide_id_variant, 0.0)))
 	return weights
 
 
@@ -3751,12 +4006,16 @@ func _on_player_interaction_requested(zone_id: String) -> void:
 func _on_visibility_changed() -> void:
 	if visible and not _was_visible and _overlay_blocked:
 		snap_player_to_night_dock()
+		if not _return_summary_context.is_empty():
+			_apply_return_summary_camera_focus(1.0)
 	if not visible:
 		_night_popup_open = false
 		_transition_active = false
 		_prompt_reveal_elapsed = 0.0
 		_prompt_is_revealed = false
 		_reset_departure_transition_visuals()
+		_reset_return_arrival_visuals()
+		_reset_next_day_intro_visuals()
 		_set_transition_visible(false)
 	_sync_visibility_state()
 	_apply_view_model()
