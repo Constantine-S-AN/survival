@@ -17,19 +17,26 @@ var _controls_enabled: bool = true
 var _last_facing := Vector2.RIGHT
 var _focused_zone: Area2D = null
 var _overlapping_zones: Array[Area2D] = []
+var _sprite_base_position: Vector2 = Vector2.ZERO
+var _sprite_base_scale: Vector2 = Vector2.ONE
+var _move_visual_time: float = 0.0
 
 
 func _ready() -> void:
 	InputConfigClass.ensure_default_actions()
 	interaction_sensor.area_entered.connect(_on_sensor_area_entered)
 	interaction_sensor.area_exited.connect(_on_sensor_area_exited)
+	if sprite != null:
+		_sprite_base_position = sprite.position
+		_sprite_base_scale = sprite.scale
 	_update_sprite_facing()
 	_refresh_focus_zone()
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if not _controls_enabled or not is_visible_in_tree():
 		velocity = Vector2.ZERO
+		_update_move_feedback(false, delta)
 		return
 	var input_vector := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if input_vector.length_squared() > 0.0:
@@ -38,6 +45,7 @@ func _physics_process(_delta: float) -> void:
 	velocity = input_vector.normalized() * move_speed if input_vector.length_squared() > 0.0 else Vector2.ZERO
 	move_and_slide()
 	global_position = _clamp_to_world(global_position)
+	_update_move_feedback(input_vector.length_squared() > 0.0, delta)
 	_refresh_focus_zone()
 
 
@@ -116,6 +124,23 @@ func _update_sprite_facing() -> void:
 		return
 	if absf(_last_facing.x) > 0.01:
 		sprite.flip_h = _last_facing.x < 0.0
+
+
+func _update_move_feedback(is_moving: bool, delta: float) -> void:
+	if sprite == null:
+		return
+	if is_moving:
+		_move_visual_time += delta * 10.5
+		var bob := sin(_move_visual_time) * 1.6
+		var squash := 1.0 + (0.02 * absf(cos(_move_visual_time)))
+		sprite.position = _sprite_base_position + Vector2(0.0, bob)
+		sprite.scale = Vector2(
+			_sprite_base_scale.x * squash,
+			_sprite_base_scale.y * (2.0 - squash)
+		)
+		return
+	sprite.position = sprite.position.lerp(_sprite_base_position, clampf(delta * 12.0, 0.0, 1.0))
+	sprite.scale = sprite.scale.lerp(_sprite_base_scale, clampf(delta * 12.0, 0.0, 1.0))
 
 
 func _on_sensor_area_entered(area: Area2D) -> void:

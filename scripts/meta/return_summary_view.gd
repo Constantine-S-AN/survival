@@ -21,17 +21,33 @@ signal menu_requested
 var _summary: Dictionary = {}
 var _enter_tween: Tween = null
 var _animate_in_on_visible: bool = false
+var _summary_rows: Array[Control] = []
 
 
 func _ready() -> void:
 	visible = false
 	visibility_changed.connect(_on_visibility_changed)
+	_bind_button_feedback(continue_button, true)
+	_bind_button_feedback(menu_button, false)
 	continue_button.pressed.connect(func() -> void:
 		continue_requested.emit()
 	)
 	menu_button.pressed.connect(func() -> void:
 		menu_requested.emit()
 	)
+	_summary_rows = [
+		title_label,
+		subtitle_label,
+		outcome_label,
+		run_label,
+		rewards_label,
+		unlocks_label,
+		progress_label,
+		penalty_label,
+		inventory_label,
+		continue_button,
+		menu_button
+	]
 	if Localization != null and Localization.has_signal("language_changed"):
 		Localization.language_changed.connect(_on_language_changed)
 	_apply_summary()
@@ -115,6 +131,12 @@ func _play_enter_animation() -> void:
 		content_panel.pivot_offset = content_panel.size * 0.5
 		content_panel.scale = Vector2(0.98, 0.98)
 		content_panel.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	for row in _summary_rows:
+		if row == null:
+			continue
+		row.pivot_offset = row.size * 0.5
+		row.scale = Vector2(0.985, 0.985)
+		row.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	_enter_tween = create_tween()
 	_enter_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	if background != null:
@@ -122,6 +144,15 @@ func _play_enter_animation() -> void:
 	if content_panel != null:
 		_enter_tween.parallel().tween_property(content_panel, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		_enter_tween.parallel().tween_property(content_panel, "modulate:a", 1.0, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	var row_delay := 0.05
+	for row_index in range(_summary_rows.size()):
+		var row := _summary_rows[row_index]
+		if row == null:
+			continue
+		var delay := 0.07 + (float(row_index) * row_delay * 0.45)
+		_enter_tween.parallel().tween_property(row, "scale", Vector2.ONE, 0.20).set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_enter_tween.parallel().tween_property(row, "modulate:a", 1.0, 0.18).set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_play_summary_feedback()
 
 
 func _reset_presentation_state() -> void:
@@ -133,6 +164,34 @@ func _reset_presentation_state() -> void:
 	if content_panel != null:
 		content_panel.scale = Vector2.ONE
 		content_panel.modulate = Color.WHITE
+	for row in _summary_rows:
+		if row == null:
+			continue
+		row.scale = Vector2.ONE
+		row.modulate = Color.WHITE
+
+
+func _bind_button_feedback(button: Button, confirm: bool) -> void:
+	if button == null:
+		return
+	button.mouse_entered.connect(func() -> void:
+		UISfx.play_hover()
+	)
+	button.pressed.connect(func() -> void:
+		if confirm:
+			UISfx.play_confirm()
+		else:
+			UISfx.play_click()
+	)
+
+
+func _play_summary_feedback() -> void:
+	var loot_text := String(_summary.get("loot_text", "")).strip_edges()
+	var unlock_text := String(_summary.get("unlock_text", "")).strip_edges()
+	if not loot_text.is_empty() or (not unlock_text.is_empty() and unlock_text != _t("meta.common.none")):
+		UISfx.play_reward()
+	else:
+		UISfx.play_confirm()
 
 
 func _t(key: String, args: Dictionary = {}) -> String:

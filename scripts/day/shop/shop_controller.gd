@@ -105,6 +105,8 @@ var _shopkeeper_npc: Node2D = null
 var _regular_npc: Node2D = null
 var _prompt_reveal_elapsed: float = 0.0
 var _prompt_is_revealed: bool = false
+var _feedback_ready: bool = false
+var _control_tweens: Dictionary = {}
 
 
 func _ready() -> void:
@@ -120,6 +122,9 @@ func _ready() -> void:
 	shop_player.reset_to_position(spawn_point.global_position)
 	shop_player.focus_changed.connect(_on_player_focus_changed)
 	shop_player.interaction_requested.connect(_on_player_interaction_requested)
+	_bind_button_feedback(leave_button, false)
+	_bind_button_feedback(merchant_close_button, false)
+	_bind_button_feedback(customer_close_button, false)
 	leave_button.pressed.connect(func() -> void:
 		back_requested.emit()
 	)
@@ -1004,6 +1009,8 @@ func _create_zone(zone_id: String, label_key: String, position: Vector2, size: V
 
 
 func _apply_view_model() -> void:
+	var previous_status_text := status_label.text.strip_edges()
+	var previous_prompt_signature := "%s|%s" % [str(prompt_panel.visible), prompt_label.text]
 	_apply_phase_ambience(String(_view_model.get("phase", "morning")))
 	var inventory_summary := String(_view_model.get("inventory_summary", _t("meta.common.none")))
 	info_title_label.text = _t("meta.shop.world_title")
@@ -1069,6 +1076,12 @@ func _apply_view_model() -> void:
 	_sync_scroll_content_widths()
 	_refresh_zone_visuals()
 	_update_popup_visibility()
+	_apply_micro_feedback(
+		status_label.text.strip_edges(),
+		"%s|%s" % [str(prompt_panel.visible), prompt_label.text],
+		previous_status_text,
+		previous_prompt_signature
+	)
 
 
 func _apply_phase_ambience(phase: String) -> void:
@@ -1118,6 +1131,7 @@ func _update_prompt_reveal(delta: float) -> void:
 		if not _prompt_is_revealed and _prompt_reveal_elapsed >= PROMPT_REVEAL_SECONDS:
 			_prompt_is_revealed = true
 			changed = true
+			_pulse_zone_feedback(_focused_zone_id)
 	if changed:
 		_apply_view_model()
 
@@ -1189,6 +1203,9 @@ func _rebuild_action_list(container: VBoxContainer, items_variant: Variant, hand
 		button.theme_type_variation = &"SecondaryButton"
 		button.text = String(item.get("label", ""))
 		button.tooltip_text = String(item.get("tooltip", ""))
+		button.mouse_entered.connect(func() -> void:
+			UISfx.play_hover()
+		)
 		button.pressed.connect(handler.bind(String(item.get("id", ""))))
 		container.add_child(button)
 
@@ -1256,27 +1273,36 @@ func _apply_zone_visual(zone_id: String, zone: Dictionary, focused: bool) -> voi
 func _activate_zone(zone_id: String) -> bool:
 	match zone_id:
 		"shopkeeper":
+			_pulse_zone_feedback(zone_id)
 			_open_popup("merchant")
 			return true
 		"regular":
+			_pulse_zone_feedback(zone_id)
 			_open_popup("customer")
 			return true
 		"door":
+			_pulse_zone_feedback(zone_id)
+			UISfx.play_click()
 			back_requested.emit()
 			return true
 	return false
 
 
 func _open_popup(popup_id: String) -> void:
-	if not _popup_panels.has(popup_id):
+	if not _popup_panels.has(popup_id) or _active_popup_id == popup_id:
 		return
 	_active_popup_id = popup_id
 	_update_popup_visibility()
 	_sync_visibility_state()
 	_apply_view_model()
+	UISfx.play_click()
+	_animate_popup_open(_popup_panels.get(popup_id, null) as Panel)
 
 
 func _close_popups() -> void:
+	if _active_popup_id.is_empty():
+		return
+	UISfx.play_click()
 	_active_popup_id = ""
 	_update_popup_visibility()
 	_sync_visibility_state()
@@ -1357,6 +1383,7 @@ func _on_seed_button_pressed(seed_id: String) -> void:
 	var normalized_id := seed_id.strip_edges().to_lower()
 	if normalized_id.is_empty():
 		return
+	UISfx.play_confirm()
 	seed_purchase_requested.emit(normalized_id)
 
 
@@ -1364,6 +1391,7 @@ func _on_sell_button_pressed(material_id: String) -> void:
 	var normalized_id := material_id.strip_edges().to_lower()
 	if normalized_id.is_empty():
 		return
+	UISfx.play_confirm()
 	sell_requested.emit(normalized_id)
 
 
@@ -1371,6 +1399,7 @@ func _on_upgrade_button_pressed(upgrade_id: String) -> void:
 	var normalized_id := upgrade_id.strip_edges().to_lower()
 	if normalized_id.is_empty():
 		return
+	UISfx.play_confirm()
 	upgrade_purchase_requested.emit(normalized_id)
 
 
@@ -1396,3 +1425,102 @@ func _t(key: String, args: Dictionary = {}) -> String:
 	if Localization == null or not Localization.has_method("t"):
 		return key
 	return String(Localization.call("t", key, args))
+
+
+func _bind_button_feedback(button: Button, confirm: bool) -> void:
+	if button == null:
+		return
+	button.mouse_entered.connect(func() -> void:
+		UISfx.play_hover()
+	)
+	button.pressed.connect(func() -> void:
+		if confirm:
+			UISfx.play_confirm()
+		else:
+			UISfx.play_click()
+	)
+
+
+func _apply_micro_feedback(
+	status_text: String,
+	prompt_signature: String,
+	previous_status_text: String,
+	previous_prompt_signature: String
+) -> void:
+	if not _feedback_ready:
+		_feedback_ready = true
+		return
+	if not visible or not is_visible_in_tree():
+		return
+	if prompt_panel.visible and prompt_signature != previous_prompt_signature:
+		_pulse_control(prompt_panel, 0.08, 0.988, 0.18)
+		UISfx.play_hover()
+	if status_panel.visible and status_text != previous_status_text and not status_text.is_empty():
+		_pulse_control(status_panel, 0.08, 0.992, 0.18)
+
+
+func _pulse_control(control: Control, alpha_boost: float, start_scale: float, duration: float) -> void:
+	if control == null:
+		return
+	var tween_key := str(control.get_instance_id())
+	var tween_variant: Variant = _control_tweens.get(tween_key, null)
+	if tween_variant is Tween:
+		var existing_tween := tween_variant as Tween
+		if is_instance_valid(existing_tween):
+			existing_tween.kill()
+	control.pivot_offset = control.size * 0.5
+	var target_modulate := control.modulate
+	control.scale = Vector2.ONE * start_scale
+	control.modulate = Color(
+		target_modulate.r,
+		target_modulate.g,
+		target_modulate.b,
+		clampf(target_modulate.a + alpha_boost, 0.0, 1.0)
+	)
+	var tween := create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.parallel().tween_property(control, "scale", Vector2.ONE, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(control, "modulate", target_modulate, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_control_tweens[tween_key] = tween
+
+
+func _pulse_zone_feedback(zone_id: String) -> void:
+	var zone: Dictionary = _zones.get(zone_id, {}) as Dictionary
+	if zone.is_empty():
+		return
+	var marker := zone.get("marker", null) as Polygon2D
+	var pulse := zone.get("pulse", null) as Polygon2D
+	if marker != null:
+		var marker_base_scale := marker.scale
+		var marker_base_color := marker.color
+		marker.scale = marker_base_scale * 1.03
+		marker.color = Color(marker_base_color.r, marker_base_color.g, marker_base_color.b, clampf(marker_base_color.a + 0.10, 0.0, 1.0))
+		var marker_tween := create_tween()
+		marker_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		marker_tween.parallel().tween_property(marker, "scale", marker_base_scale, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		marker_tween.parallel().tween_property(marker, "color", marker_base_color, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if pulse != null:
+		var pulse_base_scale := pulse.scale
+		var pulse_base_color := pulse.color
+		pulse.scale = pulse_base_scale * 1.06
+		pulse.color = Color(pulse_base_color.r, pulse_base_color.g, pulse_base_color.b, clampf(pulse_base_color.a + 0.12, 0.0, 1.0))
+		var pulse_tween := create_tween()
+		pulse_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		pulse_tween.parallel().tween_property(pulse, "scale", pulse_base_scale * 1.24, 0.20).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		pulse_tween.parallel().tween_property(pulse, "color", pulse_base_color, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+func _animate_popup_open(popup: Panel) -> void:
+	if popup == null:
+		return
+	popup.pivot_offset = popup.size * 0.5
+	popup.scale = Vector2(0.988, 0.988)
+	popup.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	if popup_shade != null:
+		popup_shade.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	var tween := create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.parallel().tween_property(popup, "scale", Vector2.ONE, 0.20).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(popup, "modulate:a", 1.0, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if popup_shade != null:
+		tween.parallel().tween_property(popup_shade, "modulate:a", 1.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

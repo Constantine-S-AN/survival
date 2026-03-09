@@ -40,11 +40,20 @@ const HUD_FONT := preload("res://assets/fonts/google/Exo2-Variable.ttf")
 var _hud_model: Dictionary = {}
 var _interaction_locked: bool = false
 var _transition_progress: float = 0.0
+var _feedback_ready: bool = false
+var _control_tweens: Dictionary = {}
+var _last_prompt_signature: String = ""
+var _last_guide_signature: String = ""
+var _last_status_text: String = ""
+var _last_selected_hotbar_key: String = ""
+var _last_night_ready: bool = false
 
 
 func _ready() -> void:
 	if Localization != null and Localization.has_signal("language_changed"):
 		Localization.language_changed.connect(_on_language_changed)
+	_bind_button_feedback(orders_button)
+	_bind_button_feedback(legacy_button)
 	orders_button.pressed.connect(func() -> void:
 		daily_orders_requested.emit()
 	)
@@ -87,6 +96,7 @@ func _apply_hud_model() -> void:
 	var phase := String(_hud_model.get("phase", "morning"))
 	var actions_until_evening := maxi(0, int(_hud_model.get("actions_until_evening", 0)))
 	var night_ready := bool(_hud_model.get("night_ready", false))
+	var selected_hotbar_key := String(_hud_model.get("selected_hotbar_key", ""))
 	title_label.text = _t("meta.hub.day", {"value": int(_hud_model.get("current_day", 1))})
 	subtitle_label.text = _t("meta.world.title")
 	clock_status_label.text = (
@@ -126,7 +136,7 @@ func _apply_hud_model() -> void:
 	farm_tool_title_label.text = _t("meta.day_hud.hotbar")
 	var hotbar_slots_variant: Variant = _hud_model.get("hotbar_slots", [])
 	var hotbar_slots: Array = hotbar_slots_variant if hotbar_slots_variant is Array else []
-	_rebuild_hotbar_slots(hotbar_slots, String(_hud_model.get("selected_hotbar_key", "")))
+	_rebuild_hotbar_slots(hotbar_slots, selected_hotbar_key)
 	farm_tool_body_label.text = String(_hud_model.get("hotbar_selected_text", _t("meta.farm.tool_none")))
 	farm_tool_hint_label.text = String(_hud_model.get("hotbar_hint", _t("meta.day_hud.hotbar_hint")))
 	farm_tool_panel.visible = bool(_hud_model.get("farm_tool_visible", false))
@@ -152,6 +162,13 @@ func _apply_hud_model() -> void:
 	_apply_visual_theme(phase, night_ready)
 	_apply_interaction_lock()
 	_apply_transition_state()
+	_apply_micro_feedback(
+		night_ready,
+		selected_hotbar_key,
+		status_label.text.strip_edges(),
+		"%s|%s" % [str(prompt_panel.visible), prompt_text],
+		"%s|%s" % [guide_title, guide_display_text]
+	)
 
 
 func _compact_guide_text(text: String) -> String:
@@ -503,6 +520,78 @@ func _phase_color(phase: String) -> Color:
 
 func _on_language_changed(_language_code: String) -> void:
 	_apply_hud_model()
+
+
+func _bind_button_feedback(button: Button) -> void:
+	if button == null:
+		return
+	button.mouse_entered.connect(func() -> void:
+		UISfx.play_hover()
+	)
+	button.pressed.connect(func() -> void:
+		UISfx.play_click()
+	)
+
+
+func _apply_micro_feedback(
+	night_ready: bool,
+	selected_hotbar_key: String,
+	status_text: String,
+	prompt_signature: String,
+	guide_signature: String
+) -> void:
+	if not _feedback_ready:
+		_feedback_ready = true
+		_last_night_ready = night_ready
+		_last_selected_hotbar_key = selected_hotbar_key
+		_last_status_text = status_text
+		_last_prompt_signature = prompt_signature
+		_last_guide_signature = guide_signature
+		return
+	var allow_feedback := visible and is_visible_in_tree() and _transition_progress < 0.02
+	if allow_feedback and prompt_panel.visible and prompt_signature != _last_prompt_signature and not _interaction_locked:
+		_pulse_control(prompt_panel, 0.10, 0.986, 0.18)
+		UISfx.play_hover()
+	if allow_feedback and guide_panel.visible and guide_signature != _last_guide_signature and not guide_signature.ends_with("|"):
+		_pulse_control(guide_panel, 0.08, 0.992, 0.20)
+	if allow_feedback and farm_tool_panel.visible and selected_hotbar_key != _last_selected_hotbar_key and not selected_hotbar_key.is_empty():
+		_pulse_control(farm_tool_panel, 0.08, 0.988, 0.16)
+		UISfx.play_hover()
+	if allow_feedback and status_panel.visible and status_text != _last_status_text and not status_text.is_empty():
+		_pulse_control(status_panel, 0.08, 0.992, 0.18)
+	if allow_feedback and night_ready and not _last_night_ready:
+		_pulse_control(info_panel, 0.12, 0.988, 0.22)
+		UISfx.play_confirm()
+	_last_night_ready = night_ready
+	_last_selected_hotbar_key = selected_hotbar_key
+	_last_status_text = status_text
+	_last_prompt_signature = prompt_signature
+	_last_guide_signature = guide_signature
+
+
+func _pulse_control(control: Control, alpha_boost: float, start_scale: float, duration: float) -> void:
+	if control == null:
+		return
+	var tween_key := str(control.get_instance_id())
+	var tween_variant: Variant = _control_tweens.get(tween_key, null)
+	if tween_variant is Tween:
+		var existing_tween := tween_variant as Tween
+		if is_instance_valid(existing_tween):
+			existing_tween.kill()
+	control.pivot_offset = control.size * 0.5
+	var target_modulate := control.modulate
+	control.scale = Vector2.ONE * start_scale
+	control.modulate = Color(
+		target_modulate.r,
+		target_modulate.g,
+		target_modulate.b,
+		clampf(target_modulate.a + alpha_boost, 0.0, 1.0)
+	)
+	var tween := create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.parallel().tween_property(control, "scale", Vector2.ONE, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(control, "modulate", target_modulate, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_control_tweens[tween_key] = tween
 
 
 func _t(key: String, args: Dictionary = {}) -> String:

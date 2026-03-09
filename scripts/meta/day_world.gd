@@ -174,6 +174,7 @@ var _next_day_intro_progress: float = 0.0
 var _next_day_intro_tween: Tween = null
 var _guide_override_weights: Dictionary = {}
 var _guide_override_time: float = 0.0
+var _view_feedback_ready: bool = false
 var _sunnyside_farm_texture: Texture2D = null
 var _sunnyside_restaurant_texture: Texture2D = null
 var _sunnyside_shop_texture: Texture2D = null
@@ -262,9 +263,11 @@ func _process(delta: float) -> void:
 
 
 func set_view_model(model: Dictionary) -> void:
+	var previous_model := _view_model.duplicate(true)
 	_view_model = model.duplicate(true)
 	_rebuild_pickups()
 	_apply_view_model()
+	_apply_world_micro_feedback(previous_model)
 
 
 func set_farm_model(model: Dictionary) -> void:
@@ -310,6 +313,7 @@ func present_night_return(summary_variant: Variant, animate: bool = false) -> vo
 		String(_return_summary_context.get("arrival_text", _t("meta.summary.subtitle"))),
 		String(_return_summary_context.get("tomorrow_text", ""))
 	)
+	UISfx.play_reward()
 	_set_return_arrival_progress(0.0)
 	_return_arrival_tween = create_tween()
 	_return_arrival_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -330,6 +334,7 @@ func play_next_day_handoff(summary_variant: Variant = {}) -> void:
 		_build_next_day_handoff_body(summary),
 		_build_next_day_handoff_meta(summary)
 	)
+	UISfx.play_confirm()
 	_set_next_day_intro_progress(0.0)
 	_next_day_intro_tween = create_tween()
 	_next_day_intro_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -659,6 +664,7 @@ func _build_overlay_ui() -> void:
 	_night_popup_confirm_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_night_popup_confirm_button.custom_minimum_size = Vector2(0.0, 42.0)
 	_night_popup_confirm_button.theme_type_variation = &"PrimaryButton"
+	_bind_button_feedback(_night_popup_confirm_button, true)
 	_night_popup_confirm_button.pressed.connect(_begin_night_departure_transition)
 	button_row.add_child(_night_popup_confirm_button)
 
@@ -666,6 +672,7 @@ func _build_overlay_ui() -> void:
 	_night_popup_cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_night_popup_cancel_button.custom_minimum_size = Vector2(0.0, 42.0)
 	_night_popup_cancel_button.theme_type_variation = &"SecondaryButton"
+	_bind_button_feedback(_night_popup_cancel_button, false)
 	_night_popup_cancel_button.pressed.connect(_close_night_popup)
 	button_row.add_child(_night_popup_cancel_button)
 
@@ -2611,14 +2618,19 @@ func _open_night_popup() -> void:
 	_update_night_popup_copy()
 	_sync_visibility_state()
 	_apply_view_model()
+	UISfx.play_click()
+	_play_zone_feedback("night", "focus")
 
 
 func _close_night_popup() -> void:
+	if not _night_popup_open:
+		return
 	_night_popup_open = false
 	if _night_popup != null:
 		_night_popup.visible = false
 	_sync_visibility_state()
 	_apply_view_model()
+	UISfx.play_click()
 
 
 func _begin_night_departure_transition() -> void:
@@ -2633,6 +2645,7 @@ func _begin_night_departure_transition() -> void:
 	_set_transition_visible(true)
 	_sync_visibility_state()
 	_apply_view_model()
+	UISfx.play_confirm()
 	_transition_tween = create_tween()
 	_transition_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_transition_tween.tween_method(_set_departure_transition_progress, 0.0, 1.0, NIGHT_TRANSITION_SECONDS)
@@ -3440,6 +3453,7 @@ func _update_prompt_reveal(delta: float) -> void:
 		if not _prompt_is_revealed and _prompt_reveal_elapsed >= _prompt_reveal_delay(_focused_zone_id):
 			_prompt_is_revealed = true
 			changed = true
+			_play_zone_feedback(_focused_zone_id, "focus")
 	if changed:
 		_apply_view_model()
 
@@ -3615,9 +3629,26 @@ func _spawn_feedback_effect(position: Vector2, accent: Color, feedback_kind: Str
 	var duration := FEEDBACK_DURATION
 	var lift := 18.0
 	match feedback_kind:
+		"focus":
+			duration = 0.22
+			lift = 10.0
+			ring.color = Color(accent.r, accent.g, accent.b, 0.20)
+			core.scale = Vector2(0.72, 0.72)
+			core.color = Color(1.0, 1.0, 1.0, 0.60).lerp(accent, 0.52)
+			core.position = Vector2(0.0, -5.0)
+		"till":
+			duration = 0.34
+			lift = 12.0
+			core.scale = Vector2(1.08, 0.88)
 		"water":
 			duration = 0.34
 			lift = 12.0
+			ring.color = Color(accent.r, accent.g, accent.b, 0.34)
+			core.scale = Vector2(0.82, 1.06)
+		"plant":
+			duration = 0.40
+			lift = 16.0
+			core.scale = Vector2(0.92, 1.12)
 		"harvest":
 			duration = 0.48
 			lift = 22.0
@@ -3626,6 +3657,11 @@ func _spawn_feedback_effect(position: Vector2, accent: Color, feedback_kind: Str
 			duration = 0.38
 			lift = 16.0
 			core.scale = Vector2(0.88, 0.88)
+		"departure_ready":
+			duration = 0.54
+			lift = 20.0
+			ring.color = Color(accent.r, accent.g, accent.b, 0.30)
+			core.scale = Vector2(1.20, 1.20)
 	_feedback_items.append({
 		"root": root,
 		"ring": ring,
@@ -3682,6 +3718,7 @@ func _play_zone_feedback(zone_id: String, feedback_kind: String = "interact") ->
 	if position == Vector2.ZERO:
 		return
 	_spawn_feedback_effect(position, _zone_feedback_accent(zone_id), feedback_kind)
+	_play_feedback_sfx(feedback_kind)
 
 
 func _activate_zone(zone_id: String) -> bool:
@@ -4104,3 +4141,39 @@ func _t(key: String, args: Dictionary = {}) -> String:
 	if Localization == null or not Localization.has_method("t"):
 		return key
 	return String(Localization.call("t", key, args))
+
+
+func _bind_button_feedback(button: Button, confirm: bool) -> void:
+	if button == null:
+		return
+	button.mouse_entered.connect(func() -> void:
+		UISfx.play_hover()
+	)
+	button.pressed.connect(func() -> void:
+		if confirm:
+			UISfx.play_confirm()
+		else:
+			UISfx.play_click()
+	)
+
+
+func _apply_world_micro_feedback(previous_model: Dictionary) -> void:
+	if not _view_feedback_ready:
+		_view_feedback_ready = true
+		return
+	if not visible or not is_visible_in_tree():
+		return
+	if bool(_view_model.get("night_ready", false)) and not bool(previous_model.get("night_ready", false)):
+		_play_zone_feedback("night", "departure_ready")
+
+
+func _play_feedback_sfx(feedback_kind: String) -> void:
+	match feedback_kind:
+		"focus":
+			return
+		"pickup", "harvest", "departure_ready":
+			UISfx.play_reward()
+		"water", "plant":
+			UISfx.play_hover()
+		_:
+			UISfx.play_click()
