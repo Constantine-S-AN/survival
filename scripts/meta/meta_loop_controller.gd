@@ -1566,14 +1566,34 @@ func _build_shop_request_info() -> Dictionary:
 func _build_shopkeeper_line(ready_order_count: int) -> String:
 	if ready_order_count > 0:
 		return _t("meta.shop.shopkeeper_line_ready", {"value": ready_order_count})
+	match _day_state.current_day:
+		1:
+			return _t("meta.shop.shopkeeper_line_day1")
+		2:
+			return _t("meta.shop.shopkeeper_line_day2")
+		3:
+			return _t("meta.shop.shopkeeper_line_day3")
 	return _t("meta.shop.shopkeeper_line")
 
 
 func _build_shop_customer_line(request_info: Dictionary) -> String:
 	if bool(request_info.get("has_request", false)):
-		return _t("meta.shop.customer_line_request", {
-			"value": String(request_info.get("title", _t("meta.shop.request_none_title")))
-		})
+		var request_title := String(request_info.get("title", _t("meta.shop.request_none_title")))
+		match _day_state.current_day:
+			1:
+				return _t("meta.shop.customer_line_request_day1", {"value": request_title})
+			2:
+				return _t("meta.shop.customer_line_request_day2", {"value": request_title})
+			3:
+				return _t("meta.shop.customer_line_request_day3", {"value": request_title})
+		return _t("meta.shop.customer_line_request", {"value": request_title})
+	match _day_state.current_day:
+		1:
+			return _t("meta.shop.customer_line_idle_day1")
+		2:
+			return _t("meta.shop.customer_line_idle_day2")
+		3:
+			return _t("meta.shop.customer_line_idle_day3")
 	return _t("meta.shop.customer_line_idle")
 
 
@@ -1633,15 +1653,21 @@ func _build_first_session_guide_config(current_day: int) -> Dictionary:
 	else:
 		match current_day:
 			1:
-				if planted_plot_count == 0 and menu_planned:
+				if planted_plot_count < 2:
 					focus_zone = "farm"
 					_append_guide_line(lines, _t("meta.hub.guide_focus_day1_farm"))
-				elif planted_plot_count >= 2 and not menu_planned:
+				elif not menu_planned:
 					focus_zone = "restaurant"
 					_append_guide_line(lines, _t("meta.hub.guide_focus_day1_menu"))
+				elif not service_completed:
+					focus_zone = "restaurant"
+					if _can_open_restaurant_service():
+						_append_guide_line(lines, _t("meta.hub.guide_focus_day1_service"))
+					else:
+						_append_guide_line(lines, _t("meta.hub.guide_focus_stock_check"))
 				else:
-					focus_zone = "orders"
-					_append_guide_line(lines, _t("meta.hub.guide_focus_day1_choice"))
+					focus_zone = "dock"
+					_append_guide_line(lines, _t("meta.hub.guide_focus_day1_dock"))
 			2:
 				if waterable_plot_count > 0:
 					focus_zone = "farm"
@@ -2654,8 +2680,13 @@ func _build_penalty_text(penalty: Dictionary) -> String:
 
 func _build_return_arrival_text(summary: Dictionary) -> String:
 	var exit_reason := String(summary.get("exit_reason", "completed")).strip_edges().to_lower()
+	var next_day := int(summary.get("next_day", int(summary.get("current_day", _day_state.current_day)) + 1))
 	if exit_reason == "abandoned":
 		return _t("meta.summary.arrival_abandoned")
+	if next_day == 2:
+		return _t("meta.summary.arrival_completed_day2")
+	if next_day == 3:
+		return _t("meta.summary.arrival_completed_day3")
 	return _t("meta.summary.arrival_completed")
 
 
@@ -2677,19 +2708,27 @@ func _build_return_tomorrow_text(summary: Dictionary) -> String:
 		if unlock_name.find("stew") >= 0 or unlock_name.find("tea") >= 0 or unlock_name.find("tart") >= 0 or unlock_name.find("noodle") >= 0 or unlock_name.find("hotpot") >= 0 or unlock_name.find("crudo") >= 0 or unlock_name.find("flatbread") >= 0:
 			has_kitchen_cue = true
 	var fatigue_applied := bool((summary.get("penalty", {}) as Dictionary).get("applied", false))
+	var base_text := ""
 	if has_farm_cue and has_kitchen_cue:
-		return _t("meta.summary.tomorrow_mixed")
-	if has_farm_cue:
-		return _t("meta.summary.tomorrow_farm")
-	if has_kitchen_cue:
-		return _t("meta.summary.tomorrow_kitchen")
-	if int(summary.get("gold_reward", 0)) > 0:
-		return _t("meta.summary.tomorrow_shop")
-	if fatigue_applied:
-		return _t("meta.summary.tomorrow_fatigue", {
+		base_text = _t("meta.summary.tomorrow_mixed")
+	elif has_farm_cue:
+		base_text = _t("meta.summary.tomorrow_farm")
+	elif has_kitchen_cue:
+		base_text = _t("meta.summary.tomorrow_kitchen")
+	elif int(summary.get("gold_reward", 0)) > 0:
+		base_text = _t("meta.summary.tomorrow_shop")
+	elif fatigue_applied:
+		base_text = _t("meta.summary.tomorrow_fatigue", {
 			"next": int((summary.get("penalty", {}) as Dictionary).get("next_day_stamina", _day_state.preview_next_day_stamina()))
 		})
-	return _t("meta.summary.tomorrow_generic")
+	else:
+		base_text = _t("meta.summary.tomorrow_generic")
+	var next_day := int(summary.get("next_day", int(summary.get("current_day", _day_state.current_day)) + 1))
+	if next_day == 2:
+		return _t("meta.summary.tomorrow_day2_wrap", {"value": base_text})
+	if next_day == 3:
+		return _t("meta.summary.tomorrow_day3_wrap", {"value": base_text})
+	return base_text
 
 
 func _extract_unlock_names(unlocks_variant: Variant) -> Array[String]:

@@ -2,6 +2,10 @@ extends CanvasLayer
 
 const DAY_HUB_INTRO_DIALOGUE_ID := "day_hub_intro"
 const DAY_HUB_INTRO_DIALOGUE_TITLE := "intro"
+const DAY_HUB_DAY2_DIALOGUE_ID := "day_hub_day2_morning"
+const DAY_HUB_DAY2_DIALOGUE_TITLE := "day2_morning"
+const DAY_HUB_DAY3_DIALOGUE_ID := "day_hub_day3_morning"
+const DAY_HUB_DAY3_DIALOGUE_TITLE := "day3_morning"
 const DAY_HUB_INTRO_DIALOGUE_PATH := "res://data/dialogue/day_hub_intro.dialogue"
 const RETURN_SUMMARY_DIALOGUE_PATH := "res://data/dialogue/return_summary_events.dialogue"
 const RESTAURANT_DIALOGUE_PATH := "res://data/dialogue/restaurant_special_customer.dialogue"
@@ -169,7 +173,15 @@ func _process(_delta: float) -> void:
 func _maybe_show_day_hub_intro_dialogue() -> void:
 	if not _should_show_day_hub_intro_dialogue():
 		return
-	_show_dialogue(DAY_HUB_INTRO_DIALOGUE_PATH, DAY_HUB_INTRO_DIALOGUE_TITLE, DAY_HUB_INTRO_DIALOGUE_ID)
+	var meta_progress := ProfileStore.get_meta_progress_state() if ProfileStore != null and bool(ProfileStore.loaded) else {}
+	var candidate := _select_day_hub_morning_dialogue(meta_progress, _get_seen_dialogue_ids())
+	if candidate.is_empty():
+		return
+	_show_dialogue(
+		DAY_HUB_INTRO_DIALOGUE_PATH,
+		String(candidate.get("title", "")),
+		String(candidate.get("id", ""))
+	)
 
 
 func _maybe_show_restaurant_dialogue() -> void:
@@ -214,7 +226,7 @@ func _should_show_day_hub_intro_dialogue() -> bool:
 	if ProfileStore == null or not bool(ProfileStore.loaded):
 		return false
 	var meta_progress := ProfileStore.get_meta_progress_state()
-	return _should_show_day_hub_intro_for_state(meta_progress, _get_seen_dialogue_ids())
+	return not _select_day_hub_morning_dialogue(meta_progress, _get_seen_dialogue_ids()).is_empty()
 
 
 func _should_show_restaurant_dialogue() -> bool:
@@ -275,6 +287,7 @@ func debug_get_snapshot() -> Dictionary:
 	var pending_summary := _get_pending_return_summary()
 	var meta_progress := ProfileStore.get_meta_progress_state() if ProfileStore != null and bool(ProfileStore.loaded) else {}
 	var service_snapshot := _get_restaurant_service_snapshot()
+	var morning_candidate := _select_day_hub_morning_dialogue(meta_progress, seen_dialogue_ids)
 	return {
 		"seen_dialogue_ids": seen_dialogue_ids,
 		"dialogue_blocking_active": _dialogue_blocking_active,
@@ -284,6 +297,7 @@ func debug_get_snapshot() -> Dictionary:
 			if _should_show_day_hub_intro_for_state(meta_progress, seen_dialogue_ids)
 			else ""
 		),
+		"day_hub_morning_candidate_id": String(morning_candidate.get("id", "")),
 		"restaurant_candidate_id": _select_restaurant_dialogue_id(
 			service_snapshot.get("summary", {}),
 			int(service_snapshot.get("current_day", 0)),
@@ -348,21 +362,47 @@ func _get_pending_return_summary() -> Dictionary:
 
 
 func _should_show_day_hub_intro_for_state(meta_progress_variant: Variant, seen_dialogue_ids: Array) -> bool:
+	var candidate := _select_day_hub_morning_dialogue(meta_progress_variant, seen_dialogue_ids)
+	return String(candidate.get("id", "")) == DAY_HUB_INTRO_DIALOGUE_ID
+
+
+func _select_day_hub_morning_dialogue(meta_progress_variant: Variant, seen_dialogue_ids: Array) -> Dictionary:
 	if not (meta_progress_variant is Dictionary):
-		return false
+		return {}
 	var meta_progress: Dictionary = meta_progress_variant
 	var day_state_variant: Variant = meta_progress.get("day_state", {})
 	if not (day_state_variant is Dictionary):
-		return false
+		return {}
 	var day_state: Dictionary = day_state_variant
-	if int(day_state.get("current_day", 1)) != 1:
-		return false
 	if String(day_state.get("current_phase", "")).strip_edges().to_lower() != MORNING_PHASE:
-		return false
+		return {}
 	var pending_summary_variant: Variant = meta_progress.get("pending_return_summary", {})
 	if pending_summary_variant is Dictionary and not (pending_summary_variant as Dictionary).is_empty():
-		return false
-	return not _normalize_string_id_array(seen_dialogue_ids).has(DAY_HUB_INTRO_DIALOGUE_ID)
+		return {}
+	var normalized_seen_ids := _normalize_string_id_array(seen_dialogue_ids)
+	match int(day_state.get("current_day", 1)):
+		1:
+			if normalized_seen_ids.has(DAY_HUB_INTRO_DIALOGUE_ID):
+				return {}
+			return {
+				"id": DAY_HUB_INTRO_DIALOGUE_ID,
+				"title": DAY_HUB_INTRO_DIALOGUE_TITLE
+			}
+		2:
+			if normalized_seen_ids.has(DAY_HUB_DAY2_DIALOGUE_ID):
+				return {}
+			return {
+				"id": DAY_HUB_DAY2_DIALOGUE_ID,
+				"title": DAY_HUB_DAY2_DIALOGUE_TITLE
+			}
+		3:
+			if normalized_seen_ids.has(DAY_HUB_DAY3_DIALOGUE_ID):
+				return {}
+			return {
+				"id": DAY_HUB_DAY3_DIALOGUE_ID,
+				"title": DAY_HUB_DAY3_DIALOGUE_TITLE
+			}
+	return {}
 
 
 func _get_restaurant_service_snapshot() -> Dictionary:

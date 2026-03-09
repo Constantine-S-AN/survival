@@ -20,6 +20,11 @@ func _ready() -> void:
 		push_error("Day Hub intro dialogue should trigger on a fresh day-1 morning profile")
 		_cleanup(layer)
 		return
+	var day_one_candidate: Dictionary = layer.call("_select_day_hub_morning_dialogue", meta_progress, [])
+	if String(day_one_candidate.get("id", "")) != "day_hub_intro":
+		push_error("Day Hub morning selector should choose the day-1 intro on a fresh profile")
+		_cleanup(layer)
+		return
 	layer.call("_mark_dialogue_seen", "day_hub_intro")
 	var dialogue_state := ProfileStore.get_dialogue_state()
 	var seen_ids: Array = dialogue_state.get("seen_dialogue_ids", [])
@@ -37,6 +42,27 @@ func _ready() -> void:
 	day_two_progress["day_state"] = day_state
 	if bool(layer.call("_should_show_day_hub_intro_for_state", day_two_progress, [])):
 		push_error("Day Hub intro dialogue unexpectedly triggered after day 1")
+		_cleanup(layer)
+		return
+	var day_two_candidate: Dictionary = layer.call("_select_day_hub_morning_dialogue", day_two_progress, [])
+	if String(day_two_candidate.get("id", "")) != "day_hub_day2_morning":
+		push_error("Day Hub morning selector should choose the day-2 authored beat on day 2")
+		_cleanup(layer)
+		return
+	layer.call("_mark_dialogue_seen", "day_hub_day2_morning")
+	var seen_day_two_ids: Array = ProfileStore.get_dialogue_state().get("seen_dialogue_ids", [])
+	var seen_day_two_candidate: Dictionary = layer.call("_select_day_hub_morning_dialogue", day_two_progress, seen_day_two_ids)
+	if not seen_day_two_candidate.is_empty():
+		push_error("Day Hub day-2 morning dialogue should not replay once seen")
+		_cleanup(layer)
+		return
+	var day_three_progress := meta_progress.duplicate(true)
+	var day_three_state: Dictionary = (day_three_progress.get("day_state", {}) as Dictionary).duplicate(true)
+	day_three_state["current_day"] = 3
+	day_three_progress["day_state"] = day_three_state
+	var day_three_candidate: Dictionary = layer.call("_select_day_hub_morning_dialogue", day_three_progress, [])
+	if String(day_three_candidate.get("id", "")) != "day_hub_day3_morning":
+		push_error("Day Hub morning selector should choose the day-3 authored beat on day 3")
 		_cleanup(layer)
 		return
 	var pending_summary_progress := meta_progress.duplicate(true)
