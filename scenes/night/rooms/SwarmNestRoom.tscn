@@ -1,0 +1,55 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/CombatRoom.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/night/authored_room.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverWall.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/HazardZone.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/ExplosiveProp.tscn" id="5"]
+
+[node name="SwarmNestRoom" instance=ExtResource("1")]
+script = ExtResource("2")
+content_label = "Swarm Nest"
+content_tags = PackedStringArray("elite", "nest", "hazard", "volatile")
+
+[node name="Dress" type="Node2D" parent="."]
+
+[node name="NestMound" type="Polygon2D" parent="Dress"]
+position = Vector2(0, -18)
+color = Color(0.24, 0.18, 0.12, 0.34)
+polygon = PackedVector2Array(-144, -54, 144, -54, 182, 0, 144, 54, -144, 54, -182, 0)
+
+[node name="CoverProps" type="Node2D" parent="."]
+
+[node name="NestSpineWest" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(-118, -26)
+rotation = 0.36
+scale = Vector2(0.78, 0.9)
+
+[node name="NestSpineEast" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(118, -26)
+rotation = -0.36
+scale = Vector2(0.78, 0.9)
+
+[node name="NestSpineCenter" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(0, 54)
+scale = Vector2(0.92, 0.92)
+
+[node name="Hazards" type="Node2D" parent="."]
+
+[node name="ShockNorth" parent="Hazards" instance=ExtResource("4")]
+position = Vector2(0, -128)
+hazard_id = "shock_vent"
+radius = 46.0
+
+[node name="ShockSouth" parent="Hazards" instance=ExtResource("4")]
+position = Vector2(0, 134)
+hazard_id = "shock_vent"
+radius = 46.0
+
+[node name="ExplosiveProps" type="Node2D" parent="."]
+
+[node name="NestBarrelWest" parent="ExplosiveProps" instance=ExtResource("5")]
+position = Vector2(-166, 28)
+
+[node name="NestBarrelEast" parent="ExplosiveProps" instance=ExtResource("5")]
+position = Vector2(166, 28)

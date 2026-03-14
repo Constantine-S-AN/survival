@@ -1,0 +1,43 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/TransitionRoom.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/night/authored_room.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverWall.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverPillar.tscn" id="4"]
+
+[node name="OmenShrineRoom" instance=ExtResource("1")]
+script = ExtResource("2")
+content_label = "Omen Shrine"
+content_tags = PackedStringArray("event", "ritual", "orientation")
+
+[node name="Dress" type="Node2D" parent="."]
+
+[node name="ShrineDais" type="Polygon2D" parent="Dress"]
+position = Vector2(0, -48)
+color = Color(0.33, 0.17, 0.12, 0.42)
+polygon = PackedVector2Array(-126, 0, -68, -36, 68, -36, 126, 0, 68, 36, -68, 36)
+
+[node name="ShrineCore" type="Polygon2D" parent="Dress"]
+position = Vector2(0, -54)
+color = Color(1, 0.68, 0.42, 0.22)
+polygon = PackedVector2Array(0, -28, 20, 0, 0, 28, -20, 0)
+
+[node name="CoverProps" type="Node2D" parent="."]
+
+[node name="RitualWallWest" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(-182, 18)
+scale = Vector2(0.74, 0.74)
+
+[node name="RitualWallEast" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(182, 18)
+scale = Vector2(0.74, 0.74)
+
+[node name="ShrineStoneWest" parent="CoverProps" instance=ExtResource("4")]
+position = Vector2(-72, 74)
+
+[node name="ShrineStoneEast" parent="CoverProps" instance=ExtResource("4")]
+position = Vector2(72, 74)
+
+[node name="Hazards" type="Node2D" parent="."]
+
+[node name="ExplosiveProps" type="Node2D" parent="."]

@@ -1,0 +1,52 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/CombatRoom.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/night/authored_room.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverPillar.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/HazardZone.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/ExplosiveProp.tscn" id="5"]
+
+[node name="ReefPillarRoom" instance=ExtResource("1")]
+script = ExtResource("2")
+content_label = "Signal Pillars"
+content_tags = PackedStringArray("combat", "pillars", "shock", "volatile")
+
+[node name="Dress" type="Node2D" parent="."]
+
+[node name="SignalGrid" type="Polygon2D" parent="Dress"]
+position = Vector2(0, -6)
+color = Color(0.16, 0.20, 0.28, 0.18)
+polygon = PackedVector2Array(-184, -110, 184, -110, 210, 0, 184, 110, -184, 110, -210, 0)
+
+[node name="CoverProps" type="Node2D" parent="."]
+
+[node name="PillarNorthWest" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(-142, -82)
+scale = Vector2(1.2, 1.2)
+
+[node name="PillarNorthEast" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(142, -82)
+scale = Vector2(1.2, 1.2)
+
+[node name="PillarSouthWest" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(-142, 78)
+scale = Vector2(1.2, 1.2)
+
+[node name="PillarSouthEast" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(142, 78)
+scale = Vector2(1.2, 1.2)
+
+[node name="Hazards" type="Node2D" parent="."]
+
+[node name="ShockVent" parent="Hazards" instance=ExtResource("4")]
+position = Vector2(0, -4)
+hazard_id = "shock_vent"
+radius = 54.0
+
+[node name="ExplosiveProps" type="Node2D" parent="."]
+
+[node name="BarrelNorth" parent="ExplosiveProps" instance=ExtResource("5")]
+position = Vector2(0, -132)
+
+[node name="BarrelSouth" parent="ExplosiveProps" instance=ExtResource("5")]
+position = Vector2(0, 126)

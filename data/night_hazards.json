@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "zones": [
+    {
+      "id": "undertow_pool",
+      "label": "Undertow Pool",
+      "radius": 74.0,
+      "damage": 7.0,
+      "tick_sec": 0.75,
+      "active_sec": 2.2,
+      "cooldown_sec": 1.6,
+      "affects_player": true,
+      "affects_enemies": true,
+      "fill_color": "#2f7486",
+      "ring_color": "#94eaff"
+    },
+    {
+      "id": "shock_vent",
+      "label": "Shock Vent",
+      "radius": 58.0,
+      "damage": 9.0,
+      "tick_sec": 0.55,
+      "active_sec": 1.2,
+      "cooldown_sec": 1.4,
+      "affects_player": true,
+      "affects_enemies": true,
+      "fill_color": "#5f4f94",
+      "ring_color": "#d3c9ff"
+    }
+  ],
+  "props": [
+    {
+      "id": "volatile_barrel",
+      "label": "Volatile Barrel",
+      "blocker_radius": 18.0,
+      "trigger_radius": 52.0,
+      "fuse_sec": 0.35,
+      "explosion_radius": 96.0,
+      "damage": 28.0,
+      "knockback": 108.0,
+      "body_color": "#b9564f",
+      "warning_color": "#ffcf78"
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/CombatRoom.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/night/authored_room.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverWall.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverPillar.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/HazardZone.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/ExplosiveProp.tscn" id="6"]
+
+[node name="AbyssSanctumRoom" instance=ExtResource("1")]
+script = ExtResource("2")
+content_label = "Abyss Sanctum"
+content_tags = PackedStringArray("boss", "arena", "undertow", "volatile")
+
+[node name="Dress" type="Node2D" parent="."]
+
+[node name="BossDais" type="Polygon2D" parent="Dress"]
+position = Vector2(0, -118)
+color = Color(0.30, 0.10, 0.15, 0.34)
+polygon = PackedVector2Array(-128, -24, 128, -24, 156, 0, 128, 24, -128, 24, -156, 0)
+
+[node name="ArenaBand" type="Polygon2D" parent="Dress"]
+position = Vector2(0, 22)
+color = Color(0.12, 0.18, 0.24, 0.24)
+polygon = PackedVector2Array(-244, -94, 244, -94, 286, 0, 244, 94, -244, 94, -286, 0)
+
+[node name="CoverProps" type="Node2D" parent="."]
+
+[node name="SanctumWallWest" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(-214, 0)
+scale = Vector2(0.64, 1.1)
+rotation = 1.5708
+
+[node name="SanctumWallEast" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(214, 0)
+scale = Vector2(0.64, 1.1)
+rotation = 1.5708
+
+[node name="SanctumPillarWest" parent="CoverProps" instance=ExtResource("4")]
+position = Vector2(-112, 88)
+scale = Vector2(1.25, 1.25)
+
+[node name="SanctumPillarEast" parent="CoverProps" instance=ExtResource("4")]
+position = Vector2(112, 88)
+scale = Vector2(1.25, 1.25)
+
+[node name="Hazards" type="Node2D" parent="."]
+
+[node name="TideWest" parent="Hazards" instance=ExtResource("5")]
+position = Vector2(-166, -54)
+hazard_id = "undertow_pool"
+radius = 70.0
+
+[node name="TideEast" parent="Hazards" instance=ExtResource("5")]
+position = Vector2(166, -54)
+hazard_id = "undertow_pool"
+radius = 70.0
+
+[node name="ExplosiveProps" type="Node2D" parent="."]
+
+[node name="SanctumBarrelWest" parent="ExplosiveProps" instance=ExtResource("6")]
+position = Vector2(-70, -2)
+
+[node name="SanctumBarrelEast" parent="ExplosiveProps" instance=ExtResource("6")]
+position = Vector2(70, -2)

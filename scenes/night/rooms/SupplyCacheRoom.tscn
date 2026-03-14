@@ -1,0 +1,40 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/TransitionRoom.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/night/authored_room.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverWall.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverPillar.tscn" id="4"]
+
+[node name="SupplyCacheRoom" instance=ExtResource("1")]
+script = ExtResource("2")
+content_label = "Supply Cache"
+content_tags = PackedStringArray("treasure", "cargo", "cover")
+
+[node name="Dress" type="Node2D" parent="."]
+
+[node name="CacheLane" type="Polygon2D" parent="Dress"]
+position = Vector2(0, -8)
+color = Color(0.28, 0.21, 0.12, 0.28)
+polygon = PackedVector2Array(-188, -32, 188, -32, 216, 0, 188, 32, -188, 32, -216, 0)
+
+[node name="CoverProps" type="Node2D" parent="."]
+
+[node name="CargoStackWest" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(-156, -24)
+
+[node name="CargoStackCenter" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(0, -24)
+scale = Vector2(0.82, 0.82)
+
+[node name="CargoStackEast" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(156, -24)
+
+[node name="CratePillarWest" parent="CoverProps" instance=ExtResource("4")]
+position = Vector2(-92, 76)
+
+[node name="CratePillarEast" parent="CoverProps" instance=ExtResource("4")]
+position = Vector2(92, 76)
+
+[node name="Hazards" type="Node2D" parent="."]
+
+[node name="ExplosiveProps" type="Node2D" parent="."]

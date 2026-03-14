@@ -1,0 +1,23 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(96, 28)
+
+[node name="CoverWall" type="Node2D"]
+
+[node name="Body" type="StaticBody2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Body"]
+shape = SubResource("1")
+
+[node name="Visual" type="Polygon2D" parent="."]
+color = Color(0.16, 0.24, 0.28, 1)
+polygon = PackedVector2Array(-48, -14, 48, -14, 48, 14, -48, 14)
+
+[node name="Trim" type="Line2D" parent="."]
+width = 2.5
+closed = true
+default_color = Color(0.42, 0.6, 0.68, 0.88)
+points = PackedVector2Array(-48, -14, 48, -14, 48, 14, -48, 14)

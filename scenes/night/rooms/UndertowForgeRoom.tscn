@@ -1,0 +1,55 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/CombatRoom.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/night/authored_room.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverWall.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverPillar.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/HazardZone.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/ExplosiveProp.tscn" id="6"]
+
+[node name="UndertowForgeRoom" instance=ExtResource("1")]
+script = ExtResource("2")
+content_label = "Undertow Forge"
+content_tags = PackedStringArray("elite", "crossfire", "undertow", "cover")
+
+[node name="Dress" type="Node2D" parent="."]
+
+[node name="ForgeBand" type="Polygon2D" parent="Dress"]
+position = Vector2(0, -12)
+color = Color(0.11, 0.20, 0.24, 0.28)
+polygon = PackedVector2Array(-214, -74, 214, -74, 246, 0, 214, 74, -214, 74, -246, 0)
+
+[node name="CoverProps" type="Node2D" parent="."]
+
+[node name="ForgeWallNorth" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(0, -88)
+scale = Vector2(0.92, 0.8)
+
+[node name="ForgeWallSouth" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(0, 74)
+scale = Vector2(0.92, 0.8)
+
+[node name="ForgePillarWest" parent="CoverProps" instance=ExtResource("4")]
+position = Vector2(-164, -4)
+scale = Vector2(1.2, 1.2)
+
+[node name="ForgePillarEast" parent="CoverProps" instance=ExtResource("4")]
+position = Vector2(164, -4)
+scale = Vector2(1.2, 1.2)
+
+[node name="Hazards" type="Node2D" parent="."]
+
+[node name="UndertowNorthWest" parent="Hazards" instance=ExtResource("5")]
+position = Vector2(-198, -132)
+hazard_id = "undertow_pool"
+radius = 58.0
+
+[node name="UndertowNorthEast" parent="Hazards" instance=ExtResource("5")]
+position = Vector2(198, -132)
+hazard_id = "undertow_pool"
+radius = 58.0
+
+[node name="ExplosiveProps" type="Node2D" parent="."]
+
+[node name="ForgeBarrelCenter" parent="ExplosiveProps" instance=ExtResource("6")]
+position = Vector2(0, -2)

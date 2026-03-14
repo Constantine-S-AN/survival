@@ -1,0 +1,55 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/CombatRoom.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/night/authored_room.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverWall.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverPillar.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/HazardZone.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/ExplosiveProp.tscn" id="6"]
+
+[node name="ReefChannelRoom" instance=ExtResource("1")]
+script = ExtResource("2")
+content_label = "Reef Channels"
+content_tags = PackedStringArray("combat", "cover", "undertow", "volatile")
+
+[node name="Dress" type="Node2D" parent="."]
+
+[node name="ChannelBand" type="Polygon2D" parent="Dress"]
+position = Vector2(0, -18)
+color = Color(0.10, 0.24, 0.28, 0.24)
+polygon = PackedVector2Array(-228, -42, 228, -42, 268, 0, 228, 42, -228, 42, -268, 0)
+
+[node name="CoverProps" type="Node2D" parent="."]
+
+[node name="ChannelWallWest" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(-138, -22)
+scale = Vector2(0.86, 1.0)
+rotation = 0.12
+
+[node name="ChannelWallEast" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(138, -22)
+scale = Vector2(0.86, 1.0)
+rotation = -0.12
+
+[node name="ChannelPostNorth" parent="CoverProps" instance=ExtResource("4")]
+position = Vector2(0, -136)
+
+[node name="Hazards" type="Node2D" parent="."]
+
+[node name="UndertowWest" parent="Hazards" instance=ExtResource("5")]
+position = Vector2(-196, 84)
+hazard_id = "undertow_pool"
+radius = 62.0
+
+[node name="UndertowEast" parent="Hazards" instance=ExtResource("5")]
+position = Vector2(196, 84)
+hazard_id = "undertow_pool"
+radius = 62.0
+
+[node name="ExplosiveProps" type="Node2D" parent="."]
+
+[node name="BarrelWest" parent="ExplosiveProps" instance=ExtResource("6")]
+position = Vector2(-84, 122)
+
+[node name="BarrelEast" parent="ExplosiveProps" instance=ExtResource("6")]
+position = Vector2(84, 122)

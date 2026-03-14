@@ -1,0 +1,43 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/TransitionRoom.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/night/authored_room.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverWall.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverPillar.tscn" id="4"]
+
+[node name="HarborRefugeRoom" instance=ExtResource("1")]
+script = ExtResource("2")
+content_label = "Harbor Refuge"
+content_tags = PackedStringArray("rest", "cover", "staging")
+
+[node name="Dress" type="Node2D" parent="."]
+
+[node name="LanternGlow" type="Polygon2D" parent="Dress"]
+position = Vector2(0, -54)
+color = Color(0.95, 0.78, 0.48, 0.22)
+polygon = PackedVector2Array(0, -42, 38, 0, 0, 42, -38, 0)
+
+[node name="RestDais" type="Polygon2D" parent="Dress"]
+position = Vector2(0, 32)
+color = Color(0.18, 0.26, 0.31, 0.88)
+polygon = PackedVector2Array(-104, -26, 104, -26, 124, 0, 104, 26, -104, 26, -124, 0)
+
+[node name="CoverProps" type="Node2D" parent="."]
+
+[node name="SupplyRailLeft" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(-168, -34)
+scale = Vector2(0.9, 0.9)
+
+[node name="SupplyRailRight" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(168, -34)
+scale = Vector2(0.9, 0.9)
+
+[node name="DockPostLeft" parent="CoverProps" instance=ExtResource("4")]
+position = Vector2(-92, 56)
+
+[node name="DockPostRight" parent="CoverProps" instance=ExtResource("4")]
+position = Vector2(92, 56)
+
+[node name="Hazards" type="Node2D" parent="."]
+
+[node name="ExplosiveProps" type="Node2D" parent="."]

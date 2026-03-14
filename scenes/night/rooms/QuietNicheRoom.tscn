@@ -1,0 +1,37 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/TransitionRoom.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/night/authored_room.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/night/rooms/setpieces/CoverPillar.tscn" id="3"]
+
+[node name="QuietNicheRoom" instance=ExtResource("1")]
+script = ExtResource("2")
+content_label = "Quiet Niche"
+content_tags = PackedStringArray("rest", "alcove", "recovery")
+
+[node name="Dress" type="Node2D" parent="."]
+
+[node name="SanctumPool" type="Polygon2D" parent="Dress"]
+position = Vector2(0, -16)
+color = Color(0.18, 0.34, 0.37, 0.34)
+polygon = PackedVector2Array(-112, 0, -72, -28, 72, -28, 112, 0, 72, 28, -72, 28)
+
+[node name="CoverProps" type="Node2D" parent="."]
+
+[node name="NicheStoneWest" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(-138, -26)
+scale = Vector2(1.25, 1.25)
+
+[node name="NicheStoneEast" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(138, -26)
+scale = Vector2(1.25, 1.25)
+
+[node name="NicheStoneSouthWest" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(-94, 74)
+
+[node name="NicheStoneSouthEast" parent="CoverProps" instance=ExtResource("3")]
+position = Vector2(94, 74)
+
+[node name="Hazards" type="Node2D" parent="."]
+
+[node name="ExplosiveProps" type="Node2D" parent="."]

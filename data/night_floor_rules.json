@@ -4,7 +4,10 @@
     {
       "id": "floor_1",
       "label": "Rift Floor 1",
-      "template_id": "branching_intro",
+      "template_ids": [
+        "branching_intro_channels",
+        "branching_intro_pillars"
+      ],
       "start_room_id": "camp",
       "goal_room_id": "apex_guardian"
     }

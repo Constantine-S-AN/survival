@@ -45,6 +45,9 @@ func _run() -> void:
 	_assert_equal(String(reef_patrol_room.get("encounter_category", "")), "standard", "reef patrol is marked as a standard encounter")
 	_assert_equal(String(swarm_nest_room.get("encounter_category", "")), "elite", "swarm nest is marked as an elite encounter")
 	_assert_equal(String(apex_guardian_room.get("encounter_category", "")), "boss", "apex guardian is marked as a boss encounter")
+	_assert_true(String(reef_patrol_room.get("scene_path", "")).find("CombatRoom.tscn") < 0, "reef patrol now uses an authored combat room scene")
+	_assert_true(String(apex_guardian_room.get("scene_path", "")).find("CombatRoom.tscn") < 0, "boss room now uses an authored boss-room scene")
+	var first_reef_scene_path := String(reef_patrol_room.get("scene_path", ""))
 
 	run_node.call("debug_use_exit", "swarm_nest")
 	await _wait_frames(6)
@@ -55,6 +58,10 @@ func _run() -> void:
 	_assert_equal(String(snapshot.get("room_status", "")), "active", "combat room becomes active on entry")
 	_assert_true(not bool(snapshot.get("room_cleared", true)), "combat room remains uncleared until the encounter is resolved")
 	_assert_true(_snapshot_has_locked_exit(snapshot), "combat room keeps its exit locked while enemies are alive")
+	var elite_room_content: Dictionary = snapshot.get("room_content", {})
+	_assert_true(int(elite_room_content.get("cover_count", 0)) >= 3, "elite room exposes authored cover geometry")
+	_assert_true(int(elite_room_content.get("hazard_count", 0)) >= 1, "elite room exposes authored hazard setpieces")
+	_assert_true(int(elite_room_content.get("explosive_count", 0)) >= 1, "elite room exposes authored explosive props")
 	var base_weapon_dps := float((snapshot.get("player_hud", {}) as Dictionary).get("weapon_dps_estimate", 0.0))
 
 	run_node.call("debug_force_clear_room")
@@ -147,8 +154,19 @@ func _run() -> void:
 	})
 
 	await _wait_frames(10)
+	snapshot = run_node.call("debug_get_snapshot")
+	var second_reef_scene_path := String(_find_room_snapshot(snapshot, "reef_patrol").get("scene_path", ""))
+	_assert_true(
+		not second_reef_scene_path.is_empty() and second_reef_scene_path != first_reef_scene_path,
+		"different deterministic seeds pick different authored combat-room scenes"
+	)
 	run_node.call("debug_use_exit", "reef_patrol")
 	await _wait_frames(6)
+	snapshot = run_node.call("debug_get_snapshot")
+	var standard_room_content: Dictionary = snapshot.get("room_content", {})
+	_assert_true(int(standard_room_content.get("cover_count", 0)) >= 3, "standard room exposes authored cover geometry")
+	_assert_true(int(standard_room_content.get("hazard_count", 0)) >= 1, "standard room exposes authored hazards")
+	_assert_true(int(standard_room_content.get("explosive_count", 0)) >= 1, "standard room exposes authored explosive props")
 	run_node.call("debug_force_clear_room")
 	await _wait_frames(2)
 	_assert_true(bool(run_node.call("debug_select_room_reward", 0)), "extraction test can still claim a room reward before leaving")

@@ -178,10 +178,12 @@ func debug_get_snapshot() -> Dictionary:
 		"room_reward_claimed": bool(_current_room.reward_claimed) if _current_room != null else false,
 		"room_goal": bool(_current_room.is_goal) if _current_room != null else false,
 		"room_note": _last_room_note,
+		"room_content": _get_active_room_content_snapshot(),
 		"encounter_id": String(_current_room_payload.get("encounter_id", "")),
 		"encounter_label": String(_current_room_payload.get("encounter_label", "")),
 		"encounter_category": String(_current_room_payload.get("encounter_category", "")),
 		"encounter_category_label": String(_current_room_payload.get("encounter_category_label", "")),
+		"spawn_set_id": String(_current_room_payload.get("spawn_set_id", "")),
 		"reward_panel_visible": reward_panel != null and reward_panel.visible,
 		"reward_choices": _pending_room_rewards.duplicate(true),
 		"run_modifier_state": modifier_snapshot,
@@ -726,6 +728,15 @@ func _get_player_hud_snapshot() -> Dictionary:
 	return snapshot_variant if snapshot_variant is Dictionary else {}
 
 
+func _get_active_room_content_snapshot() -> Dictionary:
+	if _active_room_node == null or not is_instance_valid(_active_room_node):
+		return {}
+	if _active_room_node.has_method("get_room_content_snapshot"):
+		var snapshot_variant: Variant = _active_room_node.call("get_room_content_snapshot")
+		return snapshot_variant if snapshot_variant is Dictionary else {}
+	return {}
+
+
 func _extract_base_reward_multipliers() -> Dictionary:
 	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("get_runtime_reward_multipliers"):
 		var payload_variant: Variant = _game_root.call("get_runtime_reward_multipliers")
@@ -762,6 +773,7 @@ func _build_floor_rooms_snapshot() -> Array[Dictionary]:
 		room_snapshot["encounter_category"] = String(encounter_snapshot.get("encounter_category", ""))
 		room_snapshot["encounter_category_label"] = String(encounter_snapshot.get("encounter_category_label", ""))
 		room_snapshot["reward_table_id"] = String(encounter_snapshot.get("reward_table_id", ""))
+		room_snapshot["spawn_set_id"] = String(encounter_snapshot.get("spawn_set_id", ""))
 		room_snapshot["difficulty"] = int(encounter_snapshot.get("difficulty", 0))
 		snapshots.append(room_snapshot)
 	return snapshots

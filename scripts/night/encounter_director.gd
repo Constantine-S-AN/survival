@@ -2,6 +2,7 @@ extends RefCounted
 class_name EncounterDirector
 
 const ENCOUNTERS_PATH := "res://data/night_encounters.json"
+const SPAWN_SETS_PATH := "res://data/night_spawn_sets.json"
 const CATEGORY_LABELS := {
 	"standard": "Standard Combat",
 	"elite": "Elite Combat",
@@ -9,6 +10,7 @@ const CATEGORY_LABELS := {
 }
 
 var _encounters_by_id: Dictionary = {}
+var _spawn_sets_by_id: Dictionary = {}
 
 
 func describe_room(floor_state, room_state) -> Dictionary:
@@ -21,6 +23,7 @@ func describe_room(floor_state, room_state) -> Dictionary:
 		"encounter_category": "",
 		"encounter_category_label": "",
 		"reward_table_id": "",
+		"spawn_set_id": "",
 		"difficulty": 0,
 		"is_goal": room_state.is_goal,
 		"reward": room_state.reward_data.duplicate(true),
@@ -40,6 +43,7 @@ func describe_room(floor_state, room_state) -> Dictionary:
 		encounter.get("category_label", CATEGORY_LABELS.get(category, category.capitalize()))
 	).strip_edges()
 	payload["reward_table_id"] = String(encounter.get("reward_table_id", "combat_%s" % category)).strip_edges()
+	payload["spawn_set_id"] = String(encounter.get("spawn_set_id", "")).strip_edges().to_lower()
 	payload["difficulty"] = maxi(1, int(encounter.get("difficulty", 1)))
 	return payload
 
@@ -50,7 +54,12 @@ func build_room_payload(floor_state, room_state, room_node: Node2D) -> Dictionar
 		return payload
 
 	var encounter := _resolve_encounter(floor_state, room_state)
+	var spawn_set_id := String(encounter.get("spawn_set_id", "")).strip_edges().to_lower()
 	var enemies_variant: Variant = encounter.get("enemies", [])
+	if not spawn_set_id.is_empty():
+		var spawn_set_variant: Variant = _spawn_sets_by_id.get(spawn_set_id, {})
+		if spawn_set_variant is Dictionary:
+			enemies_variant = (spawn_set_variant as Dictionary).get("enemies", enemies_variant)
 	if not (enemies_variant is Array):
 		return payload
 
@@ -96,6 +105,7 @@ func _resolve_encounter(floor_state, room_state) -> Dictionary:
 			"label": room_state.label,
 			"category": "boss" if room_state.room_type_id == room_state.TYPE_BOSS else "standard",
 			"reward_table_id": "combat_boss" if room_state.room_type_id == room_state.TYPE_BOSS else "combat_standard",
+			"spawn_set_id": "",
 			"difficulty": 1,
 			"enemies": []
 		}
@@ -151,19 +161,30 @@ func _merge_dictionary(base: Dictionary, override_source: Dictionary) -> Diction
 
 func _ensure_loaded() -> void:
 	if not _encounters_by_id.is_empty():
-		return
+		if not _spawn_sets_by_id.is_empty():
+			return
 	var payload := _load_json_dictionary(ENCOUNTERS_PATH)
 	var rows_variant: Variant = payload.get("encounters", [])
-	if not (rows_variant is Array):
-		return
-	for row_variant in rows_variant:
-		if not (row_variant is Dictionary):
-			continue
-		var row: Dictionary = row_variant
-		var encounter_id := String(row.get("id", "")).strip_edges().to_lower()
-		if encounter_id.is_empty():
-			continue
-		_encounters_by_id[encounter_id] = row.duplicate(true)
+	if rows_variant is Array:
+		for row_variant in rows_variant:
+			if not (row_variant is Dictionary):
+				continue
+			var row: Dictionary = row_variant
+			var encounter_id := String(row.get("id", "")).strip_edges().to_lower()
+			if encounter_id.is_empty():
+				continue
+			_encounters_by_id[encounter_id] = row.duplicate(true)
+	var spawn_payload := _load_json_dictionary(SPAWN_SETS_PATH)
+	var spawn_rows_variant: Variant = spawn_payload.get("spawn_sets", [])
+	if spawn_rows_variant is Array:
+		for row_variant in spawn_rows_variant:
+			if not (row_variant is Dictionary):
+				continue
+			var row: Dictionary = row_variant
+			var spawn_set_id := String(row.get("id", "")).strip_edges().to_lower()
+			if spawn_set_id.is_empty():
+				continue
+			_spawn_sets_by_id[spawn_set_id] = row.duplicate(true)
 
 
 func _load_json_dictionary(path: String) -> Dictionary:

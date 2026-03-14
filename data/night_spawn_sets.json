@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "spawn_sets": [
+    {
+      "id": "reef_patrol_channels",
+      "label": "Reef Patrol Channels",
+      "enemies": [
+        {"enemy_id": "drifter", "spawn_point": "NorthWest"},
+        {"enemy_id": "drifter", "spawn_point": "NorthEast"},
+        {"enemy_id": "shooter", "spawn_point": "North"},
+        {"enemy_id": "sprinter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "reef_patrol_pillars",
+      "label": "Reef Patrol Pillars",
+      "enemies": [
+        {"enemy_id": "shielded", "spawn_point": "North"},
+        {"enemy_id": "shooter", "spawn_point": "West"},
+        {"enemy_id": "shooter", "spawn_point": "East"},
+        {"enemy_id": "drifter", "spawn_point": "Center"}
+      ]
+    },
+    {
+      "id": "swarm_nest_cluster",
+      "label": "Swarm Nest Cluster",
+      "enemies": [
+        {"enemy_id": "lurker", "spawn_point": "NorthWest", "allow_elite": true},
+        {"enemy_id": "ink_mite", "spawn_point": "North", "count": 2, "offset_radius": 26.0, "allow_elite": true},
+        {"enemy_id": "sprinter", "spawn_point": "Center", "count": 2, "offset_radius": 80.0}
+      ]
+    },
+    {
+      "id": "swarm_nest_forge",
+      "label": "Swarm Nest Forge",
+      "enemies": [
+        {"enemy_id": "lurker", "spawn_point": "West", "allow_elite": true},
+        {"enemy_id": "lurker", "spawn_point": "East", "allow_elite": true},
+        {"enemy_id": "ink_mite", "spawn_point": "North", "count": 3, "offset_radius": 28.0},
+        {"enemy_id": "sprinter", "spawn_point": "SouthWest"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthEast"}
+      ]
+    },
+    {
+      "id": "apex_guardian_sanctum",
+      "label": "Abyss Sanctum",
+      "enemies": [
+        {"enemy_id": "abyss_siren", "spawn_boss": true, "spawn_point": "North"}
+      ]
+    }
+  ]
+}
