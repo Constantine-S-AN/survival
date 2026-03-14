@@ -38,3 +38,49 @@ text = "Staging Chamber"
 text = "Initializing night run"
 
 [node name="NightMinimap" parent="Overlay" instance=ExtResource("2")]
+
+[node name="RewardPanel" type="PanelContainer" parent="Overlay"]
+visible = false
+offset_left = 824.0
+offset_top = 348.0
+offset_right = 1248.0
+offset_bottom = 690.0
+
+[node name="MarginContainer" type="MarginContainer" parent="Overlay/RewardPanel"]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 414.0
+offset_bottom = 332.0
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Overlay/RewardPanel/MarginContainer"]
+offset_right = 404.0
+offset_bottom = 322.0
+theme_override_constants/separation = 8
+
+[node name="RewardTitle" type="Label" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer"]
+text = "Room Reward"
+
+[node name="RewardSubtitle" type="Label" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer"]
+text = "Choose a reward"
+
+[node name="RewardButtons" type="VBoxContainer" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer"]
+theme_override_constants/separation = 8
+
+[node name="RewardButton1" type="Button" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons"]
+custom_minimum_size = Vector2(0, 74)
+text = "Reward 1"
+
+[node name="RewardButton2" type="Button" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons"]
+custom_minimum_size = Vector2(0, 74)
+text = "Reward 2"
+
+[node name="RewardButton3" type="Button" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons"]
+custom_minimum_size = Vector2(0, 74)
+text = "Reward 3"
+
+[node name="RewardHint" type="Label" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer"]
+text = "Pick one reward before taking the next door."

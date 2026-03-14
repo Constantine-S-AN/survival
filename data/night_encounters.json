@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "encounters": [
+    {
+      "id": "reef_patrol",
+      "label": "Reef Patrol",
+      "category": "standard",
+      "category_label": "Standard Combat",
+      "reward_table_id": "combat_standard",
+      "difficulty": 1,
+      "enemies": [
+        {
+          "enemy_id": "drifter",
+          "spawn_point": "NorthWest"
+        },
+        {
+          "enemy_id": "drifter",
+          "spawn_point": "NorthEast"
+        },
+        {
+          "enemy_id": "shooter",
+          "spawn_point": "North"
+        }
+      ]
+    },
+    {
+      "id": "swarm_nest",
+      "label": "Swarm Nest",
+      "category": "elite",
+      "category_label": "Elite Combat",
+      "reward_table_id": "combat_elite",
+      "difficulty": 2,
+      "enemies": [
+        {
+          "enemy_id": "lurker",
+          "spawn_point": "NorthWest",
+          "allow_elite": true
+        },
+        {
+          "enemy_id": "ink_mite",
+          "spawn_point": "North",
+          "count": 2,
+          "offset_radius": 26.0,
+          "allow_elite": true
+        },
+        {
+          "enemy_id": "sprinter",
+          "spawn_point": "Center",
+          "count": 2,
+          "offset_radius": 80.0
+        }
+      ]
+    },
+    {
+      "id": "apex_guardian",
+      "label": "Apex Guardian",
+      "category": "boss",
+      "category_label": "Boss Combat",
+      "reward_table_id": "combat_boss",
+      "difficulty": 3,
+      "enemies": [
+        {
+          "enemy_id": "abyss_siren",
+          "spawn_boss": true,
+          "spawn_point": "North"
+        }
+      ]
+    }
+  ]
+}

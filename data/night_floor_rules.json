@@ -6,57 +6,7 @@
       "label": "Rift Floor 1",
       "template_id": "branching_intro",
       "start_room_id": "camp",
-      "goal_room_id": "apex_guardian",
-      "encounters": {
-        "reef_patrol": {
-          "label": "Reef Patrol",
-          "enemies": [
-            {
-              "enemy_id": "drifter",
-              "spawn_point": "NorthWest"
-            },
-            {
-              "enemy_id": "drifter",
-              "spawn_point": "NorthEast"
-            },
-            {
-              "enemy_id": "shooter",
-              "spawn_point": "North"
-            }
-          ]
-        },
-        "swarm_nest": {
-          "label": "Swarm Nest",
-          "enemies": [
-            {
-              "enemy_id": "lurker",
-              "spawn_point": "NorthWest"
-            },
-            {
-              "enemy_id": "ink_mite",
-              "spawn_point": "North",
-              "count": 2,
-              "offset_radius": 26.0
-            },
-            {
-              "enemy_id": "sprinter",
-              "spawn_point": "Center",
-              "count": 2,
-              "offset_radius": 80.0
-            }
-          ]
-        },
-        "apex_guardian": {
-          "label": "Apex Guardian",
-          "enemies": [
-            {
-              "enemy_id": "abyss_siren",
-              "spawn_boss": true,
-              "spawn_point": "North"
-            }
-          ]
-        }
-      }
+      "goal_room_id": "apex_guardian"
     }
   ]
 }

@@ -67,6 +67,7 @@ var kill_streak_reward_tier: int = 0
 var embedded_session_mode: bool = false
 var embedded_session_request: Dictionary = {}
 var embedded_session_duration_sec: float = 0.0
+var _last_generated_seed: int = 0
 
 
 func set_embedded_session_request(request: Dictionary) -> void:
@@ -95,6 +96,32 @@ func _boot_embedded_session() -> void:
 		contract_ids = (contract_ids_variant as Array).duplicate()
 	var seed_override := int(request.get("seed", 0))
 	_start_run(character_id, map_id, contract_ids, true, seed_override)
+
+
+func _next_runtime_seed() -> int:
+	var wall_usec: int = int(floor(Time.get_unix_time_from_system() * 1000000.0))
+	var tick_usec: int = int(Time.get_ticks_usec())
+	var seed: int = abs(wall_usec ^ (tick_usec << 11) ^ (tick_usec >> 3))
+	if seed == 0:
+		seed = 1
+	if seed <= _last_generated_seed:
+		seed = _last_generated_seed + 1
+	_last_generated_seed = seed
+	return seed
+
+
+func get_runtime_reward_multipliers() -> Dictionary:
+	return run_reward_multipliers.duplicate(true)
+
+
+func set_runtime_reward_multipliers(multipliers: Dictionary = {}) -> void:
+	run_reward_multipliers = _normalize_runtime_reward_multipliers(multipliers)
+	if world != null and world.has_method("set_runtime_reward_multipliers"):
+		world.set_runtime_reward_multipliers(run_reward_multipliers)
+	if world != null and world.player != null and world.player.has_method("set_run_reward_multipliers"):
+		world.player.set_run_reward_multipliers(run_reward_multipliers)
+	if run_state == STATE_PLAYING and ui != null:
+		_refresh_hud()
 
 
 func _ready() -> void:
@@ -753,7 +780,7 @@ func _on_player_died() -> void:
 	if _game_over_latched:
 		return
 	_game_over_latched = true
-	var summary_state := _build_embedded_session_summary("completed")
+	var summary_state := _build_embedded_session_summary("abandoned")
 	if _can_use_scene_transition() and SceneTransition.has_method("play_pulse"):
 		SceneTransition.play_pulse(0.18)
 	_set_state(STATE_GAME_OVER)
@@ -912,16 +939,16 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 	selected_contract_ids = DataRegistry.normalize_contract_selection(contract_ids)
 	var contract_modifiers := DataRegistry.compose_contract_modifiers(selected_contract_ids)
 	var reward_preview := DataRegistry.get_contract_reward_preview(selected_contract_ids)
-	run_reward_multipliers = {
+	set_runtime_reward_multipliers({
 		"xp": float(reward_preview.get("xp_mult", 1.0)),
 		"rarity": float(reward_preview.get("rarity_mult", 1.0)),
 		"drop": float(reward_preview.get("drop_mult", 1.0)),
 		"meta_currency": float(reward_preview.get("meta_currency_mult", 1.0))
-	}
+	})
 	ProfileStore.set_selected_character_id(selected_character_id)
 	ProfileStore.set_selected_map_id(selected_map_id)
 	ProfileStore.set_selected_contract_ids(selected_contract_ids)
-	run_seed = seed_override if seed_override != 0 else int(Time.get_unix_time_from_system())
+	run_seed = seed_override if seed_override != 0 else _next_runtime_seed()
 	rng.seed = run_seed
 	reward_rng.seed = run_seed ^ 0x5F3759DF
 	elapsed_time = 0.0
@@ -937,10 +964,7 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 
 	var character_def := DataRegistry.get_character(selected_character_id)
 	world.setup_run(rng, character_def, selected_map_id, run_seed, contract_modifiers, selected_contract_ids)
-	if world != null and world.has_method("set_runtime_reward_multipliers"):
-		world.set_runtime_reward_multipliers(run_reward_multipliers)
-	if world != null and world.player != null and world.player.has_method("set_run_reward_multipliers"):
-		world.player.set_run_reward_multipliers(run_reward_multipliers)
+	set_runtime_reward_multipliers(run_reward_multipliers)
 	if ui != null and ui.has_method("clear_run_summary"):
 		ui.clear_run_summary()
 	if world != null and world.has_method("begin_run"):
@@ -1072,6 +1096,15 @@ func _calculate_meta_currency_earned(level_reached: int) -> Dictionary:
 		"base": base,
 		"multiplier": mult,
 		"total": total
+	}
+
+
+func _normalize_runtime_reward_multipliers(multipliers: Dictionary = {}) -> Dictionary:
+	return {
+		"xp": maxf(0.0, float(multipliers.get("xp", multipliers.get("xp_mult", 1.0)))),
+		"rarity": maxf(0.0, float(multipliers.get("rarity", multipliers.get("rarity_mult", 1.0)))),
+		"drop": maxf(0.0, float(multipliers.get("drop", multipliers.get("drop_mult", 1.0)))),
+		"meta_currency": maxf(0.0, float(multipliers.get("meta_currency", multipliers.get("meta_currency_mult", 1.0))))
 	}
 
 

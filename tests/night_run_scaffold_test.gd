@@ -39,42 +39,73 @@ func _run() -> void:
 	_assert_true(_minimap_has_room_type(snapshot, "boss"), "minimap snapshot includes the boss room type")
 	_assert_true(_minimap_has_room_type(snapshot, "treasure"), "minimap snapshot includes the treasure room type")
 	_assert_true(_minimap_has_room_type(snapshot, "event"), "minimap snapshot includes the event room type")
+	var reef_patrol_room := _find_room_snapshot(snapshot, "reef_patrol")
+	var swarm_nest_room := _find_room_snapshot(snapshot, "swarm_nest")
+	var apex_guardian_room := _find_room_snapshot(snapshot, "apex_guardian")
+	_assert_equal(String(reef_patrol_room.get("encounter_category", "")), "standard", "reef patrol is marked as a standard encounter")
+	_assert_equal(String(swarm_nest_room.get("encounter_category", "")), "elite", "swarm nest is marked as an elite encounter")
+	_assert_equal(String(apex_guardian_room.get("encounter_category", "")), "boss", "apex guardian is marked as a boss encounter")
 
-	run_node.call("debug_use_exit", "reef_patrol")
+	run_node.call("debug_use_exit", "swarm_nest")
 	await _wait_frames(6)
 	snapshot = run_node.call("debug_get_snapshot")
-	_assert_equal(String(snapshot.get("room_id", "")), "reef_patrol", "selecting an exit advances into the chosen combat room")
-	_assert_equal(String(snapshot.get("room_type_id", "")), "combat", "reef patrol room is treated as a combat room")
+	_assert_equal(String(snapshot.get("room_id", "")), "swarm_nest", "selecting an exit advances into the chosen combat room")
+	_assert_equal(String(snapshot.get("room_type_id", "")), "combat", "swarm nest room is treated as a combat room")
+	_assert_equal(String(snapshot.get("encounter_category", "")), "elite", "combat room exposes its elite encounter category")
 	_assert_equal(String(snapshot.get("room_status", "")), "active", "combat room becomes active on entry")
 	_assert_true(not bool(snapshot.get("room_cleared", true)), "combat room remains uncleared until the encounter is resolved")
 	_assert_true(_snapshot_has_locked_exit(snapshot), "combat room keeps its exit locked while enemies are alive")
+	var base_weapon_dps := float((snapshot.get("player_hud", {}) as Dictionary).get("weapon_dps_estimate", 0.0))
 
 	run_node.call("debug_force_clear_room")
 	await _wait_frames(2)
 	snapshot = run_node.call("debug_get_snapshot")
 	_assert_true(bool(snapshot.get("room_cleared", false)), "forcing the encounter clear marks the room as cleared")
 	_assert_true(not _snapshot_has_locked_exit(snapshot), "clearing the room unlocks its exit")
+	_assert_true(bool(snapshot.get("reward_panel_visible", false)), "combat clear opens a room-end reward panel")
+	_assert_true(not bool(snapshot.get("room_reward_claimed", true)), "combat room reward remains unclaimed until the player picks one")
+	_assert_equal(int((snapshot.get("reward_choices", []) as Array).size()), 3, "combat clear presents three compact reward choices")
+	_assert_true(_reward_choice_has_kind(snapshot, "currency"), "reward panel includes a currency or materials option")
+	_assert_true(_reward_choice_has_kind(snapshot, "weapon"), "reward panel includes a weapon-focused run modifier")
 
-	run_node.call("debug_use_exit", "supply_cache")
+	_assert_true(bool(run_node.call("debug_select_room_reward", 2)), "weapon reward option can be claimed from the room-end reward panel")
+	await _wait_frames(2)
+	snapshot = run_node.call("debug_get_snapshot")
+	_assert_true(bool(snapshot.get("room_reward_claimed", false)), "claiming a room-end reward marks the room reward as claimed")
+	_assert_true(not bool(snapshot.get("reward_panel_visible", true)), "reward panel closes after a reward is chosen")
+	var run_modifier_state: Dictionary = snapshot.get("run_modifier_state", {})
+	var applied_modifiers: Array = run_modifier_state.get("applied_modifiers", [])
+	_assert_equal(int(applied_modifiers.size()), 1, "claiming a weapon reward records one applied run modifier")
+	if not applied_modifiers.is_empty() and applied_modifiers[0] is Dictionary:
+		_assert_equal(String((applied_modifiers[0] as Dictionary).get("reward_kind", "")), "weapon", "chosen reward is tracked as a weapon modifier")
+	var upgraded_weapon_dps := float((snapshot.get("player_hud", {}) as Dictionary).get("weapon_dps_estimate", 0.0))
+	_assert_true(upgraded_weapon_dps > base_weapon_dps, "claiming a weapon reward makes the player stronger within the same run")
+
+	run_node.call("debug_use_exit", "quiet_niche")
 	await _wait_frames(6)
 	snapshot = run_node.call("debug_get_snapshot")
-	_assert_equal(String(snapshot.get("room_id", "")), "supply_cache", "combat branch advances into its linked treasure room")
-	_assert_equal(String(snapshot.get("room_type_id", "")), "treasure", "supply cache is marked as a treasure room")
-	_assert_true(bool(snapshot.get("room_reward_claimed", false)), "treasure room claims its reward on entry")
-	_assert_equal(String(snapshot.get("room_status", "")), "cleared", "treasure room resolves immediately after its reward")
+	_assert_equal(String(snapshot.get("room_id", "")), "quiet_niche", "elite branch advances into its linked rest room")
+	_assert_equal(String(snapshot.get("room_type_id", "")), "rest", "quiet niche is marked as a rest room")
+	_assert_true(bool(snapshot.get("room_reward_claimed", false)), "rest room claims its reward on entry")
+	_assert_equal(String(snapshot.get("room_status", "")), "cleared", "rest room resolves immediately after its reward")
 
 	run_node.call("debug_use_exit", "omen_shrine")
 	await _wait_frames(6)
 	snapshot = run_node.call("debug_get_snapshot")
-	_assert_equal(String(snapshot.get("room_type_id", "")), "event", "treasure branch feeds into an event room")
+	_assert_equal(String(snapshot.get("room_type_id", "")), "event", "elite branch feeds into an event room")
 	_assert_true(bool(snapshot.get("room_reward_claimed", false)), "event room marks its reward as claimed")
 
 	run_node.call("debug_use_exit", "apex_guardian")
 	await _wait_frames(6)
 	snapshot = run_node.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("room_type_id", "")), "boss", "final room is marked as a boss room")
+	_assert_equal(String(snapshot.get("encounter_category", "")), "boss", "boss room exposes boss encounter metadata")
 	_assert_true(_snapshot_has_locked_exit(snapshot) == false, "boss room with no onward exits does not expose unlocked navigation")
 	run_node.call("debug_force_clear_room")
+	await _wait_frames(2)
+	snapshot = run_node.call("debug_get_snapshot")
+	_assert_true(bool(snapshot.get("reward_panel_visible", false)), "boss clear also triggers a final reward choice")
+	_assert_true(bool(run_node.call("debug_select_room_reward", 0)), "final room reward can be claimed before extraction")
 	await _wait_frames(8)
 
 	_assert_true(_completed, "clearing the boss room completes the night run")
@@ -82,11 +113,13 @@ func _run() -> void:
 	_assert_true(int(_summary.get("dungeon_rooms_cleared", 0)) >= 5, "summary tracks cleared rooms across the dungeon route")
 	var room_path: Array = _summary.get("dungeon_room_path", [])
 	_assert_true(room_path.has("camp"), "summary records the rest room in the dungeon path")
-	_assert_true(room_path.has("reef_patrol"), "summary records the chosen branch room in the dungeon path")
-	_assert_true(room_path.has("supply_cache"), "summary records the treasure room in the dungeon path")
+	_assert_true(room_path.has("swarm_nest"), "summary records the chosen elite branch room in the dungeon path")
+	_assert_true(room_path.has("quiet_niche"), "summary records the linked rest room in the dungeon path")
 	_assert_true(room_path.has("omen_shrine"), "summary records the event room in the dungeon path")
 	_assert_true(room_path.has("apex_guardian"), "summary records the boss room in the dungeon path")
 	_assert_equal(String(_summary.get("dungeon_last_room_type_id", "")), "boss", "summary records the final boss-room type")
+	_assert_true((_summary.get("dungeon_run_rewards", []) as Array).size() >= 2, "summary records claimed room-end rewards across the run")
+	_assert_true((_summary.get("dungeon_run_modifiers", []) as Array).size() >= 1, "summary records applied temporary run modifiers")
 
 	if run_node != null and is_instance_valid(run_node):
 		run_node.queue_free()
@@ -142,6 +175,27 @@ func _minimap_has_room_type(snapshot: Dictionary, room_type_id: String) -> bool:
 		if not (room_variant is Dictionary):
 			continue
 		if String((room_variant as Dictionary).get("room_type_id", "")) == room_type_id:
+			return true
+	return false
+
+
+func _find_room_snapshot(snapshot: Dictionary, room_id: String) -> Dictionary:
+	var rooms: Array = snapshot.get("floor_rooms", [])
+	for room_variant in rooms:
+		if not (room_variant is Dictionary):
+			continue
+		var room: Dictionary = room_variant
+		if String(room.get("id", "")) == room_id:
+			return room
+	return {}
+
+
+func _reward_choice_has_kind(snapshot: Dictionary, reward_kind: String) -> bool:
+	var rewards: Array = snapshot.get("reward_choices", [])
+	for reward_variant in rewards:
+		if not (reward_variant is Dictionary):
+			continue
+		if String((reward_variant as Dictionary).get("reward_kind", "")) == reward_kind:
 			return true
 	return false
 

@@ -1648,6 +1648,19 @@ func apply_upgrade(upgrade_id: String) -> void:
 	_request_upgrade_if_needed()
 
 
+func apply_runtime_effects(effects_variant: Variant) -> void:
+	if not (effects_variant is Array):
+		return
+	var effects: Array = effects_variant
+	for effect_variant in effects:
+		if effect_variant is Dictionary:
+			_apply_effect(effect_variant as Dictionary)
+	_recompute_synergies()
+	cached_runtime = null
+	_invalidate_hud_snapshot_caches(true)
+	emit_stats_changed()
+
+
 func _request_upgrade_if_needed() -> void:
 	if pending_level_ups <= 0 or level_up_open:
 		return

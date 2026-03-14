@@ -7,10 +7,13 @@ const GAME_ROOT_SCENE := preload("res://scenes/game/GameRoot.tscn")
 const RoomGraphGeneratorClass := preload("res://scripts/night/room_graph_generator.gd")
 const EncounterDirectorClass := preload("res://scripts/night/encounter_director.gd")
 const RoomExitClass := preload("res://scripts/night/room_exit.gd")
+const RunModifierStateClass := preload("res://scripts/night/run_modifier_state.gd")
+const RoomRewardPickerClass := preload("res://scripts/night/room_reward_picker.gd")
 
 const STATE_BOOTING := "booting"
 const STATE_ENTERING_ROOM := "entering_room"
 const STATE_ROOM_LOCKED := "room_locked"
+const STATE_REWARD_PENDING := "reward_pending"
 const STATE_ROOM_CLEARED := "room_cleared"
 const STATE_FLOOR_CLEARED := "floor_cleared"
 const STATE_COMPLETED := "completed"
@@ -35,9 +38,19 @@ const ROOM_THEME := {
 @onready var room_label: Label = $Overlay/MarginContainer/PanelContainer/VBoxContainer/RoomLabel
 @onready var status_label: Label = $Overlay/MarginContainer/PanelContainer/VBoxContainer/StatusLabel
 @onready var minimap: Node = $Overlay/NightMinimap
+@onready var reward_panel: PanelContainer = $Overlay/RewardPanel
+@onready var reward_title_label: Label = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardTitle
+@onready var reward_subtitle_label: Label = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardSubtitle
+@onready var reward_hint_label: Label = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardHint
+@onready var reward_button_one: Button = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons/RewardButton1
+@onready var reward_button_two: Button = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons/RewardButton2
+@onready var reward_button_three: Button = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons/RewardButton3
 
 var _room_graph_generator = RoomGraphGeneratorClass.new()
 var _encounter_director = EncounterDirectorClass.new()
+var _run_modifier_state = RunModifierStateClass.new()
+var _room_reward_picker = RoomRewardPickerClass.new()
+var _reward_buttons: Array[Button] = []
 var _active_request: Dictionary = {}
 var _game_root: Node = null
 var _world: Node2D = null
@@ -45,14 +58,32 @@ var _enemy_manager: Node = null
 var _floors: Array = []
 var _current_floor_index: int = -1
 var _current_room = null
+var _current_room_payload: Dictionary = {}
 var _active_room_node: Node2D = null
 var _active_exit_nodes: Array = []
+var _pending_room_rewards: Array[Dictionary] = []
 var _run_state: String = STATE_BOOTING
 var _boot_attempts: int = 0
 var _completion_emitted: bool = false
 var _rooms_cleared_total: int = 0
 var _visited_room_ids: Array[String] = []
 var _last_room_note: String = ""
+
+
+func _ready() -> void:
+	_reward_buttons = [
+		reward_button_one,
+		reward_button_two,
+		reward_button_three
+	]
+	for button_index in range(_reward_buttons.size()):
+		var button := _reward_buttons[button_index]
+		if button == null:
+			continue
+		var pressed_callable := Callable(self, "_on_reward_button_pressed").bind(button_index)
+		if not button.pressed.is_connected(pressed_callable):
+			button.pressed.connect(pressed_callable)
+	_hide_reward_panel()
 
 
 func start_session(request: Dictionary) -> void:
@@ -91,6 +122,7 @@ func stop_session() -> void:
 		_enemy_manager.call("clear_scripted_encounter", true, false)
 	_disconnect_enemy_manager()
 	_cleanup_active_room()
+	_clear_pending_room_rewards()
 	if _game_root != null and is_instance_valid(_game_root):
 		_game_root.queue_free()
 	_game_root = null
@@ -105,6 +137,7 @@ func debug_get_snapshot() -> Dictionary:
 			continue
 		if exit_node.has_method("get_snapshot"):
 			exits.append(exit_node.call("get_snapshot"))
+	var modifier_snapshot := _run_modifier_state.get_snapshot()
 	return {
 		"state": _run_state,
 		"floor_index": _current_floor_index + 1,
@@ -119,15 +152,25 @@ func debug_get_snapshot() -> Dictionary:
 		"room_reward_claimed": bool(_current_room.reward_claimed) if _current_room != null else false,
 		"room_goal": bool(_current_room.is_goal) if _current_room != null else false,
 		"room_note": _last_room_note,
+		"encounter_id": String(_current_room_payload.get("encounter_id", "")),
+		"encounter_label": String(_current_room_payload.get("encounter_label", "")),
+		"encounter_category": String(_current_room_payload.get("encounter_category", "")),
+		"encounter_category_label": String(_current_room_payload.get("encounter_category_label", "")),
+		"reward_panel_visible": reward_panel != null and reward_panel.visible,
+		"reward_choices": _pending_room_rewards.duplicate(true),
+		"run_modifier_state": modifier_snapshot,
 		"visited_room_ids": _visited_room_ids.duplicate(),
 		"rooms_cleared_total": _rooms_cleared_total,
 		"available_exits": exits,
 		"floor_rooms": _build_floor_rooms_snapshot(),
+		"player_hud": _get_player_hud_snapshot(),
 		"minimap": _build_minimap_snapshot()
 	}
 
 
 func debug_force_clear_room() -> void:
+	if _has_pending_room_rewards():
+		return
 	if _enemy_manager != null and is_instance_valid(_enemy_manager) and _enemy_manager.has_method("clear_scripted_encounter"):
 		_enemy_manager.call("clear_scripted_encounter", true, true)
 		return
@@ -140,6 +183,10 @@ func debug_use_exit(target_room_id: String) -> void:
 	_on_exit_selected("", target_room_id)
 
 
+func debug_select_room_reward(option_index: int) -> bool:
+	return _claim_pending_room_reward(option_index)
+
+
 func _finish_bootstrap() -> void:
 	if _completion_emitted or _game_root == null or not is_instance_valid(_game_root):
 		return
@@ -148,9 +195,9 @@ func _finish_bootstrap() -> void:
 		_world = _game_root.get_node_or_null("World")
 	if _enemy_manager == null and _world != null:
 		_enemy_manager = _world.get_node_or_null("EnemyManager")
-	var run_state_variant: Variant = _game_root.get("run_state")
-	var run_state := String(run_state_variant).strip_edges().to_lower()
-	if (_world == null or _enemy_manager == null or run_state != "playing") and _boot_attempts < BOOT_MAX_ATTEMPTS:
+	var runtime_state_variant: Variant = _game_root.get("run_state")
+	var runtime_state := String(runtime_state_variant).strip_edges().to_lower()
+	if (_world == null or _enemy_manager == null or runtime_state != "playing") and _boot_attempts < BOOT_MAX_ATTEMPTS:
 		call_deferred("_finish_bootstrap")
 		return
 	if _world == null or _enemy_manager == null:
@@ -165,6 +212,7 @@ func _finish_bootstrap() -> void:
 			_enemy_manager.connect("scripted_encounter_cleared", cleared_callable)
 	if _enemy_manager.has_method("set_ambient_spawning_enabled"):
 		_enemy_manager.call("set_ambient_spawning_enabled", false)
+	_run_modifier_state.reset(_extract_base_reward_multipliers())
 	_current_floor_index = 0
 	var floor_state = _get_current_floor()
 	if floor_state == null:
@@ -177,10 +225,12 @@ func _enter_room(room_state: RoomState) -> void:
 	if room_state == null or _completion_emitted:
 		return
 	_run_state = STATE_ENTERING_ROOM
+	_clear_pending_room_rewards()
 	_cleanup_active_room()
 	if _enemy_manager != null and is_instance_valid(_enemy_manager) and _enemy_manager.has_method("clear_scripted_encounter"):
 		_enemy_manager.call("clear_scripted_encounter", true, false)
 	_current_room = room_state
+	_current_room_payload = _encounter_director.describe_room(_get_current_floor(), room_state)
 	_current_room.set_active()
 	_record_room_visit(room_state.room_id)
 
@@ -204,20 +254,23 @@ func _enter_room(room_state: RoomState) -> void:
 	_apply_room_visual_theme(room_state)
 	_spawn_exit_nodes(room_state)
 	_teleport_player_to_active_room()
-	_last_room_note = "%s room" % room_state.room_type_label
+	_last_room_note = "%s room" % _resolve_current_room_focus_label()
 
 	if room_state.is_combat_room() and room_state.status != RoomState.STATUS_CLEARED:
 		_lock_active_exits(true)
 		_run_state = STATE_ROOM_LOCKED
-		var room_payload := _encounter_director.build_room_payload(_get_current_floor(), room_state, _active_room_node)
-		var enemy_specs: Array = room_payload.get("enemies", [])
+		_current_room_payload = _encounter_director.build_room_payload(_get_current_floor(), room_state, _active_room_node)
+		var enemy_specs: Array = _current_room_payload.get("enemies", [])
 		var spawned_total := 0
 		if _enemy_manager != null and is_instance_valid(_enemy_manager) and _enemy_manager.has_method("start_scripted_encounter"):
 			spawned_total = int(_enemy_manager.call("start_scripted_encounter", room_state.room_id, enemy_specs))
 		if spawned_total <= 0:
 			_mark_current_room_cleared()
-			if room_state.is_goal and room_state.connections.is_empty():
-				_complete_or_advance_floor()
+			if not _present_room_clear_rewards():
+				if room_state.is_goal and room_state.connections.is_empty():
+					_complete_or_advance_floor()
+				else:
+					_last_room_note = "Room clear: choose a door"
 	else:
 		if room_state.reward_on_enter and not room_state.reward_claimed:
 			_claim_room_reward(room_state)
@@ -313,6 +366,42 @@ func _mark_current_room_cleared() -> void:
 	_update_ui()
 
 
+func _present_room_clear_rewards() -> bool:
+	if _current_room == null or _current_room.reward_claimed or not _current_room.is_combat_room():
+		return false
+	_pending_room_rewards = _room_reward_picker.build_room_rewards(
+		int(_active_request.get("seed", 0)),
+		_current_room,
+		_current_room_payload,
+		_rooms_cleared_total,
+		_run_modifier_state
+	)
+	if _pending_room_rewards.is_empty():
+		return false
+	_run_state = STATE_REWARD_PENDING
+	_last_room_note = "Room clear: choose one reward"
+	_refresh_reward_panel()
+	return true
+
+
+func _claim_pending_room_reward(option_index: int) -> bool:
+	if _current_room == null or _pending_room_rewards.is_empty():
+		return false
+	if option_index < 0 or option_index >= _pending_room_rewards.size():
+		return false
+	var offer: Dictionary = _pending_room_rewards[option_index].duplicate(true)
+	var applied := _run_modifier_state.apply_offer(offer, _build_reward_context())
+	if applied.is_empty():
+		return false
+	_current_room.mark_reward_claimed()
+	_clear_pending_room_rewards()
+	_last_room_note = "Reward claimed: %s" % String(applied.get("label", "Choice"))
+	_update_ui()
+	if _current_room.is_goal and _current_room.connections.is_empty():
+		_complete_or_advance_floor()
+	return true
+
+
 func _claim_room_reward(room_state: RoomState) -> void:
 	if room_state == null or room_state.reward_claimed:
 		return
@@ -375,6 +464,17 @@ func _claim_event_reward(reward: Dictionary) -> void:
 	player.set("skill_cd_remaining", maxf(0.0, skill_cd - float(reward.get("skill_cd_refund", 1.2))))
 
 
+func _build_reward_context() -> Dictionary:
+	return {
+		"room_id": _current_room.room_id if _current_room != null else "",
+		"player": _get_player(),
+		"world": _world,
+		"enemy_manager": _enemy_manager,
+		"game_root": _game_root,
+		"origin": _room_anchor_position()
+	}
+
+
 func _room_anchor_position() -> Vector2:
 	if _active_room_node == null:
 		return Vector2.ZERO
@@ -423,6 +523,9 @@ func _on_scripted_encounter_cleared(encounter_id: String) -> void:
 	_mark_current_room_cleared()
 	if _current_room.reward_on_enter and not _current_room.reward_claimed:
 		_claim_room_reward(_current_room)
+	if _present_room_clear_rewards():
+		_update_ui()
+		return
 	if _current_room.is_goal and _current_room.connections.is_empty():
 		_complete_or_advance_floor()
 	else:
@@ -434,6 +537,10 @@ func _on_exit_selected(_exit_id: String, target_room_id: String) -> void:
 	if _completion_emitted or _current_room == null:
 		return
 	if _current_room.locks_on_entry and _current_room.status != RoomState.STATUS_CLEARED:
+		return
+	if _has_pending_room_rewards():
+		_last_room_note = "Claim a room reward before moving on"
+		_update_ui()
 		return
 	var floor_state = _get_current_floor()
 	if floor_state == null:
@@ -449,11 +556,16 @@ func _on_exit_selected(_exit_id: String, target_room_id: String) -> void:
 	_enter_room(floor_state.get_room(normalized_target))
 
 
+func _on_reward_button_pressed(button_index: int) -> void:
+	_claim_pending_room_reward(button_index)
+
+
 func _on_embedded_session_finished(summary: Dictionary) -> void:
 	if _completion_emitted:
 		return
 	_completion_emitted = true
 	var payload := summary.duplicate(true)
+	var modifier_snapshot := _run_modifier_state.get_snapshot()
 	payload["dungeon_floor_index"] = _current_floor_index + 1
 	payload["dungeon_floor_count"] = _floors.size()
 	payload["dungeon_rooms_cleared"] = _rooms_cleared_total
@@ -461,6 +573,11 @@ func _on_embedded_session_finished(summary: Dictionary) -> void:
 	payload["dungeon_last_room_id"] = _current_room.room_id if _current_room != null else ""
 	payload["dungeon_last_room_label"] = _current_room.label if _current_room != null else ""
 	payload["dungeon_last_room_type_id"] = _current_room.room_type_id if _current_room != null else ""
+	payload["dungeon_last_encounter_id"] = String(_current_room_payload.get("encounter_id", ""))
+	payload["dungeon_last_encounter_category"] = String(_current_room_payload.get("encounter_category", ""))
+	payload["dungeon_run_rewards"] = modifier_snapshot.get("claimed_rewards", [])
+	payload["dungeon_run_modifiers"] = modifier_snapshot.get("applied_modifiers", [])
+	payload["dungeon_reward_multipliers"] = modifier_snapshot.get("reward_multipliers", {})
 	payload["dungeon_completed"] = String(payload.get("exit_reason", "completed")).strip_edges().to_lower() == "completed"
 	session_completed.emit(payload)
 
@@ -470,6 +587,7 @@ func _cleanup_active_room() -> void:
 	if _active_room_node != null and is_instance_valid(_active_room_node):
 		_active_room_node.queue_free()
 	_active_room_node = null
+	_current_room_payload.clear()
 
 
 func _disconnect_enemy_manager() -> void:
@@ -487,8 +605,11 @@ func _reset_runtime_state() -> void:
 	stop_session()
 	_current_floor_index = -1
 	_current_room = null
+	_current_room_payload.clear()
 	_floors.clear()
 	_active_exit_nodes.clear()
+	_pending_room_rewards.clear()
+	_run_modifier_state.reset({})
 	_run_state = STATE_BOOTING
 	_boot_attempts = 0
 	_completion_emitted = false
@@ -508,6 +629,22 @@ func _get_player() -> Node:
 	if _world == null:
 		return null
 	return _world.get_node_or_null("Player")
+
+
+func _get_player_hud_snapshot() -> Dictionary:
+	var player := _get_player()
+	if player == null or not is_instance_valid(player) or not player.has_method("get_hud_data"):
+		return {}
+	var snapshot_variant: Variant = player.call("get_hud_data")
+	return snapshot_variant if snapshot_variant is Dictionary else {}
+
+
+func _extract_base_reward_multipliers() -> Dictionary:
+	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("get_runtime_reward_multipliers"):
+		var payload_variant: Variant = _game_root.call("get_runtime_reward_multipliers")
+		if payload_variant is Dictionary:
+			return (payload_variant as Dictionary).duplicate(true)
+	return {}
 
 
 func _find_named_child(parent: Node, target_name: String) -> Node:
@@ -531,7 +668,15 @@ func _build_floor_rooms_snapshot() -> Array[Dictionary]:
 		var room: RoomState = floor_state.get_room(room_id)
 		if room == null:
 			continue
-		snapshots.append(room.to_dictionary())
+		var room_snapshot := room.to_dictionary()
+		var encounter_snapshot := _encounter_director.describe_room(floor_state, room)
+		room_snapshot["encounter_id"] = String(encounter_snapshot.get("encounter_id", ""))
+		room_snapshot["encounter_label"] = String(encounter_snapshot.get("encounter_label", ""))
+		room_snapshot["encounter_category"] = String(encounter_snapshot.get("encounter_category", ""))
+		room_snapshot["encounter_category_label"] = String(encounter_snapshot.get("encounter_category_label", ""))
+		room_snapshot["reward_table_id"] = String(encounter_snapshot.get("reward_table_id", ""))
+		room_snapshot["difficulty"] = int(encounter_snapshot.get("difficulty", 0))
+		snapshots.append(room_snapshot)
 	return snapshots
 
 
@@ -541,7 +686,7 @@ func _build_minimap_snapshot() -> Dictionary:
 		"floor_label": _resolve_floor_label(),
 		"current_room_id": _current_room.room_id if _current_room != null else "",
 		"current_room_label": _current_room.label if _current_room != null else "",
-		"current_room_type_label": _current_room.room_type_label if _current_room != null else "",
+		"current_room_type_label": _resolve_current_room_focus_label(),
 		"rooms": _build_floor_rooms_snapshot(),
 		"template_id": floor_state.template_id if floor_state != null else ""
 	}
@@ -554,6 +699,15 @@ func _resolve_floor_label() -> String:
 	return floor_state.label
 
 
+func _resolve_current_room_focus_label() -> String:
+	if _current_room == null:
+		return "Staging Chamber"
+	var encounter_label := String(_current_room_payload.get("encounter_category_label", "")).strip_edges()
+	if _current_room.is_combat_room() and not encounter_label.is_empty():
+		return encounter_label
+	return _current_room.room_type_label
+
+
 func _resolve_status_text() -> String:
 	if not _last_room_note.is_empty():
 		return _last_room_note
@@ -564,6 +718,8 @@ func _resolve_status_text() -> String:
 			return "Crossing into the next chamber"
 		STATE_ROOM_LOCKED:
 			return "Doors sealed until the room is cleared"
+		STATE_REWARD_PENDING:
+			return "Choose one room reward"
 		STATE_ROOM_CLEARED:
 			return "Room clear: choose the next room"
 		STATE_FLOOR_CLEARED:
@@ -582,8 +738,63 @@ func _update_ui() -> void:
 		if _current_room == null:
 			room_label.text = "Staging Chamber"
 		else:
-			room_label.text = "%s · %s" % [_current_room.label, _current_room.room_type_label]
+			room_label.text = "%s · %s" % [_current_room.label, _resolve_current_room_focus_label()]
 	if status_label != null:
 		status_label.text = _resolve_status_text()
+	_refresh_reward_panel()
 	if minimap != null and is_instance_valid(minimap) and minimap.has_method("set_map_snapshot"):
 		minimap.call("set_map_snapshot", _build_minimap_snapshot())
+
+
+func _refresh_reward_panel() -> void:
+	if reward_panel == null:
+		return
+	if _pending_room_rewards.is_empty():
+		_hide_reward_panel()
+		return
+	reward_panel.visible = true
+	if reward_title_label != null:
+		reward_title_label.text = "Room Reward"
+	if reward_subtitle_label != null:
+		reward_subtitle_label.text = "%s · %s" % [
+			_current_room.label if _current_room != null else "Unknown Room",
+			_resolve_current_room_focus_label()
+		]
+	if reward_hint_label != null:
+		reward_hint_label.text = "Pick one reward before taking the next door."
+	for button_index in range(_reward_buttons.size()):
+		var button := _reward_buttons[button_index]
+		if button == null:
+			continue
+		if button_index >= _pending_room_rewards.size():
+			button.visible = false
+			button.disabled = true
+			button.text = ""
+			continue
+		var offer: Dictionary = _pending_room_rewards[button_index]
+		button.visible = true
+		button.disabled = false
+		button.text = _format_reward_button_text(offer)
+
+
+func _format_reward_button_text(offer: Dictionary) -> String:
+	var reward_kind := String(offer.get("reward_kind", "reward")).strip_edges().capitalize()
+	var label := String(offer.get("label", "Choice")).strip_edges()
+	var summary := String(offer.get("summary", offer.get("description", ""))).strip_edges()
+	if summary.is_empty():
+		return "%s\n%s" % [reward_kind, label]
+	return "%s\n%s\n%s" % [reward_kind, label, summary]
+
+
+func _hide_reward_panel() -> void:
+	if reward_panel != null:
+		reward_panel.visible = false
+
+
+func _clear_pending_room_rewards() -> void:
+	_pending_room_rewards.clear()
+	_hide_reward_panel()
+
+
+func _has_pending_room_rewards() -> bool:
+	return not _pending_room_rewards.is_empty()

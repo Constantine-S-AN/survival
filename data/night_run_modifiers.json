@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "modifiers": [
+    {
+      "id": "surge_coils",
+      "label": "Surge Coils",
+      "category": "upgrade",
+      "description": "Tighter firing cadence for the rest of this night.",
+      "summary": "+15% attack speed",
+      "effects": [
+        {
+          "stat": "attack_speed_mult",
+          "add": 0.15
+        }
+      ]
+    },
+    {
+      "id": "drift_fins",
+      "label": "Drift Fins",
+      "category": "upgrade",
+      "description": "Faster strafes and cleaner dash recovery between rooms.",
+      "summary": "+30 move speed, -8% dash cooldown",
+      "effects": [
+        {
+          "stat": "move_speed_bonus",
+          "add": 30.0
+        },
+        {
+          "stat": "dash_cooldown_reduction",
+          "add": 0.08
+        }
+      ]
+    },
+    {
+      "id": "quiet_heart",
+      "label": "Quiet Heart",
+      "category": "upgrade",
+      "description": "Slow sustain and lower noise pressure across the run.",
+      "summary": "+1.5 regen, -8% noise gain",
+      "effects": [
+        {
+          "stat": "regen_per_second",
+          "add": 1.5
+        },
+        {
+          "stat": "noise_generation_mult",
+          "add": -0.08
+        }
+      ]
+    },
+    {
+      "id": "pressure_mesh",
+      "label": "Pressure Mesh",
+      "category": "upgrade",
+      "description": "A heavier shell that trades nothing for raw staying power.",
+      "summary": "+12 max HP, +12% damage",
+      "effects": [
+        {
+          "stat": "max_hp",
+          "add": 12.0
+        },
+        {
+          "stat": "damage_mult",
+          "add": 0.12
+        }
+      ]
+    },
+    {
+      "id": "kill_switch",
+      "label": "Kill Switch",
+      "category": "upgrade",
+      "description": "Push harder once the run turns loud.",
+      "summary": "+18% high-noise damage, +12% high-noise speed",
+      "effects": [
+        {
+          "stat": "high_noise_damage_mult",
+          "add": 0.18
+        },
+        {
+          "stat": "high_noise_attack_speed_mult",
+          "add": 0.12
+        }
+      ]
+    },
+    {
+      "id": "abyss_battery",
+      "label": "Abyss Battery",
+      "category": "upgrade",
+      "description": "Boss-grade overclocking for the rest of the dive.",
+      "summary": "+15% damage, +10% attack speed",
+      "effects": [
+        {
+          "stat": "damage_mult",
+          "add": 0.15
+        },
+        {
+          "stat": "attack_speed_mult",
+          "add": 0.10
+        }
+      ]
+    },
+    {
+      "id": "chamber_polish",
+      "label": "Chamber Polish",
+      "category": "weapon",
+      "description": "Tune the active weapon for harder opening hits.",
+      "summary": "Active weapon +20% damage",
+      "effects": [
+        {
+          "stat": "weapon_damage_mult",
+          "add": 0.20,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "twin_feed",
+      "label": "Twin Feed",
+      "category": "weapon",
+      "description": "Shorten cycle time on the weapon you are already carrying.",
+      "summary": "Active weapon +18% fire rate",
+      "effects": [
+        {
+          "stat": "weapon_attack_rate_mult",
+          "add": 0.18,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pierce_tube",
+      "label": "Pierce Tube",
+      "category": "weapon",
+      "description": "Punch cleaner lanes through dense room packs.",
+      "summary": "Active weapon +1 pierce",
+      "effects": [
+        {
+          "stat": "weapon_pierce_bonus",
+          "add": 1,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "scatter_array",
+      "label": "Scatter Array",
+      "category": "weapon",
+      "description": "Push one more projectile into each active weapon volley.",
+      "summary": "Active weapon +1 projectile",
+      "effects": [
+        {
+          "stat": "weapon_projectile_count_bonus",
+          "add": 1,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "crown_bore",
+      "label": "Crown Bore",
+      "category": "weapon",
+      "description": "A boss-room reline for a decisive finishing weapon.",
+      "summary": "Active weapon +30% damage, +4% crit",
+      "effects": [
+        {
+          "stat": "weapon_damage_mult",
+          "add": 0.30,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_crit_chance_add",
+          "add": 0.04,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    }
+  ]
+}
