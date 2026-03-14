@@ -27,7 +27,6 @@ static func simulate_service(context: Dictionary) -> Dictionary:
 	var total_price := 0.0
 	var total_complexity := 0.0
 	var total_desirability := 0.0
-	var total_available_servings := 0
 
 	for recipe_variant in menu_recipes:
 		if not (recipe_variant is Dictionary):
@@ -46,7 +45,6 @@ static func simulate_service(context: Dictionary) -> Dictionary:
 		total_price += float(recipe.get("base_price", 0))
 		total_complexity += float(recipe.get("prep_complexity", 1))
 		total_desirability += desirability
-		total_available_servings += craftable_servings
 		var tags_variant: Variant = recipe.get("category_tags", [])
 		if tags_variant is Array:
 			for tag_variant in tags_variant:
@@ -64,6 +62,9 @@ static func simulate_service(context: Dictionary) -> Dictionary:
 	var day := maxi(1, int(context.get("day", 1)))
 	var reputation := clampi(int(context.get("reputation", 1)), 0, 20)
 	var menu_size := prepared_entries.size()
+	var special_recipe_count := _count_special_menu_entries(prepared_entries)
+	var special_slots := maxi(0, int(upgrade_bonuses.get("special_slots", 0)))
+	var active_special_slots := mini(special_slots, special_recipe_count)
 	var average_price := total_price / float(menu_size)
 	var average_complexity := total_complexity / float(menu_size)
 	var average_desirability := total_desirability / float(menu_size)
@@ -72,9 +73,12 @@ static func simulate_service(context: Dictionary) -> Dictionary:
 	var price_target := 10.0 + float(reputation) * 0.8
 	var price_factor := clampf(1.08 - maxf(0.0, average_price - price_target) * 0.035, 0.72, 1.12)
 	var menu_attractiveness := clampf(
-		average_desirability + variety_bonus + float(upgrade_bonuses.get("demand_bonus", 0.0)),
+		average_desirability
+		+ variety_bonus
+		+ float(upgrade_bonuses.get("demand_bonus", 0.0))
+		+ float(active_special_slots) * 0.12,
 		0.75,
-		1.85
+		1.95
 	)
 	var expected_customers := maxi(
 		4,
@@ -84,10 +88,13 @@ static func simulate_service(context: Dictionary) -> Dictionary:
 		3,
 		int(round(8.0 + float(reputation) * 1.4 + float(menu_size) * 3.0 - average_complexity * 2.0 + int(upgrade_bonuses.get("capacity_bonus", 0))))
 	)
-	var served_customers := mini(expected_customers, service_capacity)
-	served_customers = mini(served_customers, total_available_servings)
-	var sold_dishes := _allocate_orders(prepared_entries, served_customers)
-	var ingredients_consumed: Dictionary = {}
+	var served_customers_target := mini(expected_customers, service_capacity)
+	var allocation := _allocate_orders(prepared_entries, served_customers_target, materials)
+	var sold_dishes_variant: Variant = allocation.get("sold_dishes", {})
+	var sold_dishes: Dictionary = sold_dishes_variant if sold_dishes_variant is Dictionary else {}
+	var ingredients_consumed_variant: Variant = allocation.get("ingredients_consumed", {})
+	var ingredients_consumed: Dictionary = ingredients_consumed_variant if ingredients_consumed_variant is Dictionary else {}
+	var served_customers := _count_total_dishes_sold(sold_dishes)
 	var synergy_consumed: Dictionary = {}
 	var synergy_feedback: Array[String] = []
 	var revenue := 0
@@ -101,7 +108,6 @@ static func simulate_service(context: Dictionary) -> Dictionary:
 		if sold_count <= 0:
 			continue
 		revenue += sold_count * int(recipe.get("base_price", 0))
-		_consume_bundle(ingredients_consumed, recipe.get("ingredients", {}), sold_count)
 
 		var synergy_variant: Variant = recipe.get("night_material_synergy", {})
 		if not (synergy_variant is Dictionary):
@@ -112,7 +118,8 @@ static func simulate_service(context: Dictionary) -> Dictionary:
 		var synergy_material_id := String(synergy.get("material_id", "")).strip_edges().to_lower()
 		if synergy_material_id.is_empty():
 			continue
-		var available_synergy_amount := maxi(0, int(materials.get(synergy_material_id, 0))) - maxi(0, int(synergy_consumed.get(synergy_material_id, 0)))
+		var committed_amount := maxi(0, int(ingredients_consumed.get(synergy_material_id, 0))) + maxi(0, int(synergy_consumed.get(synergy_material_id, 0)))
+		var available_synergy_amount := maxi(0, int(materials.get(synergy_material_id, 0))) - committed_amount
 		if available_synergy_amount <= 0:
 			continue
 		var synergy_servings := mini(available_synergy_amount, sold_count)
@@ -133,24 +140,33 @@ static func simulate_service(context: Dictionary) -> Dictionary:
 	var prep_pressure := average_complexity * float(served_customers) / maxf(1.0, float(service_capacity * 2))
 	var satisfaction := clampf(
 		0.60 +
-		variety_bonus * 0.40 +
-		(menu_attractiveness - 1.0) * 0.25 +
-		float(reputation) * 0.02 +
-		float(upgrade_bonuses.get("satisfaction_bonus", 0.0)) +
-		synergy_satisfaction_bonus -
-		capacity_pressure * 0.18 -
-		maxf(0.0, prep_pressure - 1.0) * 0.16 -
-		maxf(0.0, 1.0 - price_factor) * 0.14,
+			variety_bonus * 0.40 +
+			(menu_attractiveness - 1.0) * 0.25 +
+			float(reputation) * 0.02 +
+			float(upgrade_bonuses.get("satisfaction_bonus", 0.0)) +
+			float(active_special_slots) * 0.035 +
+			synergy_satisfaction_bonus -
+			capacity_pressure * 0.18 -
+			maxf(0.0, prep_pressure - 1.0) * 0.16 -
+			maxf(0.0, 1.0 - price_factor) * 0.14,
 		0.45,
 		0.98
 	)
 	var tips := int(round(maxf(0.0, satisfaction - 0.72) * float(revenue) * 0.10))
 	revenue += tips
 	var reputation_delta := _reputation_delta(satisfaction, served_customers, expected_customers)
-	var feedback_tags := _build_feedback_tags(variety_bonus, price_factor, capacity_pressure, satisfaction, synergy_feedback)
+	var feedback_tags := _build_feedback_tags(
+		variety_bonus,
+		price_factor,
+		capacity_pressure,
+		satisfaction,
+		synergy_feedback,
+		active_special_slots
+	)
 
 	for material_id_variant in synergy_consumed.keys():
 		ingredients_consumed[String(material_id_variant)] = maxi(0, int(ingredients_consumed.get(material_id_variant, 0))) + int(synergy_consumed.get(material_id_variant, 0))
+	var headline_key := _build_headline_key(revenue, satisfaction, capacity_pressure)
 
 	return {
 		"ok": true,
@@ -169,7 +185,9 @@ static func simulate_service(context: Dictionary) -> Dictionary:
 		"ingredients_consumed": ingredients_consumed,
 		"feedback_tags": feedback_tags,
 		"synergy_feedback": synergy_feedback,
-		"headline": _build_headline(revenue, satisfaction, capacity_pressure),
+		"specials_featured": active_special_slots,
+		"headline": headline_key,
+		"headline_key": headline_key,
 		"price_target": price_target
 	}
 
@@ -188,8 +206,10 @@ static func _recipe_desirability(recipe: Dictionary, materials: Dictionary) -> f
 	return clampf(desirability, 0.65, 1.75)
 
 
-static func _allocate_orders(entries: Array[Dictionary], served_customers: int) -> Dictionary:
+static func _allocate_orders(entries: Array[Dictionary], served_customers: int, materials: Dictionary) -> Dictionary:
 	var sold_dishes: Dictionary = {}
+	var ingredients_consumed: Dictionary = {}
+	var available_materials: Dictionary = materials.duplicate(true)
 	for entry in entries:
 		var recipe: Dictionary = entry.get("recipe", {})
 		var recipe_id := String(recipe.get("id", "")).strip_edges().to_lower()
@@ -204,10 +224,12 @@ static func _allocate_orders(entries: Array[Dictionary], served_customers: int) 
 			var entry: Dictionary = entries[entry_index]
 			var recipe: Dictionary = entry.get("recipe", {})
 			var recipe_id := String(recipe.get("id", "")).strip_edges().to_lower()
-			var max_servings := maxi(0, int(entry.get("max_servings", 0)))
-			if recipe_id.is_empty() or int(sold_dishes.get(recipe_id, 0)) >= max_servings:
+			if recipe_id.is_empty() or not _bundle_fits_inventory(recipe.get("ingredients", {}), available_materials):
 				continue
-			var score := float(entry.get("desirability", 1.0)) - float(int(sold_dishes.get(recipe_id, 0))) * 0.08 + float(max_servings) * 0.015
+			var remaining_servings := MenuPlannerClass.max_servings(recipe, available_materials)
+			if remaining_servings <= 0:
+				continue
+			var score := float(entry.get("desirability", 1.0)) - float(int(sold_dishes.get(recipe_id, 0))) * 0.08 + float(remaining_servings) * 0.015
 			if score > best_score:
 				best_score = score
 				best_index = entry_index
@@ -216,9 +238,51 @@ static func _allocate_orders(entries: Array[Dictionary], served_customers: int) 
 		var best_entry: Dictionary = entries[best_index]
 		var best_recipe: Dictionary = best_entry.get("recipe", {})
 		var best_recipe_id := String(best_recipe.get("id", "")).strip_edges().to_lower()
+		_remove_bundle_from_inventory(available_materials, best_recipe.get("ingredients", {}))
+		_consume_bundle(ingredients_consumed, best_recipe.get("ingredients", {}), 1)
 		sold_dishes[best_recipe_id] = maxi(0, int(sold_dishes.get(best_recipe_id, 0))) + 1
 		remaining_customers -= 1
-	return sold_dishes
+	return {
+		"sold_dishes": sold_dishes,
+		"ingredients_consumed": ingredients_consumed
+	}
+
+
+static func _bundle_fits_inventory(bundle_variant: Variant, materials: Dictionary, multiplier: int = 1) -> bool:
+	if not (bundle_variant is Dictionary) or multiplier <= 0:
+		return false
+	var bundle: Dictionary = bundle_variant
+	for material_id_variant in bundle.keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		if material_id.is_empty():
+			continue
+		var required_amount := maxi(0, int(bundle.get(material_id_variant, 0))) * multiplier
+		if required_amount <= 0:
+			continue
+		if maxi(0, int(materials.get(material_id, 0))) < required_amount:
+			return false
+	return true
+
+
+static func _remove_bundle_from_inventory(materials: Dictionary, bundle_variant: Variant, multiplier: int = 1) -> void:
+	if not (bundle_variant is Dictionary) or multiplier <= 0:
+		return
+	var bundle: Dictionary = bundle_variant
+	for material_id_variant in bundle.keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		if material_id.is_empty():
+			continue
+		var required_amount := maxi(0, int(bundle.get(material_id_variant, 0))) * multiplier
+		if required_amount <= 0:
+			continue
+		materials[material_id] = maxi(0, int(materials.get(material_id, 0))) - required_amount
+
+
+static func _count_total_dishes_sold(sold_dishes: Dictionary) -> int:
+	var total := 0
+	for recipe_id_variant in sold_dishes.keys():
+		total += maxi(0, int(sold_dishes.get(recipe_id_variant, 0)))
+	return total
 
 
 static func _consume_bundle(target_bundle: Dictionary, bundle_variant: Variant, multiplier: int = 1) -> void:
@@ -230,6 +294,32 @@ static func _consume_bundle(target_bundle: Dictionary, bundle_variant: Variant, 
 		if material_id.is_empty():
 			continue
 		target_bundle[material_id] = maxi(0, int(target_bundle.get(material_id, 0))) + maxi(0, int(bundle.get(material_id_variant, 0))) * multiplier
+
+
+static func _count_special_menu_entries(entries: Array[Dictionary]) -> int:
+	var count := 0
+	for entry in entries:
+		var recipe: Dictionary = entry.get("recipe", {})
+		if _recipe_uses_night_specials(recipe):
+			count += 1
+	return count
+
+
+static func _recipe_uses_night_specials(recipe: Dictionary) -> bool:
+	var ingredients_variant: Variant = recipe.get("ingredients", {})
+	if ingredients_variant is Dictionary:
+		for material_id_variant in (ingredients_variant as Dictionary).keys():
+			var material_id := String(material_id_variant).strip_edges().to_lower()
+			if material_id.is_empty():
+				continue
+			if MenuPlannerClass._material_is_night_only(material_id):
+				return true
+	var synergy_variant: Variant = recipe.get("night_material_synergy", {})
+	if synergy_variant is Dictionary:
+		var synergy_material_id := String((synergy_variant as Dictionary).get("material_id", "")).strip_edges().to_lower()
+		if not synergy_material_id.is_empty() and MenuPlannerClass._material_is_night_only(synergy_material_id):
+			return true
+	return false
 
 
 static func _reputation_delta(satisfaction: float, served_customers: int, expected_customers: int) -> int:
@@ -245,7 +335,14 @@ static func _reputation_delta(satisfaction: float, served_customers: int, expect
 	return clampi(delta, -2, 3)
 
 
-static func _build_feedback_tags(variety_bonus: float, price_factor: float, capacity_pressure: float, satisfaction: float, synergy_feedback: Array[String]) -> Array[String]:
+static func _build_feedback_tags(
+	variety_bonus: float,
+	price_factor: float,
+	capacity_pressure: float,
+	satisfaction: float,
+	synergy_feedback: Array[String],
+	specials_featured: int = 0
+) -> Array[String]:
 	var tags: Array[String] = []
 	if variety_bonus >= 0.10:
 		tags.append("variety_good")
@@ -263,15 +360,17 @@ static func _build_feedback_tags(variety_bonus: float, price_factor: float, capa
 		tags.append("satisfaction_low")
 	if not synergy_feedback.is_empty():
 		tags.append("synergy_used")
+	if specials_featured > 0:
+		tags.append("specials_featured")
 	return tags
 
 
-static func _build_headline(revenue: int, satisfaction: float, capacity_pressure: float) -> String:
+static func _build_headline_key(revenue: int, satisfaction: float, capacity_pressure: float) -> String:
 	if revenue >= 40 and satisfaction >= 0.82:
-		return "A packed, well-loved service."
+		return "meta.restaurant.headline_packed"
 	if revenue >= 24 and capacity_pressure < 0.18:
-		return "A steady daytime service."
-	return "A quiet shift with room to improve."
+		return "meta.restaurant.headline_steady"
+	return "meta.restaurant.headline_quiet"
 
 
 static func _sum_upgrade_bonuses(upgrades_variant: Variant) -> Dictionary:

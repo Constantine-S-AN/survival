@@ -18,7 +18,7 @@ const LANGUAGE_DISPLAY_NAMES := {
 
 const TAG_LABELS := {
 	"en": {
-		"sonar": "Flare",
+		"sonar": "Pulse",
 		"silence": "Silence",
 		"heat": "Heat",
 		"crit": "Crit",
@@ -43,7 +43,7 @@ const TAG_LABELS := {
 		"starter": "Starter"
 	},
 	"zh_CN": {
-		"sonar": "照明弹",
+		"sonar": "脉冲",
 		"silence": "静默",
 		"heat": "热能",
 		"crit": "暴击",
@@ -198,6 +198,7 @@ const STAT_LABELS := {
 }
 
 const UI_TEXT := {
+	"menu.title": {"en": "s u r v i v e", "zh_CN": "活下去"},
 	"menu.subtitle": {"en": "FOG / FLARE / NOISE", "zh_CN": "迷雾 / 照明弹 / 噪声"},
 	"menu.play": {"en": "Play", "zh_CN": "开始游戏"},
 	"menu.profile": {"en": "Profile", "zh_CN": "档案"},
@@ -222,6 +223,9 @@ const UI_TEXT := {
 	"meta.hub.farm": {"en": "Farm", "zh_CN": "农场"},
 	"meta.hub.restaurant": {"en": "Restaurant", "zh_CN": "餐馆"},
 	"meta.hub.shop": {"en": "Shop", "zh_CN": "商店"},
+	"meta.hub.orders": {"en": "Daily Orders", "zh_CN": "每日订单"},
+	"meta.hub.orders_ready": {"en": "Daily Orders ({value})", "zh_CN": "每日订单（{value}）"},
+	"meta.hub.orders_tooltip": {"en": "View and claim today's side orders.", "zh_CN": "查看并领取今天的支线订单。"},
 	"meta.hub.farm_tooltip": {"en": "Spend stamina now to set up future harvests, pantry stock, and cash crops.", "zh_CN": "现在消耗体力，为之后的收获、厨房库存和现金作物做准备。"},
 	"meta.hub.restaurant_tooltip": {"en": "Turn stocked ingredients into the best daytime gold. A full service costs {value} actions.", "zh_CN": "把现有食材转成最强的白天金币收入。完整营业会消耗 {value} 次行动。"},
 	"meta.hub.shop_tooltip": {"en": "Buy seeds, sell surplus stock, and install restaurant upgrades.", "zh_CN": "购买种子、出售富余库存，并安装餐馆升级。"},
@@ -244,6 +248,7 @@ const UI_TEXT := {
 	"meta.hub.bridge": {"en": "Night bridge: {value}", "zh_CN": "夜间联动：{value}"},
 	"meta.hub.status_night_locked": {"en": "Night combat opens in {value} more daytime action(s).", "zh_CN": "再推进 {value} 次白天行动后，才能进入夜战。"},
 	"meta.hub.status_night_ready": {"en": "Evening has started. You can still use the remaining day actions before descending.", "zh_CN": "傍晚已经开始。你仍可消耗剩余行动后再下潜。"},
+	"meta.hub.status_night_launch_failed": {"en": "Night combat failed to boot. Your evening is still available.", "zh_CN": "夜战启动失败。当前傍晚进度不会被消耗。"},
 	"meta.hub.status_waited": {"en": "Spent {value} action(s) preparing for nightfall.", "zh_CN": "已消耗 {value} 次行动为夜幕降临做准备。"},
 	"meta.hub.wait_tooltip": {"en": "Spend {value} action(s) to fast-forward to Evening.", "zh_CN": "消耗 {value} 次行动，直接推进到傍晚。"},
 	"meta.hub.wait_tooltip_ready": {"en": "Evening is already here.", "zh_CN": "现在已经是傍晚。"},
@@ -257,7 +262,7 @@ const UI_TEXT := {
 	"meta.hub.guide_body_day3": {"en": "Day 3 is the first morning where harvests, orders, shop choices, and night loot can all reinforce each other.", "zh_CN": "第 3 天是第一天真正能让收成、订单、商店选择和夜间战利品互相放大的早晨。"},
 	"meta.hub.guide_focus_orders_ready": {"en": "Board payout ready. Claim it before the next route buries the reward.", "zh_CN": "公告板上已经有奖励可领。先收下，再继续下一段路线。"},
 	"meta.hub.guide_focus_night_ready": {"en": "Evening is up. Cast off from the dock whenever you're ready to close the day cleanly.", "zh_CN": "傍晚已经到了。准备好后就从码头出航，把今天干净利落地收束掉。"},
-	"meta.hub.guide_focus_day1_choice": {"en": "Pick one clean Day 1 lane first: Pantry Restock points toward the farm, Lunch Rush points toward the kitchen.", "zh_CN": "第 1 天先挑一条干净的路线：Pantry Restock 更偏农场，Lunch Rush 更偏厨房。"},
+	"meta.hub.guide_focus_day1_choice": {"en": "Pick one clean Day 1 lane first: Pantry Restock points toward the farm, Lunch Rush points toward the kitchen.", "zh_CN": "第 1 天先挑一条干净的路线：餐储补货更偏农场，午市高峰更偏厨房。"},
 	"meta.hub.guide_focus_day1_farm": {"en": "Start with two live plots. Day 1 feels better once tomorrow's watering step is already waiting for you.", "zh_CN": "先把两块地真正种起来。只要明天一早的浇水已经在等你，第 1 天就会显得更有方向。"},
 	"meta.hub.guide_focus_day1_menu": {"en": "The field is banked. Give the kitchen one dependable daytime proof before the dock starts owning the schedule.", "zh_CN": "农场已经打底了。趁码头还没开始接管节奏，先给餐馆拿下一次稳定的白天证明。"},
 	"meta.hub.guide_focus_day1_service": {"en": "Lunch is ready to prove the room matters. Run one clean service before Day 1 hands itself over to the pier.", "zh_CN": "午市已经能证明餐厅有价值了。趁第 1 天还没完全交给码头，先把这轮营业稳稳跑完。"},
@@ -359,6 +364,14 @@ const UI_TEXT := {
 	"meta.orders.status_completed": {"en": "Completed", "zh_CN": "已完成"},
 	"meta.orders.status_ready": {"en": "Ready to claim", "zh_CN": "可领取"},
 	"meta.orders.status_progress": {"en": "In progress", "zh_CN": "进行中"},
+	"meta.orders.pillar_farm": {"en": "Farm", "zh_CN": "农场"},
+	"meta.orders.pillar_restaurant": {"en": "Restaurant", "zh_CN": "餐馆"},
+	"meta.orders.pillar_night": {"en": "Night Run", "zh_CN": "夜间远征"},
+	"meta.orders.pillar_orders": {"en": "Orders", "zh_CN": "订单"},
+	"meta.orders.reward_none": {"en": "No reward", "zh_CN": "无奖励"},
+	"meta.orders.reward_gold": {"en": "+{value} gold", "zh_CN": "+{value} 金币"},
+	"meta.orders.reward_reputation": {"en": "+{value} reputation", "zh_CN": "+{value} 口碑"},
+	"meta.orders.reward_seed_unlock": {"en": "Unlock {value}", "zh_CN": "解锁 {value}"},
 	"meta.shop.title": {"en": "Day Shop", "zh_CN": "白昼商店"},
 	"meta.shop.subtitle": {"en": "Keep the planning loop moving with seed buys, stock sales, and kitchen upgrades.", "zh_CN": "通过购买种子、出售库存和厨房升级来推动白天规划循环。"},
 	"meta.shop.world_title": {"en": "Supply House", "zh_CN": "补给小铺"},
@@ -505,9 +518,13 @@ const UI_TEXT := {
 	"meta.restaurant.menu_hint_tooltip": {"en": "Choose up to three dishes. Planned menus usually earn more than selling ingredients raw.", "zh_CN": "最多选择 3 道菜。规划好的菜单通常比原料直卖更赚钱。"},
 	"meta.restaurant.menu_empty": {"en": "No dishes selected yet.", "zh_CN": "还没有选择今天的菜单。"},
 	"meta.restaurant.recipe_card_night": {"en": "Night loot: {value}", "zh_CN": "夜间掉落：{value}"},
+	"meta.restaurant.recipe_card_stats": {"en": "${price} · Prep {prep} · {servings}", "zh_CN": "${price} · 备菜 {prep} · {servings}"},
+	"meta.restaurant.recipe_card_servings": {"en": "Ready for {value} servings", "zh_CN": "可做 {value} 份"},
 	"meta.restaurant.recipe_tooltip.stats": {"en": "Base ${price} · Prep {prep} · Ready for {servings} servings", "zh_CN": "基础价格 ${price} · 备菜 {prep} · 可做 {servings} 份"},
 	"meta.restaurant.recipe_tooltip.ingredients": {"en": "Ingredients: {value}", "zh_CN": "食材：{value}"},
 	"meta.restaurant.recipe_tooltip.night": {"en": "Night loot used: {value}", "zh_CN": "用到的夜间掉落：{value}"},
+	"meta.restaurant.recipe_tooltip.tags": {"en": "Tags: {value}", "zh_CN": "标签：{value}"},
+	"meta.restaurant.recipe_tooltip.synergy": {"en": "Night synergy: {value}", "zh_CN": "夜间联动：{value}"},
 	"meta.restaurant.recipe_tooltip.unlock": {"en": "Unlock path: {value}", "zh_CN": "解锁路径：{value}"},
 	"meta.restaurant.open_service": {"en": "Open Service", "zh_CN": "开始营业"},
 	"meta.restaurant.open_service_cost": {"en": "Open Service ({value} actions)", "zh_CN": "开始营业（消耗 {value} 行动）"},
@@ -516,6 +533,9 @@ const UI_TEXT := {
 	"meta.restaurant.clear_menu": {"en": "Clear Menu", "zh_CN": "清空菜单"},
 	"meta.restaurant.summary_idle_title": {"en": "No Service Yet", "zh_CN": "尚未营业"},
 	"meta.restaurant.summary_idle": {"en": "Choose a menu and open for service to generate gold and feedback.", "zh_CN": "先选择菜单再开门营业，以获取金币和反馈。"},
+	"meta.restaurant.headline_packed": {"en": "A packed, well-loved service.", "zh_CN": "这一轮营业座无虚席，口碑很稳。"},
+	"meta.restaurant.headline_steady": {"en": "A steady daytime service.", "zh_CN": "这一轮白天营业整体稳定。"},
+	"meta.restaurant.headline_quiet": {"en": "A quiet shift with room to improve.", "zh_CN": "这一轮营业偏安静，还有提升空间。"},
 	"meta.restaurant.summary_title": {"en": "Day {day} Service · {headline}", "zh_CN": "第 {day} 天营业 · {headline}"},
 	"meta.restaurant.summary_body": {"en": "Served {served}/{expected} guests · Revenue ${revenue} (tips ${tips}) · Satisfaction {satisfaction}% · Reputation {rep}\nIngredients used: {ingredients}", "zh_CN": "接待顾客 {served}/{expected} 位 · 收入 ${revenue}（小费 ${tips}）· 满意度 {satisfaction}% · 口碑 {rep}\n消耗食材：{ingredients}"},
 	"meta.restaurant.summary_feedback": {"en": "Feedback: {value}", "zh_CN": "反馈：{value}"},
@@ -548,6 +568,7 @@ const UI_TEXT := {
 	"meta.summary.arrival_completed": {"en": "The skiff came in clean and the dockside lamps are still up for unloading.", "zh_CN": "小艇顺利靠岸，码头边的灯火还亮着，正好把今晚的收获卸下来。"},
 	"meta.summary.arrival_completed_day2": {"en": "The first night's haul is on the dock now. Day 2 starts with proof that the night sea can actually change tomorrow.", "zh_CN": "第一晚带回来的东西现在已经摊在码头上了。第 2 天会直接证明，夜里的海确实能改写第二天。"},
 	"meta.summary.arrival_completed_day3": {"en": "This return hits differently. Day 3 is the first morning where your harvest, menu, and haul can all pay together.", "zh_CN": "这次回港的感觉已经不一样了。第 3 天会是第一天真正能让收成、菜单和夜里战利品一起结账的早晨。"},
+	"meta.return.route_interrupted_harbor": {"en": "Interrupted harbor return", "zh_CN": "中断后返港"},
 	"meta.summary.arrival_abandoned": {"en": "You made it back rough, but the harbor still secured whatever the run yielded.", "zh_CN": "这趟回来得有些狼狈，但港口还是把你带回来的收获都稳稳接住了。"},
 	"meta.summary.arrival_extracted": {"en": "You cut the run clean and turned the skiff back before the dungeon could take more than it owed.", "zh_CN": "你及时收线返航，在地城继续吞下更多东西之前就把小艇掉头开回了港口。"},
 	"meta.summary.arrival_boss_clear": {"en": "The boss floor broke cleanly. Harbor hands are already sorting the climax haul while the skiff cools at the dock.", "zh_CN": "首领层已经稳稳拿下。小艇刚靠上码头，港口的人已经在分拣这趟高潮战的收获了。"},
@@ -587,6 +608,8 @@ const UI_TEXT := {
 	"meta.summary.tomorrow_extracted": {"en": "Tomorrow starts from a clean extract. The secured haul is already in storage: {value}.", "zh_CN": "明天会从一次干净的撤离开始。稳稳带回来的东西已经进仓了：{value}。"},
 	"meta.summary.tomorrow_day2_wrap": {"en": "Day 2 has a job now: turn the first haul into a daylight advantage. {value}", "zh_CN": "第 2 天已经有了明确任务：把第一趟夜里带回来的东西，尽快变成白天优势。{value}"},
 	"meta.summary.tomorrow_day3_wrap": {"en": "Day 3 is where the loop starts paying back in full. {value}", "zh_CN": "第 3 天就是这套循环开始真正一起回本的地方。{value}"},
+	"meta.summary.carryover_short_count": {"en": "{count} secured carryover cache(s)", "zh_CN": "已稳住 {count} 份带回缓存"},
+	"meta.summary.carryover_short_route": {"en": "{route} with {count} secured cache(s)", "zh_CN": "{route}，共稳住 {count} 份缓存"},
 	"meta.bonus.gold": {"en": "+{value} gold", "zh_CN": "+{value} 金币"},
 	"meta.bonus.material": {"en": "+{value} material reward", "zh_CN": "+{value} 材料奖励"},
 	"pause.title": {"en": "Paused", "zh_CN": "游戏暂停"},
@@ -642,13 +665,13 @@ const UI_TEXT := {
 	"hud.noise": {"en": "NOISE", "zh_CN": "噪声"},
 	"hud.survival": {"en": "Survival", "zh_CN": "生存"},
 	"hud.build_snapshot": {"en": "Build Snapshot", "zh_CN": "构筑快照"},
-	"hud.skill_sonar": {"en": "Q Flash Grenade", "zh_CN": "Q 闪光弹"},
+	"hud.skill_sonar": {"en": "Q Pulse Sweep", "zh_CN": "Q 脉冲扫描"},
 	"hud.skill_dash": {"en": "Space Dash", "zh_CN": "空格 冲刺"},
 	"hud.badge.level": {"en": "Lvl", "zh_CN": "等级"},
 	"hud.badge.kills": {"en": "Kills", "zh_CN": "击杀"},
 	"hud.badge.time": {"en": "Time", "zh_CN": "时间"},
 	"hud.hp": {"en": "HP {current}/{max}", "zh_CN": "生命 {current}/{max}"},
-	"hud.enemy_info": {"en": "Enemies {enemy} | Revealed {revealed}", "zh_CN": "敌人 {enemy} | 显形 {revealed}"},
+	"hud.enemy_info": {"en": "Enemies {enemy}", "zh_CN": "敌人 {enemy}"},
 	"hud.streak": {"en": "Kill Streak", "zh_CN": "连杀势能"},
 	"hud.streak_tier": {"en": "T{tier} Momentum", "zh_CN": "势能 {tier} 阶"},
 	"hud.streak_chain": {"en": "{count} chain · {sec}s left", "zh_CN": "连杀 {count} · 剩余 {sec} 秒"},
@@ -665,6 +688,10 @@ const UI_TEXT := {
 	"hud.ping_contacts": {"en": "Flare: {count} silhouettes", "zh_CN": "照明弹显形：{count} 个目标"},
 	"hud.contract_dash_disabled": {"en": "Dash Disabled", "zh_CN": "冲刺已禁用"},
 	"hud.contract_dash_disabled_detail": {"en": "Disabled by Contract", "zh_CN": "受契约影响禁用"},
+	"hud.boss_name": {"en": "BOSS · {value}", "zh_CN": "首领 · {value}"},
+	"hud.boss_placeholder": {"en": "Boss", "zh_CN": "首领"},
+	"hud.boss_hint_break_summons": {"en": "Break summons to remove shield", "zh_CN": "击破召唤体以解除护盾"},
+	"hud.boss_hint_summons_alive": {"en": "{value} | Summons alive: {count}", "zh_CN": "{value} | 剩余召唤体：{count}"},
 
 	"upgrade.subtitle": {"en": "Pick one. Build direction updates on the right.", "zh_CN": "选择其一。右侧将实时更新构筑方向。"},
 	"upgrade.input_hint": {"en": "Left/Right focus  Enter select  Up/Down scroll build", "zh_CN": "左右切换  回车选择  上下滚动构筑"},
@@ -698,7 +725,7 @@ const UI_TEXT := {
 	"summary.badge.noise": {"en": "Noise Peak", "zh_CN": "噪声峰值"},
 	"summary.badge.enemies": {"en": "Enemies", "zh_CN": "敌人"},
 	"summary.badge.revealed": {"en": "Revealed", "zh_CN": "显形"},
-	"summary.boss": {"en": "Boss progress: {value}", "zh_CN": "Boss 进度：{value}"},
+	"summary.boss": {"en": "Boss progress: {value}", "zh_CN": "首领进度：{value}"},
 	"summary.weapon": {"en": "Weapon: {value}", "zh_CN": "武器：{value}"},
 	"summary.chosen": {"en": "Chosen upgrades:\n{value}", "zh_CN": "已选升级：\n{value}"},
 	"summary.map_contracts": {"en": "Map: {map}\nContracts: {contracts}", "zh_CN": "地图：{map}\n契约：{contracts}"},
@@ -723,7 +750,7 @@ const UI_TEXT := {
 	"sys.character_locked": {"en": "Character is locked.", "zh_CN": "角色尚未解锁。"},
 	"sys.map_unavailable": {"en": "Map data unavailable.", "zh_CN": "地图数据不可用。"},
 	"sys.debug_unlock_all": {"en": "Debug: all characters unlocked.", "zh_CN": "调试：已解锁全部角色。"},
-	"sys.sonar_ping": {"en": "Flare exposed: {count} contacts", "zh_CN": "照明弹显形：{count} 个目标"},
+	"sys.sonar_ping": {"en": "Pulse sweep: {count} hostiles", "zh_CN": "脉冲扫描：{count} 个目标"},
 	"sys.kill_streak_reward": {"en": "Kill streak x{streak}! Momentum T{tier}: supply surge + flare charge.", "zh_CN": "连杀 x{streak}！势能 {tier} 阶：补给爆发 + 照明充能。"},
 	"sys.data_reload_failed": {"en": "Data reload failed.", "zh_CN": "数据重载失败。"},
 	"sys.data_reloaded": {"en": "Data reloaded (fog/flare/noise/maps).", "zh_CN": "数据已重载（迷雾/照明弹/噪声/地图）。"},
@@ -738,12 +765,89 @@ const UI_TEXT := {
 	"upgrade.target.global": {"en": "Target: Global", "zh_CN": "目标：全局"},
 	"upgrade.target.weapon": {"en": "Target: {value}", "zh_CN": "目标：{value}"},
 	"upgrade.target.tag": {"en": "Target: Tag {value}", "zh_CN": "目标：标签 {value}"},
+	"night.run.title": {"en": "Night Run", "zh_CN": "夜间地牢"},
+	"night.run.staging_chamber": {"en": "Staging Chamber", "zh_CN": "起始营地"},
+	"night.run.status.booting": {"en": "Initializing night run", "zh_CN": "正在建立夜间路线"},
+	"night.run.status.entering_room": {"en": "Crossing into the next chamber", "zh_CN": "正在穿过通道"},
+	"night.run.status.room_locked": {"en": "Doors sealed until the room is cleared", "zh_CN": "房门已封锁，清空房间后开启"},
+	"night.run.status.reward_pending": {"en": "Choose one room reward", "zh_CN": "请选择一个房间奖励"},
+	"night.run.status.room_cleared": {"en": "Room clear: choose the next room", "zh_CN": "房间已清空：选择下一间"},
+	"night.run.status.floor_cleared": {"en": "Extraction path secured", "zh_CN": "撤离路线已稳定"},
+	"night.run.status.completed": {"en": "Night run complete", "zh_CN": "夜间路线完成"},
+	"night.run.status.completed_extract_ready": {"en": "Skiff extraction ready", "zh_CN": "小艇撤离已就绪"},
+	"night.run.status.aborted": {"en": "Night run unavailable", "zh_CN": "夜间路线不可用"},
+	"night.run.note.no_dungeon_template": {"en": "No dungeon template available", "zh_CN": "当前没有可用的地牢模板"},
+	"night.run.note.combat_world_unavailable": {"en": "Combat world unavailable", "zh_CN": "战斗场景暂不可用"},
+	"night.run.note.mapping_floor": {"en": "Mapping the floor", "zh_CN": "正在绘制地牢路线"},
+	"night.run.note.boot_failed": {"en": "Failed to boot combat core", "zh_CN": "战斗核心启动失败"},
+	"night.run.note.missing_room_scene": {"en": "Missing room scene", "zh_CN": "缺少房间场景"},
+	"night.run.note.invalid_room_scene": {"en": "Invalid room scene", "zh_CN": "房间场景无效"},
+	"night.run.note.enter_room": {"en": "Entered: {value}", "zh_CN": "已进入：{value}"},
+	"night.run.note.choose_door": {"en": "Room clear: choose a door", "zh_CN": "房间已清空：选择一扇门"},
+	"night.run.note.choose_reward": {"en": "Room clear: choose one reward", "zh_CN": "房间已清空：选择一个奖励"},
+	"night.run.note.reward_claimed": {"en": "Reward claimed: {value}", "zh_CN": "已领取奖励：{value}"},
+	"night.run.note.treasure_claimed": {"en": "Treasure claimed", "zh_CN": "已领取宝藏"},
+	"night.run.note.rest_claimed": {"en": "Rested and resupplied", "zh_CN": "已休整并补给"},
+	"night.run.note.event_resolved": {"en": "Event resolved", "zh_CN": "事件已处理"},
+	"night.run.note.room_reward_claimed": {"en": "Room reward claimed", "zh_CN": "已领取房间奖励"},
+	"night.run.note.floor_secured": {"en": "Floor secured", "zh_CN": "本层已稳住"},
+	"night.run.note.invalid_floor_start": {"en": "Invalid floor start room", "zh_CN": "起始房间配置无效"},
+	"night.run.note.extracted": {"en": "Early extraction secured", "zh_CN": "已成功提前撤离"},
+	"night.run.note.completed": {"en": "Boss floor secured", "zh_CN": "首领层已拿下"},
+	"night.run.note.completed_generic": {"en": "Night run complete", "zh_CN": "夜间路线完成"},
+	"night.run.note.claim_reward_before_move": {"en": "Claim a room reward before moving on", "zh_CN": "先领取房间奖励再前进"},
+	"night.run.note.crossing_corridor": {"en": "Crossing the corridor", "zh_CN": "正在穿过走廊"},
+	"night.run.note.boss_engaged": {"en": "Floor climax engaged", "zh_CN": "首领高潮战开始"},
+	"night.run.note.boss_phase_shift": {"en": "Boss phase shift", "zh_CN": "首领阶段切换"},
+	"night.run.note.boss_down_reward": {"en": "Boss down: claim the final room reward", "zh_CN": "首领已倒下：领取最终房间奖励"},
+	"night.reward.panel_title": {"en": "Room Reward", "zh_CN": "房间奖励"},
+	"night.reward.panel_hint": {"en": "Pick one reward before taking the next door.", "zh_CN": "先领取一个奖励，再去下一扇门。"},
+	"night.reward.unknown_room": {"en": "Unknown Room", "zh_CN": "未知房间"},
+	"night.reward.kind.currency": {"en": "Cache", "zh_CN": "补给"},
+	"night.reward.kind.upgrade": {"en": "Upgrade", "zh_CN": "强化"},
+	"night.reward.kind.weapon": {"en": "Weapon", "zh_CN": "武器"},
+	"night.reward.kind.reward": {"en": "Reward", "zh_CN": "奖励"},
+	"night.boss.title_default": {"en": "Floor Climax", "zh_CN": "楼层高潮战"},
+	"night.boss.phase_default": {"en": "Boss Active", "zh_CN": "首领已现身"},
+	"night.boss.subtitle_default": {"en": "A floor-end threat is rising ahead.", "zh_CN": "楼层终点的威胁正在逼近。"},
+	"night.extraction.title": {"en": "Extraction", "zh_CN": "撤离"},
+	"night.extraction.button.extract": {"en": "Extract", "zh_CN": "撤离"},
+	"night.extraction.button.extract_now": {"en": "Extract Now", "zh_CN": "立即撤离"},
+	"night.extraction.title.run_complete": {"en": "Run Complete", "zh_CN": "路线完成"},
+	"night.extraction.title.offline": {"en": "Extraction Offline", "zh_CN": "撤离离线"},
+	"night.extraction.title.climax_complete": {"en": "Climax Complete", "zh_CN": "高潮战完成"},
+	"night.extraction.title.climax_locked": {"en": "Climax Locked", "zh_CN": "高潮战锁定"},
+	"night.extraction.title.skiff_ready": {"en": "Skiff Ready", "zh_CN": "小艇已就位"},
+	"night.extraction.subtitle.secure_another_room": {"en": "Secure another room to call the skiff.", "zh_CN": "再稳住一个房间后才能呼叫小艇。"},
+	"night.extraction.subtitle.route_not_anchored": {"en": "Route not anchored yet.", "zh_CN": "当前还没有稳定的返回路线。"},
+	"night.extraction.subtitle.return_route_secured": {"en": "Return route already secured.", "zh_CN": "返回路线已经稳定。"},
+	"night.extraction.subtitle.offline": {"en": "The run could not stabilize.", "zh_CN": "这次夜间路线未能稳定建立。"},
+	"night.extraction.subtitle.claim_reward": {"en": "Claim the room reward before returning.", "zh_CN": "先领取房间奖励，再决定是否返回。"},
+	"night.extraction.subtitle.boss_secured": {"en": "Boss floor secured. Finish the return.", "zh_CN": "首领层已稳住。完成返回流程即可。"},
+	"night.extraction.subtitle.boss_locked": {"en": "The boss chamber only ends in victory or failure.", "zh_CN": "首领房只有胜利或失败两种结局。"},
+	"night.extraction.subtitle.secure_current_room": {"en": "Secure the current room before calling the skiff.", "zh_CN": "先稳住当前房间，再呼叫小艇。"},
+	"night.extraction.subtitle.secure_one_combat_room": {"en": "Clear at least one combat room to secure haul.", "zh_CN": "至少清掉一个战斗房，才能把收获稳住。"},
+	"night.extraction.subtitle.ready": {"en": "Leave now with the haul already secured.", "zh_CN": "现在离开，也能把已稳住的战利品带回去。"},
+	"night.extraction.row.cleared_rooms": {"en": "Cleared rooms", "zh_CN": "已清房间"},
+	"night.extraction.row.no_room_salvage": {"en": "No combat-room salvage secured.", "zh_CN": "尚未稳住任何战斗房战利品。"},
+	"night.extraction.row.room_salvage_secured": {"en": "{count} combat room(s) secured · {materials}", "zh_CN": "已稳住 {count} 个战斗房 · {materials}"},
+	"night.extraction.row.room_salvage_lost": {"en": "Emergency return lost the unbanked room salvage.", "zh_CN": "紧急返回导致未入账的房间战利品全部丢失。"},
+	"night.extraction.row.boss_cache_missing": {"en": "Boss cache not secured.", "zh_CN": "首领奖励缓存尚未稳住。"},
+	"night.extraction.row.boss_cache_left": {"en": "Skiff extraction left the floor boss cache behind.", "zh_CN": "提前撤离时放弃了本层首领奖励缓存。"},
+	"night.extraction.row.boss_cache_lost": {"en": "The boss fell, but the emergency return lost the final cache.", "zh_CN": "虽然首领已倒下，但紧急返回让最终缓存丢失了。"},
+	"night.extraction.route.harbor_return": {"en": "Harbor return", "zh_CN": "返回港口"},
+	"night.extraction.route.completed": {"en": "Boss floor cleared", "zh_CN": "首领层已清空"},
+	"night.extraction.route.extracted": {"en": "Early skiff extract", "zh_CN": "小艇提前撤离"},
+	"night.extraction.route.abandoned": {"en": "Emergency return", "zh_CN": "紧急返回"},
+	"night.extraction.boss_bonus_default": {"en": "Boss Cache Secured", "zh_CN": "首领奖励缓存已稳住"},
+	"night.minimap.default_title": {"en": "Night Floor", "zh_CN": "夜间楼层"},
+	"night.minimap.mapping_route": {"en": "Mapping route", "zh_CN": "正在标定路线"},
 
 	"telegraph.pursuer_inbound": {"en": "Pursuer inbound! ({count}) next ETA {eta}s", "zh_CN": "追猎者来袭！({count}) 下次预计 {eta} 秒"},
 	"telegraph.hazard_warning": {"en": "Hazard shift incoming.", "zh_CN": "灾害切换即将发生。"},
 	"telegraph.hazard_active": {"en": "{text} (ACTIVE)", "zh_CN": "{text}（进行中）"},
-	"telegraph.boss_detected": {"en": "Boss detected.", "zh_CN": "检测到 Boss。"},
-	"telegraph.boss_phase": {"en": "Boss phase shift.", "zh_CN": "Boss 阶段切换。"},
+	"telegraph.boss_detected": {"en": "Boss detected.", "zh_CN": "检测到首领。"},
+	"telegraph.boss_phase": {"en": "Boss phase shift.", "zh_CN": "首领阶段切换。"},
 	"telegraph.boss_attack": {"en": "High-energy attack telegraphed.", "zh_CN": "高能攻击预警。"},
 	"telegraph.boss_echoes": {"en": "False echoes deployed: {count}", "zh_CN": "伪装回声已部署：{count}"},
 	"telegraph.boss_true_form": {"en": "True core exposed. Push damage now.", "zh_CN": "真核心暴露，立刻集火。"}
@@ -961,6 +1065,7 @@ func _ready() -> void:
 		_language_code = normalize_language_code(String(ProfileStore.call("get_language_code")))
 	else:
 		_language_code = DEFAULT_LANGUAGE_CODE
+	_apply_translation_locale()
 
 
 func get_language_code() -> String:
@@ -985,6 +1090,7 @@ func set_language_code(language_code: String) -> void:
 	if normalized == _language_code:
 		return
 	_language_code = normalized
+	_apply_translation_locale()
 	if ProfileStore != null and ProfileStore.has_method("set_language_code"):
 		ProfileStore.call("set_language_code", _language_code)
 	language_changed.emit(_language_code)
@@ -1001,6 +1107,12 @@ func normalize_language_code(language_code: String) -> String:
 
 func is_chinese() -> bool:
 	return _language_code == "zh_CN"
+
+
+func _apply_translation_locale() -> void:
+	if TranslationServer.get_locale() == _language_code:
+		return
+	TranslationServer.set_locale(_language_code)
 
 
 func t(key: String, args: Dictionary = {}) -> String:
@@ -1045,16 +1157,32 @@ func stat_name(stat: String) -> String:
 func localize_data_entry(entry: Dictionary) -> Dictionary:
 	var output := entry.duplicate(true)
 	var entry_id := String(output.get("id", "")).strip_edges()
+	if output.has("label"):
+		output["label"] = data_field(entry_id, "label", String(output.get("label", "")), output)
+	if output.has("room_label"):
+		output["room_label"] = data_field(entry_id, "room_label", String(output.get("room_label", "")), output)
 	if output.has("name"):
 		output["name"] = data_field(entry_id, "name", String(output.get("name", "")), output)
+	if output.has("title"):
+		output["title"] = data_field(entry_id, "title", String(output.get("title", "")), output)
+	if output.has("subtitle"):
+		output["subtitle"] = data_field(entry_id, "subtitle", String(output.get("subtitle", "")), output)
 	if output.has("description"):
 		output["description"] = data_field(entry_id, "description", String(output.get("description", "")), output)
+	if output.has("summary"):
+		output["summary"] = data_field(entry_id, "summary", String(output.get("summary", "")), output)
 	if output.has("display_name"):
 		output["display_name"] = data_field(entry_id, "display_name", String(output.get("display_name", "")), output)
 	if output.has("short_desc"):
 		output["short_desc"] = data_field(entry_id, "short_desc", String(output.get("short_desc", "")), output)
 	if output.has("passive_summary"):
 		output["passive_summary"] = data_field(entry_id, "passive_summary", String(output.get("passive_summary", "")), output)
+	if output.has("telegraph_text"):
+		output["telegraph_text"] = data_field(entry_id, "telegraph_text", String(output.get("telegraph_text", "")), output)
+	if output.has("exam_objective"):
+		output["exam_objective"] = data_field(entry_id, "exam_objective", String(output.get("exam_objective", "")), output)
+	if output.has("feedback"):
+		output["feedback"] = data_field(entry_id, "feedback", String(output.get("feedback", "")), output)
 	if output.has("hazard_summary"):
 		output["hazard_summary"] = data_field(entry_id, "hazard_summary", String(output.get("hazard_summary", "")), output)
 	if output.has("event_summary"):

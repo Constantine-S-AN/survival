@@ -2,6 +2,7 @@ extends Node
 class_name NightCombatRoot
 
 signal session_completed(summary: Dictionary)
+signal session_bootstrap_completed(success: bool)
 
 const NIGHT_RUN_SCENE := preload("res://scenes/night/NightRun.tscn")
 const GAME_ROOT_SCENE := preload("res://scenes/game/GameRoot.tscn")
@@ -21,9 +22,12 @@ func start_session(request: Dictionary) -> void:
 		_game_root = GAME_ROOT_SCENE.instantiate()
 	if _game_root != null and _game_root.has_signal("session_completed"):
 		_game_root.connect("session_completed", Callable(self, "_on_session_finished"))
+	if _game_root != null and _game_root.has_signal("session_bootstrapped"):
+		_game_root.connect("session_bootstrapped", Callable(self, "_on_session_bootstrapped"))
 	elif _game_root != null and _game_root.has_signal("embedded_session_finished"):
 		_game_root.connect("embedded_session_finished", Callable(self, "_on_session_finished"))
 	if _game_root == null:
+		session_bootstrap_completed.emit(false)
 		return
 	if _game_root.has_method("start_session"):
 		session_mount.add_child(_game_root)
@@ -47,6 +51,39 @@ func debug_get_snapshot() -> Dictionary:
 	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("debug_get_snapshot"):
 		snapshot["night_run"] = _game_root.call("debug_get_snapshot")
 	return snapshot
+
+
+func debug_get_run_snapshot() -> Dictionary:
+	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("debug_get_snapshot"):
+		var snapshot_variant: Variant = _game_root.call("debug_get_snapshot")
+		return snapshot_variant if snapshot_variant is Dictionary else {}
+	return {}
+
+
+func debug_use_exit(target_room_id: String) -> bool:
+	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("debug_use_exit"):
+		_game_root.call("debug_use_exit", target_room_id)
+		return true
+	return false
+
+
+func debug_force_clear_room() -> bool:
+	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("debug_force_clear_room"):
+		_game_root.call("debug_force_clear_room")
+		return true
+	return false
+
+
+func debug_select_room_reward(option_index: int) -> bool:
+	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("debug_select_room_reward"):
+		return bool(_game_root.call("debug_select_room_reward", option_index))
+	return false
+
+
+func debug_request_extract() -> bool:
+	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("debug_request_extract"):
+		return bool(_game_root.call("debug_request_extract"))
+	return false
 
 
 func stop_session() -> void:
@@ -107,6 +144,10 @@ func debug_complete_session(summary_override: Dictionary = {}) -> void:
 
 func _on_session_finished(summary: Dictionary) -> void:
 	_emit_session_completed(summary)
+
+
+func _on_session_bootstrapped(success: bool) -> void:
+	session_bootstrap_completed.emit(success)
 
 
 func _emit_session_completed(summary: Dictionary) -> void:

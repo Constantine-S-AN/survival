@@ -74,6 +74,7 @@ var _restaurant_state: Dictionary = {}
 var _day_world_state: Dictionary = {}
 var _resume_state: Dictionary = {}
 var _pending_return_summary: Dictionary = {}
+var _pending_night_session: Dictionary = {}
 var _current_state: String = STATE_MENU
 var _day_hub_status_text: String = ""
 var _farm_status_text: String = ""
@@ -82,6 +83,7 @@ var _shop_status_text: String = ""
 var _pause_menu: Control = null
 var _meta_pause_visible: bool = false
 var _daytime_shell_mode: String = DAYTIME_SHELL_WORLD
+var _last_launch_seed: int = 0
 
 
 func _ready() -> void:
@@ -93,6 +95,18 @@ func _ready() -> void:
 	_connect_signals()
 	_refresh_views()
 	_show_state(STATE_MENU)
+
+
+func _next_runtime_seed() -> int:
+	var wall_usec: int = int(floor(Time.get_unix_time_from_system() * 1000000.0))
+	var tick_usec: int = int(Time.get_ticks_usec())
+	var seed: int = abs(wall_usec ^ (tick_usec << 11) ^ (tick_usec >> 3))
+	if seed == 0:
+		seed = 1
+	if seed <= _last_launch_seed:
+		seed = _last_launch_seed + 1
+	_last_launch_seed = seed
+	return seed
 
 
 func _connect_signals() -> void:
@@ -146,6 +160,8 @@ func _connect_signals() -> void:
 		return_summary_view.menu_requested.connect(_on_menu_requested)
 	if night_combat_root != null:
 		night_combat_root.session_completed.connect(_on_night_session_completed)
+		if night_combat_root.has_signal("session_bootstrap_completed"):
+			night_combat_root.connect("session_bootstrap_completed", Callable(self, "_on_night_session_bootstrap_completed"))
 
 
 func _ensure_pause_menu() -> void:
@@ -196,9 +212,14 @@ func _load_meta_progress() -> void:
 	_daytime_shell_mode = _normalize_daytime_shell_mode(String(_resume_state.get("daytime_shell_mode", _daytime_shell_mode)))
 	var summary_variant: Variant = snapshot.get("pending_return_summary", {})
 	_pending_return_summary = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
+	_pending_night_session = _normalize_pending_night_session(snapshot.get("pending_night_session", {}))
 	_sync_day_world_state_to_current_day()
 	if _day_state.current_phase == DayStateClass.PHASE_NIGHT and _pending_return_summary.is_empty():
-		_day_state.reset_daytime()
+		_pending_return_summary = _build_interrupted_night_return_payload()
+		_pending_night_session.clear()
+		_save_meta_progress()
+	elif _day_state.current_phase != DayStateClass.PHASE_NIGHT and not _pending_night_session.is_empty():
+		_pending_night_session.clear()
 		_save_meta_progress()
 
 
@@ -215,7 +236,8 @@ func _save_meta_progress() -> void:
 		"restaurant_state": _restaurant_state.duplicate(true),
 		"day_world_state": _day_world_state.duplicate(true),
 		"resume_state": _resume_state.duplicate(true),
-		"pending_return_summary": _pending_return_summary.duplicate(true)
+		"pending_return_summary": _pending_return_summary.duplicate(true),
+		"pending_night_session": _pending_night_session.duplicate(true)
 	})
 
 
@@ -710,22 +732,45 @@ func _launch_night() -> bool:
 		"character_id": character_id,
 		"map_id": map_id,
 		"contract_ids": ProfileStore.get_selected_contract_ids(),
-		"seed": int(Time.get_unix_time_from_system())
+		"seed": _next_runtime_seed()
 	}
-	_day_state.begin_night()
+	_pending_night_session = _build_pending_night_session(request)
 	_pending_return_summary.clear()
 	_day_hub_status_text = ""
 	_farm_status_text = ""
 	_restaurant_status_text = ""
 	_shop_status_text = ""
-	_save_meta_progress()
 	_refresh_views()
 	_show_state(STATE_NIGHT)
+	if night_combat_root == null or not night_combat_root.has_method("start_session"):
+		_pending_night_session.clear()
+		_day_hub_status_text = _t("meta.hub.status_night_launch_failed")
+		_refresh_views()
+		_show_state(STATE_DAY_HUB)
+		return false
 	night_combat_root.start_session(request)
 	return true
 
 
+func _on_night_session_bootstrap_completed(success: bool) -> void:
+	if success:
+		if _pending_night_session.is_empty():
+			return
+		if _day_state.current_phase != DayStateClass.PHASE_NIGHT:
+			_day_state.begin_night()
+		_save_meta_progress()
+		_refresh_views()
+		return
+	_pending_night_session.clear()
+	_day_hub_status_text = _t("meta.hub.status_night_launch_failed")
+	if night_combat_root != null and night_combat_root.has_method("stop_session"):
+		night_combat_root.call("stop_session")
+	_refresh_views()
+	_show_state(STATE_DAY_HUB)
+
+
 func _on_night_session_completed(summary: Dictionary) -> void:
+	_pending_night_session.clear()
 	var return_payload := _apply_night_rewards(summary)
 	_pending_return_summary = return_payload
 	_save_meta_progress()
@@ -742,6 +787,7 @@ func _on_return_summary_continue_requested() -> void:
 	_day_state.begin_next_day()
 	_advance_farm_for_new_day(previous_day)
 	_sync_day_world_state_to_current_day()
+	_pending_night_session.clear()
 	_pending_return_summary.clear()
 	_day_hub_status_text = ""
 	_farm_status_text = ""
@@ -1068,6 +1114,19 @@ func _open_restaurant_service() -> bool:
 		var amount := int(ingredients_consumed.get(material_id_variant, 0))
 		if amount <= 0:
 			continue
+		if _inventory.get_material_amount(material_id) < amount:
+			_restaurant_status_text = _t("meta.restaurant.status_need_stock")
+			_refresh_views()
+			push_error(
+				"Restaurant service simulation requested %d %s, but only %d remained in inventory."
+				% [amount, material_id, _inventory.get_material_amount(material_id)]
+			)
+			return false
+	for material_id_variant in ingredients_consumed.keys():
+		var material_id := String(material_id_variant)
+		var amount := int(ingredients_consumed.get(material_id_variant, 0))
+		if amount <= 0:
+			continue
 		_inventory.remove_material(material_id, amount)
 	_economy.add_gold(int(simulation.get("revenue", 0)))
 	_economy.add_reputation(int(simulation.get("reputation_delta", 0)))
@@ -1188,6 +1247,116 @@ func _build_day_hub_model() -> Dictionary:
 		"night_button_disabled": not night_ready,
 		"night_button_tooltip": _build_night_button_tooltip()
 	}
+
+
+func _normalize_pending_night_session(source_variant: Variant) -> Dictionary:
+	if not (source_variant is Dictionary):
+		return {}
+	var source: Dictionary = source_variant
+	if source.is_empty():
+		return {}
+	return {
+		"day": maxi(1, int(source.get("day", _day_state.current_day))),
+		"character_id": String(source.get("character_id", "")).strip_edges(),
+		"map_id": String(source.get("map_id", DataRegistry.get_default_map_id())).strip_edges(),
+		"contract_ids": _normalize_string_id_array(source.get("contract_ids", [])),
+		"seed": maxi(0, int(source.get("seed", 0))),
+		"session_duration_sec": maxf(0.0, float(source.get("session_duration_sec", 0.0)))
+	}
+
+
+func _build_pending_night_session(request: Dictionary) -> Dictionary:
+	return _normalize_pending_night_session(request)
+
+
+func _build_interrupted_night_return_payload() -> Dictionary:
+	var session_request := _pending_night_session.duplicate(true)
+	if session_request.is_empty():
+		session_request = _build_pending_night_session({
+			"day": _day_state.current_day,
+			"character_id": ProfileStore.get_selected_character_id(DataRegistry.get_default_character_id()) if ProfileStore != null else DataRegistry.get_default_character_id(),
+			"map_id": ProfileStore.get_selected_map_id(DataRegistry.get_default_map_id()) if ProfileStore != null else DataRegistry.get_default_map_id(),
+			"contract_ids": ProfileStore.get_selected_contract_ids() if ProfileStore != null else [],
+			"seed": 0,
+			"session_duration_sec": 0.0
+		})
+	var penalty := _build_interrupted_night_penalty()
+	var interrupted_summary := {
+		"exit_reason": "abandoned",
+		"abandoned": true,
+		"time_survived_sec": 0.0,
+		"kills": 0,
+		"level": 1,
+		"map_id": String(session_request.get("map_id", DataRegistry.get_default_map_id())),
+		"map_name": String(DataRegistry.get_map(String(session_request.get("map_id", DataRegistry.get_default_map_id()))).get("name", session_request.get("map_id", DataRegistry.get_default_map_id()))),
+		"contract_ids": (session_request.get("contract_ids", []) as Array).duplicate() if session_request.get("contract_ids", []) is Array else [],
+		"contract_names": _resolve_contract_names(session_request.get("contract_ids", [])),
+		"drop_pickups_spawned": 0,
+		"meta_currency_earned": {
+			"base": 0,
+			"multiplier": 1.0,
+			"total": 0
+		},
+		"weapon_name": "",
+		"weapon_id": "",
+		"noise_peak_tier": "",
+		"seed": int(session_request.get("seed", 0)),
+		"dungeon_interrupted": true,
+		"dungeon_return_route_label": _t("meta.return.route_interrupted_harbor")
+	}
+	var return_payload := {
+		"current_day": _day_state.current_day,
+		"next_day": _day_state.current_day + 1,
+		"exit_reason": "abandoned",
+		"time_text": _format_time(0.0),
+		"kills": 0,
+		"seed": int(interrupted_summary.get("seed", 0)),
+		"gold_reward": 0,
+		"materials_reward": {},
+		"materials_reward_text": _t("meta.common.none"),
+		"loot_categories": [],
+		"loot_text": _build_loot_summary_text(0, []),
+		"night_bonus_text": _t("meta.common.none"),
+		"inventory_summary": _build_inventory_summary(),
+		"unlock_names": [],
+		"unlock_text": _t("meta.common.none"),
+		"unlock_progress": [],
+		"unlock_progress_text": _t("meta.common.none"),
+		"penalty": penalty.duplicate(true),
+		"penalty_text": _build_penalty_text(penalty),
+		"raw_summary": interrupted_summary
+	}
+	return_payload["arrival_text"] = _build_return_arrival_text(return_payload)
+	return_payload["tomorrow_text"] = _build_return_tomorrow_text(return_payload)
+	return return_payload
+
+
+func _build_interrupted_night_penalty() -> Dictionary:
+	var abandoned_table := DataRegistry.get_night_loot_table("abandoned")
+	var penalty_variant: Variant = abandoned_table.get("penalty", {})
+	var penalty_source: Dictionary = penalty_variant if penalty_variant is Dictionary else {}
+	var stamina_loss := maxi(0, int(penalty_source.get("stamina_loss", 0)))
+	var next_day_stamina := clampi(_day_state.max_stamina - stamina_loss, 0, _day_state.max_stamina)
+	_day_state.set_pending_next_day_stamina_penalty(stamina_loss)
+	return {
+		"applied": stamina_loss > 0,
+		"type": String(penalty_source.get("type", "")).strip_edges().to_lower(),
+		"stamina_loss": stamina_loss,
+		"next_day_stamina": next_day_stamina
+	}
+
+
+func _resolve_contract_names(contract_ids_variant: Variant) -> Array[String]:
+	var names: Array[String] = []
+	if not (contract_ids_variant is Array):
+		return names
+	for contract_id_variant in (contract_ids_variant as Array):
+		var contract_id := String(contract_id_variant).strip_edges()
+		if contract_id.is_empty():
+			continue
+		var contract := DataRegistry.get_contract(contract_id)
+		names.append(String(contract.get("name", contract_id)))
+	return names
 
 
 func _build_day_hub_status_text() -> String:
@@ -2009,7 +2178,7 @@ func _build_restaurant_result_title(summary: Dictionary) -> String:
 		return _t("meta.restaurant.summary_idle_title")
 	return _t("meta.restaurant.summary_title", {
 		"day": maxi(1, int(summary.get("served_day", _day_state.current_day))),
-		"headline": String(summary.get("headline", _t("meta.restaurant.summary_idle_title")))
+		"headline": _resolve_restaurant_summary_headline(summary)
 	})
 
 
@@ -2025,6 +2194,18 @@ func _build_restaurant_result_summary(summary: Dictionary) -> String:
 		"rep": _format_signed_int(int(summary.get("reputation_delta", 0))),
 		"ingredients": _build_material_bundle_text(summary.get("ingredients_consumed", {}))
 	})
+
+
+func _resolve_restaurant_summary_headline(summary: Dictionary) -> String:
+	var headline_key := String(summary.get("headline_key", "")).strip_edges()
+	if not headline_key.is_empty():
+		return _t(headline_key)
+	var headline := String(summary.get("headline", "")).strip_edges()
+	if headline.begins_with("meta."):
+		return _t(headline)
+	if headline.is_empty():
+		return _t("meta.restaurant.summary_idle_title")
+	return headline
 
 
 func _build_restaurant_feedback_text(summary: Dictionary) -> String:

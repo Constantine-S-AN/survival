@@ -60,6 +60,8 @@ class DummyDamageEnemy:
 
 var failed: int = 0
 var _profile_test_session_started: bool = false
+var _embedded_night_death_finished: bool = false
+var _embedded_night_death_summary: Dictionary = {}
 var _embedded_night_duration_finished: bool = false
 var _embedded_night_duration_summary: Dictionary = {}
 
@@ -88,6 +90,8 @@ func _ready() -> void:
 	await _run_enemy_pool_perf_tests()
 	await _run_boss_showcase_tests()
 	await _run_meta_loop_scaffold_tests()
+	await _run_runtime_seed_tests()
+	await _run_embedded_night_death_tests()
 	await _run_embedded_night_duration_tests()
 	await get_tree().process_frame
 	print("Tests finished. failed=%d" % failed)
@@ -2437,6 +2441,22 @@ func _run_meta_loop_scaffold_tests() -> void:
 	await get_tree().process_frame
 	snapshot = meta_root.call("debug_get_snapshot")
 	_assert_true(not bool(snapshot.get("night_button_disabled", true)), "night combat unlocks once the evening phase is reached")
+	var night_root: Node = meta_root.get_node_or_null("NightCombatRoot")
+	_assert_true(night_root != null, "meta loop exposes the embedded night combat root")
+	_assert_true(bool(meta_root.call("debug_launch_night")), "night combat launch can begin before bootstrap persistence locks in")
+	if night_root != null and night_root.has_signal("session_bootstrap_completed"):
+		night_root.emit_signal("session_bootstrap_completed", false)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	snapshot = meta_root.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("current_screen", "")), "day_hub", "failed night bootstrap returns to the daytime hub instead of trapping the player in night")
+	_assert_equal(String(snapshot.get("phase", "")), "evening", "failed night bootstrap keeps the evening phase available")
+	_assert_true(not bool(snapshot.get("pending_summary", false)), "failed night bootstrap does not synthesize a return summary")
+	meta_root.call("debug_save_meta_progress")
+	var persisted_meta_progress: Dictionary = ProfileStore.get_meta_progress_state()
+	var persisted_day_state: Dictionary = persisted_meta_progress.get("day_state", {})
+	_assert_equal(String(persisted_day_state.get("current_phase", "")), "evening", "failed night bootstrap does not persist the night phase")
+	_assert_true((persisted_meta_progress.get("pending_night_session", {}) as Dictionary).is_empty(), "failed night bootstrap does not persist a pending night session")
 
 	_assert_true(bool(meta_root.call("debug_launch_night")), "night combat launches from the evening phase")
 	await get_tree().process_frame
@@ -2821,6 +2841,44 @@ func _run_meta_loop_scaffold_tests() -> void:
 		"upgrades": [DataRegistry.get_restaurant_upgrade("decor_window_box")]
 	})
 	_assert_true(float(upgraded_service.get("menu_attractiveness", 0.0)) > float(base_service.get("menu_attractiveness", 0.0)), "purchased restaurant upgrade changes service outcomes")
+	var night_special_service: Dictionary = service_simulator.simulate_service({
+		"day": 4,
+		"reputation": 2,
+		"menu_recipes": [DataRegistry.get_recipe("kelpfire_noodles")],
+		"inventory_materials": {"wheat": 4, "herb": 2, "glow_kelp": 2, "abyssfin": 1},
+		"upgrades": []
+	})
+	var night_specials_upgraded: Dictionary = service_simulator.simulate_service({
+		"day": 4,
+		"reputation": 2,
+		"menu_recipes": [DataRegistry.get_recipe("kelpfire_noodles")],
+		"inventory_materials": {"wheat": 4, "herb": 2, "glow_kelp": 2, "abyssfin": 1},
+		"upgrades": [DataRegistry.get_restaurant_upgrade("specials_night_board")]
+	})
+	_assert_equal(int(night_specials_upgraded.get("specials_featured", 0)), 1, "night specials upgrade activates one featured special slot")
+	_assert_true(float(night_specials_upgraded.get("menu_attractiveness", 0.0)) > float(night_special_service.get("menu_attractiveness", 0.0)), "featured night specials improve menu attractiveness")
+	var shared_stock_service: Dictionary = service_simulator.simulate_service({
+		"day": 2,
+		"reputation": 1,
+		"menu_recipes": [DataRegistry.get_recipe("field_stew"), DataRegistry.get_recipe("herb_tea")],
+		"inventory_materials": {"wheat": 2, "herb": 1},
+		"upgrades": []
+	})
+	var shared_stock_consumed: Dictionary = shared_stock_service.get("ingredients_consumed", {}) as Dictionary
+	_assert_true(bool(shared_stock_service.get("ok", false)), "service simulation succeeds when menu recipes share limited ingredients")
+	_assert_equal(int(shared_stock_service.get("served_customers", 0)), 1, "service simulation does not oversell a shared herb across the menu")
+	_assert_equal(int(shared_stock_consumed.get("herb", 0)), 1, "service simulation consumes at most the available shared herb stock")
+	var overlapping_night_material_service: Dictionary = service_simulator.simulate_service({
+		"day": 4,
+		"reputation": 2,
+		"menu_recipes": [DataRegistry.get_recipe("mooncap_hotpot"), DataRegistry.get_recipe("kelpfire_noodles")],
+		"inventory_materials": {"wheat": 2, "herb": 2, "glow_kelp": 1, "abyssfin": 1, "mooncap": 2},
+		"upgrades": []
+	})
+	var overlapping_consumed: Dictionary = overlapping_night_material_service.get("ingredients_consumed", {}) as Dictionary
+	_assert_true(bool(overlapping_night_material_service.get("ok", false)), "service simulation succeeds when night synergy material is also a plated ingredient elsewhere")
+	_assert_equal(int(overlapping_night_material_service.get("served_customers", 0)), 2, "service simulation can still plate both night-special dishes with shared stock")
+	_assert_equal(int(overlapping_consumed.get("abyssfin", 0)), 1, "night-material synergy does not double-spend abyssfin already committed as an ingredient")
 	meta_root_final.queue_free()
 	await get_tree().process_frame
 
@@ -2834,6 +2892,66 @@ func _run_meta_loop_scaffold_tests() -> void:
 	_assert_true((shop_reload_snapshot.get("unlocked_seed_ids", []) as Array).has("emberleaf_seed"), "save/load preserves emberleaf shop unlock")
 	_assert_true((shop_reload_snapshot.get("owned_restaurant_upgrade_ids", []) as Array).has("decor_window_box"), "save/load preserves purchased restaurant upgrades")
 	meta_root_shop_reload.queue_free()
+	await get_tree().process_frame
+
+
+func _run_runtime_seed_tests() -> void:
+	var game_scene: PackedScene = load("res://scenes/game/GameRoot.tscn")
+	if game_scene == null:
+		_assert_true(false, "runtime seed test could not load GameRoot")
+		return
+	var game_root_variant: Variant = game_scene.instantiate()
+	_assert_true(game_root_variant is Node, "runtime seed test instantiates GameRoot")
+	if not (game_root_variant is Node):
+		return
+	var game_root: Node = game_root_variant
+	get_tree().root.add_child.call_deferred(game_root)
+	await _await_stable_physics_frames(2)
+	var default_character_id := DataRegistry.get_default_character_id()
+	var default_map_id := DataRegistry.get_default_map_id()
+	game_root.call("_start_run", default_character_id, default_map_id, [], true, 0)
+	var first_seed := int(game_root.get("run_seed"))
+	game_root.call("_start_run", default_character_id, default_map_id, [], true, 0)
+	var second_seed := int(game_root.get("run_seed"))
+	_assert_true(first_seed != 0, "runtime seed test assigns a non-zero seed to the first run")
+	_assert_true(second_seed != 0, "runtime seed test assigns a non-zero seed to the retry run")
+	_assert_true(first_seed != second_seed, "runtime seed test gives same-second retries distinct seeds")
+	if game_root != null and is_instance_valid(game_root):
+		game_root.queue_free()
+	await get_tree().process_frame
+
+
+func _run_embedded_night_death_tests() -> void:
+	var game_scene: PackedScene = load("res://scenes/game/GameRoot.tscn")
+	if game_scene == null:
+		_assert_true(false, "embedded night death test could not load GameRoot")
+		return
+	var game_root_variant: Variant = game_scene.instantiate()
+	_assert_true(game_root_variant is Node, "embedded night death test instantiates GameRoot")
+	if not (game_root_variant is Node):
+		return
+	var game_root: Node = game_root_variant
+	_embedded_night_death_finished = false
+	_embedded_night_death_summary.clear()
+	if game_root.has_signal("embedded_session_finished"):
+		game_root.connect("embedded_session_finished", Callable(self, "_on_embedded_night_death_finished"))
+	game_root.call("set_embedded_session_request", {
+		"day": 2,
+		"character_id": DataRegistry.get_default_character_id(),
+		"map_id": DataRegistry.get_default_map_id(),
+		"contract_ids": [],
+		"seed": 424245,
+		"session_duration_sec": 30.0
+	})
+	get_tree().root.add_child.call_deferred(game_root)
+	await _await_stable_physics_frames(2)
+	game_root.call("_on_player_died")
+	await get_tree().process_frame
+	_assert_true(_embedded_night_death_finished, "embedded night death emits a completion summary immediately")
+	_assert_equal(String(_embedded_night_death_summary.get("exit_reason", "")), "abandoned", "embedded night death uses the abandoned return flow")
+	_assert_true(bool(_embedded_night_death_summary.get("abandoned", false)), "embedded night death marks the session as abandoned")
+	if game_root != null and is_instance_valid(game_root):
+		game_root.queue_free()
 	await get_tree().process_frame
 
 
@@ -2866,6 +2984,11 @@ func _run_embedded_night_duration_tests() -> void:
 	if game_root != null and is_instance_valid(game_root):
 		game_root.free()
 	await get_tree().process_frame
+
+
+func _on_embedded_night_death_finished(summary: Dictionary) -> void:
+	_embedded_night_death_finished = true
+	_embedded_night_death_summary = summary.duplicate(true)
 
 
 func _on_embedded_night_duration_finished(summary: Dictionary) -> void:
