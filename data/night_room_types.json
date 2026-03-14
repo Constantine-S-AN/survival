@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "room_types": [
+    {
+      "id": "entry",
+      "label": "Entry Chamber",
+      "kind": "transition",
+      "scene": "res://scenes/night/rooms/TransitionRoom.tscn"
+    },
+    {
+      "id": "combat",
+      "label": "Combat Chamber",
+      "kind": "combat",
+      "scene": "res://scenes/night/rooms/CombatRoom.tscn"
+    },
+    {
+      "id": "goal",
+      "label": "Extraction Gate",
+      "kind": "transition",
+      "scene": "res://scenes/night/rooms/TransitionRoom.tscn",
+      "is_goal": true
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "floors": [
+    {
+      "id": "floor_1",
+      "label": "Rift Floor 1",
+      "start_room_id": "entry",
+      "goal_room_id": "goal",
+      "rooms": [
+        {
+          "id": "entry",
+          "room_type_id": "entry",
+          "label": "Breach Chamber"
+        },
+        {
+          "id": "reef_patrol",
+          "room_type_id": "combat",
+          "label": "Reef Patrol",
+          "encounter_id": "reef_patrol"
+        },
+        {
+          "id": "swarm_nest",
+          "room_type_id": "combat",
+          "label": "Swarm Nest",
+          "encounter_id": "swarm_nest"
+        },
+        {
+          "id": "lab_crossfire",
+          "room_type_id": "combat",
+          "label": "Lab Crossfire",
+          "encounter_id": "lab_crossfire"
+        },
+        {
+          "id": "goal",
+          "room_type_id": "goal",
+          "label": "Extraction Gate",
+          "is_goal": true
+        }
+      ],
+      "connections": [
+        {
+          "from": "entry",
+          "to": "reef_patrol"
+        },
+        {
+          "from": "entry",
+          "to": "swarm_nest"
+        },
+        {
+          "from": "reef_patrol",
+          "to": "lab_crossfire"
+        },
+        {
+          "from": "swarm_nest",
+          "to": "lab_crossfire"
+        },
+        {
+          "from": "lab_crossfire",
+          "to": "goal"
+        }
+      ],
+      "encounters": {
+        "reef_patrol": {
+          "label": "Reef Patrol",
+          "enemies": [
+            {
+              "enemy_id": "drifter",
+              "spawn_point": "NorthWest"
+            },
+            {
+              "enemy_id": "drifter",
+              "spawn_point": "NorthEast"
+            },
+            {
+              "enemy_id": "shooter",
+              "spawn_point": "North"
+            }
+          ]
+        },
+        "swarm_nest": {
+          "label": "Swarm Nest",
+          "enemies": [
+            {
+              "enemy_id": "lurker",
+              "spawn_point": "NorthWest"
+            },
+            {
+              "enemy_id": "ink_mite",
+              "spawn_point": "North",
+              "count": 2,
+              "offset_radius": 26.0
+            },
+            {
+              "enemy_id": "sprinter",
+              "spawn_point": "Center",
+              "count": 2,
+              "offset_radius": 80.0
+            }
+          ]
+        },
+        "lab_crossfire": {
+          "label": "Lab Crossfire",
+          "enemies": [
+            {
+              "enemy_id": "shielded",
+              "spawn_point": "North"
+            },
+            {
+              "enemy_id": "shooter",
+              "spawn_point": "West"
+            },
+            {
+              "enemy_id": "shooter",
+              "spawn_point": "East"
+            },
+            {
+              "enemy_id": "rusher_eel",
+              "spawn_point": "SouthWest"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

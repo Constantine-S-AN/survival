@@ -3,22 +3,34 @@ class_name NightCombatRoot
 
 signal session_completed(summary: Dictionary)
 
+const NIGHT_RUN_SCENE := preload("res://scenes/night/NightRun.tscn")
 const GAME_ROOT_SCENE := preload("res://scenes/game/GameRoot.tscn")
 
 @onready var session_mount: Node = $SessionMount
 
 var _active_request: Dictionary = {}
 var _game_root: Node = null
+var _last_generated_seed: int = 0
 
 
 func start_session(request: Dictionary) -> void:
 	_teardown_session()
 	_active_request = request.duplicate(true)
-	_game_root = GAME_ROOT_SCENE.instantiate()
-	if _game_root != null and _game_root.has_method("set_embedded_session_request"):
+	_game_root = NIGHT_RUN_SCENE.instantiate()
+	if _game_root == null:
+		_game_root = GAME_ROOT_SCENE.instantiate()
+	if _game_root != null and _game_root.has_signal("session_completed"):
+		_game_root.connect("session_completed", Callable(self, "_on_session_finished"))
+	elif _game_root != null and _game_root.has_signal("embedded_session_finished"):
+		_game_root.connect("embedded_session_finished", Callable(self, "_on_session_finished"))
+	if _game_root == null:
+		return
+	if _game_root.has_method("start_session"):
+		session_mount.add_child(_game_root)
+		_game_root.call("start_session", _active_request)
+		return
+	if _game_root.has_method("set_embedded_session_request"):
 		_game_root.call("set_embedded_session_request", _active_request)
-	if _game_root != null and _game_root.has_signal("embedded_session_finished"):
-		_game_root.connect("embedded_session_finished", Callable(self, "_on_embedded_session_finished"))
 	session_mount.add_child(_game_root)
 
 
@@ -27,16 +39,33 @@ func is_session_active() -> bool:
 
 
 func debug_get_snapshot() -> Dictionary:
-	return {
+	var snapshot := {
 		"active": is_session_active(),
 		"day": int(_active_request.get("day", 0)),
 		"session_duration_sec": float(_active_request.get("session_duration_sec", 0.0))
 	}
+	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("debug_get_snapshot"):
+		snapshot["night_run"] = _game_root.call("debug_get_snapshot")
+	return snapshot
 
 
 func stop_session() -> void:
+	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("stop_session"):
+		_game_root.call("stop_session")
 	_teardown_session()
 	get_tree().paused = false
+
+
+func _next_runtime_seed() -> int:
+	var wall_usec: int = int(floor(Time.get_unix_time_from_system() * 1000000.0))
+	var tick_usec: int = int(Time.get_ticks_usec())
+	var seed: int = abs(wall_usec ^ (tick_usec << 11) ^ (tick_usec >> 3))
+	if seed == 0:
+		seed = 1
+	if seed <= _last_generated_seed:
+		seed = _last_generated_seed + 1
+	_last_generated_seed = seed
+	return seed
 
 
 func debug_complete_session(summary_override: Dictionary = {}) -> void:
@@ -69,14 +98,14 @@ func debug_complete_session(summary_override: Dictionary = {}) -> void:
 		"weapon_name": String(summary_override.get("weapon_name", "Silent Dart")),
 		"weapon_id": String(summary_override.get("weapon_id", "silence_dart")),
 		"noise_peak_tier": String(summary_override.get("noise_peak_tier", "Alert")),
-		"seed": int(summary_override.get("seed", request.get("seed", int(Time.get_unix_time_from_system())))),
+		"seed": int(summary_override.get("seed", request.get("seed", _next_runtime_seed()))),
 		"exit_reason": exit_reason,
 		"abandoned": exit_reason == "abandoned"
 	}
 	_emit_session_completed(payload)
 
 
-func _on_embedded_session_finished(summary: Dictionary) -> void:
+func _on_session_finished(summary: Dictionary) -> void:
 	_emit_session_completed(summary)
 
 

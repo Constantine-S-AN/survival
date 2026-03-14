@@ -1,0 +1,101 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(928, 36)
+
+[sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(36, 608)
+
+[node name="CombatRoom" type="Node2D"]
+z_index = -18
+
+[node name="Floor" type="Polygon2D" parent="."]
+color = Color(0.07, 0.15, 0.19, 0.88)
+polygon = PackedVector2Array(-464, -304, 464, -304, 464, 304, -464, 304)
+
+[node name="Outline" type="Line2D" parent="."]
+default_color = Color(0.29, 0.73, 0.83, 0.92)
+width = 6.0
+closed = true
+points = PackedVector2Array(-464, -304, 464, -304, 464, 304, -464, 304)
+
+[node name="EncounterAnchor" type="Marker2D" parent="."]
+
+[node name="PlayerSpawn" type="Marker2D" parent="."]
+position = Vector2(0, 184)
+
+[node name="SpawnPoints" type="Node2D" parent="."]
+
+[node name="North" type="Marker2D" parent="SpawnPoints"]
+position = Vector2(0, -152)
+
+[node name="South" type="Marker2D" parent="SpawnPoints"]
+position = Vector2(0, 96)
+
+[node name="East" type="Marker2D" parent="SpawnPoints"]
+position = Vector2(202, -12)
+
+[node name="West" type="Marker2D" parent="SpawnPoints"]
+position = Vector2(-202, -12)
+
+[node name="NorthEast" type="Marker2D" parent="SpawnPoints"]
+position = Vector2(164, -126)
+
+[node name="NorthWest" type="Marker2D" parent="SpawnPoints"]
+position = Vector2(-164, -126)
+
+[node name="SouthEast" type="Marker2D" parent="SpawnPoints"]
+position = Vector2(164, 106)
+
+[node name="SouthWest" type="Marker2D" parent="SpawnPoints"]
+position = Vector2(-164, 106)
+
+[node name="Center" type="Marker2D" parent="SpawnPoints"]
+
+[node name="ExitAnchors" type="Node2D" parent="."]
+
+[node name="East" type="Marker2D" parent="ExitAnchors"]
+position = Vector2(432, 0)
+
+[node name="West" type="Marker2D" parent="ExitAnchors"]
+position = Vector2(-432, 0)
+
+[node name="North" type="Marker2D" parent="ExitAnchors"]
+position = Vector2(0, -272)
+
+[node name="South" type="Marker2D" parent="ExitAnchors"]
+position = Vector2(0, 272)
+
+[node name="Walls" type="Node2D" parent="."]
+
+[node name="NorthWall" type="StaticBody2D" parent="Walls"]
+position = Vector2(0, -322)
+collision_layer = 8
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/NorthWall"]
+shape = SubResource("1")
+
+[node name="SouthWall" type="StaticBody2D" parent="Walls"]
+position = Vector2(0, 322)
+collision_layer = 8
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/SouthWall"]
+shape = SubResource("1")
+
+[node name="WestWall" type="StaticBody2D" parent="Walls"]
+position = Vector2(-482, 0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WestWall"]
+shape = SubResource("2")
+
+[node name="EastWall" type="StaticBody2D" parent="Walls"]
+position = Vector2(482, 0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/EastWall"]
+shape = SubResource("2")

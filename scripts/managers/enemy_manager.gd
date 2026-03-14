@@ -9,6 +9,7 @@ signal boss_defeated(boss_id: String)
 signal boss_telegraph_requested(telegraph_type: String, payload: Dictionary)
 signal boss_echoes_spawned(boss_id: String, count: int, world_position: Vector2)
 signal boss_true_form_revealed(boss_id: String, world_position: Vector2)
+signal scripted_encounter_cleared(encounter_id: String)
 
 var enemy_scene := preload("res://scenes/enemy/Enemy.tscn")
 const SPAWN_RATE_SMOOTH_SPEED := 2.35
@@ -159,6 +160,9 @@ var pool_manager: Node = null
 var enemy_pool_key: String = "enemy"
 var enemy_pool_enabled: bool = false
 var run_active: bool = false
+var ambient_spawning_enabled: bool = true
+var scripted_encounter_active: bool = false
+var scripted_encounter_id: String = ""
 var combo_spawned_total: int = 0
 var last_combo_id: String = ""
 var spawn_steps_last_tick: int = 0
@@ -220,6 +224,9 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 	boss_summon_timer = 0.0
 	_reset_boss_exam_state()
 	run_active = true
+	ambient_spawning_enabled = true
+	scripted_encounter_active = false
+	scripted_encounter_id = ""
 	active_enemies.clear()
 	alive_enemy_count = 0
 	combo_spawned_total = 0
@@ -234,6 +241,7 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 
 func begin_run() -> void:
 	run_active = true
+	ambient_spawning_enabled = true
 	spawn_timer = 0.0
 	spawn_steps_last_tick = 0
 	spawn_backlog_active = false
@@ -242,6 +250,77 @@ func begin_run() -> void:
 func update_difficulty(elapsed: float, noise: float) -> void:
 	elapsed_time = elapsed
 	noise_factor = noise
+
+
+func set_ambient_spawning_enabled(enabled: bool) -> void:
+	ambient_spawning_enabled = enabled
+	if ambient_spawning_enabled:
+		scripted_encounter_active = false
+		scripted_encounter_id = ""
+
+
+func start_scripted_encounter(encounter_id: String, enemy_specs_variant: Variant) -> int:
+	var normalized_encounter_id := encounter_id.strip_edges()
+	_clear_all_active_enemies()
+	ambient_spawning_enabled = false
+	scripted_encounter_active = true
+	scripted_encounter_id = normalized_encounter_id
+	spawn_timer = 0.0
+	spawn_steps_last_tick = 0
+	spawn_backlog_active = false
+	pursuer_cooldown_remaining = 0.0
+	next_pursuer_eta = -1.0
+	boss_summon_timer = 0.0
+	boss_spawn_rate_multiplier = 1.0
+	boss_state = "idle"
+
+	var spawned_total := 0
+	if enemy_specs_variant is Array:
+		var enemy_specs: Array = enemy_specs_variant
+		for spec_variant in enemy_specs:
+			if not (spec_variant is Dictionary):
+				continue
+			var spec: Dictionary = spec_variant
+			var enemy_id := String(spec.get("enemy_id", "")).strip_edges().to_lower()
+			if enemy_id.is_empty():
+				continue
+			var definition: Dictionary = DataRegistry.get_enemy(enemy_id)
+			if definition.is_empty():
+				continue
+			var allow_elite := bool(spec.get("allow_elite", false))
+			var count := clampi(int(spec.get("count", 1)), 1, 8)
+			for index in range(count):
+				var world_position := _coerce_spawn_position(spec.get("position", Vector2.ZERO))
+				if world_position == Vector2.ZERO:
+					world_position = _pick_spawn_position()
+				if count > 1:
+					var angle := TAU * float(index) / maxf(1.0, float(count))
+					world_position += Vector2.RIGHT.rotated(angle) * 18.0
+				var spawned_enemy := _spawn_enemy_node(enemy_id, definition, world_position, allow_elite)
+				if spawned_enemy != null:
+					spawned_total += 1
+	if spawned_total <= 0:
+		call_deferred("_emit_scripted_encounter_cleared", normalized_encounter_id)
+	return spawned_total
+
+
+func clear_scripted_encounter(clear_enemies: bool = true, emit_signal: bool = false) -> void:
+	var encounter_id := scripted_encounter_id
+	if clear_enemies:
+		_clear_all_active_enemies()
+	else:
+		scripted_encounter_active = false
+		scripted_encounter_id = ""
+	if emit_signal and not encounter_id.is_empty():
+		scripted_encounter_cleared.emit(encounter_id)
+
+
+func get_scripted_encounter_snapshot() -> Dictionary:
+	return {
+		"ambient_spawning_enabled": ambient_spawning_enabled,
+		"scripted_encounter_active": scripted_encounter_active,
+		"scripted_encounter_id": scripted_encounter_id
+	}
 
 
 func _process(delta: float) -> void:
@@ -275,6 +354,11 @@ func _process(delta: float) -> void:
 		1.0
 	)
 	_update_next_pursuer_eta()
+	if not ambient_spawning_enabled:
+		spawn_steps_last_tick = 0
+		spawn_backlog_active = false
+		next_pursuer_eta = -1.0
+		return
 
 	spawn_timer -= delta
 	var spawn_rate: float = DataRegistry.get_spawn_rate(elapsed_time, 0.0) * effective_spawn_rate_multiplier
@@ -749,6 +833,8 @@ func _on_enemy_died(enemy_id: String, xp_reward: int, enemy: Node) -> void:
 	active_enemies.erase(enemy)
 	alive_enemy_count = active_enemies.size()
 	enemy_killed.emit(enemy_id, xp_reward, position, meta)
+	if scripted_encounter_active and not ambient_spawning_enabled and alive_enemy_count <= 0:
+		call_deferred("_emit_scripted_encounter_cleared", scripted_encounter_id)
 
 
 func _get_alive_enemy_count() -> int:
@@ -1129,6 +1215,8 @@ func _clear_all_active_enemies() -> void:
 	active_pursuer_count = 0
 	elite_pursuer_bonus_runtime = 0.0
 	elite_jam_multiplier_runtime = 1.0
+	scripted_encounter_active = false
+	scripted_encounter_id = ""
 	_reset_boss_exam_state()
 
 
@@ -1147,3 +1235,26 @@ func _recycle_enemy(enemy: Node) -> void:
 		pool_manager.recycle(enemy_pool_key, enemy)
 	else:
 		enemy.queue_free()
+
+
+func _emit_scripted_encounter_cleared(encounter_id: String) -> void:
+	if encounter_id.strip_edges().is_empty():
+		return
+	if encounter_id.strip_edges() != scripted_encounter_id.strip_edges():
+		return
+	scripted_encounter_active = false
+	scripted_encounter_id = ""
+	scripted_encounter_cleared.emit(encounter_id)
+
+
+func _coerce_spawn_position(value: Variant) -> Vector2:
+	if value is Vector2:
+		return value
+	if value is Array:
+		var parts: Array = value
+		if parts.size() >= 2:
+			return Vector2(float(parts[0]), float(parts[1]))
+	if value is Dictionary:
+		var payload: Dictionary = value
+		return Vector2(float(payload.get("x", 0.0)), float(payload.get("y", 0.0)))
+	return Vector2.ZERO
