@@ -1,24 +1,56 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "room_types": [
     {
-      "id": "entry",
-      "label": "Entry Chamber",
-      "kind": "transition",
-      "scene": "res://scenes/night/rooms/TransitionRoom.tscn"
-    },
-    {
       "id": "combat",
-      "label": "Combat Chamber",
-      "kind": "combat",
-      "scene": "res://scenes/night/rooms/CombatRoom.tscn"
+      "label": "Combat",
+      "room_label": "Combat Chamber",
+      "scene": "res://scenes/night/rooms/CombatRoom.tscn",
+      "locks_on_entry": true,
+      "reward_on_enter": false,
+      "minimap_color": "#59d7ff",
+      "exit_color": "#59d7ff"
     },
     {
-      "id": "goal",
-      "label": "Extraction Gate",
-      "kind": "transition",
+      "id": "treasure",
+      "label": "Treasure",
+      "room_label": "Treasure Vault",
       "scene": "res://scenes/night/rooms/TransitionRoom.tscn",
-      "is_goal": true
+      "locks_on_entry": false,
+      "reward_on_enter": true,
+      "minimap_color": "#f5c751",
+      "exit_color": "#f5c751"
+    },
+    {
+      "id": "rest",
+      "label": "Rest",
+      "room_label": "Rest Niche",
+      "scene": "res://scenes/night/rooms/TransitionRoom.tscn",
+      "locks_on_entry": false,
+      "reward_on_enter": true,
+      "minimap_color": "#79eb9e",
+      "exit_color": "#79eb9e"
+    },
+    {
+      "id": "event",
+      "label": "Event",
+      "room_label": "Event Room",
+      "scene": "res://scenes/night/rooms/TransitionRoom.tscn",
+      "locks_on_entry": false,
+      "reward_on_enter": true,
+      "minimap_color": "#ff9d64",
+      "exit_color": "#ff9d64"
+    },
+    {
+      "id": "boss",
+      "label": "Boss",
+      "room_label": "Boss Chamber",
+      "scene": "res://scenes/night/rooms/CombatRoom.tscn",
+      "locks_on_entry": true,
+      "reward_on_enter": false,
+      "is_goal": true,
+      "minimap_color": "#ff6b77",
+      "exit_color": "#ff6b77"
     }
   ]
 }

@@ -1,64 +1,12 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "floors": [
     {
       "id": "floor_1",
       "label": "Rift Floor 1",
-      "start_room_id": "entry",
-      "goal_room_id": "goal",
-      "rooms": [
-        {
-          "id": "entry",
-          "room_type_id": "entry",
-          "label": "Breach Chamber"
-        },
-        {
-          "id": "reef_patrol",
-          "room_type_id": "combat",
-          "label": "Reef Patrol",
-          "encounter_id": "reef_patrol"
-        },
-        {
-          "id": "swarm_nest",
-          "room_type_id": "combat",
-          "label": "Swarm Nest",
-          "encounter_id": "swarm_nest"
-        },
-        {
-          "id": "lab_crossfire",
-          "room_type_id": "combat",
-          "label": "Lab Crossfire",
-          "encounter_id": "lab_crossfire"
-        },
-        {
-          "id": "goal",
-          "room_type_id": "goal",
-          "label": "Extraction Gate",
-          "is_goal": true
-        }
-      ],
-      "connections": [
-        {
-          "from": "entry",
-          "to": "reef_patrol"
-        },
-        {
-          "from": "entry",
-          "to": "swarm_nest"
-        },
-        {
-          "from": "reef_patrol",
-          "to": "lab_crossfire"
-        },
-        {
-          "from": "swarm_nest",
-          "to": "lab_crossfire"
-        },
-        {
-          "from": "lab_crossfire",
-          "to": "goal"
-        }
-      ],
+      "template_id": "branching_intro",
+      "start_room_id": "camp",
+      "goal_room_id": "apex_guardian",
       "encounters": {
         "reef_patrol": {
           "label": "Reef Patrol",
@@ -98,24 +46,13 @@
             }
           ]
         },
-        "lab_crossfire": {
-          "label": "Lab Crossfire",
+        "apex_guardian": {
+          "label": "Apex Guardian",
           "enemies": [
             {
-              "enemy_id": "shielded",
+              "enemy_id": "abyss_siren",
+              "spawn_boss": true,
               "spawn_point": "North"
-            },
-            {
-              "enemy_id": "shooter",
-              "spawn_point": "West"
-            },
-            {
-              "enemy_id": "shooter",
-              "spawn_point": "East"
-            },
-            {
-              "enemy_id": "rusher_eel",
-              "spawn_point": "SouthWest"
             }
           ]
         }

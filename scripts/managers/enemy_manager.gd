@@ -281,6 +281,11 @@ func start_scripted_encounter(encounter_id: String, enemy_specs_variant: Variant
 			if not (spec_variant is Dictionary):
 				continue
 			var spec: Dictionary = spec_variant
+			if bool(spec.get("spawn_boss", false)):
+				var spawned_boss := _spawn_scripted_boss(spec)
+				if spawned_boss != null:
+					spawned_total += 1
+				continue
 			var enemy_id := String(spec.get("enemy_id", "")).strip_edges().to_lower()
 			if enemy_id.is_empty():
 				continue
@@ -763,6 +768,30 @@ func _spawn_enemy_near(enemy_id: String, world_position: Vector2) -> Node:
 	if definition.is_empty():
 		return null
 	return _spawn_enemy_node(enemy_id, definition, world_position, false)
+
+
+func _spawn_scripted_boss(spec: Dictionary) -> Node:
+	if boss_definition.is_empty() or boss_id.is_empty():
+		return null
+	var world_position := _coerce_spawn_position(spec.get("position", Vector2.ZERO))
+	if world_position == Vector2.ZERO:
+		world_position = _pick_spawn_position()
+	var enemy_def := _build_boss_enemy_definition()
+	if enemy_def.is_empty():
+		return null
+	var spawned := _spawn_enemy_node(boss_id, enemy_def, world_position, false)
+	if spawned == null:
+		return null
+	boss_node = spawned
+	boss_phase_index = 0
+	var phase := _get_boss_phase(0)
+	_set_boss_phase_context(phase)
+	boss_state = boss_phase_label_runtime if not boss_phase_label_runtime.is_empty() else "phase_1"
+	boss_spawn_rate_multiplier = maxf(0.05, float(enemy_def.get("spawn_rate_mult", 1.0)))
+	_sync_boss_summon_break_state()
+	var telegraph := String(phase.get("telegraph_text", "Boss incoming")).strip_edges()
+	boss_spawned.emit(boss_id, String(phase.get("id", "phase_1")), telegraph)
+	return spawned
 
 
 func _try_spawn_pursuer(delta: float) -> void:

@@ -6,12 +6,13 @@ func build_room_payload(floor_state, room_state, room_node: Node2D) -> Dictionar
 	var payload := {
 		"room_id": room_state.room_id,
 		"room_label": room_state.label,
-		"room_kind": room_state.room_kind,
+		"room_type_id": room_state.room_type_id,
 		"encounter_id": room_state.encounter_id,
 		"is_goal": room_state.is_goal,
-		"enemies": []
+		"enemies": [],
+		"reward": room_state.reward_data.duplicate(true)
 	}
-	if room_state.room_kind != room_state.ROOM_KIND_COMBAT:
+	if not room_state.is_combat_room():
 		return payload
 
 	var encounter_variant: Variant = floor_state.encounters.get(room_state.encounter_id, {})
@@ -30,11 +31,13 @@ func build_room_payload(floor_state, room_state, room_node: Node2D) -> Dictionar
 		if enemy_id.is_empty():
 			continue
 		var count := clampi(int(row.get("count", 1)), 1, 8)
-		var allow_elite := bool(row.get("allow_elite", false))
+		var allow_elite: bool = bool(row.get("allow_elite", false))
+		var spawn_boss: bool = bool(row.get("spawn_boss", false)) or room_state.room_type_id == room_state.TYPE_BOSS
 		for spawn_index in range(count):
 			enemy_payloads.append({
 				"enemy_id": enemy_id,
 				"allow_elite": allow_elite,
+				"spawn_boss": spawn_boss,
 				"position": _resolve_spawn_position(room_node, row, spawn_index, count)
 			})
 	payload["enemies"] = enemy_payloads

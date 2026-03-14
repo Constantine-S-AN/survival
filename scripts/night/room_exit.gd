@@ -11,7 +11,10 @@ const READY_PULSE_SPEED := 1.8
 var exit_id: String = ""
 var target_room_id: String = ""
 var display_name: String = ""
+var target_room_type_id: String = ""
+var target_room_state: String = ""
 var locked: bool = true
+var _target_color: Color = READY_COLOR
 
 var _portal_visual: Polygon2D = null
 var _ring_visual: Line2D = null
@@ -30,11 +33,27 @@ func _ready() -> void:
 	_refresh_visuals()
 
 
-func configure(next_exit_id: String, next_target_room_id: String, next_display_name: String, start_locked: bool) -> void:
+func configure(
+	next_exit_id: String,
+	next_target_room_id: String,
+	next_display_name: String,
+	next_room_type_id: String,
+	next_room_state: String,
+	start_locked: bool,
+	target_color: Color = READY_COLOR
+) -> void:
 	exit_id = next_exit_id.strip_edges()
 	target_room_id = next_target_room_id.strip_edges()
 	display_name = next_display_name.strip_edges()
+	target_room_type_id = next_room_type_id.strip_edges().to_lower()
+	target_room_state = next_room_state.strip_edges().to_lower()
+	_target_color = target_color
 	set_locked(start_locked)
+
+
+func set_target_state(next_room_state: String) -> void:
+	target_room_state = next_room_state.strip_edges().to_lower()
+	_refresh_visuals()
 
 
 func set_locked(value: bool) -> void:
@@ -47,6 +66,8 @@ func get_snapshot() -> Dictionary:
 		"exit_id": exit_id,
 		"target_room_id": target_room_id,
 		"display_name": display_name,
+		"target_room_type_id": target_room_type_id,
+		"target_room_state": target_room_state,
 		"locked": locked
 	}
 
@@ -113,6 +134,9 @@ func _refresh_visuals() -> void:
 		return
 	monitoring = not locked
 	monitorable = not locked
-	_portal_visual.color = LOCKED_COLOR if locked else READY_COLOR
+	var portal_color := _target_color.darkened(0.28) if locked else _target_color
+	if target_room_state == "cleared" and not locked:
+		portal_color = portal_color.lightened(0.18)
+	_portal_visual.color = LOCKED_COLOR if locked else portal_color
 	_ring_visual.default_color = READY_RING_COLOR if not locked else LOCKED_COLOR.lightened(0.1)
 	_ring_visual.modulate = Color(1.0, 1.0, 1.0, 0.46 if locked else 0.88)

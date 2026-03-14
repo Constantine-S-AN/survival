@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "templates": [
+    {
+      "id": "branching_intro",
+      "label": "Branching Intro",
+      "start_room_id": "camp",
+      "goal_room_id": "apex_guardian",
+      "rooms": [
+        {
+          "id": "camp",
+          "room_type_id": "rest",
+          "label": "Harbor Refuge",
+          "map_position": [0, 0],
+          "reward": {
+            "kind": "rest",
+            "heal_pct": 0.35,
+            "noise_delta": -10.0
+          }
+        },
+        {
+          "id": "reef_patrol",
+          "room_type_id": "combat",
+          "label": "Reef Patrol",
+          "encounter_id": "reef_patrol",
+          "map_position": [1, -1]
+        },
+        {
+          "id": "swarm_nest",
+          "room_type_id": "combat",
+          "label": "Swarm Nest",
+          "encounter_id": "swarm_nest",
+          "map_position": [1, 1]
+        },
+        {
+          "id": "supply_cache",
+          "room_type_id": "treasure",
+          "label": "Supply Cache",
+          "map_position": [2, -1],
+          "reward": {
+            "kind": "treasure",
+            "xp_pickups": 6,
+            "xp_amount": 18
+          }
+        },
+        {
+          "id": "quiet_niche",
+          "room_type_id": "rest",
+          "label": "Quiet Niche",
+          "map_position": [2, 1],
+          "reward": {
+            "kind": "rest",
+            "heal_pct": 0.25,
+            "noise_delta": -16.0
+          }
+        },
+        {
+          "id": "omen_shrine",
+          "room_type_id": "event",
+          "label": "Omen Shrine",
+          "map_position": [3, 0],
+          "reward": {
+            "kind": "event",
+            "event_id": "rift_omen",
+            "xp_bonus": 36,
+            "noise_delta": -8.0,
+            "skill_cd_refund": 1.6
+          }
+        },
+        {
+          "id": "apex_guardian",
+          "room_type_id": "boss",
+          "label": "Apex Guardian",
+          "encounter_id": "apex_guardian",
+          "map_position": [4, 0],
+          "is_goal": true
+        }
+      ],
+      "connections": [
+        {
+          "from": "camp",
+          "to": "reef_patrol"
+        },
+        {
+          "from": "camp",
+          "to": "swarm_nest"
+        },
+        {
+          "from": "reef_patrol",
+          "to": "supply_cache"
+        },
+        {
+          "from": "swarm_nest",
+          "to": "quiet_niche"
+        },
+        {
+          "from": "supply_cache",
+          "to": "omen_shrine"
+        },
+        {
+          "from": "quiet_niche",
+          "to": "omen_shrine"
+        },
+        {
+          "from": "omen_shrine",
+          "to": "apex_guardian"
+        }
+      ]
+    }
+  ]
+}

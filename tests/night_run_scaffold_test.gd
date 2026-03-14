@@ -31,15 +31,21 @@ func _run() -> void:
 
 	await _wait_frames(10)
 	var snapshot: Dictionary = run_node.call("debug_get_snapshot")
-	_assert_equal(String(snapshot.get("room_id", "")), "entry", "night run starts in the entry room")
-	_assert_true(bool(snapshot.get("room_cleared", false)), "entry room is immediately open for route selection")
+	_assert_equal(String(snapshot.get("room_id", "")), "camp", "night run starts in the deterministic rest room")
+	_assert_equal(String(snapshot.get("room_type_id", "")), "rest", "night run opens on a rest node")
+	_assert_equal(String(snapshot.get("room_status", "")), "cleared", "rest room resolves immediately after entry")
+	_assert_true(bool(snapshot.get("room_reward_claimed", false)), "rest room auto-claims its room reward")
 	_assert_equal(int((snapshot.get("available_exits", []) as Array).size()), 2, "entry room exposes two route choices")
+	_assert_true(_minimap_has_room_type(snapshot, "boss"), "minimap snapshot includes the boss room type")
+	_assert_true(_minimap_has_room_type(snapshot, "treasure"), "minimap snapshot includes the treasure room type")
+	_assert_true(_minimap_has_room_type(snapshot, "event"), "minimap snapshot includes the event room type")
 
 	run_node.call("debug_use_exit", "reef_patrol")
 	await _wait_frames(6)
 	snapshot = run_node.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("room_id", "")), "reef_patrol", "selecting an exit advances into the chosen combat room")
-	_assert_equal(String(snapshot.get("room_kind", "")), "combat", "reef patrol room is treated as a combat room")
+	_assert_equal(String(snapshot.get("room_type_id", "")), "combat", "reef patrol room is treated as a combat room")
+	_assert_equal(String(snapshot.get("room_status", "")), "active", "combat room becomes active on entry")
 	_assert_true(not bool(snapshot.get("room_cleared", true)), "combat room remains uncleared until the encounter is resolved")
 	_assert_true(_snapshot_has_locked_exit(snapshot), "combat room keeps its exit locked while enemies are alive")
 
@@ -49,23 +55,38 @@ func _run() -> void:
 	_assert_true(bool(snapshot.get("room_cleared", false)), "forcing the encounter clear marks the room as cleared")
 	_assert_true(not _snapshot_has_locked_exit(snapshot), "clearing the room unlocks its exit")
 
-	run_node.call("debug_use_exit", "lab_crossfire")
+	run_node.call("debug_use_exit", "supply_cache")
 	await _wait_frames(6)
 	snapshot = run_node.call("debug_get_snapshot")
-	_assert_equal(String(snapshot.get("room_id", "")), "lab_crossfire", "branch rooms converge into the shared follow-up combat room")
+	_assert_equal(String(snapshot.get("room_id", "")), "supply_cache", "combat branch advances into its linked treasure room")
+	_assert_equal(String(snapshot.get("room_type_id", "")), "treasure", "supply cache is marked as a treasure room")
+	_assert_true(bool(snapshot.get("room_reward_claimed", false)), "treasure room claims its reward on entry")
+	_assert_equal(String(snapshot.get("room_status", "")), "cleared", "treasure room resolves immediately after its reward")
+
+	run_node.call("debug_use_exit", "omen_shrine")
+	await _wait_frames(6)
+	snapshot = run_node.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("room_type_id", "")), "event", "treasure branch feeds into an event room")
+	_assert_true(bool(snapshot.get("room_reward_claimed", false)), "event room marks its reward as claimed")
+
+	run_node.call("debug_use_exit", "apex_guardian")
+	await _wait_frames(6)
+	snapshot = run_node.call("debug_get_snapshot")
+	_assert_equal(String(snapshot.get("room_type_id", "")), "boss", "final room is marked as a boss room")
+	_assert_true(_snapshot_has_locked_exit(snapshot) == false, "boss room with no onward exits does not expose unlocked navigation")
 	run_node.call("debug_force_clear_room")
-	await _wait_frames(2)
-	run_node.call("debug_use_exit", "goal")
 	await _wait_frames(8)
 
-	_assert_true(_completed, "reaching the goal room completes the night run")
+	_assert_true(_completed, "clearing the boss room completes the night run")
 	_assert_equal(String(_summary.get("exit_reason", "")), "completed", "goal-room completion preserves the normal completed return flow")
-	_assert_true(int(_summary.get("dungeon_rooms_cleared", 0)) >= 2, "summary tracks cleared combat rooms across the run")
+	_assert_true(int(_summary.get("dungeon_rooms_cleared", 0)) >= 5, "summary tracks cleared rooms across the dungeon route")
 	var room_path: Array = _summary.get("dungeon_room_path", [])
-	_assert_true(room_path.has("entry"), "summary records the entry room in the dungeon path")
+	_assert_true(room_path.has("camp"), "summary records the rest room in the dungeon path")
 	_assert_true(room_path.has("reef_patrol"), "summary records the chosen branch room in the dungeon path")
-	_assert_true(room_path.has("lab_crossfire"), "summary records the merged combat room in the dungeon path")
-	_assert_true(room_path.has("goal"), "summary records the goal room in the dungeon path")
+	_assert_true(room_path.has("supply_cache"), "summary records the treasure room in the dungeon path")
+	_assert_true(room_path.has("omen_shrine"), "summary records the event room in the dungeon path")
+	_assert_true(room_path.has("apex_guardian"), "summary records the boss room in the dungeon path")
+	_assert_equal(String(_summary.get("dungeon_last_room_type_id", "")), "boss", "summary records the final boss-room type")
 
 	if run_node != null and is_instance_valid(run_node):
 		run_node.queue_free()
@@ -110,6 +131,17 @@ func _snapshot_has_locked_exit(snapshot: Dictionary) -> bool:
 		if not (exit_variant is Dictionary):
 			continue
 		if bool((exit_variant as Dictionary).get("locked", false)):
+			return true
+	return false
+
+
+func _minimap_has_room_type(snapshot: Dictionary, room_type_id: String) -> bool:
+	var minimap_snapshot: Dictionary = snapshot.get("minimap", {})
+	var rooms: Array = minimap_snapshot.get("rooms", [])
+	for room_variant in rooms:
+		if not (room_variant is Dictionary):
+			continue
+		if String((room_variant as Dictionary).get("room_type_id", "")) == room_type_id:
 			return true
 	return false
 

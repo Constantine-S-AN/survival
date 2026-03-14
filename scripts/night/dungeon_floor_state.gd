@@ -4,6 +4,7 @@ class_name DungeonFloorState
 var floor_id: String = ""
 var floor_index: int = 0
 var label: String = ""
+var template_id: String = ""
 var start_room_id: String = ""
 var goal_room_id: String = ""
 var room_order: Array[String] = []
@@ -72,6 +73,7 @@ func to_dictionary() -> Dictionary:
 		"id": floor_id,
 		"floor_index": floor_index,
 		"label": label,
+		"template_id": template_id,
 		"start_room_id": start_room_id,
 		"goal_room_id": goal_room_id,
 		"rooms": serialized_rooms,
