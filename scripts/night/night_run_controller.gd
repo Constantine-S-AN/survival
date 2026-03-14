@@ -9,6 +9,8 @@ const EncounterDirectorClass := preload("res://scripts/night/encounter_director.
 const RoomExitClass := preload("res://scripts/night/room_exit.gd")
 const RunModifierStateClass := preload("res://scripts/night/run_modifier_state.gd")
 const RoomRewardPickerClass := preload("res://scripts/night/room_reward_picker.gd")
+const BossRoomControllerClass := preload("res://scripts/night/boss_room_controller.gd")
+const ExtractionControllerClass := preload("res://scripts/night/extraction_controller.gd")
 
 const STATE_BOOTING := "booting"
 const STATE_ENTERING_ROOM := "entering_room"
@@ -45,11 +47,21 @@ const ROOM_THEME := {
 @onready var reward_button_one: Button = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons/RewardButton1
 @onready var reward_button_two: Button = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons/RewardButton2
 @onready var reward_button_three: Button = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons/RewardButton3
+@onready var boss_panel: PanelContainer = $Overlay/BossClimaxPanel
+@onready var boss_title_label: Label = $Overlay/BossClimaxPanel/MarginContainer/VBoxContainer/BossTitle
+@onready var boss_phase_label: Label = $Overlay/BossClimaxPanel/MarginContainer/VBoxContainer/BossPhase
+@onready var boss_status_label: Label = $Overlay/BossClimaxPanel/MarginContainer/VBoxContainer/BossStatus
+@onready var extraction_panel: PanelContainer = $Overlay/ExtractionPanel
+@onready var extraction_title_label: Label = $Overlay/ExtractionPanel/MarginContainer/VBoxContainer/ExtractionTitle
+@onready var extraction_status_label: Label = $Overlay/ExtractionPanel/MarginContainer/VBoxContainer/ExtractionStatus
+@onready var extract_button: Button = $Overlay/ExtractionPanel/MarginContainer/VBoxContainer/ExtractButton
 
 var _room_graph_generator = RoomGraphGeneratorClass.new()
 var _encounter_director = EncounterDirectorClass.new()
 var _run_modifier_state = RunModifierStateClass.new()
 var _room_reward_picker = RoomRewardPickerClass.new()
+var _boss_room_controller = BossRoomControllerClass.new()
+var _extraction_controller = ExtractionControllerClass.new()
 var _reward_buttons: Array[Button] = []
 var _active_request: Dictionary = {}
 var _game_root: Node = null
@@ -68,6 +80,8 @@ var _completion_emitted: bool = false
 var _rooms_cleared_total: int = 0
 var _visited_room_ids: Array[String] = []
 var _last_room_note: String = ""
+var _boss_climax_snapshot: Dictionary = {}
+var _extraction_snapshot: Dictionary = {}
 
 
 func _ready() -> void:
@@ -83,7 +97,14 @@ func _ready() -> void:
 		var pressed_callable := Callable(self, "_on_reward_button_pressed").bind(button_index)
 		if not button.pressed.is_connected(pressed_callable):
 			button.pressed.connect(pressed_callable)
+	if extract_button != null and not extract_button.pressed.is_connected(_on_extract_button_pressed):
+		extract_button.pressed.connect(_on_extract_button_pressed)
 	_hide_reward_panel()
+	_boss_room_controller.reset()
+	_extraction_controller.reset()
+	_boss_climax_snapshot = _boss_room_controller.get_snapshot()
+	_refresh_boss_panel()
+	_refresh_extraction_panel()
 
 
 func start_session(request: Dictionary) -> void:
@@ -123,11 +144,16 @@ func stop_session() -> void:
 	_disconnect_enemy_manager()
 	_cleanup_active_room()
 	_clear_pending_room_rewards()
+	_boss_room_controller.reset()
+	_extraction_controller.reset()
+	_boss_climax_snapshot = _boss_room_controller.get_snapshot()
 	if _game_root != null and is_instance_valid(_game_root):
 		_game_root.queue_free()
 	_game_root = null
 	_world = null
 	_active_request.clear()
+	_refresh_boss_panel()
+	_refresh_extraction_panel()
 
 
 func debug_get_snapshot() -> Dictionary:
@@ -163,6 +189,9 @@ func debug_get_snapshot() -> Dictionary:
 		"rooms_cleared_total": _rooms_cleared_total,
 		"available_exits": exits,
 		"floor_rooms": _build_floor_rooms_snapshot(),
+		"boss_climax": _boss_climax_snapshot.duplicate(true),
+		"extraction": _extraction_snapshot.duplicate(true),
+		"dungeon_carryover_preview": _extraction_controller.get_snapshot(),
 		"player_hud": _get_player_hud_snapshot(),
 		"minimap": _build_minimap_snapshot()
 	}
@@ -185,6 +214,10 @@ func debug_use_exit(target_room_id: String) -> void:
 
 func debug_select_room_reward(option_index: int) -> bool:
 	return _claim_pending_room_reward(option_index)
+
+
+func debug_request_extract() -> bool:
+	return _try_extract_early()
 
 
 func _finish_bootstrap() -> void:
@@ -210,9 +243,24 @@ func _finish_bootstrap() -> void:
 		var cleared_callable := Callable(self, "_on_scripted_encounter_cleared")
 		if not _enemy_manager.is_connected("scripted_encounter_cleared", cleared_callable):
 			_enemy_manager.connect("scripted_encounter_cleared", cleared_callable)
+	if _enemy_manager.has_signal("boss_spawned"):
+		var boss_spawned_callable := Callable(self, "_on_boss_spawned")
+		if not _enemy_manager.is_connected("boss_spawned", boss_spawned_callable):
+			_enemy_manager.connect("boss_spawned", boss_spawned_callable)
+	if _enemy_manager.has_signal("boss_phase_changed"):
+		var boss_phase_callable := Callable(self, "_on_boss_phase_changed")
+		if not _enemy_manager.is_connected("boss_phase_changed", boss_phase_callable):
+			_enemy_manager.connect("boss_phase_changed", boss_phase_callable)
+	if _enemy_manager.has_signal("boss_defeated"):
+		var boss_defeated_callable := Callable(self, "_on_boss_defeated")
+		if not _enemy_manager.is_connected("boss_defeated", boss_defeated_callable):
+			_enemy_manager.connect("boss_defeated", boss_defeated_callable)
 	if _enemy_manager.has_method("set_ambient_spawning_enabled"):
 		_enemy_manager.call("set_ambient_spawning_enabled", false)
 	_run_modifier_state.reset(_extract_base_reward_multipliers())
+	_extraction_controller.reset()
+	_boss_room_controller.reset()
+	_boss_climax_snapshot = _boss_room_controller.get_snapshot()
 	_current_floor_index = 0
 	var floor_state = _get_current_floor()
 	if floor_state == null:
@@ -233,6 +281,7 @@ func _enter_room(room_state: RoomState) -> void:
 	_current_room_payload = _encounter_director.describe_room(_get_current_floor(), room_state)
 	_current_room.set_active()
 	_record_room_visit(room_state.room_id)
+	_boss_climax_snapshot = _boss_room_controller.begin_room(room_state, _current_room_payload)
 
 	var room_scene: PackedScene = load(room_state.scene_path)
 	if room_scene == null:
@@ -361,6 +410,12 @@ func _mark_current_room_cleared() -> void:
 	_current_room.set_cleared()
 	if first_clear:
 		_rooms_cleared_total += 1
+		if _current_room.is_combat_room() and String(_current_room_payload.get("encounter_category", "")).strip_edges().to_lower() != "boss":
+			_extraction_controller.record_combat_room_clear(_current_room_payload)
+		elif _current_room.is_combat_room():
+			var boss_bonus_payload := _boss_room_controller.finalize_boss_room()
+			if not boss_bonus_payload.is_empty():
+				_extraction_controller.record_boss_bonus(boss_bonus_payload)
 	_lock_active_exits(false)
 	_run_state = STATE_ROOM_CLEARED
 	_update_ui()
@@ -504,15 +559,26 @@ func _complete_or_advance_floor() -> void:
 
 
 func _complete_run() -> void:
+	_complete_run_with_reason("completed")
+
+
+func _complete_run_with_reason(exit_reason: String) -> void:
 	if _completion_emitted or _game_root == null or not is_instance_valid(_game_root):
 		return
 	_run_state = STATE_COMPLETED
-	_last_room_note = "Extraction secured"
+	var normalized_exit_reason := exit_reason.strip_edges().to_lower()
+	match normalized_exit_reason:
+		"extracted":
+			_last_room_note = "Early extraction secured"
+		"completed":
+			_last_room_note = "Boss floor secured"
+		_:
+			_last_room_note = "Night run complete"
 	_update_ui()
 	if _enemy_manager != null and is_instance_valid(_enemy_manager) and _enemy_manager.has_method("clear_scripted_encounter"):
 		_enemy_manager.call("clear_scripted_encounter", true, false)
 	if _game_root.has_method("_complete_embedded_session"):
-		_game_root.call("_complete_embedded_session")
+		_game_root.call("_complete_embedded_session", normalized_exit_reason)
 
 
 func _on_scripted_encounter_cleared(encounter_id: String) -> void:
@@ -578,7 +644,14 @@ func _on_embedded_session_finished(summary: Dictionary) -> void:
 	payload["dungeon_run_rewards"] = modifier_snapshot.get("claimed_rewards", [])
 	payload["dungeon_run_modifiers"] = modifier_snapshot.get("applied_modifiers", [])
 	payload["dungeon_reward_multipliers"] = modifier_snapshot.get("reward_multipliers", {})
-	payload["dungeon_completed"] = String(payload.get("exit_reason", "completed")).strip_edges().to_lower() == "completed"
+	var exit_reason := String(payload.get("exit_reason", "completed")).strip_edges().to_lower()
+	var outcome_payload := _extraction_controller.build_outcome_payload(exit_reason, {
+		"room_id": _current_room.room_id if _current_room != null else "",
+		"room_label": _current_room.label if _current_room != null else ""
+	})
+	for key_variant in outcome_payload.keys():
+		payload[String(key_variant)] = outcome_payload[key_variant]
+	payload["dungeon_completed"] = exit_reason == "completed"
 	session_completed.emit(payload)
 
 
@@ -598,6 +671,18 @@ func _disconnect_enemy_manager() -> void:
 		var cleared_callable := Callable(self, "_on_scripted_encounter_cleared")
 		if _enemy_manager.is_connected("scripted_encounter_cleared", cleared_callable):
 			_enemy_manager.disconnect("scripted_encounter_cleared", cleared_callable)
+	if _enemy_manager.has_signal("boss_spawned"):
+		var boss_spawned_callable := Callable(self, "_on_boss_spawned")
+		if _enemy_manager.is_connected("boss_spawned", boss_spawned_callable):
+			_enemy_manager.disconnect("boss_spawned", boss_spawned_callable)
+	if _enemy_manager.has_signal("boss_phase_changed"):
+		var boss_phase_callable := Callable(self, "_on_boss_phase_changed")
+		if _enemy_manager.is_connected("boss_phase_changed", boss_phase_callable):
+			_enemy_manager.disconnect("boss_phase_changed", boss_phase_callable)
+	if _enemy_manager.has_signal("boss_defeated"):
+		var boss_defeated_callable := Callable(self, "_on_boss_defeated")
+		if _enemy_manager.is_connected("boss_defeated", boss_defeated_callable):
+			_enemy_manager.disconnect("boss_defeated", boss_defeated_callable)
 	_enemy_manager = null
 
 
@@ -616,6 +701,8 @@ func _reset_runtime_state() -> void:
 	_rooms_cleared_total = 0
 	_visited_room_ids.clear()
 	_last_room_note = ""
+	_boss_climax_snapshot = _boss_room_controller.get_snapshot()
+	_extraction_snapshot.clear()
 	_update_ui()
 
 
@@ -725,6 +812,8 @@ func _resolve_status_text() -> String:
 		STATE_FLOOR_CLEARED:
 			return "Extraction path secured"
 		STATE_COMPLETED:
+			if bool(_extraction_snapshot.get("available", false)):
+				return "Skiff extraction ready"
 			return "Night run complete"
 		STATE_ABORTED:
 			return "Night run unavailable"
@@ -742,6 +831,8 @@ func _update_ui() -> void:
 	if status_label != null:
 		status_label.text = _resolve_status_text()
 	_refresh_reward_panel()
+	_refresh_boss_panel()
+	_refresh_extraction_panel()
 	if minimap != null and is_instance_valid(minimap) and minimap.has_method("set_map_snapshot"):
 		minimap.call("set_map_snapshot", _build_minimap_snapshot())
 
@@ -798,3 +889,78 @@ func _clear_pending_room_rewards() -> void:
 
 func _has_pending_room_rewards() -> bool:
 	return not _pending_room_rewards.is_empty()
+
+
+func _refresh_boss_panel() -> void:
+	if boss_panel == null:
+		return
+	var snapshot := _boss_room_controller.get_snapshot()
+	_boss_climax_snapshot = snapshot.duplicate(true)
+	var visible := bool(snapshot.get("active", false))
+	boss_panel.visible = visible
+	if not visible:
+		return
+	if boss_title_label != null:
+		boss_title_label.text = String(snapshot.get("title", "Floor Climax"))
+	if boss_phase_label != null:
+		boss_phase_label.text = String(snapshot.get("phase_label", "Boss Active"))
+	if boss_status_label != null:
+		boss_status_label.text = String(snapshot.get("subtitle", ""))
+
+
+func _refresh_extraction_panel() -> void:
+	if extraction_panel == null:
+		return
+	var current_run_state := _run_state
+	if current_run_state == STATE_COMPLETED:
+		current_run_state = "completed"
+	elif current_run_state == STATE_ABORTED:
+		current_run_state = "aborted"
+	_extraction_snapshot = _extraction_controller.build_status(
+		current_run_state,
+		_current_room,
+		_has_pending_room_rewards()
+	)
+	extraction_panel.visible = true
+	if extraction_title_label != null:
+		extraction_title_label.text = String(_extraction_snapshot.get("title", "Extraction"))
+	if extraction_status_label != null:
+		extraction_status_label.text = String(_extraction_snapshot.get("subtitle", ""))
+	if extract_button != null:
+		extract_button.text = String(_extraction_snapshot.get("button_text", "Extract"))
+		extract_button.disabled = not bool(_extraction_snapshot.get("available", false))
+
+
+func _try_extract_early() -> bool:
+	var status := _extraction_controller.build_status(_run_state, _current_room, _has_pending_room_rewards())
+	_extraction_snapshot = status.duplicate(true)
+	if not bool(status.get("available", false)):
+		_update_ui()
+		return false
+	_complete_run_with_reason("extracted")
+	return true
+
+
+func _on_extract_button_pressed() -> void:
+	_try_extract_early()
+
+
+func _on_boss_spawned(boss_id: String, phase_id: String, telegraph_text: String) -> void:
+	_boss_climax_snapshot = _boss_room_controller.on_boss_spawned(boss_id, phase_id, telegraph_text)
+	_last_room_note = "Floor climax engaged"
+	_update_ui()
+
+
+func _on_boss_phase_changed(boss_id: String, phase_id: String, telegraph_text: String) -> void:
+	_boss_climax_snapshot = _boss_room_controller.on_boss_phase_changed(boss_id, phase_id, telegraph_text)
+	_last_room_note = "Boss phase shift"
+	_update_ui()
+
+
+func _on_boss_defeated(boss_id: String) -> void:
+	_boss_climax_snapshot = _boss_room_controller.on_boss_defeated(boss_id)
+	var bonus_payload := _boss_room_controller.get_completion_bonus()
+	if not bonus_payload.is_empty():
+		_extraction_controller.record_boss_bonus(bonus_payload)
+	_last_room_note = "Boss down: claim the final room reward"
+	_update_ui()

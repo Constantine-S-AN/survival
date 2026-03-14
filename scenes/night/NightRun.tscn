@@ -39,6 +39,38 @@ text = "Initializing night run"
 
 [node name="NightMinimap" parent="Overlay" instance=ExtResource("2")]
 
+[node name="BossClimaxPanel" type="PanelContainer" parent="Overlay"]
+visible = false
+offset_left = 416.0
+offset_top = 18.0
+offset_right = 864.0
+offset_bottom = 116.0
+
+[node name="MarginContainer" type="MarginContainer" parent="Overlay/BossClimaxPanel"]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 438.0
+offset_bottom = 88.0
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Overlay/BossClimaxPanel/MarginContainer"]
+offset_right = 428.0
+offset_bottom = 78.0
+theme_override_constants/separation = 4
+
+[node name="BossTitle" type="Label" parent="Overlay/BossClimaxPanel/MarginContainer/VBoxContainer"]
+text = "Floor Climax"
+
+[node name="BossPhase" type="Label" parent="Overlay/BossClimaxPanel/MarginContainer/VBoxContainer"]
+text = "Boss Active"
+
+[node name="BossStatus" type="Label" parent="Overlay/BossClimaxPanel/MarginContainer/VBoxContainer"]
+autowrap_mode = 3
+text = "A floor-end threat is rising."
+
 [node name="RewardPanel" type="PanelContainer" parent="Overlay"]
 visible = false
 offset_left = 824.0
@@ -84,3 +116,36 @@ text = "Reward 3"
 
 [node name="RewardHint" type="Label" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer"]
 text = "Pick one reward before taking the next door."
+
+[node name="ExtractionPanel" type="PanelContainer" parent="Overlay"]
+offset_left = 16.0
+offset_top = 576.0
+offset_right = 360.0
+offset_bottom = 704.0
+
+[node name="MarginContainer" type="MarginContainer" parent="Overlay/ExtractionPanel"]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 334.0
+offset_bottom = 118.0
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Overlay/ExtractionPanel/MarginContainer"]
+offset_right = 324.0
+offset_bottom = 108.0
+theme_override_constants/separation = 8
+
+[node name="ExtractionTitle" type="Label" parent="Overlay/ExtractionPanel/MarginContainer/VBoxContainer"]
+text = "Extraction"
+
+[node name="ExtractionStatus" type="Label" parent="Overlay/ExtractionPanel/MarginContainer/VBoxContainer"]
+autowrap_mode = 3
+text = "Clear at least one combat room to secure haul."
+
+[node name="ExtractButton" type="Button" parent="Overlay/ExtractionPanel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 42)
+disabled = true
+text = "Extract"

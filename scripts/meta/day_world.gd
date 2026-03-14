@@ -310,8 +310,8 @@ func present_night_return(summary_variant: Variant, animate: bool = false) -> vo
 		return
 	_show_arrival_banner(
 		_t("meta.world.return_arrival_title"),
-		String(_return_summary_context.get("arrival_text", _t("meta.summary.subtitle"))),
-		String(_return_summary_context.get("tomorrow_text", ""))
+		_resolve_return_arrival_body(_return_summary_context),
+		_resolve_return_arrival_meta(_return_summary_context)
 	)
 	UISfx.play_reward()
 	_set_return_arrival_progress(0.0)
@@ -340,6 +340,50 @@ func play_next_day_handoff(summary_variant: Variant = {}) -> void:
 	_next_day_intro_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_next_day_intro_tween.tween_method(_set_next_day_intro_progress, 0.0, 1.0, FRESH_DAY_REENTRY_SECONDS)
 	_next_day_intro_tween.tween_callback(_finish_next_day_intro)
+
+
+func _resolve_return_arrival_body(summary: Dictionary) -> String:
+	var exit_reason := String(summary.get("exit_reason", "completed")).strip_edges().to_lower()
+	var raw_summary := _extract_raw_return_summary(summary)
+	if exit_reason == "extracted":
+		var room_label := String(raw_summary.get("dungeon_extraction_room_label", "")).strip_edges()
+		if room_label.is_empty():
+			return _t("meta.summary.arrival_extracted")
+		return _t("meta.summary.arrival_extracted", {"room": room_label})
+	if exit_reason == "completed" and bool(raw_summary.get("dungeon_boss_cleared", false)):
+		return _t("meta.summary.arrival_boss_clear")
+	return String(summary.get("arrival_text", _t("meta.summary.subtitle")))
+
+
+func _resolve_return_arrival_meta(summary: Dictionary) -> String:
+	var exit_reason := String(summary.get("exit_reason", "completed")).strip_edges().to_lower()
+	if exit_reason != "extracted":
+		return String(summary.get("tomorrow_text", ""))
+	var raw_summary := _extract_raw_return_summary(summary)
+	return _t("meta.summary.tomorrow_extracted", {
+		"value": _build_return_carryover_short_text(raw_summary)
+	})
+
+
+func _extract_raw_return_summary(summary: Dictionary) -> Dictionary:
+	var raw_summary_variant: Variant = summary.get("raw_summary", {})
+	return raw_summary_variant if raw_summary_variant is Dictionary else {}
+
+
+func _build_return_carryover_short_text(raw_summary: Dictionary) -> String:
+	var route_label := String(raw_summary.get("dungeon_return_route_label", "")).strip_edges()
+	var rows_variant: Variant = raw_summary.get("dungeon_carryover_rows", [])
+	if not (rows_variant is Array):
+		return route_label if not route_label.is_empty() else _t("meta.summary.tomorrow_generic")
+	var secured_count := 0
+	for row_variant in (rows_variant as Array):
+		if not (row_variant is Dictionary):
+			continue
+		if bool((row_variant as Dictionary).get("secured", false)):
+			secured_count += 1
+	if route_label.is_empty():
+		return "%d secured carryover cache%s" % [secured_count, "" if secured_count == 1 else "s"]
+	return "%s with %d secured cache%s" % [route_label, secured_count, "" if secured_count == 1 else "s"]
 
 
 func debug_activate_zone(zone_id: String) -> bool:

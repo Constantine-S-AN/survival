@@ -32,6 +32,8 @@ func resolve_night_return(summary: Dictionary, day_state: Variant, economy: Vari
 		economy.call("add_gold", gold_reward)
 
 	var reward_result := _collect_rewards(loot_table, session)
+	var carryover_result := _collect_dungeon_carryover(summary, session)
+	_merge_material_bundles(reward_result, carryover_result)
 	var material_rewards: Dictionary = reward_result.get("material_rewards", {})
 	for material_id_variant in material_rewards.keys():
 		var material_id := String(material_id_variant).strip_edges().to_lower()
@@ -56,7 +58,8 @@ func resolve_night_return(summary: Dictionary, day_state: Variant, economy: Vari
 		"new_unlocks": unlock_result.get("new_unlocks", []),
 		"unlock_progress": unlock_result.get("unlock_progress", []),
 		"consumed_unlock_materials": unlock_result.get("consumed_unlock_materials", {}),
-		"penalty": penalty
+		"penalty": penalty,
+		"carryover_rows": carryover_result.get("carryover_rows", [])
 	}
 
 
@@ -64,7 +67,7 @@ func _normalize_session(summary: Dictionary) -> Dictionary:
 	var exit_reason := String(summary.get("exit_reason", "")).strip_edges().to_lower()
 	if exit_reason.is_empty():
 		exit_reason = "abandoned" if bool(summary.get("abandoned", false)) else "completed"
-	if exit_reason != "abandoned":
+	if exit_reason != "abandoned" and exit_reason != "extracted":
 		exit_reason = "completed"
 	var time_survived := maxf(0.0, float(summary.get("time_survived_sec", summary.get("survive_time_seconds", 0.0))))
 	var kills := maxi(0, int(summary.get("kills", 0)))
@@ -112,7 +115,11 @@ func _table_matches_session(table: Dictionary, session: Dictionary) -> bool:
 	var exit_reason := String(session.get("exit_reason", "completed"))
 	if bool(table.get("abandoned_only", false)) and exit_reason != "abandoned":
 		return false
+	if bool(table.get("extracted_only", false)) and exit_reason != "extracted":
+		return false
 	if bool(table.get("completed_only", false)) and exit_reason != "completed":
+		return false
+	if exit_reason == "extracted" and not bool(table.get("extracted_only", false)):
 		return false
 	var score := int(session.get("score", 0))
 	return score >= int(table.get("min_score", 0)) and score <= int(table.get("max_score", 999999))
@@ -156,7 +163,11 @@ func _reward_matches_session(reward: Dictionary, session: Dictionary) -> bool:
 	var exit_reason := String(session.get("exit_reason", "completed"))
 	if bool(reward.get("abandoned_only", false)) and exit_reason != "abandoned":
 		return false
+	if bool(reward.get("extracted_only", false)) and exit_reason != "extracted":
+		return false
 	if bool(reward.get("completed_only", false)) and exit_reason != "completed":
+		return false
+	if exit_reason == "extracted" and not bool(reward.get("extracted_only", false)) and bool(reward.get("completed_only", false)):
 		return false
 	if int(session.get("kills", 0)) < int(reward.get("min_kills", 0)):
 		return false
@@ -175,6 +186,87 @@ func _build_category_rows(category_bundles: Dictionary) -> Array[Dictionary]:
 			"category": category_id,
 			"items": (bundle_variant as Dictionary).duplicate(true)
 		})
+	return rows
+
+
+func _collect_dungeon_carryover(summary: Dictionary, session: Dictionary) -> Dictionary:
+	var exit_reason := String(session.get("exit_reason", "completed")).strip_edges().to_lower()
+	if exit_reason == "abandoned":
+		return {
+			"material_rewards": {},
+			"loot_categories": [],
+			"carryover_rows": _normalize_carryover_rows(summary.get("dungeon_carryover_rows", []))
+		}
+	var materials := _normalize_material_bundle(summary.get("dungeon_carryover_materials", {}))
+	if materials.is_empty():
+		return {
+			"material_rewards": {},
+			"loot_categories": [],
+			"carryover_rows": _normalize_carryover_rows(summary.get("dungeon_carryover_rows", []))
+		}
+	var category_bundles: Dictionary = {}
+	for material_id_variant in materials.keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		var amount := int(materials.get(material_id_variant, 0))
+		if material_id.is_empty() or amount <= 0:
+			continue
+		var category := String(DataRegistry.get_material_category(material_id)).strip_edges().to_lower()
+		if category.is_empty():
+			category = "common_materials"
+		var bundle: Dictionary = category_bundles.get(category, {}) if category_bundles.get(category, {}) is Dictionary else {}
+		bundle[material_id] = maxi(0, int(bundle.get(material_id, 0))) + amount
+		category_bundles[category] = bundle
+	return {
+		"material_rewards": materials,
+		"loot_categories": _build_category_rows(category_bundles),
+		"carryover_rows": _normalize_carryover_rows(summary.get("dungeon_carryover_rows", []))
+	}
+
+
+func _merge_material_bundles(base_result: Dictionary, additive_result: Dictionary) -> void:
+	var base_materials_variant: Variant = base_result.get("material_rewards", {})
+	var base_materials: Dictionary = base_materials_variant if base_materials_variant is Dictionary else {}
+	var additive_materials_variant: Variant = additive_result.get("material_rewards", {})
+	var additive_materials: Dictionary = additive_materials_variant if additive_materials_variant is Dictionary else {}
+	for material_id_variant in additive_materials.keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		var amount := int(additive_materials.get(material_id_variant, 0))
+		if material_id.is_empty() or amount <= 0:
+			continue
+		base_materials[material_id] = maxi(0, int(base_materials.get(material_id, 0))) + amount
+	base_result["material_rewards"] = base_materials
+	var base_loot_variant: Variant = base_result.get("loot_categories", [])
+	var base_loot: Array = base_loot_variant if base_loot_variant is Array else []
+	var additive_loot_variant: Variant = additive_result.get("loot_categories", [])
+	var additive_loot: Array = additive_loot_variant if additive_loot_variant is Array else []
+	for row_variant in additive_loot:
+		if not (row_variant is Dictionary):
+			continue
+		base_loot.append((row_variant as Dictionary).duplicate(true))
+	base_result["loot_categories"] = base_loot
+
+
+func _normalize_material_bundle(value: Variant) -> Dictionary:
+	var normalized: Dictionary = {}
+	if not (value is Dictionary):
+		return normalized
+	for material_id_variant in (value as Dictionary).keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		var amount := maxi(0, int((value as Dictionary).get(material_id_variant, 0)))
+		if material_id.is_empty() or amount <= 0:
+			continue
+		normalized[material_id] = amount
+	return normalized
+
+
+func _normalize_carryover_rows(value: Variant) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if not (value is Array):
+		return rows
+	for row_variant in (value as Array):
+		if not (row_variant is Dictionary):
+			continue
+		rows.append((row_variant as Dictionary).duplicate(true))
 	return rows
 
 

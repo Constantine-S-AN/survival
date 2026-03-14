@@ -51,6 +51,95 @@
 			}
 		},
 		{
+			"id": "extracted_shallow",
+			"name": "Secured Extract",
+			"abandoned_only": false,
+			"completed_only": false,
+			"extracted_only": true,
+			"min_score": 0,
+			"max_score": 7,
+			"gold_multiplier": 0.82,
+			"rewards": [
+				{
+					"material_id": "scrap",
+					"category": "common_materials",
+					"quantity": 2
+				},
+				{
+					"material_id": "reef_salt",
+					"category": "common_materials",
+					"quantity": 1
+				},
+				{
+					"material_id": "abyssfin",
+					"category": "rare_monster_ingredients",
+					"quantity": 1,
+					"min_kills": 4
+				},
+				{
+					"material_id": "glow_kelp",
+					"category": "rare_monster_ingredients",
+					"quantity": 1,
+					"min_kills": 5
+				},
+				{
+					"material_id": "moon_spore",
+					"category": "special_seeds_spores",
+					"quantity": 1,
+					"min_kills": 4
+				},
+				{
+					"material_id": "kitchen_blueprint_fragment",
+					"category": "unlock_tokens",
+					"quantity": 1
+				}
+			],
+			"penalty": {}
+		},
+		{
+			"id": "extracted_deep",
+			"name": "Deep Extract",
+			"abandoned_only": false,
+			"completed_only": false,
+			"extracted_only": true,
+			"min_score": 8,
+			"max_score": 999,
+			"gold_multiplier": 0.96,
+			"rewards": [
+				{
+					"material_id": "scrap",
+					"category": "common_materials",
+					"quantity": 4
+				},
+				{
+					"material_id": "reef_salt",
+					"category": "common_materials",
+					"quantity": 2
+				},
+				{
+					"material_id": "abyssfin",
+					"category": "rare_monster_ingredients",
+					"quantity": 1
+				},
+				{
+					"material_id": "glow_kelp",
+					"category": "rare_monster_ingredients",
+					"quantity": 2
+				},
+				{
+					"material_id": "moon_spore",
+					"category": "special_seeds_spores",
+					"quantity": 1
+				},
+				{
+					"material_id": "kitchen_blueprint_fragment",
+					"category": "unlock_tokens",
+					"quantity": 2
+				}
+			],
+			"penalty": {}
+		},
+		{
 			"id": "completed_shallow",
 			"name": "Shallow Haul",
 			"abandoned_only": false,

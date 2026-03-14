@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "boss_rules": [
+    {
+      "encounter_id": "apex_guardian",
+      "boss_id": "abyss_siren",
+      "climax_title": "Floor Climax",
+      "intro_label": "Apex Guardian",
+      "intro_text": "The Abyss Siren is holding the floor exit. Step in to finish the excursion or extract before committing.",
+      "defeat_label": "Boss Down",
+      "defeat_text": "The Siren cache is loose. Take the last room reward and ride the harbor lights home.",
+      "phase_labels": {
+        "phase_1": "Silence Discipline",
+        "phase_2": "False Resonance",
+        "phase_3": "Razor Sweep",
+        "phase_4": "Ritual Core"
+      },
+      "boss_bonus_label": "Boss Cache Secured",
+      "boss_bonus_materials": {
+        "kitchen_blueprint_fragment": 1,
+        "abyssfin": 1
+      }
+    }
+  ]
+}

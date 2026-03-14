@@ -100,6 +100,9 @@ func _run() -> void:
 	snapshot = run_node.call("debug_get_snapshot")
 	_assert_equal(String(snapshot.get("room_type_id", "")), "boss", "final room is marked as a boss room")
 	_assert_equal(String(snapshot.get("encounter_category", "")), "boss", "boss room exposes boss encounter metadata")
+	var boss_climax: Dictionary = snapshot.get("boss_climax", {})
+	_assert_true(bool(boss_climax.get("active", false)), "boss room activates the floor-climax panel")
+	_assert_equal(String(boss_climax.get("title", "")), "Floor Climax", "boss panel shows the climax title")
 	_assert_true(_snapshot_has_locked_exit(snapshot) == false, "boss room with no onward exits does not expose unlocked navigation")
 	run_node.call("debug_force_clear_room")
 	await _wait_frames(2)
@@ -120,6 +123,50 @@ func _run() -> void:
 	_assert_equal(String(_summary.get("dungeon_last_room_type_id", "")), "boss", "summary records the final boss-room type")
 	_assert_true((_summary.get("dungeon_run_rewards", []) as Array).size() >= 2, "summary records claimed room-end rewards across the run")
 	_assert_true((_summary.get("dungeon_run_modifiers", []) as Array).size() >= 1, "summary records applied temporary run modifiers")
+	_assert_true(bool(_summary.get("dungeon_boss_cleared", false)), "summary records the boss-floor clear")
+	var boss_bonus_materials: Dictionary = _summary.get("dungeon_boss_bonus_materials", {})
+	_assert_true(int(boss_bonus_materials.get("kitchen_blueprint_fragment", 0)) >= 1, "boss completion contributes explicit carryover materials")
+
+	if run_node != null and is_instance_valid(run_node):
+		run_node.queue_free()
+	await process_frame
+
+	_completed = false
+	_summary.clear()
+	run_node = run_scene.instantiate()
+	root.add_child(run_node)
+	if run_node.has_signal("session_completed"):
+		run_node.connect("session_completed", Callable(self, "_on_session_completed"))
+	run_node.call("start_session", {
+		"day": 1,
+		"character_id": _registry().call("get_default_character_id"),
+		"map_id": _registry().call("get_default_map_id"),
+		"contract_ids": [],
+		"seed": 9002,
+		"session_duration_sec": 60.0
+	})
+
+	await _wait_frames(10)
+	run_node.call("debug_use_exit", "reef_patrol")
+	await _wait_frames(6)
+	run_node.call("debug_force_clear_room")
+	await _wait_frames(2)
+	_assert_true(bool(run_node.call("debug_select_room_reward", 0)), "extraction test can still claim a room reward before leaving")
+	await _wait_frames(2)
+	snapshot = run_node.call("debug_get_snapshot")
+	var extraction_snapshot: Dictionary = snapshot.get("extraction", {})
+	_assert_true(bool(extraction_snapshot.get("available", false)), "early extraction becomes available after securing a combat room")
+	_assert_true(bool(run_node.call("debug_request_extract")), "night run accepts an early extraction request from a secured room")
+	await _wait_frames(8)
+	_assert_true(_completed, "early extraction also completes the night run flow")
+	_assert_equal(String(_summary.get("exit_reason", "")), "extracted", "early extract produces the extracted return reason")
+	_assert_true(bool(_summary.get("dungeon_extracted_early", false)), "summary records that the run ended via early extraction")
+	_assert_equal(String(_summary.get("dungeon_extraction_room_id", "")), "reef_patrol", "summary records which room the player extracted from")
+	var carryover_materials: Dictionary = _summary.get("dungeon_carryover_materials", {})
+	_assert_true(int(carryover_materials.get("scrap", 0)) >= 1, "extraction secures room-clear carryover materials")
+	var carryover_rows: Array = _summary.get("dungeon_carryover_rows", [])
+	_assert_true(int(carryover_rows.size()) >= 2, "summary includes a carryover breakdown for return presentation")
+	_assert_true((_summary.get("dungeon_boss_bonus_materials", {}) as Dictionary).is_empty(), "early extraction leaves boss-only carryover behind")
 
 	if run_node != null and is_instance_valid(run_node):
 		run_node.queue_free()

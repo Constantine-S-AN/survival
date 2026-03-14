@@ -14,6 +14,7 @@ signal menu_requested
 @onready var outcome_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/OutcomeLabel
 @onready var run_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/RunLabel
 @onready var rewards_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/RewardsLabel
+@onready var carryover_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/CarryoverLabel
 @onready var unlocks_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/UnlocksLabel
 @onready var progress_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/ProgressLabel
 @onready var penalty_label: Label = $ContentPanel/Margin/VBox/Scroll/SummaryVBox/PenaltyLabel
@@ -64,7 +65,7 @@ func present_summary(summary: Dictionary, animate_in: bool = false) -> void:
 func _apply_summary() -> void:
 	var next_day := int(_summary.get("next_day", int(_summary.get("current_day", 1)) + 1))
 	title_label.text = _t("meta.summary.title")
-	subtitle_label.text = String(_summary.get("arrival_text", _t("meta.summary.subtitle")))
+	subtitle_label.text = _resolve_arrival_text()
 	input_hint_label.text = _t("meta.summary.input_hint", {"day": next_day})
 	continue_button.text = _t("meta.summary.continue", {"day": next_day})
 	continue_button.tooltip_text = _t("meta.summary.input_hint", {"day": next_day})
@@ -74,6 +75,8 @@ func _apply_summary() -> void:
 	var outcome_key := "meta.summary.outcome_completed"
 	if exit_reason == "abandoned":
 		outcome_key = "meta.summary.outcome_abandoned"
+	elif exit_reason == "extracted":
+		outcome_key = "meta.summary.outcome_extracted"
 	outcome_label.text = _t(outcome_key, {
 		"day": int(_summary.get("current_day", 1)),
 		"next_day": int(_summary.get("next_day", int(_summary.get("current_day", 1)) + 1))
@@ -87,6 +90,10 @@ func _apply_summary() -> void:
 		"value": String(_summary.get("loot_text", _t("meta.common.none"))),
 		"bonus": String(_summary.get("night_bonus_text", _t("meta.common.none")))
 	})
+	if carryover_label != null:
+		carryover_label.text = _t("meta.summary.carryover_card", {
+			"value": _build_carryover_text()
+		})
 	var unlocks_text := String(_summary.get("unlock_text", _t("meta.common.none")))
 	unlocks_label.text = _t("meta.summary.unlocks_card", {"value": unlocks_text})
 	progress_label.text = _t("meta.summary.progress_card", {
@@ -96,7 +103,7 @@ func _apply_summary() -> void:
 		"value": String(_summary.get("penalty_text", _t("meta.summary.condition_none")))
 	})
 	inventory_label.text = _t("meta.summary.tomorrow_card", {
-		"value": String(_summary.get("tomorrow_text", _t("meta.summary.tomorrow_generic"))),
+		"value": _resolve_tomorrow_text(),
 		"inventory": String(_summary.get("inventory_summary", "-"))
 	})
 	if summary_scroll != null:
@@ -223,3 +230,67 @@ func _t(key: String, args: Dictionary = {}) -> String:
 	if Localization == null or not Localization.has_method("t"):
 		return key
 	return String(Localization.call("t", key, args))
+
+
+func _resolve_arrival_text() -> String:
+	var exit_reason := String(_summary.get("exit_reason", "completed")).strip_edges().to_lower()
+	var raw_summary := _raw_summary()
+	if exit_reason == "extracted":
+		var room_label := String(raw_summary.get("dungeon_extraction_room_label", "")).strip_edges()
+		if room_label.is_empty():
+			return _t("meta.summary.arrival_extracted")
+		return _t("meta.summary.arrival_extracted", {"room": room_label})
+	if exit_reason == "completed" and bool(raw_summary.get("dungeon_boss_cleared", false)):
+		return _t("meta.summary.arrival_boss_clear")
+	return String(_summary.get("arrival_text", _t("meta.summary.subtitle")))
+
+
+func _resolve_tomorrow_text() -> String:
+	var exit_reason := String(_summary.get("exit_reason", "completed")).strip_edges().to_lower()
+	if exit_reason != "extracted":
+		return String(_summary.get("tomorrow_text", _t("meta.summary.tomorrow_generic")))
+	return _t("meta.summary.tomorrow_extracted", {
+		"value": _build_carryover_short_text()
+	})
+
+
+func _build_carryover_text() -> String:
+	var raw_summary := _raw_summary()
+	var rows_variant: Variant = raw_summary.get("dungeon_carryover_rows", [])
+	if not (rows_variant is Array) or (rows_variant as Array).is_empty():
+		if String(_summary.get("exit_reason", "completed")).strip_edges().to_lower() == "abandoned":
+			return _t("meta.summary.carryover_abandoned")
+		return _t("meta.common.none")
+	var lines: Array[String] = []
+	for row_variant in (rows_variant as Array):
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		var label := String(row.get("label", "Carryover")).strip_edges()
+		var summary := String(row.get("summary", "")).strip_edges()
+		if summary.is_empty():
+			summary = _t("meta.common.none")
+		lines.append("%s: %s" % [label, summary])
+	return "\n".join(lines) if not lines.is_empty() else _t("meta.common.none")
+
+
+func _build_carryover_short_text() -> String:
+	var raw_summary := _raw_summary()
+	var route_label := String(raw_summary.get("dungeon_return_route_label", "")).strip_edges()
+	var rows_variant: Variant = raw_summary.get("dungeon_carryover_rows", [])
+	if not (rows_variant is Array):
+		return route_label if not route_label.is_empty() else _t("meta.summary.tomorrow_generic")
+	var secured_count := 0
+	for row_variant in (rows_variant as Array):
+		if not (row_variant is Dictionary):
+			continue
+		if bool((row_variant as Dictionary).get("secured", false)):
+			secured_count += 1
+	if route_label.is_empty():
+		return "%d secured carryover cache%s" % [secured_count, "" if secured_count == 1 else "s"]
+	return "%s with %d secured cache%s" % [route_label, secured_count, "" if secured_count == 1 else "s"]
+
+
+func _raw_summary() -> Dictionary:
+	var raw_summary_variant: Variant = _summary.get("raw_summary", {})
+	return raw_summary_variant if raw_summary_variant is Dictionary else {}

@@ -790,11 +790,14 @@ func _on_player_died() -> void:
 	ui.show_game_over(summary_state)
 
 
-func _complete_embedded_session() -> void:
+func _complete_embedded_session(exit_reason: String = "completed") -> void:
 	if run_state != STATE_PLAYING or not embedded_session_mode or _game_over_latched:
 		return
 	_game_over_latched = true
-	var summary_state := _build_embedded_session_summary("completed")
+	var normalized_exit_reason := exit_reason.strip_edges().to_lower()
+	if normalized_exit_reason != "completed" and normalized_exit_reason != "extracted":
+		normalized_exit_reason = "completed"
+	var summary_state := _build_embedded_session_summary(normalized_exit_reason)
 	_set_state(STATE_GAME_OVER)
 	embedded_session_finished.emit(summary_state)
 

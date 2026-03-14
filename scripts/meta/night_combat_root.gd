@@ -73,7 +73,7 @@ func debug_complete_session(summary_override: Dictionary = {}) -> void:
 		return
 	var request := _active_request.duplicate(true)
 	var exit_reason := String(summary_override.get("exit_reason", "completed")).strip_edges().to_lower()
-	if exit_reason != "abandoned":
+	if exit_reason != "abandoned" and exit_reason != "extracted":
 		exit_reason = "completed"
 	var payload := {
 		"time_survived_sec": maxf(0.0, float(summary_override.get("time_survived_sec", 90.0))),
