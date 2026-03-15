@@ -2971,6 +2971,12 @@ func debug_day_world_select_farm_tool(action_id: String, seed_id: String = "") -
 	return false
 
 
+func debug_day_world_snap_player_to_zone(zone_id: String) -> bool:
+	if day_world != null and day_world.has_method("debug_snap_player_to_zone"):
+		return bool(day_world.call("debug_snap_player_to_zone", zone_id))
+	return false
+
+
 func debug_day_world_interact_farm_plot(plot_index: int) -> bool:
 	if day_world != null and day_world.has_method("debug_interact_farm_plot"):
 		return bool(day_world.call("debug_interact_farm_plot", plot_index))

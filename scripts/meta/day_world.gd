@@ -376,6 +376,17 @@ func debug_interact_farm_plot(plot_index: int) -> bool:
 	return _activate_zone("farm_plot_%d" % plot_index)
 
 
+func debug_snap_player_to_zone(zone_id: String) -> bool:
+	if day_player == null:
+		return false
+	var position := _zone_world_position(zone_id.strip_edges().to_lower())
+	if position == Vector2.ZERO:
+		return false
+	day_player.reset_to_position(position)
+	_schedule_focus_refresh()
+	return true
+
+
 func debug_confirm_night_departure() -> bool:
 	if not _night_popup_open or _transition_active or _overlay_blocked:
 		return false
@@ -2186,9 +2197,11 @@ func _register_zones() -> void:
 func _rebuild_farm_plots() -> void:
 	if _farm_plots_root == null:
 		return
+	# Area exit/focus callbacks can re-enter _apply_view_model() while old plots
+	# are being freed, so drop the lookup table before destroying nodes.
+	_farm_plot_zones.clear()
 	for child in _farm_plots_root.get_children():
 		child.free()
-	_farm_plot_zones.clear()
 	var columns := maxi(1, int(_farm_model.get("columns", 3)))
 	var plots_variant: Variant = _farm_model.get("plots", [])
 	if not (plots_variant is Array):
@@ -2204,9 +2217,9 @@ func _rebuild_farm_plots() -> void:
 func _rebuild_pickups() -> void:
 	if _pickup_root == null:
 		return
+	_pickup_zones.clear()
 	for child in _pickup_root.get_children():
 		child.free()
-	_pickup_zones.clear()
 	for pickup_variant in _get_day_world_pickups():
 		if not (pickup_variant is Dictionary):
 			continue
@@ -2563,6 +2576,24 @@ func _apply_view_model() -> void:
 	})
 	_update_night_popup_copy()
 	_refresh_zone_visuals()
+
+
+func _zone_polygon(zone: Dictionary, key: String) -> Polygon2D:
+	var polygon_variant: Variant = zone.get(key, null)
+	if not (polygon_variant is Polygon2D):
+		return null
+	if not is_instance_valid(polygon_variant):
+		return null
+	return polygon_variant as Polygon2D
+
+
+func _zone_area(zone: Dictionary, key: String = "area") -> Area2D:
+	var area_variant: Variant = zone.get(key, null)
+	if not (area_variant is Area2D):
+		return null
+	if not is_instance_valid(area_variant):
+		return null
+	return area_variant as Area2D
 
 
 func _update_night_popup_copy() -> void:
@@ -3479,8 +3510,8 @@ func _refresh_zone_visuals() -> void:
 
 
 func _apply_zone_visual(zone_id: String, zone: Dictionary, enabled: bool, focused: bool) -> void:
-	var marker := zone.get("marker", null) as Polygon2D
-	var pulse := zone.get("pulse", null) as Polygon2D
+	var marker := _zone_polygon(zone, "marker")
+	var pulse := _zone_polygon(zone, "pulse")
 	var accent_variant: Variant = zone.get("accent", Color.WHITE)
 	var accent: Color = _zone_accent_for_state(zone_id, accent_variant if accent_variant is Color else Color.WHITE, enabled)
 	var subtle_marker_alpha := 0.12 if not _is_farm_plot_zone(zone_id) and not _is_pickup_zone(zone_id) else 0.0
@@ -3581,7 +3612,7 @@ func _zone_world_position(zone_id: String) -> Vector2:
 		zone = _farm_plot_zones.get(zone_id, {}) as Dictionary
 	else:
 		zone = _zones.get(zone_id, {}) as Dictionary
-	var area := zone.get("area", null) as Area2D
+	var area := _zone_area(zone)
 	if area != null and area.get_parent() is Node2D:
 		return (area.get_parent() as Node2D).global_position
 	return Vector2.ZERO
@@ -3793,7 +3824,7 @@ func _activate_pickup(zone_id: String) -> bool:
 		_apply_view_model()
 		return false
 	_play_zone_feedback(zone_id, "pickup")
-	var area := (_pickup_zones.get(zone_id, {}) as Dictionary).get("area", null) as Area2D
+	var area := _zone_area(_pickup_zones.get(zone_id, {}) as Dictionary)
 	if area != null and area.get_parent() is Node2D:
 		var pickup_root := area.get_parent() as Node2D
 		pickup_root.modulate = Color(1.0, 1.0, 1.0, 0.32)
