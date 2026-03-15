@@ -714,6 +714,63 @@
       "enemy_modifiers": {
         "spawn_rate_mult": 1.08
       }
+    },
+    {
+      "id": "mutator_salt_thickening",
+      "label": "Salt Thickening",
+      "label_zh": "盐雾凝厚",
+      "category": "floor_mutator",
+      "description": "Salt fog packs the lanes tighter. Waves creep up faster, but harvestable stock runs richer.",
+      "description_zh": "盐雾让路线更粘稠，怪潮会更快逼近，但可收割物资也更丰厚。",
+      "summary": "Spawn rate x1.05, XP x1.06, DROP x1.12",
+      "summary_zh": "刷怪频率 x1.05，经验 x1.06，掉落 x1.12",
+      "reward_multipliers": {
+        "xp": 1.06,
+        "drop": 1.12
+      },
+      "enemy_modifiers": {
+        "spawn_rate_mult": 1.05
+      }
+    },
+    {
+      "id": "mutator_relay_static",
+      "label": "Relay Static",
+      "label_zh": "信号乱流",
+      "category": "floor_mutator",
+      "description": "Static rolls through the relays. Elites and fast movers show up more often, but the payout curve climbs too.",
+      "description_zh": "紊乱电流冲过中继站，精英和高速敌人更常出现，但收益曲线也会一起抬高。",
+      "summary": "Elite chance +8%, enemy speed +6%, META x1.12",
+      "summary_zh": "精英概率 +8%，敌人移速 +6%，元货币 x1.12",
+      "reward_multipliers": {
+        "meta_currency": 1.12
+      },
+      "enemy_modifiers": {
+        "elite_chance_add": 0.08,
+        "enemy_speed_mult": 1.06
+      }
+    },
+    {
+      "id": "mutator_contraband_current",
+      "label": "Contraband Current",
+      "label_zh": "走私暗潮",
+      "category": "floor_mutator",
+      "description": "The route favors smugglers: movement feels lighter and secured hauls are worth more, but rooms overfill more easily.",
+      "description_zh": "这层路线偏向走私客，行动更轻快，安全带回的货值更高，但房间也更容易被塞满。",
+      "summary": "+18 move speed, Spawn cap x1.05, DROP x1.08, META x1.15",
+      "summary_zh": "+18 移速，刷怪上限 x1.05，掉落 x1.08，元货币 x1.15",
+      "effects": [
+        {
+          "stat": "move_speed_bonus",
+          "add": 18.0
+        }
+      ],
+      "reward_multipliers": {
+        "drop": 1.08,
+        "meta_currency": 1.15
+      },
+      "enemy_modifiers": {
+        "spawn_cap_mult": 1.05
+      }
     }
   ]
 }

@@ -76,6 +76,45 @@
         "kitchen_blueprint_fragment": 1,
         "abyssfin": 2
       }
+    },
+    {
+      "encounter_id": "customs_leviathan_trial",
+      "boss_id": "customs_leviathan",
+      "climax_title": "Floor Climax",
+      "climax_title_zh": "楼层高潮战",
+      "intro_label": "Customs Leviathan",
+      "intro_label_zh": "缉私巨鲛",
+      "intro_text": "The contraband lane is shut by a Leviathan warden. Break the seizure crews, survive the sweep, and force open the return route.",
+      "intro_text_zh": "缉私巨鲛已经封死走私航线。打掉扣押小队、扛住巡检横扫，然后硬生生把返航路线撕开。",
+      "defeat_label": "Cargo Released",
+      "defeat_label_zh": "扣押已解除",
+      "defeat_text": "The cargo clamps have broken. Claim the last reward, strip the sealed haul, and head home before the route closes again.",
+      "defeat_text_zh": "封舱夹具已经断开。拿上最后奖励，把扣押货物拆下来，然后在航道再次封死前返航。",
+      "phase_labels": {
+        "phase_1": "Toll Ward",
+        "phase_2": "Inspection Sweep",
+        "phase_3": "Static Tariff",
+        "phase_4": "Cargo Seizure"
+      },
+      "phase_labels_zh": {
+        "phase_1": "封舱税印",
+        "phase_2": "巡检横扫",
+        "phase_3": "静电抽税",
+        "phase_4": "扣押清舱"
+      },
+      "phase_texts_zh": {
+        "phase_1": "机制考验 I：先拆税印守卫，再压本体护盾",
+        "phase_2": "机制考验 II：冲出巡检扫线，别站着硬吃",
+        "phase_3": "机制考验 III：控住噪声，别把静电脉冲喂大",
+        "phase_4": "机制考验 IV：先清扣押小队，再打穿最后减伤"
+      },
+      "boss_bonus_label": "Seized Cargo Secured",
+      "boss_bonus_label_zh": "扣押货柜已稳住",
+      "boss_bonus_materials": {
+        "kitchen_blueprint_fragment": 1,
+        "challenge_seal": 1,
+        "reef_salt": 2
+      }
     }
   ]
 }

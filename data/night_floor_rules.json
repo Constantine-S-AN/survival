@@ -1,5 +1,6 @@
 {
   "schema_version": 2,
+  "schema_contract_version": 1,
   "floors": [
     {
       "id": "floor_1",
@@ -8,7 +9,8 @@
       "template_ids": [
         "harbor_rift_v2_route_a",
         "branching_intro_channels",
-        "branching_intro_pillars"
+        "branching_intro_pillars",
+        "sunken_exchange_v2_route_b"
       ],
       "start_room_id": "camp",
       "goal_room_id": "apex_guardian"

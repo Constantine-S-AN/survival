@@ -28,8 +28,14 @@ func _run_floor_mutator_and_second_shop_flow() -> void:
 		return
 	var snapshot: Dictionary = run_node.call("debug_get_snapshot")
 	var floor_mutator: Dictionary = snapshot.get("floor_mutator", {})
+	var floor_mutator_state: Dictionary = snapshot.get("floor_mutator_state", {})
 	var mutator_id := String(floor_mutator.get("mutator_id", floor_mutator.get("id", "")))
 	_assert_true(not mutator_id.is_empty(), "v2 live floor applies a floor mutator on entry")
+	_assert_equal(
+		String((floor_mutator_state.get("current_mutator", {}) as Dictionary).get("mutator_id", "")),
+		mutator_id,
+		"floor mutator controller snapshot mirrors the active floor mutator"
+	)
 	var system_modifiers: Array = (snapshot.get("run_modifier_state", {}) as Dictionary).get("system_modifiers", [])
 	_assert_equal(int(system_modifiers.size()), 1, "floor mutator is tracked as one system modifier")
 	_assert_true(not _snapshot_has_room(snapshot, "smuggler_cut"), "hidden room stays off the initial map snapshot")

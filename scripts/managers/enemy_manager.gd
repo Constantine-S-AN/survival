@@ -238,8 +238,7 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 	spawn_backlog_active = false
 	var bosses: Array = DataRegistry.get_bosses()
 	if not bosses.is_empty() and bosses[0] is Dictionary:
-		boss_definition = (bosses[0] as Dictionary).duplicate(true)
-		boss_id = String(boss_definition.get("id", "")).strip_edges()
+		_set_active_boss_definition(String((bosses[0] as Dictionary).get("id", "")))
 
 
 func begin_run() -> void:
@@ -777,6 +776,10 @@ func _spawn_enemy_near(enemy_id: String, world_position: Vector2) -> Node:
 
 
 func _spawn_scripted_boss(spec: Dictionary) -> Node:
+	var requested_boss_id := String(spec.get("enemy_id", "")).strip_edges().to_lower()
+	if not requested_boss_id.is_empty() and not _set_active_boss_definition(requested_boss_id):
+		push_warning("EnemyManager could not resolve scripted boss '%s'." % requested_boss_id)
+		return null
 	if boss_definition.is_empty() or boss_id.is_empty():
 		return null
 	var world_position := _coerce_spawn_position(spec.get("position", Vector2.ZERO))
@@ -1181,6 +1184,20 @@ func _build_boss_enemy_definition() -> Dictionary:
 			"hidden_damage_multiplier": float(phase.get("hidden_damage_multiplier", 0.35)),
 			"spawn_rate_mult": float(phase.get("spawn_rate_mult", 1.0))
 		}
+
+
+func _set_active_boss_definition(next_boss_id: String) -> bool:
+	var normalized_boss_id := next_boss_id.strip_edges().to_lower()
+	if normalized_boss_id.is_empty():
+		return false
+	if normalized_boss_id == boss_id and not boss_definition.is_empty():
+		return true
+	var resolved_boss := DataRegistry.get_boss(normalized_boss_id)
+	if resolved_boss.is_empty():
+		return false
+	boss_id = normalized_boss_id
+	boss_definition = resolved_boss.duplicate(true)
+	return true
 
 
 func _get_boss_phase(index: int) -> Dictionary:

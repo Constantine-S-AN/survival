@@ -134,6 +134,121 @@
         {"enemy_id": "ink_mite", "spawn_point": "West", "count": 2, "offset_radius": 18.0},
         {"enemy_id": "ink_mite", "spawn_point": "East", "count": 2, "offset_radius": 18.0}
       ]
+    },
+    {
+      "id": "customs_leviathan_phase_1",
+      "label": "Customs Leviathan",
+      "label_zh": "缉私巨鲛",
+      "enemies": [
+        {"enemy_id": "customs_leviathan", "spawn_boss": true, "spawn_point": "North"}
+      ]
+    },
+    {
+      "id": "kelp_watch_volley",
+      "label": "Kelp Watch Volley",
+      "label_zh": "盐港火线",
+      "enemies": [
+        {"enemy_id": "shielded", "spawn_point": "North"},
+        {"enemy_id": "drifter", "spawn_point": "NorthWest"},
+        {"enemy_id": "drifter", "spawn_point": "NorthEast"},
+        {"enemy_id": "shooter", "spawn_point": "West"},
+        {"enemy_id": "sprinter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "signal_jetty_wave_1",
+      "label": "Signal Jetty Wave 1",
+      "label_zh": "信号栈桥波次 1",
+      "enemies": [
+        {"enemy_id": "shielded", "spawn_point": "Center"},
+        {"enemy_id": "drifter", "spawn_point": "West"},
+        {"enemy_id": "drifter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "signal_jetty_wave_2",
+      "label": "Signal Jetty Wave 2",
+      "label_zh": "信号栈桥波次 2",
+      "enemies": [
+        {"enemy_id": "shooter", "spawn_point": "NorthWest"},
+        {"enemy_id": "shooter", "spawn_point": "NorthEast"},
+        {"enemy_id": "sprinter", "spawn_point": "South"}
+      ]
+    },
+    {
+      "id": "signal_jetty_wave_3",
+      "label": "Signal Jetty Wave 3",
+      "label_zh": "信号栈桥波次 3",
+      "enemies": [
+        {"enemy_id": "lurker", "spawn_point": "South", "allow_elite": true},
+        {"enemy_id": "splitter", "spawn_point": "North"},
+        {"enemy_id": "sprinter", "spawn_point": "West"},
+        {"enemy_id": "sprinter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "signal_jetty_fail_cleanup",
+      "label": "Signal Jetty Cleanup",
+      "label_zh": "信号栈桥清场",
+      "enemies": [
+        {"enemy_id": "splitter", "spawn_point": "Center"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthWest"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthEast"},
+        {"enemy_id": "shooter", "spawn_point": "North"}
+      ]
+    },
+    {
+      "id": "salt_vault_guards",
+      "label": "Salt Vault Guards",
+      "label_zh": "盐库守卫",
+      "enemies": [
+        {"enemy_id": "shielded", "spawn_point": "North", "allow_elite": true},
+        {"enemy_id": "shielded", "spawn_point": "Center"},
+        {"enemy_id": "shooter", "spawn_point": "West"},
+        {"enemy_id": "shooter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "salt_vault_reinforce",
+      "label": "Salt Vault Reinforce",
+      "label_zh": "盐库增援",
+      "enemies": [
+        {"enemy_id": "splitter", "spawn_point": "North"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthWest"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthEast"}
+      ]
+    },
+    {
+      "id": "barnacle_hive_intro",
+      "label": "Barnacle Hive Intro",
+      "label_zh": "藤壶巢初始波",
+      "enemies": [
+        {"enemy_id": "summoner", "spawn_point": "West"},
+        {"enemy_id": "ink_mite", "spawn_point": "North", "count": 3, "offset_radius": 22.0},
+        {"enemy_id": "lurker", "spawn_point": "East", "allow_elite": true}
+      ]
+    },
+    {
+      "id": "barnacle_hive_repeat",
+      "label": "Barnacle Hive Repeat",
+      "label_zh": "藤壶巢持续波",
+      "enemies": [
+        {"enemy_id": "ink_mite", "spawn_point": "Center", "count": 3, "offset_radius": 18.0},
+        {"enemy_id": "sprinter", "spawn_point": "West"},
+        {"enemy_id": "sprinter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "customs_gate_trial",
+      "label": "Customs Gate Trial",
+      "label_zh": "旧闸门试炼",
+      "enemies": [
+        {"enemy_id": "lurker", "spawn_point": "West", "allow_elite": true},
+        {"enemy_id": "shielded", "spawn_point": "East", "allow_elite": true},
+        {"enemy_id": "splitter", "spawn_point": "Center"},
+        {"enemy_id": "shooter", "spawn_point": "North"},
+        {"enemy_id": "shooter", "spawn_point": "South"}
+      ]
     }
   ]
 }

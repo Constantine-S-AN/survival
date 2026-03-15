@@ -6,18 +6,78 @@ const SPAWN_SET_PATHS := [
 	"res://data/night_spawn_sets.json",
 	"res://data/night_spawn_sets_v2.json"
 ]
+const SCHEMA_CONTRACT_VERSION := 1
 const CATEGORY_LABELS := {
 	"standard": "Standard Combat",
 	"elite": "Elite Combat",
 	"boss": "Boss Combat"
 }
+const SUPPORTED_CATEGORIES := {
+	"standard": true,
+	"elite": true,
+	"boss": true
+}
+const SUPPORTED_CLEAR_MODES := {
+	"kill_all": true,
+	"complete_objective": true,
+	"objective_then_cleanup": true
+}
+const SUPPORTED_WAVE_TRIGGERS := {
+	"on_timer": true,
+	"on_objective_progress": true,
+	"repeat": true
+}
+const ENCOUNTER_SCHEMA_FIELDS: Array[String] = [
+	"id",
+	"schema_contract_version",
+	"label",
+	"label_zh",
+	"category",
+	"category_label",
+	"category_label_zh",
+	"reward_table_id",
+	"difficulty",
+	"spawn_set_id",
+	"clear_mode",
+	"objective_id",
+	"objective_label",
+	"objective_label_zh",
+	"time_limit_sec",
+	"waves",
+	"objective_props",
+	"room_mutators",
+	"success_bonus",
+	"fail_penalty",
+	"telegraph_ui",
+	"runtime_flags",
+	"tags"
+]
+const WAVE_SCHEMA_FIELDS: Array[String] = [
+	"trigger",
+	"spawn_set_id",
+	"at_sec",
+	"every_sec",
+	"at_count",
+	"until_objective_complete",
+	"enemies"
+]
+const OBJECTIVE_PROP_SCHEMA_FIELDS: Array[String] = [
+	"prop_id",
+	"marker",
+	"radius",
+	"hp",
+	"label",
+	"label_zh"
+]
 
 var _encounters_by_id: Dictionary = {}
 var _spawn_sets_by_id: Dictionary = {}
+var _schema_warnings: Array[String] = []
 
 
 func describe_room(floor_state, room_state) -> Dictionary:
 	var payload := {
+		"schema_contract_version": SCHEMA_CONTRACT_VERSION,
 		"room_id": room_state.room_id,
 		"room_label": room_state.label,
 		"room_type_id": room_state.room_type_id,
@@ -37,6 +97,8 @@ func describe_room(floor_state, room_state) -> Dictionary:
 		"room_mutators": [],
 		"success_bonus": {},
 		"fail_penalty": {},
+		"telegraph_ui": {},
+		"runtime_flags": {},
 		"tags": [],
 		"is_goal": room_state.is_goal,
 		"reward": room_state.reward_data.duplicate(true),
@@ -72,6 +134,7 @@ func describe_room(floor_state, room_state) -> Dictionary:
 	payload["difficulty"] = maxi(1, int(encounter.get("difficulty", 1)))
 	payload["clear_mode"] = String(encounter.get("clear_mode", "kill_all")).strip_edges().to_lower()
 	payload["objective_id"] = String(encounter.get("objective_id", "kill_all")).strip_edges().to_lower()
+	payload["schema_contract_version"] = maxi(1, int(encounter.get("schema_contract_version", SCHEMA_CONTRACT_VERSION)))
 	payload["objective_label"] = _localized_field(
 		encounter_id,
 		"objective_label",
@@ -86,6 +149,8 @@ func describe_room(floor_state, room_state) -> Dictionary:
 	payload["success_bonus"] = success_bonus_variant.duplicate(true) if success_bonus_variant is Dictionary else {}
 	var fail_penalty_variant: Variant = encounter.get("fail_penalty", {})
 	payload["fail_penalty"] = fail_penalty_variant.duplicate(true) if fail_penalty_variant is Dictionary else {}
+	payload["telegraph_ui"] = _normalize_dictionary(encounter.get("telegraph_ui", {}))
+	payload["runtime_flags"] = _normalize_dictionary(encounter.get("runtime_flags", {}))
 	payload["tags"] = _normalize_string_array(encounter.get("tags", []))
 	return payload
 
@@ -100,6 +165,32 @@ func build_room_payload(floor_state, room_state, room_node: Node2D) -> Dictionar
 	payload["waves"] = _resolve_wave_enemy_specs(room_node, payload.get("waves", []), room_state)
 	payload["objective_props"] = _resolve_objective_prop_positions(room_node, payload.get("objective_props", []))
 	return payload
+
+
+func get_schema_contract() -> Dictionary:
+	return {
+		"contract_version": SCHEMA_CONTRACT_VERSION,
+		"encounter_fields": ENCOUNTER_SCHEMA_FIELDS.duplicate(),
+		"wave_fields": WAVE_SCHEMA_FIELDS.duplicate(),
+		"objective_prop_fields": OBJECTIVE_PROP_SCHEMA_FIELDS.duplicate(),
+		"supported_categories": SUPPORTED_CATEGORIES.keys(),
+		"supported_clear_modes": SUPPORTED_CLEAR_MODES.keys(),
+		"supported_wave_triggers": SUPPORTED_WAVE_TRIGGERS.keys()
+	}
+
+
+func get_schema_warnings() -> Array[String]:
+	_ensure_loaded()
+	return _schema_warnings.duplicate()
+
+
+func get_encounter_definition(encounter_id: String) -> Dictionary:
+	_ensure_loaded()
+	var normalized_id := encounter_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return {}
+	var encounter_variant: Variant = _encounters_by_id.get(normalized_id, {})
+	return encounter_variant.duplicate(true) if encounter_variant is Dictionary else {}
 
 
 func _resolve_encounter(floor_state, room_state) -> Dictionary:
@@ -118,11 +209,24 @@ func _resolve_encounter(floor_state, room_state) -> Dictionary:
 	if resolved.is_empty():
 		resolved = {
 			"id": encounter_id,
+			"schema_contract_version": SCHEMA_CONTRACT_VERSION,
 			"label": room_state.label,
 			"category": "boss" if room_state.room_type_id == room_state.TYPE_BOSS else "standard",
 			"reward_table_id": "combat_boss" if room_state.room_type_id == room_state.TYPE_BOSS else "combat_standard",
 			"spawn_set_id": "",
 			"difficulty": 1,
+			"clear_mode": "kill_all",
+			"objective_id": "kill_all",
+			"objective_label": room_state.label,
+			"time_limit_sec": 0.0,
+			"waves": [],
+			"objective_props": [],
+			"room_mutators": [],
+			"success_bonus": {},
+			"fail_penalty": {},
+			"telegraph_ui": {},
+			"runtime_flags": {},
+			"tags": [],
 			"enemies": []
 		}
 	return resolved
@@ -179,17 +283,35 @@ func _ensure_loaded() -> void:
 	if not _encounters_by_id.is_empty():
 		if not _spawn_sets_by_id.is_empty():
 			return
+	_schema_warnings.clear()
+	_encounters_by_id.clear()
+	_spawn_sets_by_id.clear()
 	var payload := _load_json_dictionary(ENCOUNTERS_PATH)
+	if payload.is_empty():
+		_record_schema_warning("[night_encounters] missing or invalid encounter payload")
+	if not payload.has("schema_contract_version"):
+		_record_schema_warning("[night_encounters] missing schema_contract_version")
+	var contract_version := int(payload.get("schema_contract_version", SCHEMA_CONTRACT_VERSION))
+	if contract_version != SCHEMA_CONTRACT_VERSION:
+		_record_schema_warning(
+			"[night_encounters] schema_contract_version %d does not match expected %d"
+			% [contract_version, SCHEMA_CONTRACT_VERSION]
+		)
 	var rows_variant: Variant = payload.get("encounters", [])
 	if rows_variant is Array:
-		for row_variant in rows_variant:
+		var rows: Array = rows_variant
+		for row_index in range(rows.size()):
+			var row_variant: Variant = rows[row_index]
 			if not (row_variant is Dictionary):
+				_record_schema_warning("[night_encounters:%d] encounter must be a dictionary" % row_index)
 				continue
-			var row: Dictionary = row_variant
+			var row: Dictionary = _normalize_encounter_row(row_variant as Dictionary, row_index)
 			var encounter_id := String(row.get("id", "")).strip_edges().to_lower()
 			if encounter_id.is_empty():
 				continue
-			_encounters_by_id[encounter_id] = row.duplicate(true)
+			_encounters_by_id[encounter_id] = row
+	else:
+		_record_schema_warning("[night_encounters] encounters must be an array")
 	for path in SPAWN_SET_PATHS:
 		var spawn_payload := _load_json_dictionary(path)
 		var spawn_rows_variant: Variant = spawn_payload.get("spawn_sets", [])
@@ -297,10 +419,29 @@ func _normalize_wave_rows(value: Variant) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	if not (value is Array):
 		return rows
-	for row_variant in value:
+	var source_rows: Array = value
+	for row_index in range(source_rows.size()):
+		var row_variant: Variant = source_rows[row_index]
 		if not (row_variant is Dictionary):
 			continue
-		rows.append((row_variant as Dictionary).duplicate(true))
+		var row: Dictionary = row_variant
+		var trigger := String(row.get("trigger", "on_timer")).strip_edges().to_lower()
+		if trigger.is_empty() or not SUPPORTED_WAVE_TRIGGERS.has(trigger):
+			trigger = "on_timer"
+		var normalized := {
+			"trigger": trigger,
+			"spawn_set_id": String(row.get("spawn_set_id", "")).strip_edges().to_lower(),
+			"at_sec": maxf(0.0, float(row.get("at_sec", 0.0))),
+			"every_sec": maxf(0.0, float(row.get("every_sec", 0.0))),
+			"at_count": maxi(0, int(row.get("at_count", 0))),
+			"until_objective_complete": bool(row.get("until_objective_complete", false)),
+			"enemies": row.get("enemies", []).duplicate(true) if row.get("enemies", []) is Array else []
+		}
+		if trigger == "repeat" and is_zero_approx(float(normalized["every_sec"])):
+			normalized["every_sec"] = 1.0
+		elif trigger == "on_objective_progress" and int(normalized["at_count"]) <= 0:
+			normalized["at_count"] = 1
+		rows.append(normalized)
 	return rows
 
 
@@ -308,10 +449,20 @@ func _normalize_objective_props(value: Variant) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	if not (value is Array):
 		return rows
-	for row_variant in value:
+	var source_rows: Array = value
+	for row_index in range(source_rows.size()):
+		var row_variant: Variant = source_rows[row_index]
 		if not (row_variant is Dictionary):
 			continue
-		rows.append((row_variant as Dictionary).duplicate(true))
+		var row: Dictionary = row_variant
+		rows.append({
+			"prop_id": String(row.get("prop_id", "objective_prop_%d" % row_index)).strip_edges().to_lower(),
+			"marker": String(row.get("marker", row.get("spawn_point", ""))).strip_edges(),
+			"radius": maxf(0.0, float(row.get("radius", 24.0))),
+			"hp": maxf(0.0, float(row.get("hp", 0.0))),
+			"label": String(row.get("label", "")).strip_edges(),
+			"label_zh": String(row.get("label_zh", "")).strip_edges()
+		})
 	return rows
 
 
@@ -325,3 +476,63 @@ func _normalize_string_array(value: Variant) -> Array[String]:
 			continue
 		rows.append(normalized)
 	return rows
+
+
+func _normalize_dictionary(value: Variant) -> Dictionary:
+	return value.duplicate(true) if value is Dictionary else {}
+
+
+func _normalize_encounter_row(row: Dictionary, row_index: int) -> Dictionary:
+	var encounter_id := String(row.get("id", "")).strip_edges().to_lower()
+	if encounter_id.is_empty():
+		_record_schema_warning("[night_encounters:%d] encounter id must be non-empty" % row_index)
+		return {}
+	var category := String(row.get("category", "standard")).strip_edges().to_lower()
+	if category.is_empty() or not SUPPORTED_CATEGORIES.has(category):
+		_record_schema_warning(
+			"[night_encounters:%d] encounter '%s' uses unsupported category '%s'"
+			% [row_index, encounter_id, category]
+		)
+		category = "standard"
+	var clear_mode := String(row.get("clear_mode", "kill_all")).strip_edges().to_lower()
+	if clear_mode.is_empty() or not SUPPORTED_CLEAR_MODES.has(clear_mode):
+		_record_schema_warning(
+			"[night_encounters:%d] encounter '%s' uses unsupported clear_mode '%s'"
+			% [row_index, encounter_id, clear_mode]
+		)
+		clear_mode = "kill_all"
+	var encounter_label := String(row.get("label", encounter_id.capitalize())).strip_edges()
+	var objective_id := String(row.get("objective_id", "kill_all")).strip_edges().to_lower()
+	if objective_id.is_empty():
+		objective_id = "kill_all"
+	return {
+		"id": encounter_id,
+		"schema_contract_version": SCHEMA_CONTRACT_VERSION,
+		"label": encounter_label,
+		"label_zh": String(row.get("label_zh", "")).strip_edges(),
+		"category": category,
+		"category_label": String(row.get("category_label", CATEGORY_LABELS.get(category, category.capitalize()))).strip_edges(),
+		"category_label_zh": String(row.get("category_label_zh", "")).strip_edges(),
+		"reward_table_id": String(row.get("reward_table_id", "combat_%s" % category)).strip_edges(),
+		"difficulty": maxi(1, int(row.get("difficulty", 1))),
+		"spawn_set_id": String(row.get("spawn_set_id", "")).strip_edges().to_lower(),
+		"clear_mode": clear_mode,
+		"objective_id": objective_id,
+		"objective_label": String(row.get("objective_label", encounter_label)).strip_edges(),
+		"objective_label_zh": String(row.get("objective_label_zh", "")).strip_edges(),
+		"time_limit_sec": maxf(0.0, float(row.get("time_limit_sec", 0.0))),
+		"waves": _normalize_wave_rows(row.get("waves", [])),
+		"objective_props": _normalize_objective_props(row.get("objective_props", [])),
+		"room_mutators": _normalize_string_array(row.get("room_mutators", [])),
+		"success_bonus": _normalize_dictionary(row.get("success_bonus", {})),
+		"fail_penalty": _normalize_dictionary(row.get("fail_penalty", {})),
+		"telegraph_ui": _normalize_dictionary(row.get("telegraph_ui", {})),
+		"runtime_flags": _normalize_dictionary(row.get("runtime_flags", {})),
+		"tags": _normalize_string_array(row.get("tags", []))
+	}
+
+
+func _record_schema_warning(message: String) -> void:
+	if message.is_empty() or _schema_warnings.has(message):
+		return
+	_schema_warnings.append(message)

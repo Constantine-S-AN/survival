@@ -40,9 +40,33 @@ func _run() -> void:
 
 	await _wait_frames(10)
 	var snapshot: Dictionary = run_node.call("debug_get_snapshot")
+	var schema_contracts: Dictionary = snapshot.get("schema_contracts", {})
+	var schema_warnings: Dictionary = snapshot.get("schema_warnings", {})
+	var room_payload: Dictionary = snapshot.get("room_payload", {})
 	_assert_equal(String(snapshot.get("presentation_profile", "")), "clear_dungeon", "night run boots the bright dungeon presentation profile")
 	_assert_true(bool(snapshot.get("runtime_clear_dungeon_presentation", false)), "night run enables clear dungeon presentation in the embedded combat world")
 	_assert_true(not bool(snapshot.get("runtime_fog_enabled", true)), "night run disables fog darkness for readable dungeon rooms")
+	_assert_equal(
+		int((schema_contracts.get("encounter", {}) as Dictionary).get("contract_version", 0)),
+		1,
+		"night run snapshot reports encounter schema contract v1"
+	)
+	_assert_equal(
+		int((schema_contracts.get("floor", {}) as Dictionary).get("contract_version", 0)),
+		1,
+		"night run snapshot reports floor schema contract v1"
+	)
+	_assert_equal(
+		int((schema_contracts.get("reward", {}) as Dictionary).get("contract_version", 0)),
+		1,
+		"night run snapshot reports reward schema contract v1"
+	)
+	_assert_equal(int((schema_warnings.get("encounter", []) as Array).size()), 0, "encounter schema loads without warnings")
+	_assert_equal(int((schema_warnings.get("floor", []) as Array).size()), 0, "floor schema loads without warnings")
+	_assert_equal(int((schema_warnings.get("reward", []) as Array).size()), 0, "reward schema loads without warnings")
+	_assert_equal(int(room_payload.get("schema_contract_version", 0)), 1, "room payload carries the frozen encounter schema contract version")
+	_assert_true(room_payload.has("telegraph_ui"), "room payload exposes canonical telegraph_ui field even when unused")
+	_assert_true(room_payload.has("runtime_flags"), "room payload exposes canonical runtime_flags field even when unused")
 	_assert_equal(String(snapshot.get("floor_label", "")), "裂隙第一层", "night run floor label follows the Chinese localization pass")
 	_assert_equal(String(snapshot.get("room_id", "")), "camp", "night run starts in the deterministic rest room")
 	_assert_equal(String(snapshot.get("room_label", "")), "港湾庇护所", "night run room labels localize into Chinese")
@@ -318,6 +342,10 @@ func _run_cover_blocking_tests() -> void:
 func _run_generator_validation_tests() -> void:
 	var generator_script: Script = load("res://scripts/night/room_graph_generator.gd")
 	var generator = generator_script.new()
+	var encounter_director_script: Script = load("res://scripts/night/encounter_director.gd")
+	var encounter_director = encounter_director_script.new()
+	var reward_picker_script: Script = load("res://scripts/night/room_reward_picker.gd")
+	var reward_picker = reward_picker_script.new()
 	var room_types := {
 		"rest": {
 			"id": "rest",
@@ -417,6 +445,44 @@ func _run_generator_validation_tests() -> void:
 			not route_room.connections.has("missing_room"),
 			"validated floor strips broken room connections before the run starts"
 		)
+	var encounter_schema: Dictionary = encounter_director.call("get_schema_contract")
+	_assert_equal(int(encounter_schema.get("contract_version", 0)), 1, "encounter director publishes schema contract v1")
+	_assert_true((encounter_schema.get("encounter_fields", []) as Array).has("telegraph_ui"), "encounter schema exposes telegraph_ui as a canonical field")
+	_assert_true((encounter_schema.get("encounter_fields", []) as Array).has("runtime_flags"), "encounter schema exposes runtime_flags as a canonical field")
+	_assert_equal(int((encounter_director.call("get_schema_warnings") as Array).size()), 0, "live encounter data validates against the frozen schema")
+	var legacy_encounter: Dictionary = encounter_director.call("get_encounter_definition", "reef_patrol")
+	_assert_equal(String(legacy_encounter.get("objective_id", "")), "kill_all", "legacy encounters inherit kill_all objective id by default")
+	_assert_equal(String(legacy_encounter.get("clear_mode", "")), "kill_all", "legacy encounters inherit kill_all clear mode by default")
+	_assert_true(legacy_encounter.has("telegraph_ui"), "legacy encounters are normalized with telegraph_ui field")
+	var objective_encounter: Dictionary = encounter_director.call("get_encounter_definition", "relay_holdout")
+	_assert_equal(String(objective_encounter.get("objective_id", "")), "hold_zone", "objective encounters keep their authored objective id")
+	_assert_equal(int((objective_encounter.get("waves", []) as Array).size()), 2, "objective encounters preserve authored wave rows through normalization")
+	var live_floors: Array = generator.call("build_floors", 9001)
+	_assert_true(int(live_floors.size()) >= 1, "room graph generator builds at least one live floor from normalized schema data")
+	_assert_equal(int((generator.call("get_schema_warnings") as Array).size()), 0, "live floor/template data validates against the frozen schema")
+	var live_floor_state = live_floors[0] if not live_floors.is_empty() else null
+	if live_floor_state != null:
+		_assert_true(not String(live_floor_state.template_id).is_empty(), "live floor keeps a normalized template id")
+		_assert_true(not String(live_floor_state.start_room_id).is_empty(), "live floor keeps a normalized start room id")
+	var second_theme_floors: Array = generator.call("build_floors", 9003)
+	_assert_true(int(second_theme_floors.size()) >= 1, "room graph generator can roll the second floor theme from a deterministic seed")
+	if not second_theme_floors.is_empty():
+		_assert_equal(String(second_theme_floors[0].template_id), "sunken_exchange_v2_route_b", "seeded floor build can select the second floor theme")
+	var forced_theme_floors: Array = generator.call("build_floors", 9000, {"floor_template_id": "sunken_exchange_v2_route_b"})
+	_assert_true(int(forced_theme_floors.size()) >= 1, "room graph generator accepts an explicit floor-template override")
+	if not forced_theme_floors.is_empty():
+		_assert_equal(String(forced_theme_floors[0].template_id), "sunken_exchange_v2_route_b", "explicit floor-template override forces the second theme")
+	var reward_schema: Dictionary = reward_picker.call("get_schema_contract")
+	_assert_equal(int(reward_schema.get("contract_version", 0)), 1, "reward picker publishes schema contract v1")
+	_assert_true((reward_schema.get("table_fields", []) as Array).has("reward_groups"), "reward schema exposes grouped reward tables as a canonical field")
+	_assert_equal(int((reward_picker.call("get_schema_warnings") as Array).size()), 0, "reward tables validate against the frozen schema")
+	var standard_v2_table: Dictionary = reward_picker.call("get_reward_table", "combat_standard_v2")
+	_assert_equal(int(standard_v2_table.get("draws", 0)), 3, "v2 reward tables normalize draw count")
+	_assert_true((standard_v2_table.get("reward_groups", {}) as Dictionary).has("weapon_trait"), "v2 reward tables preserve grouped reward categories")
+	var standard_v1_table: Dictionary = reward_picker.call("get_reward_table", "combat_standard")
+	_assert_equal(int((standard_v1_table.get("slots", []) as Array).size()), 3, "legacy reward tables normalize slot-based rewards")
+	var v2_bundle: Dictionary = reward_picker.call("get_bundle_definition", "salvage_drift_pack")
+	_assert_equal(String(v2_bundle.get("reward_kind", "")), "materials", "v2 bundle definitions preserve reward kind")
 
 
 func _bootstrap_script_mode_singletons() -> void:

@@ -7,22 +7,61 @@ const RoomStateClass := preload("res://scripts/night/room_state.gd")
 const ROOM_TYPES_PATH := "res://data/night_room_types.json"
 const ROOM_TEMPLATES_PATH := "res://data/night_room_templates.json"
 const FLOOR_RULES_PATH := "res://data/night_floor_rules.json"
+const SCHEMA_CONTRACT_VERSION := 1
+const FLOOR_SCHEMA_FIELDS: Array[String] = [
+	"id",
+	"label",
+	"label_zh",
+	"template_id",
+	"template_ids",
+	"start_room_id",
+	"goal_room_id",
+	"map_layout",
+	"encounters",
+	"room_overrides",
+	"extra_connections",
+	"mutator_id",
+	"mutator_pool"
+]
+const TEMPLATE_SCHEMA_FIELDS: Array[String] = [
+	"id",
+	"label",
+	"label_zh",
+	"start_room_id",
+	"goal_room_id",
+	"map_layout",
+	"encounters",
+	"rooms",
+	"connections",
+	"mutator_id",
+	"mutator_pool"
+]
+const TEMPLATE_ROOM_REQUIRED_FIELDS: Array[String] = [
+	"id",
+	"room_type_id",
+	"scene"
+]
+const CONNECTION_SCHEMA_FIELDS: Array[String] = [
+	"from",
+	"to",
+	"hidden"
+]
+
+var _schema_warnings: Array[String] = []
 
 
-func build_floors(seed: int = 0) -> Array:
+func build_floors(seed: int = 0, options: Dictionary = {}) -> Array:
 	var room_types := _load_room_types()
 	if room_types.is_empty():
 		return []
 	var room_templates := _load_room_templates_dictionary()
 	if room_templates.is_empty():
 		return []
-	var floor_rules := _load_json_dictionary(FLOOR_RULES_PATH)
-	if floor_rules.is_empty():
+	var floor_rows := _load_floor_rows()
+	if floor_rows.is_empty():
 		return []
-	var floor_rows_variant: Variant = floor_rules.get("floors", [])
-	if not (floor_rows_variant is Array):
-		return []
-	var floor_rows: Array = floor_rows_variant
+	if not options.is_empty():
+		floor_rows = _apply_build_options(floor_rows, options)
 	return build_floors_from_data(room_types, room_templates, floor_rows, seed)
 
 
@@ -53,6 +92,42 @@ func build_floors_from_data(room_types: Dictionary, room_templates: Dictionary, 
 		if not built_floor:
 			push_warning("Night floor %s could not build a valid room graph." % floor_id)
 	return floors
+
+
+func get_schema_contract() -> Dictionary:
+	return {
+		"contract_version": SCHEMA_CONTRACT_VERSION,
+		"floor_fields": FLOOR_SCHEMA_FIELDS.duplicate(),
+		"template_fields": TEMPLATE_SCHEMA_FIELDS.duplicate(),
+		"room_required_fields": TEMPLATE_ROOM_REQUIRED_FIELDS.duplicate(),
+		"connection_fields": CONNECTION_SCHEMA_FIELDS.duplicate()
+	}
+
+
+func get_schema_warnings() -> Array[String]:
+	return _schema_warnings.duplicate()
+
+
+func _apply_build_options(floor_rows: Array, options: Dictionary) -> Array:
+	var normalized_rows: Array = []
+	var shorthand_template_id := String(options.get("floor_template_id", "")).strip_edges()
+	var overrides_variant: Variant = options.get("floor_template_overrides", {})
+	var template_overrides: Dictionary = overrides_variant if overrides_variant is Dictionary else {}
+	for floor_variant in floor_rows:
+		if not (floor_variant is Dictionary):
+			continue
+		var floor_row: Dictionary = (floor_variant as Dictionary).duplicate(true)
+		var floor_id := String(floor_row.get("id", "")).strip_edges()
+		var override_value: Variant = template_overrides.get(floor_id, null)
+		if override_value == null and normalized_rows.is_empty() and not shorthand_template_id.is_empty():
+			override_value = shorthand_template_id
+		if override_value != null:
+			var override_template_ids := _normalize_override_template_ids(override_value)
+			if not override_template_ids.is_empty():
+				floor_row["template_ids"] = override_template_ids
+				floor_row["template_id"] = override_template_ids[0]
+		normalized_rows.append(floor_row)
+	return normalized_rows
 
 
 func _build_floor_rooms(floor_state, template: Dictionary, floor_row: Dictionary, room_types: Dictionary) -> void:
@@ -141,14 +216,24 @@ func _build_floor_state(
 	else:
 		floor_state.label = floor_label_fallback
 	floor_state.template_id = template_id
-	floor_state.start_room_id = String(floor_row.get("start_room_id", template.get("start_room_id", ""))).strip_edges()
-	floor_state.goal_room_id = String(floor_row.get("goal_room_id", template.get("goal_room_id", ""))).strip_edges()
-	var map_layout_variant: Variant = floor_row.get("map_layout", template.get("map_layout", {}))
+	var start_room_id := String(floor_row.get("start_room_id", "")).strip_edges()
+	if start_room_id.is_empty():
+		start_room_id = String(template.get("start_room_id", "")).strip_edges()
+	floor_state.start_room_id = start_room_id
+	var goal_room_id := String(floor_row.get("goal_room_id", "")).strip_edges()
+	if goal_room_id.is_empty():
+		goal_room_id = String(template.get("goal_room_id", "")).strip_edges()
+	floor_state.goal_room_id = goal_room_id
+	var map_layout_variant: Variant = floor_row.get("map_layout", {})
+	if not (map_layout_variant is Dictionary) or (map_layout_variant as Dictionary).is_empty():
+		map_layout_variant = template.get("map_layout", {})
 	var map_layout: Dictionary = map_layout_variant if map_layout_variant is Dictionary else {}
 	var default_grid_spacing := floor_state.map_grid_spacing
 	floor_state.map_grid_spacing = _coerce_vector2(map_layout.get("grid_spacing", default_grid_spacing), default_grid_spacing)
 	floor_state.map_corridor_width = maxf(48.0, float(map_layout.get("corridor_width", floor_state.map_corridor_width)))
-	var encounters_variant: Variant = floor_row.get("encounters", template.get("encounters", {}))
+	var encounters_variant: Variant = floor_row.get("encounters", {})
+	if not (encounters_variant is Dictionary) or (encounters_variant as Dictionary).is_empty():
+		encounters_variant = template.get("encounters", {})
 	floor_state.encounters = encounters_variant.duplicate(true) if encounters_variant is Dictionary else {}
 	floor_state.floor_mutator_id = _resolve_floor_mutator_id(floor_row, template, floor_index, template_id, seed)
 	floor_state.floor_mutator = {
@@ -339,10 +424,14 @@ func _resolve_floor_mutator_id(
 	template_id: String,
 	seed: int
 ) -> String:
-	var mutator_id := String(floor_row.get("mutator_id", template.get("mutator_id", ""))).strip_edges().to_lower()
+	var mutator_id := String(floor_row.get("mutator_id", "")).strip_edges().to_lower()
+	if mutator_id.is_empty():
+		mutator_id = String(template.get("mutator_id", "")).strip_edges().to_lower()
 	if not mutator_id.is_empty():
 		return mutator_id
-	var mutator_pool_variant: Variant = floor_row.get("mutator_pool", template.get("mutator_pool", []))
+	var mutator_pool_variant: Variant = floor_row.get("mutator_pool", [])
+	if not (mutator_pool_variant is Array) or (mutator_pool_variant as Array).is_empty():
+		mutator_pool_variant = template.get("mutator_pool", [])
 	if not (mutator_pool_variant is Array):
 		return ""
 	var mutator_pool: Array = mutator_pool_variant
@@ -402,23 +491,64 @@ func _load_room_types() -> Dictionary:
 
 
 func _load_room_templates_dictionary() -> Dictionary:
+	_schema_warnings.clear()
 	var payload := _load_json_dictionary(ROOM_TEMPLATES_PATH)
 	if payload.is_empty():
+		_record_schema_warning("[night_room_templates] missing or invalid template payload")
 		return {}
+	if not payload.has("schema_contract_version"):
+		_record_schema_warning("[night_room_templates] missing schema_contract_version")
+	var template_contract_version := int(payload.get("schema_contract_version", SCHEMA_CONTRACT_VERSION))
+	if template_contract_version != SCHEMA_CONTRACT_VERSION:
+		_record_schema_warning(
+			"[night_room_templates] schema_contract_version %d does not match expected %d"
+			% [template_contract_version, SCHEMA_CONTRACT_VERSION]
+		)
 	var rows_variant: Variant = payload.get("templates", [])
 	if not (rows_variant is Array):
+		_record_schema_warning("[night_room_templates] templates must be an array")
 		return {}
 	var templates: Dictionary = {}
 	var rows: Array = rows_variant
-	for row_variant in rows:
+	for row_index in range(rows.size()):
+		var row_variant: Variant = rows[row_index]
 		if not (row_variant is Dictionary):
+			_record_schema_warning("[night_room_templates:%d] template must be a dictionary" % row_index)
 			continue
-		var row: Dictionary = row_variant
+		var row: Dictionary = _normalize_template_row(row_variant as Dictionary, row_index)
 		var template_id := String(row.get("id", "")).strip_edges()
 		if template_id.is_empty():
 			continue
 		templates[template_id] = row.duplicate(true)
 	return templates
+
+
+func _load_floor_rows() -> Array:
+	var payload := _load_json_dictionary(FLOOR_RULES_PATH)
+	if payload.is_empty():
+		_record_schema_warning("[night_floor_rules] missing or invalid floor payload")
+		return []
+	if not payload.has("schema_contract_version"):
+		_record_schema_warning("[night_floor_rules] missing schema_contract_version")
+	var floor_contract_version := int(payload.get("schema_contract_version", SCHEMA_CONTRACT_VERSION))
+	if floor_contract_version != SCHEMA_CONTRACT_VERSION:
+		_record_schema_warning(
+			"[night_floor_rules] schema_contract_version %d does not match expected %d"
+			% [floor_contract_version, SCHEMA_CONTRACT_VERSION]
+		)
+	var rows_variant: Variant = payload.get("floors", [])
+	if not (rows_variant is Array):
+		_record_schema_warning("[night_floor_rules] floors must be an array")
+		return []
+	var normalized_rows: Array = []
+	var rows: Array = rows_variant
+	for row_index in range(rows.size()):
+		var row_variant: Variant = rows[row_index]
+		if not (row_variant is Dictionary):
+			_record_schema_warning("[night_floor_rules:%d] floor must be a dictionary" % row_index)
+			continue
+		normalized_rows.append(_normalize_floor_row(row_variant as Dictionary, row_index))
+	return normalized_rows
 
 
 func _load_json_dictionary(path: String) -> Dictionary:
@@ -434,3 +564,159 @@ func _load_json_dictionary(path: String) -> Dictionary:
 		return (parsed as Dictionary).duplicate(true)
 	push_warning("Night room config must be a dictionary: %s" % path)
 	return {}
+
+
+func _normalize_floor_row(row: Dictionary, row_index: int) -> Dictionary:
+	var floor_id := _resolve_floor_id(row, row_index)
+	var template_ids := _normalize_string_array(row.get("template_ids", []))
+	var template_id := String(row.get("template_id", "")).strip_edges()
+	if template_ids.is_empty() and template_id.is_empty():
+		_record_schema_warning("[night_floor_rules:%d] floor '%s' has no template_id or template_ids" % [row_index, floor_id])
+	var normalized := {
+		"id": floor_id,
+		"label": String(row.get("label", "Floor %d" % (row_index + 1))).strip_edges(),
+		"label_zh": String(row.get("label_zh", "")).strip_edges(),
+		"template_id": template_id,
+		"template_ids": template_ids,
+		"start_room_id": String(row.get("start_room_id", "")).strip_edges(),
+		"goal_room_id": String(row.get("goal_room_id", "")).strip_edges(),
+		"map_layout": _normalize_map_layout(row.get("map_layout", {}), Vector2(1180.0, 860.0), 96.0),
+		"encounters": _normalize_dictionary_map(row.get("encounters", {})),
+		"room_overrides": _normalize_dictionary_map(row.get("room_overrides", {})),
+		"extra_connections": _normalize_connection_rows(row.get("extra_connections", []), "night_floor_rules:%d" % row_index),
+		"mutator_id": String(row.get("mutator_id", "")).strip_edges().to_lower(),
+		"mutator_pool": _normalize_string_array(row.get("mutator_pool", []))
+	}
+	return normalized
+
+
+func _normalize_template_row(row: Dictionary, row_index: int) -> Dictionary:
+	var template_id := String(row.get("id", "")).strip_edges()
+	if template_id.is_empty():
+		_record_schema_warning("[night_room_templates:%d] template id must be non-empty" % row_index)
+		return {}
+	var normalized := {
+		"id": template_id,
+		"label": String(row.get("label", template_id.capitalize())).strip_edges(),
+		"label_zh": String(row.get("label_zh", "")).strip_edges(),
+		"start_room_id": String(row.get("start_room_id", "")).strip_edges(),
+		"goal_room_id": String(row.get("goal_room_id", "")).strip_edges(),
+		"map_layout": _normalize_map_layout(row.get("map_layout", {}), Vector2(1180.0, 860.0), 96.0),
+		"encounters": _normalize_dictionary_map(row.get("encounters", {})),
+		"rooms": _normalize_template_rooms(row.get("rooms", []), "night_room_templates:%d" % row_index),
+		"connections": _normalize_connection_rows(row.get("connections", []), "night_room_templates:%d" % row_index),
+		"mutator_id": String(row.get("mutator_id", "")).strip_edges().to_lower(),
+		"mutator_pool": _normalize_string_array(row.get("mutator_pool", []))
+	}
+	if (normalized["rooms"] as Array).is_empty():
+		_record_schema_warning("[night_room_templates:%d] template '%s' has no rooms" % [row_index, template_id])
+	return normalized
+
+
+func _normalize_template_rooms(value: Variant, owner_label: String) -> Array:
+	var rows: Array = []
+	if not (value is Array):
+		_record_schema_warning("[%s] rooms must be an array" % owner_label)
+		return rows
+	var source_rows: Array = value
+	for row_index in range(source_rows.size()):
+		var row_variant: Variant = source_rows[row_index]
+		if not (row_variant is Dictionary):
+			_record_schema_warning("[%s:room:%d] room must be a dictionary" % [owner_label, row_index])
+			continue
+		var room: Dictionary = (row_variant as Dictionary).duplicate(true)
+		var room_id := String(room.get("id", room.get("room_id", ""))).strip_edges()
+		if room_id.is_empty():
+			_record_schema_warning("[%s:room:%d] room id must be non-empty" % [owner_label, row_index])
+			continue
+		room["id"] = room_id
+		room["room_type_id"] = String(room.get("room_type_id", room.get("type", ""))).strip_edges().to_lower()
+		room["scene"] = String(room.get("scene", "")).strip_edges()
+		room["encounter_id"] = String(room.get("encounter_id", "")).strip_edges().to_lower()
+		if String(room.get("room_type_id", "")).strip_edges().is_empty():
+			_record_schema_warning("[%s:room:%d] room '%s' missing room_type_id" % [owner_label, row_index, room_id])
+		rows.append(room)
+	return rows
+
+
+func _normalize_connection_rows(value: Variant, owner_label: String) -> Array:
+	var rows: Array = []
+	if not (value is Array):
+		if not owner_label.is_empty():
+			_record_schema_warning("[%s] connections must be an array" % owner_label)
+		return rows
+	var source_rows: Array = value
+	for row_index in range(source_rows.size()):
+		var row_variant: Variant = source_rows[row_index]
+		if not (row_variant is Dictionary):
+			_record_schema_warning("[%s:connection:%d] connection must be a dictionary" % [owner_label, row_index])
+			continue
+		var row: Dictionary = row_variant
+		var from_room_id := String(row.get("from", "")).strip_edges()
+		var to_room_id := String(row.get("to", "")).strip_edges()
+		if from_room_id.is_empty() or to_room_id.is_empty():
+			_record_schema_warning("[%s:connection:%d] connection must define non-empty from/to" % [owner_label, row_index])
+			continue
+		var normalized := {
+			"from": from_room_id,
+			"to": to_room_id,
+			"hidden": bool(row.get("hidden", false))
+		}
+		for key_variant in row.keys():
+			var key := String(key_variant)
+			if key == "from" or key == "to" or key == "hidden":
+				continue
+			normalized[key] = row[key_variant]
+		rows.append(normalized)
+	return rows
+
+
+func _normalize_map_layout(value: Variant, default_grid_spacing: Vector2, default_corridor_width: float) -> Dictionary:
+	var source: Dictionary = value if value is Dictionary else {}
+	return {
+		"grid_spacing": _coerce_vector2(source.get("grid_spacing", default_grid_spacing), default_grid_spacing),
+		"corridor_width": maxf(48.0, float(source.get("corridor_width", default_corridor_width)))
+	}
+
+
+func _normalize_dictionary_map(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var normalized: Dictionary = {}
+	var source: Dictionary = value
+	for key_variant in source.keys():
+		var key := String(key_variant).strip_edges()
+		if key.is_empty():
+			continue
+		var row_variant: Variant = source.get(key_variant, {})
+		normalized[key] = row_variant.duplicate(true) if row_variant is Dictionary else {}
+	return normalized
+
+
+func _normalize_string_array(value: Variant) -> Array[String]:
+	var rows: Array[String] = []
+	if not (value is Array):
+		return rows
+	var source_rows: Array = value
+	for row_variant in source_rows:
+		var normalized := String(row_variant).strip_edges()
+		if normalized.is_empty() or rows.has(normalized):
+			continue
+		rows.append(normalized)
+	return rows
+
+
+func _normalize_override_template_ids(value: Variant) -> Array[String]:
+	if value is String:
+		var template_id := String(value).strip_edges()
+		var rows: Array[String] = []
+		if not template_id.is_empty():
+			rows.append(template_id)
+		return rows
+	return _normalize_string_array(value)
+
+
+func _record_schema_warning(message: String) -> void:
+	if message.is_empty() or _schema_warnings.has(message):
+		return
+	_schema_warnings.append(message)

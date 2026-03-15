@@ -1,5 +1,6 @@
 {
   "schema_version": 2,
+  "schema_contract_version": 1,
   "templates": [
     {
       "id": "branching_intro_channels",
@@ -601,6 +602,447 @@
         },
         {
           "from": "pressure_lock",
+          "to": "apex_guardian"
+        }
+      ]
+    },
+    {
+      "id": "sunken_exchange_v2_route_b",
+      "label": "Sunken Exchange V2",
+      "label_zh": "沉埠裂隙 V2",
+      "start_room_id": "camp",
+      "goal_room_id": "apex_guardian",
+      "map_layout": {
+        "grid_spacing": [1240, 920],
+        "corridor_width": 112
+      },
+      "mutator_pool": [
+        "mutator_salt_thickening",
+        "mutator_relay_static",
+        "mutator_contraband_current"
+      ],
+      "encounters": {
+        "reef_patrol_volley": {
+          "spawn_set_id": "kelp_watch_volley",
+          "success_bonus": {
+            "carryover_materials": {
+              "reef_salt": 1
+            },
+            "reward_bias": [
+              "materials",
+              "tempo"
+            ]
+          },
+          "tags": [
+            "starter",
+            "salvage"
+          ]
+        },
+        "relay_holdout": {
+          "spawn_set_id": "signal_jetty_wave_1",
+          "waves": [
+            {
+              "trigger": "on_timer",
+              "at_sec": 7.0,
+              "spawn_set_id": "signal_jetty_wave_2"
+            },
+            {
+              "trigger": "on_timer",
+              "at_sec": 15.0,
+              "spawn_set_id": "signal_jetty_wave_3"
+            }
+          ],
+          "fail_penalty": {
+            "spawn_set_id": "signal_jetty_fail_cleanup"
+          },
+          "success_bonus": {
+            "carryover_materials": {
+              "glow_kelp": 2
+            },
+            "reward_bias": [
+              "blessing",
+              "support"
+            ]
+          },
+          "tags": [
+            "defense",
+            "signal"
+          ]
+        },
+        "turret_cache_lockdown": {
+          "spawn_set_id": "salt_vault_guards",
+          "waves": [
+            {
+              "trigger": "on_objective_progress",
+              "at_count": 2,
+              "spawn_set_id": "salt_vault_reinforce"
+            }
+          ],
+          "success_bonus": {
+            "carryover_materials": {
+              "reef_salt": 2
+            },
+            "reward_bias": [
+              "weapon_trait"
+            ]
+          },
+          "tags": [
+            "bunker",
+            "elite"
+          ]
+        },
+        "swarm_nest_breach": {
+          "spawn_set_id": "barnacle_hive_intro",
+          "waves": [
+            {
+              "trigger": "repeat",
+              "every_sec": 6.5,
+              "spawn_set_id": "barnacle_hive_repeat",
+              "until_objective_complete": true
+            }
+          ],
+          "success_bonus": {
+            "carryover_materials": {
+              "moon_spore": 1,
+              "glow_kelp": 1
+            },
+            "reward_bias": [
+              "damage",
+              "summon"
+            ]
+          },
+          "tags": [
+            "spawner",
+            "pressure"
+          ]
+        },
+        "pressure_lock_trial": {
+          "spawn_set_id": "customs_gate_trial",
+          "room_mutators": [
+            "double_elite_chance",
+            "healing_blocked",
+            "projectile_dense"
+          ],
+          "success_bonus": {
+            "carryover_materials": {
+              "challenge_seal": 1,
+              "reef_salt": 1
+            },
+            "reward_bias": [
+              "blessing",
+              "rare_trait"
+            ]
+          },
+          "tags": [
+            "challenge",
+            "checkpoint"
+          ]
+        },
+        "customs_leviathan_trial": {
+          "reward_table_id": "combat_boss_v2",
+          "spawn_set_id": "customs_leviathan_phase_1",
+          "success_bonus": {
+            "carryover_materials": {
+              "kitchen_blueprint_fragment": 1,
+              "challenge_seal": 1,
+              "reef_salt": 2
+            }
+          }
+        }
+      },
+      "rooms": [
+        {
+          "id": "camp",
+          "room_type_id": "rest",
+          "label": "Harbor Refuge",
+          "label_zh": "港湾庇护所",
+          "scene": "res://scenes/night/rooms/HarborRefugeRoom.tscn",
+          "map_position": [0, 0],
+          "map_size": [940, 620],
+          "reward": {
+            "kind": "rest",
+            "heal_pct": 0.28,
+            "noise_delta": -12.0
+          },
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["start", "market"],
+            "preview_text_zh": "沿旧沉埠通路下潜"
+          }
+        },
+        {
+          "id": "kelp_watch",
+          "room_type_id": "combat",
+          "label": "Kelp Watch",
+          "label_zh": "盐港火线",
+          "encounter_id": "reef_patrol_volley",
+          "scene": "res://scenes/night/rooms/ReefChannelRoom.tscn",
+          "map_position": [1, -1],
+          "map_size": [1120, 720],
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["starter", "corridor"],
+            "preview_reward_material": "reef_salt"
+          }
+        },
+        {
+          "id": "signal_jetty",
+          "room_type_id": "combat",
+          "label": "Signal Jetty",
+          "label_zh": "信号栈桥",
+          "encounter_id": "relay_holdout",
+          "scene": "res://scenes/night/rooms/OmenShrineRoom.tscn",
+          "map_position": [2, -1],
+          "map_size": [1040, 660],
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["objective", "signal"],
+            "preview_reward_material": "glow_kelp"
+          }
+        },
+        {
+          "id": "hushed_aisle",
+          "room_type_id": "rest",
+          "label": "Hushed Aisle",
+          "label_zh": "静潮长廊",
+          "scene": "res://scenes/night/rooms/QuietNicheRoom.tscn",
+          "map_position": [3, -2],
+          "map_size": [920, 580],
+          "reward": {
+            "kind": "rest",
+            "heal_pct": 0.22,
+            "noise_delta": -14.0
+          },
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["rest", "breather"]
+          }
+        },
+        {
+          "id": "tide_exchange",
+          "room_type_id": "treasure",
+          "label": "Tide Exchange",
+          "label_zh": "潮汐小市",
+          "scene": "res://scenes/night/rooms/SupplyCacheRoom.tscn",
+          "reward_on_enter": false,
+          "map_position": [3, 0],
+          "map_size": [960, 600],
+          "reward": {
+            "kind": "treasure",
+            "xp_pickups": 7,
+            "xp_amount": 18
+          },
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "special_room_kind": "shop",
+            "shop_inventory_id": "night_market_tier_1",
+            "shop_price_xp": 36,
+            "room_tags": ["shop", "materials"]
+          }
+        },
+        {
+          "id": "salt_vault",
+          "room_type_id": "combat",
+          "label": "Salt Vault",
+          "label_zh": "盐库防线",
+          "encounter_id": "turret_cache_lockdown",
+          "scene": "res://scenes/night/rooms/ReefPillarRoom.tscn",
+          "map_position": [1, 1],
+          "map_size": [1160, 760],
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["objective", "vault"],
+            "preview_reward_material": "reef_salt"
+          }
+        },
+        {
+          "id": "barnacle_hive",
+          "room_type_id": "combat",
+          "label": "Barnacle Hive",
+          "label_zh": "藤壶巢穴",
+          "encounter_id": "swarm_nest_breach",
+          "scene": "res://scenes/night/rooms/SwarmNestRoom.tscn",
+          "map_position": [2, 1],
+          "map_size": [1180, 760],
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["elite", "spawner"],
+            "preview_reward_material": "moon_spore"
+          }
+        },
+        {
+          "id": "contraband_lockup",
+          "room_type_id": "treasure",
+          "label": "Contraband Lockup",
+          "label_zh": "夹层私货库",
+          "scene": "res://scenes/night/rooms/SupplyCacheRoom.tscn",
+          "map_position": [4, 2],
+          "map_size": [900, 560],
+          "reward": {
+            "kind": "treasure",
+            "xp_pickups": 8,
+            "xp_amount": 20
+          },
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["treasure", "secret", "contraband"],
+            "carryover_materials": {
+              "glow_kelp": 1,
+              "reef_salt": 1
+            }
+          }
+        },
+        {
+          "id": "rust_market",
+          "room_type_id": "treasure",
+          "label": "Rust Market",
+          "label_zh": "锈蚀商栈",
+          "scene": "res://scenes/night/rooms/SupplyCacheRoom.tscn",
+          "reward_on_enter": false,
+          "map_position": [3, 2],
+          "map_size": [980, 620],
+          "reward": {
+            "kind": "treasure",
+            "xp_pickups": 8,
+            "xp_amount": 20
+          },
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "special_room_kind": "shop",
+            "shop_inventory_id": "night_market_tier_2",
+            "shop_price_xp": 48,
+            "room_tags": ["shop", "rare"]
+          }
+        },
+        {
+          "id": "relay_oracle",
+          "room_type_id": "event",
+          "label": "Relay Oracle",
+          "label_zh": "中继先知坛",
+          "scene": "res://scenes/night/rooms/OmenShrineRoom.tscn",
+          "reward_on_enter": false,
+          "map_position": [3, 1],
+          "map_size": [940, 600],
+          "reward": {
+            "kind": "event",
+            "event_id": "relay_oracle",
+            "xp_bonus": 30,
+            "noise_delta": -5.0,
+            "skill_cd_refund": 1.7
+          },
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "special_room_kind": "shrine",
+            "shrine_pool_id": "undertow_altar_pool",
+            "cost_type": "hp_or_noise",
+            "cost_value": 12,
+            "room_tags": ["shrine", "relay"]
+          }
+        },
+        {
+          "id": "customs_gate",
+          "room_type_id": "combat",
+          "label": "Customs Gate",
+          "label_zh": "旧闸门试炼",
+          "encounter_id": "pressure_lock_trial",
+          "scene": "res://scenes/night/rooms/UndertowForgeRoom.tscn",
+          "map_position": [5, 0],
+          "map_size": [1240, 780],
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["challenge", "checkpoint"],
+            "challenge_preview_zh": "旧闸门回路异常增压",
+            "preview_reward_material": "challenge_seal"
+          }
+        },
+        {
+          "id": "apex_guardian",
+          "room_type_id": "boss",
+          "label": "Customs Leviathan",
+          "label_zh": "缉私巨鲛",
+          "encounter_id": "customs_leviathan_trial",
+          "scene": "res://scenes/night/rooms/AbyssSanctumRoom.tscn",
+          "map_position": [6, 0],
+          "map_size": [1380, 900],
+          "is_goal": true,
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["boss", "finale", "exchange", "customs"]
+          }
+        }
+      ],
+      "connections": [
+        {
+          "from": "camp",
+          "to": "kelp_watch"
+        },
+        {
+          "from": "camp",
+          "to": "salt_vault"
+        },
+        {
+          "from": "kelp_watch",
+          "to": "signal_jetty"
+        },
+        {
+          "from": "kelp_watch",
+          "to": "tide_exchange"
+        },
+        {
+          "from": "signal_jetty",
+          "to": "hushed_aisle"
+        },
+        {
+          "from": "signal_jetty",
+          "to": "customs_gate"
+        },
+        {
+          "from": "hushed_aisle",
+          "to": "customs_gate"
+        },
+        {
+          "from": "tide_exchange",
+          "to": "customs_gate"
+        },
+        {
+          "from": "salt_vault",
+          "to": "barnacle_hive"
+        },
+        {
+          "from": "salt_vault",
+          "to": "tide_exchange"
+        },
+        {
+          "from": "salt_vault",
+          "to": "rust_market"
+        },
+        {
+          "from": "barnacle_hive",
+          "to": "contraband_lockup",
+          "hidden": true
+        },
+        {
+          "from": "barnacle_hive",
+          "to": "relay_oracle"
+        },
+        {
+          "from": "barnacle_hive",
+          "to": "customs_gate"
+        },
+        {
+          "from": "rust_market",
+          "to": "customs_gate"
+        },
+        {
+          "from": "relay_oracle",
+          "to": "customs_gate"
+        },
+        {
+          "from": "contraband_lockup",
+          "to": "customs_gate"
+        },
+        {
+          "from": "customs_gate",
           "to": "apex_guardian"
         }
       ]
