@@ -80,6 +80,12 @@ func debug_select_room_reward(option_index: int) -> bool:
 	return false
 
 
+func debug_interact_room_feature(interaction_id: String = "") -> bool:
+	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("debug_interact_room_feature"):
+		return bool(_game_root.call("debug_interact_room_feature", interaction_id))
+	return false
+
+
 func debug_request_extract() -> bool:
 	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("debug_request_extract"):
 		return bool(_game_root.call("debug_request_extract"))

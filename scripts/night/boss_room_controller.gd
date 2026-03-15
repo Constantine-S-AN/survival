@@ -29,11 +29,15 @@ func begin_room(room_state, room_payload: Dictionary) -> Dictionary:
 	_snapshot["active"] = true
 	_snapshot["encounter_id"] = encounter_id
 	_snapshot["boss_id"] = boss_id
-	_snapshot["title"] = String(_active_rule.get("climax_title", "Floor Climax")).strip_edges()
-	_snapshot["phase_label"] = String(_active_rule.get("intro_label", room_state.label)).strip_edges()
-	_snapshot["subtitle"] = String(
-		_active_rule.get("intro_text", "A floor-end threat is rising ahead.")
-	).strip_edges()
+	_snapshot["title"] = _localized_rule_text(
+		"climax_title",
+		String(_active_rule.get("climax_title", _tr("night.boss.title_default"))).strip_edges()
+	)
+	_snapshot["phase_label"] = _localized_rule_text("intro_label", room_state.label)
+	_snapshot["subtitle"] = _localized_rule_text(
+		"intro_text",
+		String(_active_rule.get("intro_text", _tr("night.boss.subtitle_default"))).strip_edges()
+	)
 	_snapshot["status"] = "intro"
 	return get_snapshot()
 
@@ -46,7 +50,7 @@ func on_boss_spawned(boss_id: String, phase_id: String, telegraph_text: String) 
 	_snapshot["boss_id"] = boss_id.strip_edges().to_lower()
 	_snapshot["phase_id"] = phase_id.strip_edges().to_lower()
 	_snapshot["phase_label"] = _resolve_phase_label(phase_id)
-	_snapshot["subtitle"] = _resolve_message(telegraph_text, String(_snapshot.get("subtitle", "")))
+	_snapshot["subtitle"] = _resolve_phase_text(phase_id, telegraph_text, String(_snapshot.get("subtitle", "")))
 	_snapshot["status"] = "active"
 	return get_snapshot()
 
@@ -59,7 +63,7 @@ func on_boss_phase_changed(boss_id: String, phase_id: String, telegraph_text: St
 	_snapshot["boss_id"] = boss_id.strip_edges().to_lower()
 	_snapshot["phase_id"] = phase_id.strip_edges().to_lower()
 	_snapshot["phase_label"] = _resolve_phase_label(phase_id)
-	_snapshot["subtitle"] = _resolve_message(telegraph_text, String(_snapshot.get("subtitle", "")))
+	_snapshot["subtitle"] = _resolve_phase_text(phase_id, telegraph_text, String(_snapshot.get("subtitle", "")))
 	_snapshot["status"] = "phase"
 	return get_snapshot()
 
@@ -71,10 +75,14 @@ func on_boss_defeated(boss_id: String) -> Dictionary:
 	_snapshot["active"] = true
 	_snapshot["boss_id"] = boss_id.strip_edges().to_lower()
 	_snapshot["defeated"] = true
-	_snapshot["phase_label"] = String(_active_rule.get("defeat_label", "Boss Down")).strip_edges()
-	_snapshot["subtitle"] = String(
-		_active_rule.get("defeat_text", "The floor cache is exposed. Finish the run cleanly.")
-	).strip_edges()
+	_snapshot["phase_label"] = _localized_rule_text(
+		"defeat_label",
+		String(_active_rule.get("defeat_label", "Boss Down")).strip_edges()
+	)
+	_snapshot["subtitle"] = _localized_rule_text(
+		"defeat_text",
+		String(_active_rule.get("defeat_text", "The floor cache is exposed. Finish the run cleanly.")).strip_edges()
+	)
 	_snapshot["status"] = "defeated"
 	_bonus_secured = true
 	return get_snapshot()
@@ -88,7 +96,10 @@ func get_completion_bonus() -> Dictionary:
 	if materials.is_empty():
 		return {}
 	return {
-		"label": String(_active_rule.get("boss_bonus_label", "Boss Cache Secured")).strip_edges(),
+		"label": _localized_rule_text(
+			"boss_bonus_label",
+			String(_active_rule.get("boss_bonus_label", _tr("night.extraction.boss_bonus_default"))).strip_edges()
+		),
 		"materials": materials
 	}
 
@@ -142,6 +153,10 @@ func _resolve_rule(encounter_id: String, boss_id: String) -> Dictionary:
 func _resolve_phase_label(phase_id: String) -> String:
 	var normalized_phase_id := phase_id.strip_edges().to_lower()
 	var phase_labels_variant: Variant = _active_rule.get("phase_labels", {})
+	var phase_labels_zh_variant: Variant = _active_rule.get("phase_labels_zh", {})
+	if Localization != null and Localization.has_method("is_chinese") and bool(Localization.call("is_chinese")):
+		if phase_labels_zh_variant is Dictionary and (phase_labels_zh_variant as Dictionary).has(normalized_phase_id):
+			return String((phase_labels_zh_variant as Dictionary).get(normalized_phase_id, normalized_phase_id)).strip_edges()
 	if phase_labels_variant is Dictionary and (phase_labels_variant as Dictionary).has(normalized_phase_id):
 		return String((phase_labels_variant as Dictionary).get(normalized_phase_id, normalized_phase_id)).strip_edges()
 	var boss_id := String(_active_rule.get("boss_id", "")).strip_edges().to_lower()
@@ -155,10 +170,18 @@ func _resolve_phase_label(phase_id: String) -> String:
 				var phase: Dictionary = phase_variant
 				if String(phase.get("id", "")).strip_edges().to_lower() == normalized_phase_id:
 					return String(phase.get("label", normalized_phase_id.capitalize())).strip_edges()
-	return normalized_phase_id.capitalize() if not normalized_phase_id.is_empty() else "Boss Active"
+	return normalized_phase_id.capitalize() if not normalized_phase_id.is_empty() else _tr("night.boss.phase_default")
 
 
-func _resolve_message(primary_text: String, fallback_text: String) -> String:
+func _resolve_phase_text(phase_id: String, primary_text: String, fallback_text: String) -> String:
+	var normalized_phase_id := phase_id.strip_edges().to_lower()
+	var phase_texts_variant: Variant = _active_rule.get("phase_texts", {})
+	var phase_texts_zh_variant: Variant = _active_rule.get("phase_texts_zh", {})
+	if Localization != null and Localization.has_method("is_chinese") and bool(Localization.call("is_chinese")):
+		if phase_texts_zh_variant is Dictionary and (phase_texts_zh_variant as Dictionary).has(normalized_phase_id):
+			return String((phase_texts_zh_variant as Dictionary).get(normalized_phase_id, fallback_text)).strip_edges()
+	if phase_texts_variant is Dictionary and (phase_texts_variant as Dictionary).has(normalized_phase_id):
+		return String((phase_texts_variant as Dictionary).get(normalized_phase_id, fallback_text)).strip_edges()
 	var normalized := primary_text.strip_edges()
 	if not normalized.is_empty():
 		return normalized
@@ -170,7 +193,7 @@ func _build_default_snapshot() -> Dictionary:
 		"active": false,
 		"encounter_id": "",
 		"boss_id": "",
-		"title": "Floor Climax",
+		"title": _tr("night.boss.title_default"),
 		"phase_id": "",
 		"phase_label": "",
 		"subtitle": "",
@@ -226,3 +249,16 @@ func _load_json_dictionary(path: String) -> Dictionary:
 	if parsed is Dictionary:
 		return (parsed as Dictionary).duplicate(true)
 	return {}
+
+
+func _localized_rule_text(field: String, fallback: String) -> String:
+	var entry_id := String(_active_rule.get("encounter_id", _active_rule.get("boss_id", ""))).strip_edges().to_lower()
+	if Localization != null and Localization.has_method("data_field"):
+		return String(Localization.call("data_field", entry_id, field, fallback, _active_rule))
+	return fallback
+
+
+func _tr(key: String, args: Dictionary = {}) -> String:
+	if Localization != null and Localization.has_method("t"):
+		return String(Localization.call("t", key, args))
+	return key

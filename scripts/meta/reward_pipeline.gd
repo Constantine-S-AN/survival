@@ -235,15 +235,6 @@ func _merge_material_bundles(base_result: Dictionary, additive_result: Dictionar
 			continue
 		base_materials[material_id] = maxi(0, int(base_materials.get(material_id, 0))) + amount
 	base_result["material_rewards"] = base_materials
-	var base_loot_variant: Variant = base_result.get("loot_categories", [])
-	var base_loot: Array = base_loot_variant if base_loot_variant is Array else []
-	var additive_loot_variant: Variant = additive_result.get("loot_categories", [])
-	var additive_loot: Array = additive_loot_variant if additive_loot_variant is Array else []
-	for row_variant in additive_loot:
-		if not (row_variant is Dictionary):
-			continue
-		base_loot.append((row_variant as Dictionary).duplicate(true))
-	base_result["loot_categories"] = base_loot
 
 
 func _normalize_material_bundle(value: Variant) -> Dictionary:

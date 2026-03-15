@@ -163,6 +163,8 @@ var run_active: bool = false
 var ambient_spawning_enabled: bool = true
 var scripted_encounter_active: bool = false
 var scripted_encounter_id: String = ""
+var scripted_encounter_hold_open: bool = false
+var force_revealed: bool = false
 var combo_spawned_total: int = 0
 var last_combo_id: String = ""
 var spawn_steps_last_tick: int = 0
@@ -227,6 +229,7 @@ func setup(player_ref: Node2D, run_rng: RandomNumberGenerator) -> void:
 	ambient_spawning_enabled = true
 	scripted_encounter_active = false
 	scripted_encounter_id = ""
+	scripted_encounter_hold_open = false
 	active_enemies.clear()
 	alive_enemy_count = 0
 	combo_spawned_total = 0
@@ -257,6 +260,16 @@ func set_ambient_spawning_enabled(enabled: bool) -> void:
 	if ambient_spawning_enabled:
 		scripted_encounter_active = false
 		scripted_encounter_id = ""
+		scripted_encounter_hold_open = false
+
+
+func set_force_revealed(enabled: bool) -> void:
+	force_revealed = enabled
+	for enemy in active_enemies:
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		if enemy.has_method("set_always_revealed"):
+			enemy.call("set_always_revealed", force_revealed)
 
 
 func start_scripted_encounter(encounter_id: String, enemy_specs_variant: Variant) -> int:
@@ -265,6 +278,7 @@ func start_scripted_encounter(encounter_id: String, enemy_specs_variant: Variant
 	ambient_spawning_enabled = false
 	scripted_encounter_active = true
 	scripted_encounter_id = normalized_encounter_id
+	scripted_encounter_hold_open = false
 	spawn_timer = 0.0
 	spawn_steps_last_tick = 0
 	spawn_backlog_active = false
@@ -274,39 +288,28 @@ func start_scripted_encounter(encounter_id: String, enemy_specs_variant: Variant
 	boss_spawn_rate_multiplier = 1.0
 	boss_state = "idle"
 
-	var spawned_total := 0
-	if enemy_specs_variant is Array:
-		var enemy_specs: Array = enemy_specs_variant
-		for spec_variant in enemy_specs:
-			if not (spec_variant is Dictionary):
-				continue
-			var spec: Dictionary = spec_variant
-			if bool(spec.get("spawn_boss", false)):
-				var spawned_boss := _spawn_scripted_boss(spec)
-				if spawned_boss != null:
-					spawned_total += 1
-				continue
-			var enemy_id := String(spec.get("enemy_id", "")).strip_edges().to_lower()
-			if enemy_id.is_empty():
-				continue
-			var definition: Dictionary = DataRegistry.get_enemy(enemy_id)
-			if definition.is_empty():
-				continue
-			var allow_elite := bool(spec.get("allow_elite", false))
-			var count := clampi(int(spec.get("count", 1)), 1, 8)
-			for index in range(count):
-				var world_position := _coerce_spawn_position(spec.get("position", Vector2.ZERO))
-				if world_position == Vector2.ZERO:
-					world_position = _pick_spawn_position()
-				if count > 1:
-					var angle := TAU * float(index) / maxf(1.0, float(count))
-					world_position += Vector2.RIGHT.rotated(angle) * 18.0
-				var spawned_enemy := _spawn_enemy_node(enemy_id, definition, world_position, allow_elite)
-				if spawned_enemy != null:
-					spawned_total += 1
+	var spawned_total := _spawn_scripted_enemy_specs(enemy_specs_variant)
 	if spawned_total <= 0:
 		call_deferred("_emit_scripted_encounter_cleared", normalized_encounter_id)
 	return spawned_total
+
+
+func spawn_scripted_wave(encounter_id: String, enemy_specs_variant: Variant) -> int:
+	var normalized_encounter_id := encounter_id.strip_edges()
+	if normalized_encounter_id.is_empty():
+		return 0
+	if scripted_encounter_active and scripted_encounter_id.strip_edges() != normalized_encounter_id:
+		return 0
+	ambient_spawning_enabled = false
+	scripted_encounter_active = true
+	scripted_encounter_id = normalized_encounter_id
+	return _spawn_scripted_enemy_specs(enemy_specs_variant)
+
+
+func set_scripted_encounter_hold_open(hold_open: bool) -> void:
+	scripted_encounter_hold_open = hold_open
+	if scripted_encounter_active and not scripted_encounter_hold_open and alive_enemy_count <= 0:
+		call_deferred("_emit_scripted_encounter_cleared", scripted_encounter_id)
 
 
 func clear_scripted_encounter(clear_enemies: bool = true, emit_signal: bool = false) -> void:
@@ -316,6 +319,7 @@ func clear_scripted_encounter(clear_enemies: bool = true, emit_signal: bool = fa
 	else:
 		scripted_encounter_active = false
 		scripted_encounter_id = ""
+		scripted_encounter_hold_open = false
 	if emit_signal and not encounter_id.is_empty():
 		scripted_encounter_cleared.emit(encounter_id)
 
@@ -324,7 +328,8 @@ func get_scripted_encounter_snapshot() -> Dictionary:
 	return {
 		"ambient_spawning_enabled": ambient_spawning_enabled,
 		"scripted_encounter_active": scripted_encounter_active,
-		"scripted_encounter_id": scripted_encounter_id
+		"scripted_encounter_id": scripted_encounter_id,
+		"scripted_encounter_hold_open": scripted_encounter_hold_open
 	}
 
 
@@ -468,6 +473,7 @@ func populate_hud_debug_fields(target_snapshot: Dictionary) -> void:
 	target_snapshot["pursuer_count"] = active_pursuer_count
 	target_snapshot["pursuer_spawned_total"] = pursuer_spawned_total
 	target_snapshot["boss_state"] = boss_state
+	target_snapshot["scripted_encounter_hold_open"] = scripted_encounter_hold_open
 	target_snapshot["noise_spawn_rate_multiplier"] = noise_spawn_rate_multiplier
 	target_snapshot["map_spawn_rate_multiplier"] = map_spawn_rate_multiplier
 	target_snapshot["contract_spawn_rate_multiplier"] = contract_spawn_rate_multiplier
@@ -862,7 +868,7 @@ func _on_enemy_died(enemy_id: String, xp_reward: int, enemy: Node) -> void:
 	active_enemies.erase(enemy)
 	alive_enemy_count = active_enemies.size()
 	enemy_killed.emit(enemy_id, xp_reward, position, meta)
-	if scripted_encounter_active and not ambient_spawning_enabled and alive_enemy_count <= 0:
+	if scripted_encounter_active and not ambient_spawning_enabled and not scripted_encounter_hold_open and alive_enemy_count <= 0:
 		call_deferred("_emit_scripted_encounter_cleared", scripted_encounter_id)
 
 
@@ -949,6 +955,8 @@ func _spawn_enemy_node(enemy_id: String, definition: Dictionary, world_position:
 		"speed_mult": current_enemy_speed_multiplier
 	}
 	enemy.setup(enemy_id, definition, player, runtime_modifiers)
+	if enemy.has_method("set_always_revealed"):
+		enemy.call("set_always_revealed", force_revealed)
 	if enemy.has_method("set_meta"):
 		enemy.set_meta("boss_exam_summon", false)
 	if allow_elite and _can_become_elite(definition):
@@ -1246,6 +1254,7 @@ func _clear_all_active_enemies() -> void:
 	elite_jam_multiplier_runtime = 1.0
 	scripted_encounter_active = false
 	scripted_encounter_id = ""
+	scripted_encounter_hold_open = false
 	_reset_boss_exam_state()
 
 
@@ -1271,9 +1280,46 @@ func _emit_scripted_encounter_cleared(encounter_id: String) -> void:
 		return
 	if encounter_id.strip_edges() != scripted_encounter_id.strip_edges():
 		return
+	if scripted_encounter_hold_open:
+		return
 	scripted_encounter_active = false
 	scripted_encounter_id = ""
+	scripted_encounter_hold_open = false
 	scripted_encounter_cleared.emit(encounter_id)
+
+
+func _spawn_scripted_enemy_specs(enemy_specs_variant: Variant) -> int:
+	var spawned_total := 0
+	if enemy_specs_variant is Array:
+		var enemy_specs: Array = enemy_specs_variant
+		for spec_variant in enemy_specs:
+			if not (spec_variant is Dictionary):
+				continue
+			var spec: Dictionary = spec_variant
+			if bool(spec.get("spawn_boss", false)):
+				var spawned_boss := _spawn_scripted_boss(spec)
+				if spawned_boss != null:
+					spawned_total += 1
+				continue
+			var enemy_id := String(spec.get("enemy_id", "")).strip_edges().to_lower()
+			if enemy_id.is_empty():
+				continue
+			var definition: Dictionary = DataRegistry.get_enemy(enemy_id)
+			if definition.is_empty():
+				continue
+			var allow_elite := bool(spec.get("allow_elite", false))
+			var count := clampi(int(spec.get("count", 1)), 1, 8)
+			for index in range(count):
+				var world_position := _coerce_spawn_position(spec.get("position", Vector2.ZERO))
+				if world_position == Vector2.ZERO:
+					world_position = _pick_spawn_position()
+				if count > 1:
+					var angle := TAU * float(index) / maxf(1.0, float(count))
+					world_position += Vector2.RIGHT.rotated(angle) * 18.0
+				var spawned_enemy := _spawn_enemy_node(enemy_id, definition, world_position, allow_elite)
+				if spawned_enemy != null:
+					spawned_total += 1
+	return spawned_total
 
 
 func _coerce_spawn_position(value: Variant) -> Vector2:

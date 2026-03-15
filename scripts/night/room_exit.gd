@@ -11,6 +11,7 @@ const READY_PULSE_SPEED := 1.8
 var exit_id: String = ""
 var target_room_id: String = ""
 var display_name: String = ""
+var anchor_side: String = ""
 var target_room_type_id: String = ""
 var target_room_state: String = ""
 var locked: bool = true
@@ -37,6 +38,7 @@ func configure(
 	next_exit_id: String,
 	next_target_room_id: String,
 	next_display_name: String,
+	next_anchor_side: String,
 	next_room_type_id: String,
 	next_room_state: String,
 	start_locked: bool,
@@ -45,6 +47,7 @@ func configure(
 	exit_id = next_exit_id.strip_edges()
 	target_room_id = next_target_room_id.strip_edges()
 	display_name = next_display_name.strip_edges()
+	anchor_side = next_anchor_side.strip_edges()
 	target_room_type_id = next_room_type_id.strip_edges().to_lower()
 	target_room_state = next_room_state.strip_edges().to_lower()
 	_target_color = target_color
@@ -66,6 +69,7 @@ func get_snapshot() -> Dictionary:
 		"exit_id": exit_id,
 		"target_room_id": target_room_id,
 		"display_name": display_name,
+		"anchor_side": anchor_side,
 		"target_room_type_id": target_room_type_id,
 		"target_room_state": target_room_state,
 		"locked": locked

@@ -4,6 +4,7 @@
     {
       "id": "reef_patrol_channels",
       "label": "Reef Patrol Channels",
+      "label_zh": "礁巡水道",
       "enemies": [
         {"enemy_id": "drifter", "spawn_point": "NorthWest"},
         {"enemy_id": "drifter", "spawn_point": "NorthEast"},
@@ -14,6 +15,7 @@
     {
       "id": "reef_patrol_pillars",
       "label": "Reef Patrol Pillars",
+      "label_zh": "礁巡石柱阵",
       "enemies": [
         {"enemy_id": "shielded", "spawn_point": "North"},
         {"enemy_id": "shooter", "spawn_point": "West"},
@@ -24,6 +26,7 @@
     {
       "id": "swarm_nest_cluster",
       "label": "Swarm Nest Cluster",
+      "label_zh": "虫巢群簇",
       "enemies": [
         {"enemy_id": "lurker", "spawn_point": "NorthWest", "allow_elite": true},
         {"enemy_id": "ink_mite", "spawn_point": "North", "count": 2, "offset_radius": 26.0, "allow_elite": true},
@@ -33,6 +36,7 @@
     {
       "id": "swarm_nest_forge",
       "label": "Swarm Nest Forge",
+      "label_zh": "虫巢熔炉",
       "enemies": [
         {"enemy_id": "lurker", "spawn_point": "West", "allow_elite": true},
         {"enemy_id": "lurker", "spawn_point": "East", "allow_elite": true},
@@ -44,6 +48,7 @@
     {
       "id": "apex_guardian_sanctum",
       "label": "Abyss Sanctum",
+      "label_zh": "深渊圣所",
       "enemies": [
         {"enemy_id": "abyss_siren", "spawn_boss": true, "spawn_point": "North"}
       ]

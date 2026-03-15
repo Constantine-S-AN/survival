@@ -9,7 +9,7 @@ const ROOM_CLEAR_BUNDLES := {
 var _cleared_room_materials: Dictionary = {}
 var _cleared_room_count: int = 0
 var _boss_bonus_materials: Dictionary = {}
-var _boss_bonus_label: String = "Boss Cache Secured"
+var _boss_bonus_label: String = ""
 var _boss_cleared: bool = false
 
 
@@ -17,7 +17,7 @@ func reset() -> void:
 	_cleared_room_materials.clear()
 	_cleared_room_count = 0
 	_boss_bonus_materials.clear()
-	_boss_bonus_label = "Boss Cache Secured"
+	_boss_bonus_label = _tr("night.extraction.boss_bonus_default")
 	_boss_cleared = false
 
 
@@ -28,6 +28,14 @@ func record_combat_room_clear(encounter_payload: Dictionary) -> Dictionary:
 	if bundle.is_empty():
 		return {}
 	_cleared_room_count += 1
+	_accumulate_bundle(_cleared_room_materials, bundle)
+	return bundle.duplicate(true)
+
+
+func record_bonus_materials(bundle_variant: Variant) -> Dictionary:
+	var bundle := _normalize_material_bundle(bundle_variant)
+	if bundle.is_empty():
+		return {}
 	_accumulate_bundle(_cleared_room_materials, bundle)
 	return bundle.duplicate(true)
 
@@ -46,42 +54,42 @@ func record_boss_bonus(bonus_payload: Dictionary) -> void:
 func build_status(run_state: String, current_room, has_pending_rewards: bool) -> Dictionary:
 	var status := {
 		"available": false,
-		"title": "Extraction",
-		"subtitle": "Secure another room to call the skiff.",
-		"button_text": "Extract"
+		"title": _tr("night.extraction.title"),
+		"subtitle": _tr("night.extraction.subtitle.secure_another_room"),
+		"button_text": _tr("night.extraction.button.extract")
 	}
 	if current_room == null:
-		status["subtitle"] = "Route not anchored yet."
+		status["subtitle"] = _tr("night.extraction.subtitle.route_not_anchored")
 		return status
 	if run_state == "completed":
-		status["title"] = "Run Complete"
-		status["subtitle"] = "Return route already secured."
+		status["title"] = _tr("night.extraction.title.run_complete")
+		status["subtitle"] = _tr("night.extraction.subtitle.return_route_secured")
 		return status
 	if run_state == "aborted":
-		status["title"] = "Extraction Offline"
-		status["subtitle"] = "The run could not stabilize."
+		status["title"] = _tr("night.extraction.title.offline")
+		status["subtitle"] = _tr("night.extraction.subtitle.offline")
 		return status
 	if has_pending_rewards:
-		status["subtitle"] = "Claim the room reward before returning."
+		status["subtitle"] = _tr("night.extraction.subtitle.claim_reward")
 		return status
 	if String(current_room.room_type_id).strip_edges().to_lower() == "boss":
 		if String(current_room.status).strip_edges().to_lower() == "cleared":
-			status["title"] = "Climax Complete"
-			status["subtitle"] = "Boss floor secured. Finish the return."
+			status["title"] = _tr("night.extraction.title.climax_complete")
+			status["subtitle"] = _tr("night.extraction.subtitle.boss_secured")
 		else:
-			status["title"] = "Climax Locked"
-			status["subtitle"] = "The boss chamber only ends in victory or failure."
+			status["title"] = _tr("night.extraction.title.climax_locked")
+			status["subtitle"] = _tr("night.extraction.subtitle.boss_locked")
 		return status
 	if String(current_room.status).strip_edges().to_lower() != "cleared":
-		status["subtitle"] = "Secure the current room before calling the skiff."
+		status["subtitle"] = _tr("night.extraction.subtitle.secure_current_room")
 		return status
 	if _cleared_room_count <= 0:
-		status["subtitle"] = "Clear at least one combat room to secure haul."
+		status["subtitle"] = _tr("night.extraction.subtitle.secure_one_combat_room")
 		return status
 	status["available"] = true
-	status["title"] = "Skiff Ready"
-	status["subtitle"] = "Leave now with the haul already secured."
-	status["button_text"] = "Extract Now"
+	status["title"] = _tr("night.extraction.title.skiff_ready")
+	status["subtitle"] = _tr("night.extraction.subtitle.ready")
+	status["button_text"] = _tr("night.extraction.button.extract_now")
 	return status
 
 
@@ -92,36 +100,35 @@ func build_outcome_payload(exit_reason: String, context: Dictionary = {}) -> Dic
 	var carryover_materials: Dictionary = {}
 	var carryover_rows: Array[Dictionary] = []
 
-	var room_row_summary := "No combat-room salvage secured."
+	var room_row_summary := _tr("night.extraction.row.no_room_salvage")
 	var room_row_secured := false
 	if normalized_exit_reason != "abandoned" and not secured_room_materials.is_empty():
-		room_row_summary = "%d combat room%s secured · %s" % [
-			_cleared_room_count,
-			"" if _cleared_room_count == 1 else "s",
-			_format_material_bundle(secured_room_materials)
-		]
+		room_row_summary = _tr("night.extraction.row.room_salvage_secured", {
+			"count": _cleared_room_count,
+			"materials": _format_material_bundle(secured_room_materials)
+		})
 		room_row_secured = true
 		_accumulate_bundle(carryover_materials, secured_room_materials)
 	elif normalized_exit_reason == "abandoned" and _cleared_room_count > 0:
-		room_row_summary = "Emergency return lost the unbanked room salvage."
+		room_row_summary = _tr("night.extraction.row.room_salvage_lost")
 	carryover_rows.append({
 		"id": "cleared_rooms",
-		"label": "Cleared rooms",
+		"label": _tr("night.extraction.row.cleared_rooms"),
 		"summary": room_row_summary,
 		"secured": room_row_secured,
 		"materials": secured_room_materials
 	})
 
-	var boss_row_summary := "Boss cache not secured."
+	var boss_row_summary := _tr("night.extraction.row.boss_cache_missing")
 	var boss_row_secured := false
 	if normalized_exit_reason == "completed" and _boss_cleared and not secured_boss_materials.is_empty():
 		boss_row_summary = _format_material_bundle(secured_boss_materials)
 		boss_row_secured = true
 		_accumulate_bundle(carryover_materials, secured_boss_materials)
 	elif normalized_exit_reason == "extracted":
-		boss_row_summary = "Skiff extraction left the floor boss cache behind."
+		boss_row_summary = _tr("night.extraction.row.boss_cache_left")
 	elif normalized_exit_reason == "abandoned" and _boss_cleared:
-		boss_row_summary = "The boss fell, but the emergency return lost the final cache."
+		boss_row_summary = _tr("night.extraction.row.boss_cache_lost")
 	carryover_rows.append({
 		"id": "boss_bonus",
 		"label": _boss_bonus_label,
@@ -130,14 +137,14 @@ func build_outcome_payload(exit_reason: String, context: Dictionary = {}) -> Dic
 		"materials": secured_boss_materials
 	})
 
-	var route_label := "Harbor return"
+	var route_label := _tr("night.extraction.route.harbor_return")
 	match normalized_exit_reason:
 		"completed":
-			route_label = "Boss floor cleared"
+			route_label = _tr("night.extraction.route.completed")
 		"extracted":
-			route_label = "Early skiff extract"
+			route_label = _tr("night.extraction.route.extracted")
 		"abandoned":
-			route_label = "Emergency return"
+			route_label = _tr("night.extraction.route.abandoned")
 		_:
 			pass
 
@@ -182,10 +189,12 @@ func _format_material_bundle(bundle: Dictionary) -> String:
 			continue
 		rows.append("%s x%d" % [_display_material_name(material_id), amount])
 	rows.sort()
-	return ", ".join(rows) if not rows.is_empty() else "None"
+	return ", ".join(rows) if not rows.is_empty() else _tr("meta.common.none")
 
 
 func _display_material_name(material_id: String) -> String:
+	if DataRegistry != null and DataRegistry.has_method("get_material_display_name"):
+		return String(DataRegistry.call("get_material_display_name", material_id))
 	if DataRegistry != null and DataRegistry.has_method("get_material"):
 		return String(DataRegistry.get_material(material_id).get("name", material_id.capitalize()))
 	return material_id.capitalize()
@@ -211,3 +220,9 @@ func _normalize_material_bundle(value: Variant) -> Dictionary:
 			continue
 		normalized[material_id] = amount
 	return normalized
+
+
+func _tr(key: String, args: Dictionary = {}) -> String:
+	if Localization != null and Localization.has_method("t"):
+		return String(Localization.call("t", key, args))
+	return key

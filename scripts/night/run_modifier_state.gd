@@ -9,6 +9,7 @@ var _current_reward_multipliers: Dictionary = _default_reward_multipliers()
 var _current_enemy_modifiers: Dictionary = _default_enemy_modifiers()
 var _claimed_rewards: Array[Dictionary] = []
 var _applied_modifiers: Array[Dictionary] = []
+var _system_modifiers: Array[Dictionary] = []
 
 
 func reset(base_reward_multipliers: Dictionary = {}) -> void:
@@ -18,6 +19,7 @@ func reset(base_reward_multipliers: Dictionary = {}) -> void:
 	_current_enemy_modifiers = _default_enemy_modifiers()
 	_claimed_rewards.clear()
 	_applied_modifiers.clear()
+	_system_modifiers.clear()
 
 
 func build_modifier_offer(modifier_id: String) -> Dictionary:
@@ -25,14 +27,33 @@ func build_modifier_offer(modifier_id: String) -> Dictionary:
 	if modifier.is_empty():
 		return {}
 	var category := String(modifier.get("category", "upgrade")).strip_edges().to_lower()
+	var localized_label := _localized_modifier_field(
+		modifier_id,
+		"label",
+		String(modifier.get("label", modifier_id.capitalize())).strip_edges(),
+		modifier
+	)
+	var localized_summary := _localized_modifier_field(
+		modifier_id,
+		"summary",
+		String(modifier.get("summary", "")).strip_edges(),
+		modifier
+	)
+	var localized_description := _localized_modifier_field(
+		modifier_id,
+		"description",
+		String(modifier.get("description", "")).strip_edges(),
+		modifier
+	)
 	return {
 		"id": String(modifier.get("id", modifier_id)).strip_edges(),
 		"modifier_id": String(modifier.get("id", modifier_id)).strip_edges(),
 		"offer_type": "modifier",
 		"reward_kind": category,
-		"label": String(modifier.get("label", modifier_id.capitalize())).strip_edges(),
-		"summary": String(modifier.get("summary", "")).strip_edges(),
-		"description": String(modifier.get("description", "")).strip_edges()
+		"reward_kind_label": _reward_kind_label(category),
+		"label": localized_label,
+		"summary": localized_summary,
+		"description": localized_description
 	}
 
 
@@ -54,6 +75,7 @@ func apply_offer(offer: Dictionary, context: Dictionary = {}) -> Dictionary:
 		"id": String(offer.get("id", "")).strip_edges(),
 		"offer_type": offer_type,
 		"reward_kind": String(offer.get("reward_kind", "")).strip_edges().to_lower(),
+		"reward_kind_label": String(offer.get("reward_kind_label", "")).strip_edges(),
 		"label": String(offer.get("label", "")).strip_edges(),
 		"summary": String(offer.get("summary", "")).strip_edges(),
 		"room_id": String(context.get("room_id", "")).strip_edges()
@@ -83,6 +105,39 @@ func apply_offer(offer: Dictionary, context: Dictionary = {}) -> Dictionary:
 	return claimed_snapshot
 
 
+func apply_system_modifier(modifier_id: String, context: Dictionary = {}, source_label: String = "system") -> Dictionary:
+	var normalized_modifier_id := modifier_id.strip_edges().to_lower()
+	var modifier := _get_modifier(normalized_modifier_id)
+	if modifier.is_empty():
+		return {}
+	var category := String(modifier.get("category", "upgrade")).strip_edges().to_lower()
+	var localized_label := _localized_modifier_field(
+		normalized_modifier_id,
+		"label",
+		String(modifier.get("label", normalized_modifier_id.capitalize())).strip_edges(),
+		modifier
+	)
+	var localized_summary := _localized_modifier_field(
+		normalized_modifier_id,
+		"summary",
+		String(modifier.get("summary", "")).strip_edges(),
+		modifier
+	)
+	var applied_snapshot := {
+		"id": String(modifier.get("id", normalized_modifier_id)).strip_edges(),
+		"source": source_label.strip_edges().to_lower(),
+		"reward_kind": category,
+		"reward_kind_label": _reward_kind_label(category),
+		"label": localized_label,
+		"summary": localized_summary
+	}
+	_apply_player_effects(_resolve_effects(modifier.get("effects", []), context), context)
+	_apply_reward_multipliers(modifier.get("reward_multipliers", {}), context)
+	_apply_enemy_modifiers(modifier.get("enemy_modifiers", {}), context)
+	_system_modifiers.append(applied_snapshot.duplicate(true))
+	return applied_snapshot
+
+
 func get_reward_multipliers() -> Dictionary:
 	return _current_reward_multipliers.duplicate(true)
 
@@ -91,6 +146,7 @@ func get_snapshot() -> Dictionary:
 	return {
 		"claimed_rewards": _claimed_rewards.duplicate(true),
 		"applied_modifiers": _applied_modifiers.duplicate(true),
+		"system_modifiers": _system_modifiers.duplicate(true),
 		"reward_multipliers": _current_reward_multipliers.duplicate(true),
 		"enemy_modifiers": _current_enemy_modifiers.duplicate(true)
 	}
@@ -264,6 +320,19 @@ func _default_reward_multipliers() -> Dictionary:
 		"drop": 1.0,
 		"meta_currency": 1.0
 	}
+
+
+func _localized_modifier_field(modifier_id: String, field: String, fallback: String, source: Dictionary = {}) -> String:
+	if Localization != null and Localization.has_method("data_field"):
+		return String(Localization.call("data_field", modifier_id, field, fallback, source))
+	return fallback
+
+
+func _reward_kind_label(reward_kind: String) -> String:
+	var normalized := reward_kind.strip_edges().to_lower()
+	if Localization != null and Localization.has_method("t"):
+		return String(Localization.call("t", "night.reward.kind.%s" % normalized))
+	return normalized.capitalize()
 
 
 func _default_enemy_modifiers() -> Dictionary:

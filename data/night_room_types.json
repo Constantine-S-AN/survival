@@ -4,7 +4,9 @@
     {
       "id": "combat",
       "label": "Combat",
+      "label_zh": "战斗",
       "room_label": "Combat Chamber",
+      "room_label_zh": "战斗房",
       "scene": "res://scenes/night/rooms/CombatRoom.tscn",
       "locks_on_entry": true,
       "reward_on_enter": false,
@@ -14,7 +16,9 @@
     {
       "id": "treasure",
       "label": "Treasure",
+      "label_zh": "宝藏",
       "room_label": "Treasure Vault",
+      "room_label_zh": "宝藏房",
       "scene": "res://scenes/night/rooms/TransitionRoom.tscn",
       "locks_on_entry": false,
       "reward_on_enter": true,
@@ -24,7 +28,9 @@
     {
       "id": "rest",
       "label": "Rest",
+      "label_zh": "休整",
       "room_label": "Rest Niche",
+      "room_label_zh": "休整房",
       "scene": "res://scenes/night/rooms/TransitionRoom.tscn",
       "locks_on_entry": false,
       "reward_on_enter": true,
@@ -34,7 +40,9 @@
     {
       "id": "event",
       "label": "Event",
+      "label_zh": "事件",
       "room_label": "Event Room",
+      "room_label_zh": "事件房",
       "scene": "res://scenes/night/rooms/TransitionRoom.tscn",
       "locks_on_entry": false,
       "reward_on_enter": true,
@@ -44,7 +52,9 @@
     {
       "id": "boss",
       "label": "Boss",
+      "label_zh": "首领",
       "room_label": "Boss Chamber",
+      "room_label_zh": "首领房",
       "scene": "res://scenes/night/rooms/CombatRoom.tscn",
       "locks_on_entry": true,
       "reward_on_enter": false,

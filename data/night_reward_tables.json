@@ -5,8 +5,11 @@
       "id": "salvage_cache",
       "reward_kind": "currency",
       "label": "Salvage Cache",
+      "label_zh": "打捞缓存",
       "summary": "+48 XP now, META x1.10 this run",
+      "summary_zh": "立即 +48 经验，本局元货币 x1.10",
       "description": "Bank a small cache and raise the extraction payout.",
+      "description_zh": "缓存一笔小型战利品，并抬高撤离结算。",
       "instant": {
         "xp_pickups": 4,
         "xp_amount": 12
@@ -19,8 +22,11 @@
       "id": "ration_pack",
       "reward_kind": "currency",
       "label": "Ration Pack",
+      "label_zh": "应急口粮",
       "summary": "Heal 20% HP, DROP x1.15 this run",
+      "summary_zh": "治疗 20% 生命，本局掉落 x1.15",
       "description": "Stabilize now and pull more material drops from later rooms.",
+      "description_zh": "立刻稳住状态，并让后续房间掉更多材料。",
       "instant": {
         "heal_pct": 0.20
       },
@@ -32,8 +38,11 @@
       "id": "broker_marks",
       "reward_kind": "currency",
       "label": "Broker Marks",
+      "label_zh": "经纪人筹码",
       "summary": "+72 XP now, DROP x1.10, META x1.12",
+      "summary_zh": "立即 +72 经验，掉落 x1.10，元货币 x1.12",
       "description": "A clean payout split between immediate tempo and carryover.",
+      "description_zh": "一笔兼顾即时节奏和带回价值的干净分账。",
       "instant": {
         "xp_pickups": 6,
         "xp_amount": 12
@@ -47,8 +56,11 @@
       "id": "black_tide_haul",
       "reward_kind": "currency",
       "label": "Black Tide Haul",
+      "label_zh": "黑潮战利品",
       "summary": "+96 XP now, DROP x1.20, META x1.18",
+      "summary_zh": "立即 +96 经验，掉落 x1.20，元货币 x1.18",
       "description": "An elite haul with both immediate tempo and stronger carryover.",
+      "description_zh": "精英级收获，既提即时强度也提带回收益。",
       "instant": {
         "xp_pickups": 6,
         "xp_amount": 16
@@ -62,8 +74,11 @@
       "id": "medic_satchel",
       "reward_kind": "currency",
       "label": "Medic Satchel",
+      "label_zh": "医疗挎包",
       "summary": "Heal 30% HP, XP x1.15 this run",
+      "summary_zh": "治疗 30% 生命，本局经验 x1.15",
       "description": "Recover immediately and grow faster from the next fights.",
+      "description_zh": "先恢复状态，再靠后续战斗更快成长。",
       "instant": {
         "heal_pct": 0.30
       },
@@ -75,8 +90,11 @@
       "id": "sovereign_salvage",
       "reward_kind": "currency",
       "label": "Sovereign Salvage",
+      "label_zh": "主宰打捞",
       "summary": "+120 XP now, DROP x1.25, META x1.25",
+      "summary_zh": "立即 +120 经验，掉落 x1.25，元货币 x1.25",
       "description": "A boss-grade payout with both immediate and end-run value.",
+      "description_zh": "首领级收益，同时抬升即时节奏和终局价值。",
       "instant": {
         "xp_pickups": 8,
         "xp_amount": 15
@@ -90,8 +108,11 @@
       "id": "sanctuary_kit",
       "reward_kind": "currency",
       "label": "Sanctuary Kit",
+      "label_zh": "圣所补给箱",
       "summary": "Heal 40% HP, XP x1.20, META x1.15",
+      "summary_zh": "治疗 40% 生命，经验 x1.20，元货币 x1.15",
       "description": "Reset before extraction while preserving a stronger payout curve.",
+      "description_zh": "在撤离前重整状态，同时保住更高的收益曲线。",
       "instant": {
         "heal_pct": 0.40
       },

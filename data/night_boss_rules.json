@@ -5,20 +5,76 @@
       "encounter_id": "apex_guardian",
       "boss_id": "abyss_siren",
       "climax_title": "Floor Climax",
+      "climax_title_zh": "楼层高潮战",
       "intro_label": "Apex Guardian",
+      "intro_label_zh": "顶点守卫",
       "intro_text": "The Abyss Siren is holding the floor exit. Step in to finish the excursion or extract before committing.",
+      "intro_text_zh": "深渊海妖挡住了楼层出口。现在踏进去就要打完这场远征，若不想立刻决战，就先在外面撤离。",
       "defeat_label": "Boss Down",
+      "defeat_label_zh": "首领已倒下",
       "defeat_text": "The Siren cache is loose. Take the last room reward and ride the harbor lights home.",
+      "defeat_text_zh": "海妖缓存已经松动。拿上最后一个房间奖励，然后顺着港口灯火回航。",
       "phase_labels": {
         "phase_1": "Silence Discipline",
         "phase_2": "False Resonance",
         "phase_3": "Razor Sweep",
         "phase_4": "Ritual Core"
       },
+      "phase_labels_zh": {
+        "phase_1": "静默戒律",
+        "phase_2": "虚假共振",
+        "phase_3": "剃刃横扫",
+        "phase_4": "祭仪核心"
+      },
+      "phase_texts_zh": {
+        "phase_1": "机制考验 I：先压住噪声",
+        "phase_2": "机制考验 II：点亮真正核心",
+        "phase_3": "机制考验 III：躲开横扫",
+        "phase_4": "机制考验 IV：打断祭仪召唤"
+      },
       "boss_bonus_label": "Boss Cache Secured",
+      "boss_bonus_label_zh": "首领奖励缓存已稳住",
       "boss_bonus_materials": {
         "kitchen_blueprint_fragment": 1,
         "abyssfin": 1
+      }
+    },
+    {
+      "encounter_id": "apex_siren_ritual",
+      "boss_id": "abyss_siren",
+      "climax_title": "Floor Climax",
+      "climax_title_zh": "楼层高潮战",
+      "intro_label": "Apex Siren",
+      "intro_label_zh": "顶潮海妖",
+      "intro_text": "The ritual core is exposed. Break the Siren's tempo, survive the add waves, and secure the return route in one push.",
+      "intro_text_zh": "祭仪核心已经外露。压住海妖节奏、扛过增援波次，然后一口气把返航路线打通。",
+      "defeat_label": "Ritual Broken",
+      "defeat_label_zh": "祭仪已破",
+      "defeat_text": "The tide has gone quiet. Claim the last reward, pocket the deeper haul, and head back under harbor lights.",
+      "defeat_text_zh": "潮鸣已经沉下去。拿上最后奖励，收好更深层的战利品，然后顺着港灯回航。",
+      "phase_labels": {
+        "phase_1": "Silence Discipline",
+        "phase_2": "False Resonance",
+        "phase_3": "Razor Sweep",
+        "phase_4": "Ritual Core"
+      },
+      "phase_labels_zh": {
+        "phase_1": "静默戒律",
+        "phase_2": "虚假共振",
+        "phase_3": "剃刃横扫",
+        "phase_4": "祭仪核心"
+      },
+      "phase_texts_zh": {
+        "phase_1": "机制考验 I：压低噪声，别让海妖进入强势节奏",
+        "phase_2": "机制考验 II：照出真身，别把输出丢在假回波上",
+        "phase_3": "机制考验 III：读线躲开横扫，再找回输出窗口",
+        "phase_4": "机制考验 IV：先清祭仪仆从，再打穿海妖护盾"
+      },
+      "boss_bonus_label": "Ritual Cache Secured",
+      "boss_bonus_label_zh": "祭仪缓存已稳住",
+      "boss_bonus_materials": {
+        "kitchen_blueprint_fragment": 1,
+        "abyssfin": 2
       }
     }
   ]

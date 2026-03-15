@@ -2,7 +2,10 @@ extends RefCounted
 class_name EncounterDirector
 
 const ENCOUNTERS_PATH := "res://data/night_encounters.json"
-const SPAWN_SETS_PATH := "res://data/night_spawn_sets.json"
+const SPAWN_SET_PATHS := [
+	"res://data/night_spawn_sets.json",
+	"res://data/night_spawn_sets_v2.json"
+]
 const CATEGORY_LABELS := {
 	"standard": "Standard Combat",
 	"elite": "Elite Combat",
@@ -25,6 +28,16 @@ func describe_room(floor_state, room_state) -> Dictionary:
 		"reward_table_id": "",
 		"spawn_set_id": "",
 		"difficulty": 0,
+		"clear_mode": "kill_all",
+		"objective_id": "kill_all",
+		"objective_label": "",
+		"time_limit_sec": 0.0,
+		"waves": [],
+		"objective_props": [],
+		"room_mutators": [],
+		"success_bonus": {},
+		"fail_penalty": {},
+		"tags": [],
 		"is_goal": room_state.is_goal,
 		"reward": room_state.reward_data.duplicate(true),
 		"enemies": []
@@ -37,14 +50,43 @@ func describe_room(floor_state, room_state) -> Dictionary:
 	var category := String(encounter.get("category", fallback_category)).strip_edges().to_lower()
 	if category.is_empty():
 		category = fallback_category
-	payload["encounter_label"] = String(encounter.get("label", room_state.label)).strip_edges()
+	var encounter_id := String(encounter.get("id", room_state.encounter_id)).strip_edges().to_lower()
+	var encounter_label_fallback := String(encounter.get("label", room_state.label)).strip_edges()
+	payload["encounter_label"] = _localized_field(encounter_id, "label", encounter_label_fallback, encounter)
 	payload["encounter_category"] = category
-	payload["encounter_category_label"] = String(
+	var category_label_fallback := String(
 		encounter.get("category_label", CATEGORY_LABELS.get(category, category.capitalize()))
 	).strip_edges()
+	var category_source := {
+		"label": category_label_fallback,
+		"label_zh": String(encounter.get("category_label_zh", "")).strip_edges()
+	}
+	payload["encounter_category_label"] = _localized_field(
+		"night_encounter_category_%s" % category,
+		"label",
+		category_label_fallback,
+		category_source
+	)
 	payload["reward_table_id"] = String(encounter.get("reward_table_id", "combat_%s" % category)).strip_edges()
 	payload["spawn_set_id"] = String(encounter.get("spawn_set_id", "")).strip_edges().to_lower()
 	payload["difficulty"] = maxi(1, int(encounter.get("difficulty", 1)))
+	payload["clear_mode"] = String(encounter.get("clear_mode", "kill_all")).strip_edges().to_lower()
+	payload["objective_id"] = String(encounter.get("objective_id", "kill_all")).strip_edges().to_lower()
+	payload["objective_label"] = _localized_field(
+		encounter_id,
+		"objective_label",
+		String(encounter.get("objective_label", payload["encounter_label"])).strip_edges(),
+		encounter
+	)
+	payload["time_limit_sec"] = maxf(0.0, float(encounter.get("time_limit_sec", 0.0)))
+	payload["waves"] = _normalize_wave_rows(encounter.get("waves", []))
+	payload["objective_props"] = _normalize_objective_props(encounter.get("objective_props", []))
+	payload["room_mutators"] = _normalize_string_array(encounter.get("room_mutators", []))
+	var success_bonus_variant: Variant = encounter.get("success_bonus", {})
+	payload["success_bonus"] = success_bonus_variant.duplicate(true) if success_bonus_variant is Dictionary else {}
+	var fail_penalty_variant: Variant = encounter.get("fail_penalty", {})
+	payload["fail_penalty"] = fail_penalty_variant.duplicate(true) if fail_penalty_variant is Dictionary else {}
+	payload["tags"] = _normalize_string_array(encounter.get("tags", []))
 	return payload
 
 
@@ -54,35 +96,9 @@ func build_room_payload(floor_state, room_state, room_node: Node2D) -> Dictionar
 		return payload
 
 	var encounter := _resolve_encounter(floor_state, room_state)
-	var spawn_set_id := String(encounter.get("spawn_set_id", "")).strip_edges().to_lower()
-	var enemies_variant: Variant = encounter.get("enemies", [])
-	if not spawn_set_id.is_empty():
-		var spawn_set_variant: Variant = _spawn_sets_by_id.get(spawn_set_id, {})
-		if spawn_set_variant is Dictionary:
-			enemies_variant = (spawn_set_variant as Dictionary).get("enemies", enemies_variant)
-	if not (enemies_variant is Array):
-		return payload
-
-	var enemy_payloads: Array[Dictionary] = []
-	var rows: Array = enemies_variant
-	for row_variant in rows:
-		if not (row_variant is Dictionary):
-			continue
-		var row: Dictionary = row_variant
-		var enemy_id := String(row.get("enemy_id", "")).strip_edges().to_lower()
-		if enemy_id.is_empty():
-			continue
-		var count := clampi(int(row.get("count", 1)), 1, 8)
-		var allow_elite: bool = bool(row.get("allow_elite", false))
-		var spawn_boss: bool = bool(row.get("spawn_boss", false)) or room_state.room_type_id == room_state.TYPE_BOSS
-		for spawn_index in range(count):
-			enemy_payloads.append({
-				"enemy_id": enemy_id,
-				"allow_elite": allow_elite,
-				"spawn_boss": spawn_boss,
-				"position": _resolve_spawn_position(room_node, row, spawn_index, count)
-			})
-	payload["enemies"] = enemy_payloads
+	payload["enemies"] = _resolve_enemy_specs(room_node, encounter, room_state)
+	payload["waves"] = _resolve_wave_enemy_specs(room_node, payload.get("waves", []), room_state)
+	payload["objective_props"] = _resolve_objective_prop_positions(room_node, payload.get("objective_props", []))
 	return payload
 
 
@@ -174,17 +190,18 @@ func _ensure_loaded() -> void:
 			if encounter_id.is_empty():
 				continue
 			_encounters_by_id[encounter_id] = row.duplicate(true)
-	var spawn_payload := _load_json_dictionary(SPAWN_SETS_PATH)
-	var spawn_rows_variant: Variant = spawn_payload.get("spawn_sets", [])
-	if spawn_rows_variant is Array:
-		for row_variant in spawn_rows_variant:
-			if not (row_variant is Dictionary):
-				continue
-			var row: Dictionary = row_variant
-			var spawn_set_id := String(row.get("id", "")).strip_edges().to_lower()
-			if spawn_set_id.is_empty():
-				continue
-			_spawn_sets_by_id[spawn_set_id] = row.duplicate(true)
+	for path in SPAWN_SET_PATHS:
+		var spawn_payload := _load_json_dictionary(path)
+		var spawn_rows_variant: Variant = spawn_payload.get("spawn_sets", [])
+		if spawn_rows_variant is Array:
+			for row_variant in spawn_rows_variant:
+				if not (row_variant is Dictionary):
+					continue
+				var row: Dictionary = row_variant
+				var spawn_set_id := String(row.get("id", "")).strip_edges().to_lower()
+				if spawn_set_id.is_empty():
+					continue
+				_spawn_sets_by_id[spawn_set_id] = row.duplicate(true)
 
 
 func _load_json_dictionary(path: String) -> Dictionary:
@@ -197,3 +214,114 @@ func _load_json_dictionary(path: String) -> Dictionary:
 	if parsed is Dictionary:
 		return (parsed as Dictionary).duplicate(true)
 	return {}
+
+
+func _localized_field(entry_id: String, field: String, fallback: String, source: Dictionary = {}) -> String:
+	if Localization != null and Localization.has_method("data_field"):
+		return String(Localization.call("data_field", entry_id, field, fallback, source))
+	return fallback
+
+
+func _resolve_enemy_specs(room_node: Node2D, encounter: Dictionary, room_state) -> Array[Dictionary]:
+	var spawn_set_id := String(encounter.get("spawn_set_id", "")).strip_edges().to_lower()
+	var enemies_variant: Variant = encounter.get("enemies", [])
+	if not spawn_set_id.is_empty():
+		var spawn_set_variant: Variant = _spawn_sets_by_id.get(spawn_set_id, {})
+		if spawn_set_variant is Dictionary:
+			enemies_variant = (spawn_set_variant as Dictionary).get("enemies", enemies_variant)
+	return _build_enemy_payloads(room_node, enemies_variant, room_state)
+
+
+func _build_enemy_payloads(room_node: Node2D, enemies_variant: Variant, room_state) -> Array[Dictionary]:
+	if not (enemies_variant is Array):
+		return []
+	var enemy_payloads: Array[Dictionary] = []
+	var rows: Array = enemies_variant
+	for row_variant in rows:
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		var enemy_id := String(row.get("enemy_id", "")).strip_edges().to_lower()
+		if enemy_id.is_empty():
+			continue
+		var count := clampi(int(row.get("count", 1)), 1, 8)
+		var allow_elite: bool = bool(row.get("allow_elite", false))
+		var spawn_boss: bool = bool(row.get("spawn_boss", false)) or room_state.room_type_id == room_state.TYPE_BOSS
+		for spawn_index in range(count):
+			enemy_payloads.append({
+				"enemy_id": enemy_id,
+				"allow_elite": allow_elite,
+				"spawn_boss": spawn_boss,
+				"position": _resolve_spawn_position(room_node, row, spawn_index, count)
+			})
+	return enemy_payloads
+
+
+func _resolve_wave_enemy_specs(room_node: Node2D, waves_variant: Variant, room_state) -> Array[Dictionary]:
+	if not (waves_variant is Array):
+		return []
+	var resolved: Array[Dictionary] = []
+	for wave_variant in waves_variant:
+		if not (wave_variant is Dictionary):
+			continue
+		var wave: Dictionary = (wave_variant as Dictionary).duplicate(true)
+		var spawn_set_id := String(wave.get("spawn_set_id", "")).strip_edges().to_lower()
+		var enemies_variant: Variant = wave.get("enemies", [])
+		if not spawn_set_id.is_empty():
+			var spawn_set_variant: Variant = _spawn_sets_by_id.get(spawn_set_id, {})
+			if spawn_set_variant is Dictionary:
+				enemies_variant = (spawn_set_variant as Dictionary).get("enemies", enemies_variant)
+		wave["enemies"] = _build_enemy_payloads(room_node, enemies_variant, room_state)
+		resolved.append(wave)
+	return resolved
+
+
+func _resolve_objective_prop_positions(room_node: Node2D, props_variant: Variant) -> Array[Dictionary]:
+	if not (props_variant is Array):
+		return []
+	var resolved: Array[Dictionary] = []
+	for prop_variant in props_variant:
+		if not (prop_variant is Dictionary):
+			continue
+		var prop: Dictionary = (prop_variant as Dictionary).duplicate(true)
+		var marker_name := String(prop.get("marker", prop.get("spawn_point", ""))).strip_edges()
+		var position := _find_marker_global_position(room_node, marker_name, "SpawnPoints")
+		if position == Vector2.ZERO and room_node != null:
+			position = room_node.global_position
+		prop["position"] = position
+		resolved.append(prop)
+	return resolved
+
+
+func _normalize_wave_rows(value: Variant) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if not (value is Array):
+		return rows
+	for row_variant in value:
+		if not (row_variant is Dictionary):
+			continue
+		rows.append((row_variant as Dictionary).duplicate(true))
+	return rows
+
+
+func _normalize_objective_props(value: Variant) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if not (value is Array):
+		return rows
+	for row_variant in value:
+		if not (row_variant is Dictionary):
+			continue
+		rows.append((row_variant as Dictionary).duplicate(true))
+	return rows
+
+
+func _normalize_string_array(value: Variant) -> Array[String]:
+	var rows: Array[String] = []
+	if not (value is Array):
+		return rows
+	for row_variant in value:
+		var normalized := String(row_variant).strip_edges()
+		if normalized.is_empty():
+			continue
+		rows.append(normalized)
+	return rows

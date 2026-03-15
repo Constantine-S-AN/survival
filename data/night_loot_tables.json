@@ -4,6 +4,7 @@
 		{
 			"id": "abandoned",
 			"name": "Rough Return",
+			"name_zh": "粗糙返航",
 			"abandoned_only": true,
 			"completed_only": false,
 			"min_score": 0,
@@ -53,6 +54,7 @@
 		{
 			"id": "extracted_shallow",
 			"name": "Secured Extract",
+			"name_zh": "稳妥撤离",
 			"abandoned_only": false,
 			"completed_only": false,
 			"extracted_only": true,
@@ -99,6 +101,7 @@
 		{
 			"id": "extracted_deep",
 			"name": "Deep Extract",
+			"name_zh": "深层撤离",
 			"abandoned_only": false,
 			"completed_only": false,
 			"extracted_only": true,
@@ -142,6 +145,7 @@
 		{
 			"id": "completed_shallow",
 			"name": "Shallow Haul",
+			"name_zh": "浅层收获",
 			"abandoned_only": false,
 			"completed_only": true,
 			"min_score": 0,
@@ -187,6 +191,7 @@
 		{
 			"id": "completed_deep",
 			"name": "Deep Harvest",
+			"name_zh": "深层满载",
 			"abandoned_only": false,
 			"completed_only": true,
 			"min_score": 8,

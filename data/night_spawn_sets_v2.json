@@ -1,0 +1,139 @@
+{
+  "schema_version": 2,
+  "spawn_sets": [
+    {
+      "id": "reef_patrol_volley_open",
+      "label": "Reef Patrol Volley",
+      "label_zh": "礁巡火线",
+      "enemies": [
+        {"enemy_id": "drifter", "spawn_point": "NorthWest"},
+        {"enemy_id": "drifter", "spawn_point": "NorthEast"},
+        {"enemy_id": "shooter", "spawn_point": "North"},
+        {"enemy_id": "sprinter", "spawn_point": "East"},
+        {"enemy_id": "sprinter", "spawn_point": "West"}
+      ]
+    },
+    {
+      "id": "relay_holdout_wave_1",
+      "label": "Relay Holdout Wave 1",
+      "label_zh": "守点波次 1",
+      "enemies": [
+        {"enemy_id": "shielded", "spawn_point": "North"},
+        {"enemy_id": "drifter", "spawn_point": "West"},
+        {"enemy_id": "drifter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "relay_holdout_wave_2",
+      "label": "Relay Holdout Wave 2",
+      "label_zh": "守点波次 2",
+      "enemies": [
+        {"enemy_id": "shooter", "spawn_point": "NorthWest"},
+        {"enemy_id": "shooter", "spawn_point": "NorthEast"},
+        {"enemy_id": "sprinter", "spawn_point": "South"}
+      ]
+    },
+    {
+      "id": "relay_holdout_wave_3",
+      "label": "Relay Holdout Wave 3",
+      "label_zh": "守点波次 3",
+      "enemies": [
+        {"enemy_id": "lurker", "spawn_point": "North", "allow_elite": true},
+        {"enemy_id": "ink_mite", "spawn_point": "Center", "count": 2, "offset_radius": 28.0},
+        {"enemy_id": "sprinter", "spawn_point": "West"},
+        {"enemy_id": "sprinter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "relay_holdout_fail_cleanup",
+      "label": "Relay Cleanup",
+      "label_zh": "守点清场",
+      "enemies": [
+        {"enemy_id": "splitter", "spawn_point": "North"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthWest"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthEast"}
+      ]
+    },
+    {
+      "id": "turret_cache_guards",
+      "label": "Turret Cache Guards",
+      "label_zh": "炮塔守卫",
+      "enemies": [
+        {"enemy_id": "shielded", "spawn_point": "North", "allow_elite": true},
+        {"enemy_id": "shooter", "spawn_point": "West"},
+        {"enemy_id": "shooter", "spawn_point": "East"},
+        {"enemy_id": "drifter", "spawn_point": "Center"}
+      ]
+    },
+    {
+      "id": "turret_cache_reinforce",
+      "label": "Turret Cache Reinforce",
+      "label_zh": "炮塔增援",
+      "enemies": [
+        {"enemy_id": "sprinter", "spawn_point": "SouthWest"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthEast"},
+        {"enemy_id": "shooter", "spawn_point": "North"}
+      ]
+    },
+    {
+      "id": "swarm_nest_intro",
+      "label": "Swarm Nest Intro",
+      "label_zh": "虫巢初始波",
+      "enemies": [
+        {"enemy_id": "lurker", "spawn_point": "West", "allow_elite": true},
+        {"enemy_id": "ink_mite", "spawn_point": "North", "count": 2, "offset_radius": 26.0},
+        {"enemy_id": "sprinter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "swarm_nest_repeat",
+      "label": "Swarm Nest Repeat",
+      "label_zh": "虫巢持续波",
+      "enemies": [
+        {"enemy_id": "ink_mite", "spawn_point": "North", "count": 2, "offset_radius": 24.0},
+        {"enemy_id": "sprinter", "spawn_point": "SouthWest"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthEast"}
+      ]
+    },
+    {
+      "id": "pressure_lock_trial_open",
+      "label": "Pressure Lock Trial",
+      "label_zh": "压舱试炼",
+      "enemies": [
+        {"enemy_id": "lurker", "spawn_point": "West", "allow_elite": true},
+        {"enemy_id": "lurker", "spawn_point": "East", "allow_elite": true},
+        {"enemy_id": "shielded", "spawn_point": "Center"},
+        {"enemy_id": "shooter", "spawn_point": "North"},
+        {"enemy_id": "sprinter", "spawn_point": "South"}
+      ]
+    },
+    {
+      "id": "apex_siren_phase_1",
+      "label": "Apex Siren",
+      "label_zh": "顶潮海妖",
+      "enemies": [
+        {"enemy_id": "abyss_siren", "spawn_boss": true, "spawn_point": "North"}
+      ]
+    },
+    {
+      "id": "apex_siren_phase_2_adds",
+      "label": "Apex Siren Adds",
+      "label_zh": "海妖增援",
+      "enemies": [
+        {"enemy_id": "drifter", "spawn_point": "West"},
+        {"enemy_id": "drifter", "spawn_point": "East"},
+        {"enemy_id": "shooter", "spawn_point": "Center"}
+      ]
+    },
+    {
+      "id": "apex_siren_phase_4_ritual",
+      "label": "Apex Siren Ritual",
+      "label_zh": "海妖祭仪",
+      "enemies": [
+        {"enemy_id": "summoner", "spawn_point": "North"},
+        {"enemy_id": "ink_mite", "spawn_point": "West", "count": 2, "offset_radius": 18.0},
+        {"enemy_id": "ink_mite", "spawn_point": "East", "count": 2, "offset_radius": 18.0}
+      ]
+    }
+  ]
+}

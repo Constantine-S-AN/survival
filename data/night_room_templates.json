@@ -1,11 +1,16 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "templates": [
     {
       "id": "branching_intro_channels",
       "label": "Branching Intro Channels",
+      "label_zh": "分叉引导水道",
       "start_room_id": "camp",
       "goal_room_id": "apex_guardian",
+      "map_layout": {
+        "grid_spacing": [1260, 920],
+        "corridor_width": 104
+      },
       "encounters": {
         "reef_patrol": {
           "spawn_set_id": "reef_patrol_channels"
@@ -22,8 +27,10 @@
           "id": "camp",
           "room_type_id": "rest",
           "label": "Harbor Refuge",
+          "label_zh": "港湾庇护所",
           "scene": "res://scenes/night/rooms/HarborRefugeRoom.tscn",
           "map_position": [0, 0],
+          "map_size": [940, 620],
           "reward": {
             "kind": "rest",
             "heal_pct": 0.35,
@@ -34,24 +41,30 @@
           "id": "reef_patrol",
           "room_type_id": "combat",
           "label": "Reef Patrol",
+          "label_zh": "礁巡",
           "encounter_id": "reef_patrol",
           "scene": "res://scenes/night/rooms/ReefChannelRoom.tscn",
-          "map_position": [1, -1]
+          "map_position": [1, -1],
+          "map_size": [1120, 720]
         },
         {
           "id": "swarm_nest",
           "room_type_id": "combat",
           "label": "Swarm Nest",
+          "label_zh": "虫巢",
           "encounter_id": "swarm_nest",
           "scene": "res://scenes/night/rooms/SwarmNestRoom.tscn",
-          "map_position": [1, 1]
+          "map_position": [1, 1],
+          "map_size": [1180, 760]
         },
         {
           "id": "supply_cache",
           "room_type_id": "treasure",
           "label": "Supply Cache",
+          "label_zh": "补给缓存",
           "scene": "res://scenes/night/rooms/SupplyCacheRoom.tscn",
           "map_position": [2, -1],
+          "map_size": [880, 540],
           "reward": {
             "kind": "treasure",
             "xp_pickups": 6,
@@ -62,8 +75,10 @@
           "id": "quiet_niche",
           "room_type_id": "rest",
           "label": "Quiet Niche",
+          "label_zh": "静谧壁龛",
           "scene": "res://scenes/night/rooms/QuietNicheRoom.tscn",
           "map_position": [2, 1],
+          "map_size": [900, 580],
           "reward": {
             "kind": "rest",
             "heal_pct": 0.25,
@@ -74,8 +89,10 @@
           "id": "omen_shrine",
           "room_type_id": "event",
           "label": "Omen Shrine",
+          "label_zh": "征兆神龛",
           "scene": "res://scenes/night/rooms/OmenShrineRoom.tscn",
           "map_position": [3, 0],
+          "map_size": [980, 620],
           "reward": {
             "kind": "event",
             "event_id": "rift_omen",
@@ -88,9 +105,11 @@
           "id": "apex_guardian",
           "room_type_id": "boss",
           "label": "Apex Guardian",
+          "label_zh": "顶点守卫",
           "encounter_id": "apex_guardian",
           "scene": "res://scenes/night/rooms/AbyssSanctumRoom.tscn",
           "map_position": [4, 0],
+          "map_size": [1380, 900],
           "is_goal": true
         }
       ],
@@ -128,8 +147,13 @@
     {
       "id": "branching_intro_pillars",
       "label": "Branching Intro Pillars",
+      "label_zh": "分叉引导石柱",
       "start_room_id": "camp",
       "goal_room_id": "apex_guardian",
+      "map_layout": {
+        "grid_spacing": [1260, 920],
+        "corridor_width": 104
+      },
       "encounters": {
         "reef_patrol": {
           "spawn_set_id": "reef_patrol_pillars"
@@ -146,8 +170,10 @@
           "id": "camp",
           "room_type_id": "rest",
           "label": "Harbor Refuge",
+          "label_zh": "港湾庇护所",
           "scene": "res://scenes/night/rooms/HarborRefugeRoom.tscn",
           "map_position": [0, 0],
+          "map_size": [940, 620],
           "reward": {
             "kind": "rest",
             "heal_pct": 0.35,
@@ -158,24 +184,30 @@
           "id": "reef_patrol",
           "room_type_id": "combat",
           "label": "Reef Patrol",
+          "label_zh": "礁巡",
           "encounter_id": "reef_patrol",
           "scene": "res://scenes/night/rooms/ReefPillarRoom.tscn",
-          "map_position": [1, -1]
+          "map_position": [1, -1],
+          "map_size": [1120, 720]
         },
         {
           "id": "swarm_nest",
           "room_type_id": "combat",
           "label": "Swarm Nest",
+          "label_zh": "虫巢",
           "encounter_id": "swarm_nest",
           "scene": "res://scenes/night/rooms/UndertowForgeRoom.tscn",
-          "map_position": [1, 1]
+          "map_position": [1, 1],
+          "map_size": [1180, 760]
         },
         {
           "id": "supply_cache",
           "room_type_id": "treasure",
           "label": "Supply Cache",
+          "label_zh": "补给缓存",
           "scene": "res://scenes/night/rooms/SupplyCacheRoom.tscn",
           "map_position": [2, -1],
+          "map_size": [880, 540],
           "reward": {
             "kind": "treasure",
             "xp_pickups": 6,
@@ -186,8 +218,10 @@
           "id": "quiet_niche",
           "room_type_id": "rest",
           "label": "Quiet Niche",
+          "label_zh": "静谧壁龛",
           "scene": "res://scenes/night/rooms/QuietNicheRoom.tscn",
           "map_position": [2, 1],
+          "map_size": [900, 580],
           "reward": {
             "kind": "rest",
             "heal_pct": 0.25,
@@ -198,8 +232,10 @@
           "id": "omen_shrine",
           "room_type_id": "event",
           "label": "Omen Shrine",
+          "label_zh": "征兆神龛",
           "scene": "res://scenes/night/rooms/OmenShrineRoom.tscn",
           "map_position": [3, 0],
+          "map_size": [980, 620],
           "reward": {
             "kind": "event",
             "event_id": "rift_omen",
@@ -212,9 +248,11 @@
           "id": "apex_guardian",
           "room_type_id": "boss",
           "label": "Apex Guardian",
+          "label_zh": "顶点守卫",
           "encounter_id": "apex_guardian",
           "scene": "res://scenes/night/rooms/AbyssSanctumRoom.tscn",
           "map_position": [4, 0],
+          "map_size": [1380, 900],
           "is_goal": true
         }
       ],
@@ -245,6 +283,324 @@
         },
         {
           "from": "omen_shrine",
+          "to": "apex_guardian"
+        }
+      ]
+    },
+    {
+      "id": "harbor_rift_v2_route_a",
+      "label": "Harbor Rift V2",
+      "label_zh": "港湾裂隙 V2",
+      "start_room_id": "camp",
+      "goal_room_id": "apex_guardian",
+      "map_layout": {
+        "grid_spacing": [1220, 900],
+        "corridor_width": 108
+      },
+      "mutator_pool": [
+        "mutator_tide_pressure",
+        "mutator_salvage_surge",
+        "mutator_black_current"
+      ],
+      "encounters": {
+        "reef_patrol_volley": {
+          "reward_table_id": "combat_standard_v2"
+        },
+        "relay_holdout": {
+          "reward_table_id": "combat_objective_v2"
+        },
+        "turret_cache_lockdown": {
+          "reward_table_id": "combat_elite_v2"
+        },
+        "swarm_nest_breach": {
+          "reward_table_id": "combat_elite_v2"
+        },
+        "pressure_lock_trial": {
+          "reward_table_id": "combat_challenge_v2"
+        },
+        "apex_siren_ritual": {
+          "reward_table_id": "combat_boss_v2"
+        }
+      },
+      "rooms": [
+        {
+          "id": "camp",
+          "room_type_id": "rest",
+          "label": "Harbor Refuge",
+          "label_zh": "港湾庇护所",
+          "scene": "res://scenes/night/rooms/HarborRefugeRoom.tscn",
+          "map_position": [0, 0],
+          "map_size": [940, 620],
+          "reward": {
+            "kind": "rest",
+            "heal_pct": 0.30,
+            "noise_delta": -10.0
+          },
+          "metadata": {
+            "room_tags": ["start", "safe"],
+            "preview_text_zh": "选一条路下潜"
+          }
+        },
+        {
+          "id": "reef_patrol",
+          "room_type_id": "combat",
+          "label": "Reef Patrol",
+          "label_zh": "礁巡火线",
+          "encounter_id": "reef_patrol_volley",
+          "scene": "res://scenes/night/rooms/ReefChannelRoom.tscn",
+          "map_position": [1, -1],
+          "map_size": [1120, 720],
+          "metadata": {
+            "room_tags": ["starter", "combat"],
+            "preview_reward_material": "scrap"
+          }
+        },
+        {
+          "id": "relay_beacon",
+          "room_type_id": "combat",
+          "label": "Relay Beacon",
+          "label_zh": "信标守点",
+          "encounter_id": "relay_holdout",
+          "scene": "res://scenes/night/rooms/OmenShrineRoom.tscn",
+          "map_position": [2, -1],
+          "map_size": [1040, 660],
+          "metadata": {
+            "room_tags": ["objective", "holdout"],
+            "preview_reward_material": "lumen_resin"
+          }
+        },
+        {
+          "id": "tide_statue",
+          "room_type_id": "event",
+          "label": "Tide Statue",
+          "label_zh": "潮汐神像",
+          "scene": "res://scenes/night/rooms/OmenShrineRoom.tscn",
+          "reward_on_enter": false,
+          "map_position": [3, -2],
+          "map_size": [920, 580],
+          "reward": {
+            "kind": "event",
+            "event_id": "tide_statue",
+            "xp_bonus": 28,
+            "noise_delta": -6.0,
+            "skill_cd_refund": 1.4
+          },
+          "metadata": {
+            "special_room_kind": "shrine",
+            "shrine_pool_id": "tide_statue_pool",
+            "cost_type": "hp_or_noise",
+            "cost_value": 10,
+            "room_tags": ["shrine", "tradeoff"]
+          }
+        },
+        {
+          "id": "salvage_market",
+          "room_type_id": "treasure",
+          "label": "Salvage Market",
+          "label_zh": "打捞黑市",
+          "scene": "res://scenes/night/rooms/SupplyCacheRoom.tscn",
+          "reward_on_enter": false,
+          "map_position": [3, 0],
+          "map_size": [960, 600],
+          "reward": {
+            "kind": "treasure",
+            "xp_pickups": 7,
+            "xp_amount": 18
+          },
+          "metadata": {
+            "special_room_kind": "shop",
+            "shop_inventory_id": "night_market_tier_1",
+            "shop_price_xp": 36,
+            "room_tags": ["shop", "utility"]
+          }
+        },
+        {
+          "id": "turret_cache",
+          "room_type_id": "combat",
+          "label": "Turret Cache",
+          "label_zh": "炮塔锁库",
+          "encounter_id": "turret_cache_lockdown",
+          "scene": "res://scenes/night/rooms/ReefPillarRoom.tscn",
+          "map_position": [1, 1],
+          "map_size": [1160, 760],
+          "metadata": {
+            "room_tags": ["objective", "turret"],
+            "preview_reward_material": "coil_fragment"
+          }
+        },
+        {
+          "id": "swarm_nest",
+          "room_type_id": "combat",
+          "label": "Swarm Nest",
+          "label_zh": "虫巢爆破",
+          "encounter_id": "swarm_nest_breach",
+          "scene": "res://scenes/night/rooms/SwarmNestRoom.tscn",
+          "map_position": [2, 1],
+          "map_size": [1180, 760],
+          "metadata": {
+            "room_tags": ["elite", "spawner"],
+            "preview_reward_material": "moon_spore"
+          }
+        },
+        {
+          "id": "smuggler_cut",
+          "room_type_id": "treasure",
+          "label": "Smuggler Cut",
+          "label_zh": "走私夹层",
+          "scene": "res://scenes/night/rooms/SupplyCacheRoom.tscn",
+          "map_position": [4, 3],
+          "map_size": [900, 560],
+          "reward": {
+            "kind": "treasure",
+            "xp_pickups": 8,
+            "xp_amount": 20
+          },
+          "metadata": {
+            "room_tags": ["treasure", "secret"],
+            "carryover_materials": {
+              "blueprint_fragment": 1
+            }
+          }
+        },
+        {
+          "id": "echo_bazaar",
+          "room_type_id": "treasure",
+          "label": "Echo Bazaar",
+          "label_zh": "回声商栈",
+          "scene": "res://scenes/night/rooms/SupplyCacheRoom.tscn",
+          "reward_on_enter": false,
+          "map_position": [3, 2],
+          "map_size": [980, 620],
+          "reward": {
+            "kind": "treasure",
+            "xp_pickups": 8,
+            "xp_amount": 20
+          },
+          "metadata": {
+            "special_room_kind": "shop",
+            "shop_inventory_id": "night_market_tier_2",
+            "shop_price_xp": 48,
+            "room_tags": ["shop", "high_value"]
+          }
+        },
+        {
+          "id": "undertow_altar",
+          "room_type_id": "event",
+          "label": "Undertow Altar",
+          "label_zh": "暗流祭坛",
+          "scene": "res://scenes/night/rooms/OmenShrineRoom.tscn",
+          "reward_on_enter": false,
+          "map_position": [3, 1],
+          "map_size": [940, 600],
+          "reward": {
+            "kind": "event",
+            "event_id": "undertow_altar",
+            "xp_bonus": 32,
+            "noise_delta": -4.0,
+            "skill_cd_refund": 1.8
+          },
+          "metadata": {
+            "special_room_kind": "shrine",
+            "shrine_pool_id": "undertow_altar_pool",
+            "cost_type": "hp_or_noise",
+            "cost_value": 14,
+            "room_tags": ["shrine", "high_risk"]
+          }
+        },
+        {
+          "id": "pressure_lock",
+          "room_type_id": "combat",
+          "label": "Pressure Lock",
+          "label_zh": "压舱试炼",
+          "encounter_id": "pressure_lock_trial",
+          "scene": "res://scenes/night/rooms/UndertowForgeRoom.tscn",
+          "map_position": [5, 0],
+          "map_size": [1240, 780],
+          "metadata": {
+            "room_tags": ["challenge", "combat"],
+            "challenge_preview_zh": "房间禁止治疗，电击地板激活",
+            "preview_reward_material": "challenge_seal"
+          }
+        },
+        {
+          "id": "apex_guardian",
+          "room_type_id": "boss",
+          "label": "Apex Siren",
+          "label_zh": "顶潮海妖",
+          "encounter_id": "apex_siren_ritual",
+          "scene": "res://scenes/night/rooms/AbyssSanctumRoom.tscn",
+          "map_position": [6, 0],
+          "map_size": [1380, 900],
+          "is_goal": true,
+          "metadata": {
+            "room_tags": ["boss", "finale"]
+          }
+        }
+      ],
+      "connections": [
+        {
+          "from": "camp",
+          "to": "reef_patrol"
+        },
+        {
+          "from": "camp",
+          "to": "turret_cache"
+        },
+        {
+          "from": "reef_patrol",
+          "to": "relay_beacon"
+        },
+        {
+          "from": "reef_patrol",
+          "to": "salvage_market"
+        },
+        {
+          "from": "relay_beacon",
+          "to": "tide_statue"
+        },
+        {
+          "from": "relay_beacon",
+          "to": "pressure_lock"
+        },
+        {
+          "from": "turret_cache",
+          "to": "swarm_nest"
+        },
+        {
+          "from": "turret_cache",
+          "to": "salvage_market"
+        },
+        {
+          "from": "turret_cache",
+          "to": "echo_bazaar"
+        },
+        {
+          "from": "swarm_nest",
+          "to": "smuggler_cut",
+          "hidden": true
+        },
+        {
+          "from": "swarm_nest",
+          "to": "undertow_altar"
+        },
+        {
+          "from": "swarm_nest",
+          "to": "pressure_lock"
+        },
+        {
+          "from": "echo_bazaar",
+          "to": "pressure_lock"
+        },
+        {
+          "from": "undertow_altar",
+          "to": "pressure_lock"
+        },
+        {
+          "from": "smuggler_cut",
+          "to": "pressure_lock"
+        },
+        {
+          "from": "pressure_lock",
           "to": "apex_guardian"
         }
       ]

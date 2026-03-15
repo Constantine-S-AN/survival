@@ -1,12 +1,15 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "modifiers": [
     {
       "id": "surge_coils",
       "label": "Surge Coils",
+      "label_zh": "涌流线圈",
       "category": "upgrade",
       "description": "Tighter firing cadence for the rest of this night.",
+      "description_zh": "让今夜剩余路程的射击节奏更紧凑。",
       "summary": "+15% attack speed",
+      "summary_zh": "+15% 攻速",
       "effects": [
         {
           "stat": "attack_speed_mult",
@@ -17,9 +20,12 @@
     {
       "id": "drift_fins",
       "label": "Drift Fins",
+      "label_zh": "漂移鳍板",
       "category": "upgrade",
       "description": "Faster strafes and cleaner dash recovery between rooms.",
+      "description_zh": "更快横移，房间间冲刺恢复更利落。",
       "summary": "+30 move speed, -8% dash cooldown",
+      "summary_zh": "+30 移速，冲刺冷却 -8%",
       "effects": [
         {
           "stat": "move_speed_bonus",
@@ -34,9 +40,12 @@
     {
       "id": "quiet_heart",
       "label": "Quiet Heart",
+      "label_zh": "静心核心",
       "category": "upgrade",
       "description": "Slow sustain and lower noise pressure across the run.",
+      "description_zh": "整场夜跑持续缓回，并降低噪声压力。",
       "summary": "+1.5 regen, -8% noise gain",
+      "summary_zh": "+1.5 回复，噪声获取 -8%",
       "effects": [
         {
           "stat": "regen_per_second",
@@ -51,9 +60,12 @@
     {
       "id": "pressure_mesh",
       "label": "Pressure Mesh",
+      "label_zh": "压力网甲",
       "category": "upgrade",
       "description": "A heavier shell that trades nothing for raw staying power.",
+      "description_zh": "更厚的外壳，直接换来更扎实的站场能力。",
       "summary": "+12 max HP, +12% damage",
+      "summary_zh": "+12 最大生命，+12% 伤害",
       "effects": [
         {
           "stat": "max_hp",
@@ -68,9 +80,12 @@
     {
       "id": "kill_switch",
       "label": "Kill Switch",
+      "label_zh": "杀戮开关",
       "category": "upgrade",
       "description": "Push harder once the run turns loud.",
+      "description_zh": "当局势变吵时，火力也一起顶上去。",
       "summary": "+18% high-noise damage, +12% high-noise speed",
+      "summary_zh": "高噪伤害 +18%，高噪攻速 +12%",
       "effects": [
         {
           "stat": "high_noise_damage_mult",
@@ -85,9 +100,12 @@
     {
       "id": "abyss_battery",
       "label": "Abyss Battery",
+      "label_zh": "深渊电池",
       "category": "upgrade",
       "description": "Boss-grade overclocking for the rest of the dive.",
+      "description_zh": "为今晚剩余路程提供首领级过载。",
       "summary": "+15% damage, +10% attack speed",
+      "summary_zh": "+15% 伤害，+10% 攻速",
       "effects": [
         {
           "stat": "damage_mult",
@@ -102,9 +120,12 @@
     {
       "id": "chamber_polish",
       "label": "Chamber Polish",
+      "label_zh": "膛线抛光",
       "category": "weapon",
       "description": "Tune the active weapon for harder opening hits.",
+      "description_zh": "让当前武器的第一轮输出更狠。",
       "summary": "Active weapon +20% damage",
+      "summary_zh": "当前武器伤害 +20%",
       "effects": [
         {
           "stat": "weapon_damage_mult",
@@ -119,9 +140,12 @@
     {
       "id": "twin_feed",
       "label": "Twin Feed",
+      "label_zh": "双路供弹",
       "category": "weapon",
       "description": "Shorten cycle time on the weapon you are already carrying.",
+      "description_zh": "缩短你手上这把武器的循环时间。",
       "summary": "Active weapon +18% fire rate",
+      "summary_zh": "当前武器射速 +18%",
       "effects": [
         {
           "stat": "weapon_attack_rate_mult",
@@ -136,9 +160,12 @@
     {
       "id": "pierce_tube",
       "label": "Pierce Tube",
+      "label_zh": "穿透膛管",
       "category": "weapon",
       "description": "Punch cleaner lanes through dense room packs.",
+      "description_zh": "在拥挤房间里打出更干净的穿透火线。",
       "summary": "Active weapon +1 pierce",
+      "summary_zh": "当前武器穿透 +1",
       "effects": [
         {
           "stat": "weapon_pierce_bonus",
@@ -153,9 +180,12 @@
     {
       "id": "scatter_array",
       "label": "Scatter Array",
+      "label_zh": "散射阵列",
       "category": "weapon",
       "description": "Push one more projectile into each active weapon volley.",
+      "description_zh": "让当前武器每轮多打出一发投射物。",
       "summary": "Active weapon +1 projectile",
+      "summary_zh": "当前武器投射物 +1",
       "effects": [
         {
           "stat": "weapon_projectile_count_bonus",
@@ -170,9 +200,12 @@
     {
       "id": "crown_bore",
       "label": "Crown Bore",
+      "label_zh": "王冠膛线",
       "category": "weapon",
       "description": "A boss-room reline for a decisive finishing weapon.",
+      "description_zh": "为收尾而做的首领房级膛线重修。",
       "summary": "Active weapon +30% damage, +4% crit",
+      "summary_zh": "当前武器伤害 +30%，暴击 +4%",
       "effects": [
         {
           "stat": "weapon_damage_mult",
@@ -191,6 +224,496 @@
           }
         }
       ]
+    },
+    {
+      "id": "blessing_tide_burst",
+      "label": "Tide Burst",
+      "label_zh": "潮爆祷文",
+      "category": "blessing",
+      "description": "A shrine surge that speeds up skills and follow-up volleys.",
+      "description_zh": "神像带来的潮汐过载，让技能与后续压制更快衔接。",
+      "summary": "+8% attack speed, -6% dash cooldown",
+      "summary_zh": "+8% 攻速，冲刺冷却 -6%",
+      "effects": [
+        {
+          "stat": "attack_speed_mult",
+          "add": 0.08
+        },
+        {
+          "stat": "dash_cooldown_reduction",
+          "add": 0.06
+        }
+      ]
+    },
+    {
+      "id": "blessing_anchor_spark",
+      "label": "Anchor Spark",
+      "label_zh": "锚火祷文",
+      "category": "blessing",
+      "description": "Keeps you mobile while preserving low-noise tempo.",
+      "description_zh": "让你在移动中保持压制，并强化低噪节奏。",
+      "summary": "+24 move speed, +8% low-noise attack speed",
+      "summary_zh": "+24 移速，低噪攻速 +8%",
+      "effects": [
+        {
+          "stat": "move_speed_bonus",
+          "add": 24.0
+        },
+        {
+          "stat": "low_noise_attack_speed_mult",
+          "add": 0.08
+        }
+      ]
+    },
+    {
+      "id": "blessing_shell_guard",
+      "label": "Shell Guard",
+      "label_zh": "壳卫祷文",
+      "category": "blessing",
+      "description": "A safer blessing that smooths rough rooms and sustain checks.",
+      "description_zh": "偏保守的祝福，帮助你顶过高压房和续航考验。",
+      "summary": "+10 max HP, +0.8 regen",
+      "summary_zh": "+10 最大生命，+0.8 回复",
+      "effects": [
+        {
+          "stat": "max_hp",
+          "add": 10.0
+        },
+        {
+          "stat": "regen_per_second",
+          "add": 0.8
+        }
+      ]
+    },
+    {
+      "id": "blessing_hunter_gull",
+      "label": "Hunter Gull",
+      "label_zh": "猎潮鸥祷文",
+      "category": "blessing",
+      "description": "Turns marked or revealed targets into cleaner finishers.",
+      "description_zh": "让被标记或显形的目标更容易被你快速收掉。",
+      "summary": "+16% damage to revealed targets, +12 move speed",
+      "summary_zh": "对显形目标伤害 +16%，移速 +12",
+      "effects": [
+        {
+          "stat": "revealed_damage_mult",
+          "add": 0.16
+        },
+        {
+          "stat": "move_speed_bonus",
+          "add": 12.0
+        }
+      ]
+    },
+    {
+      "id": "blessing_broker_surge",
+      "label": "Broker Surge",
+      "label_zh": "经纪潮汐",
+      "category": "blessing",
+      "description": "An economy shrine that makes the rest of the route pay better.",
+      "description_zh": "偏经营向的祝福，让剩余路线更值钱。",
+      "summary": "DROP x1.10, META x1.12 this run",
+      "summary_zh": "本局掉落 x1.10，元货币 x1.12",
+      "reward_multipliers": {
+        "drop": 1.10,
+        "meta_currency": 1.12
+      }
+    },
+    {
+      "id": "blessing_omen_lowtide",
+      "label": "Lowtide Omen",
+      "label_zh": "低潮征兆",
+      "category": "blessing",
+      "description": "A dangerous blessing that shines when the run gets noisy.",
+      "description_zh": "偏冒险的祝福，局势越吵越能发挥价值。",
+      "summary": "+18% high-noise damage, +28 move speed",
+      "summary_zh": "高噪伤害 +18%，移速 +28",
+      "effects": [
+        {
+          "stat": "high_noise_damage_mult",
+          "add": 0.18
+        },
+        {
+          "stat": "move_speed_bonus",
+          "add": 28.0
+        }
+      ]
+    },
+    {
+      "id": "blessing_choir_silence",
+      "label": "Choir of Silence",
+      "label_zh": "静潮合唱",
+      "category": "blessing",
+      "description": "Rewards clean pacing by strengthening your quiet-state damage windows.",
+      "description_zh": "奖励干净的节奏控制，强化你的低压输出窗口。",
+      "summary": "+14% low-noise damage, +10% low-noise speed",
+      "summary_zh": "低噪伤害 +14%，低噪攻速 +10%",
+      "effects": [
+        {
+          "stat": "low_noise_damage_mult",
+          "add": 0.14
+        },
+        {
+          "stat": "low_noise_attack_speed_mult",
+          "add": 0.10
+        }
+      ]
+    },
+    {
+      "id": "blessing_harbor_light",
+      "label": "Harbor Light",
+      "label_zh": "归航灯祷文",
+      "category": "blessing",
+      "description": "A return-focused blessing that nudges both survivability and extraction value.",
+      "description_zh": "偏返航收益的祝福，同时补一点续航。",
+      "summary": "+0.4 regen, XP x1.10, META x1.20",
+      "summary_zh": "+0.4 回复，经验 x1.10，元货币 x1.20",
+      "effects": [
+        {
+          "stat": "regen_per_second",
+          "add": 0.4
+        }
+      ],
+      "reward_multipliers": {
+        "xp": 1.10,
+        "meta_currency": 1.20
+      }
+    },
+    {
+      "id": "trait_ricochet_rifling",
+      "label": "Ricochet Rifling",
+      "label_zh": "跳弹膛线",
+      "category": "weapon_trait",
+      "description": "Extends the weapon's lane control with cleaner punch-through.",
+      "description_zh": "强化当前武器的火线穿透和通道压制能力。",
+      "summary": "Active weapon +10% range, +1 pierce",
+      "summary_zh": "当前武器射程 +10%，穿透 +1",
+      "effects": [
+        {
+          "stat": "weapon_range_mult",
+          "add": 0.10,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_pierce_bonus",
+          "add": 1,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trait_chilled_chamber",
+      "label": "Chilled Chamber",
+      "label_zh": "寒膛",
+      "category": "weapon_trait",
+      "description": "Improves precision follow-up by extending reveal windows and travel speed.",
+      "description_zh": "通过更快弹速和更长显形时间，提升当前武器的追击手感。",
+      "summary": "Active weapon +10% projectile speed, +0.35 reveal",
+      "summary_zh": "当前武器弹速 +10%，显形时长 +0.35",
+      "effects": [
+        {
+          "stat": "weapon_projectile_speed_mult",
+          "add": 0.10,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_reveal_bonus_add",
+          "add": 0.35,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trait_harpoon_spool",
+      "label": "Harpoon Spool",
+      "label_zh": "鱼叉卷轴",
+      "category": "weapon_trait",
+      "description": "Sharpens the active weapon into a heavier single-target finisher.",
+      "description_zh": "把当前武器修成更偏单点收割的形态。",
+      "summary": "Active weapon +12% projectile speed, +0.20 crit multi",
+      "summary_zh": "当前武器弹速 +12%，暴击倍率 +0.20",
+      "effects": [
+        {
+          "stat": "weapon_projectile_speed_mult",
+          "add": 0.12,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_crit_multiplier_add",
+          "add": 0.20,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trait_overcrank_burst",
+      "label": "Overcrank Burst",
+      "label_zh": "超频首发",
+      "category": "weapon_trait",
+      "description": "Pushes the weapon into a hotter, faster room-entry cadence.",
+      "description_zh": "让当前武器在进房时更快更猛，但也更吵。",
+      "summary": "Active weapon +22% fire rate, +0.30 noise",
+      "summary_zh": "当前武器射速 +22%，噪声 +0.30",
+      "effects": [
+        {
+          "stat": "weapon_attack_rate_mult",
+          "add": 0.22,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_noise_add",
+          "add": 0.30,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trait_split_core",
+      "label": "Split Core",
+      "label_zh": "裂核",
+      "category": "weapon_trait",
+      "description": "Adds another projectile while preserving respectable base damage.",
+      "description_zh": "为当前武器额外塞进一发投射物，同时保留不错的基础输出。",
+      "summary": "Active weapon +1 projectile, +8% damage",
+      "summary_zh": "当前武器投射物 +1，伤害 +8%",
+      "effects": [
+        {
+          "stat": "weapon_projectile_count_bonus",
+          "add": 1,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_damage_mult",
+          "add": 0.08,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trait_mining_tip",
+      "label": "Mining Tip",
+      "label_zh": "采掘尖头",
+      "category": "weapon_trait",
+      "description": "A reliable trait for breaking through dense enemy lines and room objectives.",
+      "description_zh": "偏稳定的目标房词条，适合打穿密集敌群和房间核心。",
+      "summary": "Active weapon +12% damage, +1 pierce",
+      "summary_zh": "当前武器伤害 +12%，穿透 +1",
+      "effects": [
+        {
+          "stat": "weapon_damage_mult",
+          "add": 0.12,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_pierce_bonus",
+          "add": 1,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trait_salt_edge",
+      "label": "Salt Edge",
+      "label_zh": "盐锋",
+      "category": "weapon_trait",
+      "description": "A cleaner elite-killer rework for the weapon you are already leaning on.",
+      "description_zh": "把你当前依赖的武器进一步打磨成精英斩杀工具。",
+      "summary": "Active weapon +18% damage, +4% crit",
+      "summary_zh": "当前武器伤害 +18%，暴击 +4%",
+      "effects": [
+        {
+          "stat": "weapon_damage_mult",
+          "add": 0.18,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_crit_chance_add",
+          "add": 0.04,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trait_sonar_fins",
+      "label": "Sonar Fins",
+      "label_zh": "声纳鳍片",
+      "category": "weapon_trait",
+      "description": "Leans into reveal-driven damage windows for cleaner snowballing.",
+      "description_zh": "进一步强化显形后的追击伤害，滚雪球会更明显。",
+      "summary": "Active weapon +0.75 reveal, +8% damage",
+      "summary_zh": "当前武器显形时长 +0.75，伤害 +8%",
+      "effects": [
+        {
+          "stat": "weapon_reveal_bonus_add",
+          "add": 0.75,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_damage_mult",
+          "add": 0.08,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trait_scavenger_feed",
+      "label": "Scavenger Feed",
+      "label_zh": "拾荒供弹",
+      "category": "weapon_trait",
+      "description": "Shaves noise a little while letting the weapon cycle faster.",
+      "description_zh": "略微降低噪声，同时让当前武器转得更快。",
+      "summary": "Active weapon +10% fire rate, -8% noise",
+      "summary_zh": "当前武器射速 +10%，噪声 -8%",
+      "effects": [
+        {
+          "stat": "weapon_attack_rate_mult",
+          "add": 0.10,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_noise_mult",
+          "add": -0.08,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trait_conductive_chain",
+      "label": "Conductive Chain",
+      "label_zh": "导电串联",
+      "category": "weapon_trait",
+      "description": "A high-end trait that adds both splash presence and a denser volley.",
+      "description_zh": "高阶词条，让当前武器同时获得更厚的弹幕和更强的覆盖。",
+      "summary": "Active weapon +1 projectile, +12% AoE radius",
+      "summary_zh": "当前武器投射物 +1，范围 +12%",
+      "effects": [
+        {
+          "stat": "weapon_projectile_count_bonus",
+          "add": 1,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_aoe_radius_mult",
+          "add": 0.12,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mutator_tide_pressure",
+      "label": "Tide Pressure",
+      "label_zh": "潮压激流",
+      "category": "floor_mutator",
+      "description": "This floor runs hotter: enemies push faster, but the salvage is richer.",
+      "description_zh": "本层潮压更重，敌人推进更快，但打捞收益也更高。",
+      "summary": "Enemies +10% speed, DROP x1.15, META x1.08",
+      "summary_zh": "敌人移速 +10%，掉落 x1.15，元货币 x1.08",
+      "reward_multipliers": {
+        "drop": 1.15,
+        "meta_currency": 1.08
+      },
+      "enemy_modifiers": {
+        "enemy_speed_mult": 1.10
+      }
+    },
+    {
+      "id": "mutator_salvage_surge",
+      "label": "Salvage Surge",
+      "label_zh": "打捞涨潮",
+      "category": "floor_mutator",
+      "description": "Caches run richer and elites appear more often across the floor.",
+      "description_zh": "本层缓存更肥，精英出现频率也会提高。",
+      "summary": "Elite chance +10%, XP x1.10, DROP x1.10",
+      "summary_zh": "精英概率 +10%，经验 x1.10，掉落 x1.10",
+      "reward_multipliers": {
+        "xp": 1.10,
+        "drop": 1.10
+      },
+      "enemy_modifiers": {
+        "elite_chance_add": 0.10
+      }
+    },
+    {
+      "id": "mutator_black_current",
+      "label": "Black Current",
+      "label_zh": "黑流回旋",
+      "category": "floor_mutator",
+      "description": "The floor swarms harder, but you also overclock into the pressure.",
+      "description_zh": "本层怪潮更密，但你也会一起被过载推进。",
+      "summary": "Spawn rate x1.08, +6% attack speed, META x1.15",
+      "summary_zh": "刷怪频率 x1.08，攻速 +6%，元货币 x1.15",
+      "effects": [
+        {
+          "stat": "attack_speed_mult",
+          "add": 0.06
+        }
+      ],
+      "reward_multipliers": {
+        "meta_currency": 1.15
+      },
+      "enemy_modifiers": {
+        "spawn_rate_mult": 1.08
+      }
     }
   ]
 }

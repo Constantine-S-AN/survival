@@ -7,6 +7,7 @@ static func ensure_default_actions() -> void:
 	_ensure_action("move_left", [KEY_A, KEY_LEFT])
 	_ensure_action("move_right", [KEY_D, KEY_RIGHT])
 	_ensure_action("day_interact", [KEY_E, KEY_ENTER, KEY_KP_ENTER])
+	_ensure_action("night_interact", [KEY_F, KEY_ENTER, KEY_KP_ENTER])
 	_ensure_action("day_cycle_farm_tool_prev", [KEY_Q])
 	_ensure_action("day_cycle_farm_tool_next", [KEY_TAB])
 	_ensure_action("day_hotbar_slot_1", [KEY_1, KEY_KP_1])

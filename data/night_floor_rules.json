@@ -4,7 +4,9 @@
     {
       "id": "floor_1",
       "label": "Rift Floor 1",
+      "label_zh": "裂隙第一层",
       "template_ids": [
+        "harbor_rift_v2_route_a",
         "branching_intro_channels",
         "branching_intro_pillars"
       ],

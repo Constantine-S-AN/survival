@@ -22,38 +22,36 @@ func build_floors(seed: int = 0) -> Array:
 	var floor_rows_variant: Variant = floor_rules.get("floors", [])
 	if not (floor_rows_variant is Array):
 		return []
-
-	var floors: Array = []
 	var floor_rows: Array = floor_rows_variant
+	return build_floors_from_data(room_types, room_templates, floor_rows, seed)
+
+
+func build_floors_from_data(room_types: Dictionary, room_templates: Dictionary, floor_rows: Array, seed: int = 0) -> Array:
+	var floors: Array = []
 	for floor_index in range(floor_rows.size()):
 		var floor_variant: Variant = floor_rows[floor_index]
 		if not (floor_variant is Dictionary):
 			continue
 		var floor_row: Dictionary = floor_variant
-		var floor_state := DungeonFloorStateClass.new()
-		floor_state.floor_id = String(floor_row.get("id", "floor_%d" % (floor_index + 1))).strip_edges()
-		floor_state.floor_index = floor_index
-		floor_state.label = String(floor_row.get("label", "Floor %d" % (floor_index + 1))).strip_edges()
-		floor_state.template_id = _select_template_id(floor_row, room_templates, seed, floor_index)
-		if floor_state.template_id.is_empty():
+		var floor_id := _resolve_floor_id(floor_row, floor_index)
+		var template_ids := _build_template_candidates(floor_row, seed, floor_index)
+		if template_ids.is_empty():
+			push_warning("Night floor %s has no template candidates." % floor_id)
 			continue
-		var template_variant: Variant = room_templates.get(floor_state.template_id, {})
-		if not (template_variant is Dictionary):
-			continue
-		var template: Dictionary = template_variant
-		floor_state.start_room_id = String(floor_row.get("start_room_id", template.get("start_room_id", ""))).strip_edges()
-		floor_state.goal_room_id = String(floor_row.get("goal_room_id", template.get("goal_room_id", ""))).strip_edges()
-
-		var encounters_variant: Variant = floor_row.get("encounters", template.get("encounters", {}))
-		floor_state.encounters = encounters_variant.duplicate(true) if encounters_variant is Dictionary else {}
-		_build_floor_rooms(floor_state, template, floor_row, room_types)
-		_build_floor_connections(floor_state, template, floor_row)
-
-		if floor_state.start_room_id.is_empty() and not floor_state.room_order.is_empty():
-			floor_state.start_room_id = floor_state.room_order[0]
-		if floor_state.goal_room_id.is_empty() and not floor_state.room_order.is_empty():
-			floor_state.goal_room_id = floor_state.room_order.back()
-		floors.append(floor_state)
+		var built_floor := false
+		for template_id in template_ids:
+			var template_variant: Variant = room_templates.get(template_id, null)
+			if not (template_variant is Dictionary):
+				push_warning("Night floor %s skipped missing template '%s'." % [floor_id, template_id])
+				continue
+			var floor_state = _build_floor_state(floor_row, template_variant as Dictionary, room_types, floor_index, template_id, seed)
+			if _validate_floor_state(floor_state):
+				floors.append(floor_state)
+				built_floor = true
+				break
+			push_warning("Night floor %s rejected invalid template '%s'." % [floor_id, template_id])
+		if not built_floor:
+			push_warning("Night floor %s could not build a valid room graph." % floor_id)
 	return floors
 
 
@@ -75,7 +73,9 @@ func _build_floor_rooms(floor_state, template: Dictionary, floor_row: Dictionary
 		if override_variant is Dictionary:
 			room_row = _merge_room_dictionary(room_row, override_variant as Dictionary)
 		var room_type_id := String(room_row.get("room_type_id", room_row.get("type", ""))).strip_edges().to_lower()
-		var type_variant: Variant = room_types.get(room_type_id, {})
+		if room_type_id.is_empty() or not room_types.has(room_type_id):
+			continue
+		var type_variant: Variant = room_types.get(room_type_id, null)
 		if not (type_variant is Dictionary):
 			continue
 		var room_state := RoomStateClass.from_dictionary(
@@ -95,10 +95,16 @@ func _build_floor_connections(floor_state, template: Dictionary, floor_row: Dict
 			if not (connection_variant is Dictionary):
 				continue
 			var connection: Dictionary = connection_variant
-			floor_state.connect_rooms(
-				String(connection.get("from", "")).strip_edges(),
-				String(connection.get("to", "")).strip_edges()
-			)
+			var from_room_id := String(connection.get("from", "")).strip_edges()
+			var to_room_id := String(connection.get("to", "")).strip_edges()
+			var metadata := connection.duplicate(true)
+			metadata.erase("from")
+			metadata.erase("to")
+			floor_state.connect_rooms(from_room_id, to_room_id, metadata)
+			if bool(metadata.get("hidden", false)):
+				var target_room: RoomState = floor_state.get_room(to_room_id)
+				if target_room != null:
+					target_room.metadata["hidden_room"] = true
 	var extra_connections_variant: Variant = floor_row.get("extra_connections", [])
 	if extra_connections_variant is Array:
 		var extra_connections: Array = extra_connections_variant
@@ -106,28 +112,266 @@ func _build_floor_connections(floor_state, template: Dictionary, floor_row: Dict
 			if not (connection_variant is Dictionary):
 				continue
 			var connection: Dictionary = connection_variant
-			floor_state.connect_rooms(
-				String(connection.get("from", "")).strip_edges(),
-				String(connection.get("to", "")).strip_edges()
-			)
+			var from_room_id := String(connection.get("from", "")).strip_edges()
+			var to_room_id := String(connection.get("to", "")).strip_edges()
+			var metadata := connection.duplicate(true)
+			metadata.erase("from")
+			metadata.erase("to")
+			floor_state.connect_rooms(from_room_id, to_room_id, metadata)
+			if bool(metadata.get("hidden", false)):
+				var target_room: RoomState = floor_state.get_room(to_room_id)
+				if target_room != null:
+					target_room.metadata["hidden_room"] = true
 
 
-func _select_template_id(floor_row: Dictionary, templates: Dictionary, seed: int, floor_index: int) -> String:
+func _build_floor_state(
+	floor_row: Dictionary,
+	template: Dictionary,
+	room_types: Dictionary,
+	floor_index: int,
+	template_id: String,
+	seed: int
+) -> DungeonFloorState:
+	var floor_state := DungeonFloorStateClass.new()
+	floor_state.floor_id = _resolve_floor_id(floor_row, floor_index)
+	floor_state.floor_index = floor_index
+	var floor_label_fallback := String(floor_row.get("label", "Floor %d" % (floor_index + 1))).strip_edges()
+	if Localization != null and Localization.has_method("data_field"):
+		floor_state.label = String(Localization.call("data_field", floor_state.floor_id, "label", floor_label_fallback, floor_row))
+	else:
+		floor_state.label = floor_label_fallback
+	floor_state.template_id = template_id
+	floor_state.start_room_id = String(floor_row.get("start_room_id", template.get("start_room_id", ""))).strip_edges()
+	floor_state.goal_room_id = String(floor_row.get("goal_room_id", template.get("goal_room_id", ""))).strip_edges()
+	var map_layout_variant: Variant = floor_row.get("map_layout", template.get("map_layout", {}))
+	var map_layout: Dictionary = map_layout_variant if map_layout_variant is Dictionary else {}
+	var default_grid_spacing := floor_state.map_grid_spacing
+	floor_state.map_grid_spacing = _coerce_vector2(map_layout.get("grid_spacing", default_grid_spacing), default_grid_spacing)
+	floor_state.map_corridor_width = maxf(48.0, float(map_layout.get("corridor_width", floor_state.map_corridor_width)))
+	var encounters_variant: Variant = floor_row.get("encounters", template.get("encounters", {}))
+	floor_state.encounters = encounters_variant.duplicate(true) if encounters_variant is Dictionary else {}
+	floor_state.floor_mutator_id = _resolve_floor_mutator_id(floor_row, template, floor_index, template_id, seed)
+	floor_state.floor_mutator = {
+		"id": floor_state.floor_mutator_id
+	} if not floor_state.floor_mutator_id.is_empty() else {}
+	_build_floor_rooms(floor_state, template, floor_row, room_types)
+	_build_floor_connections(floor_state, template, floor_row)
+	return floor_state
+
+
+func _build_template_candidates(floor_row: Dictionary, seed: int, floor_index: int) -> Array[String]:
+	var candidates: Array[String] = []
 	var template_id := String(floor_row.get("template_id", "")).strip_edges()
 	if not template_id.is_empty():
-		return template_id
+		candidates.append(template_id)
 	var template_ids_variant: Variant = floor_row.get("template_ids", [])
 	if not (template_ids_variant is Array):
-		return ""
+		return candidates
 	var template_ids: Array = template_ids_variant
 	if template_ids.is_empty():
-		return ""
+		return candidates
+	var normalized_candidates: Array[String] = []
+	for template_variant in template_ids:
+		var normalized := String(template_variant).strip_edges()
+		if normalized.is_empty() or normalized_candidates.has(normalized):
+			continue
+		normalized_candidates.append(normalized)
+	if normalized_candidates.is_empty():
+		return candidates
 	var seed_basis: int = abs(seed) + floor_index
-	var index: int = seed_basis % template_ids.size()
-	var chosen := String(template_ids[index]).strip_edges()
-	if not templates.has(chosen):
+	var index: int = seed_basis % normalized_candidates.size()
+	for offset in range(normalized_candidates.size()):
+		var chosen := normalized_candidates[(index + offset) % normalized_candidates.size()]
+		if candidates.has(chosen):
+			continue
+		candidates.append(chosen)
+	return candidates
+
+
+func _validate_floor_state(floor_state: DungeonFloorState) -> bool:
+	if floor_state == null:
+		return false
+	if floor_state.room_order.is_empty():
+		push_warning("Night floor %s has no valid rooms." % floor_state.floor_id)
+		return false
+	_sanitize_floor_connections(floor_state)
+	var resolved_start_room_id := _resolve_start_room_id(floor_state)
+	if resolved_start_room_id.is_empty():
+		push_warning("Night floor %s has no usable start room." % floor_state.floor_id)
+		return false
+	if resolved_start_room_id != floor_state.start_room_id:
+		push_warning(
+			"Night floor %s remapped invalid start room '%s' to '%s'."
+			% [floor_state.floor_id, floor_state.start_room_id, resolved_start_room_id]
+		)
+	floor_state.start_room_id = resolved_start_room_id
+	var reachable_room_ids := _collect_reachable_room_ids(floor_state, resolved_start_room_id)
+	if reachable_room_ids.is_empty():
+		push_warning("Night floor %s could not traverse from start room '%s'." % [floor_state.floor_id, resolved_start_room_id])
+		return false
+	var resolved_goal_room_id := _resolve_goal_room_id(floor_state, reachable_room_ids)
+	if resolved_goal_room_id.is_empty():
+		push_warning("Night floor %s has no usable goal room." % floor_state.floor_id)
+		return false
+	if resolved_goal_room_id != floor_state.goal_room_id:
+		push_warning(
+			"Night floor %s remapped invalid goal room '%s' to '%s'."
+			% [floor_state.floor_id, floor_state.goal_room_id, resolved_goal_room_id]
+		)
+	floor_state.goal_room_id = resolved_goal_room_id
+	_apply_goal_room_flag(floor_state)
+	if reachable_room_ids.size() < floor_state.room_order.size():
+		push_warning(
+			"Night floor %s contains unreachable rooms from start '%s': %s"
+			% [floor_state.floor_id, floor_state.start_room_id, str(_collect_unreachable_room_ids(floor_state, reachable_room_ids))]
+		)
+	return true
+
+
+func _sanitize_floor_connections(floor_state: DungeonFloorState) -> void:
+	for room_id in floor_state.room_order:
+		var room := floor_state.get_room(room_id)
+		if room == null:
+			continue
+		var sanitized_connections: Array[String] = []
+		for target_room_id in room.connections:
+			var normalized_target := target_room_id.strip_edges()
+			if normalized_target.is_empty() or not floor_state.has_room(normalized_target):
+				continue
+			if sanitized_connections.has(normalized_target):
+				continue
+			sanitized_connections.append(normalized_target)
+		if sanitized_connections.size() != room.connections.size():
+			push_warning(
+				"Night floor %s dropped invalid connections from room '%s'."
+				% [floor_state.floor_id, room.room_id]
+			)
+		room.connections = sanitized_connections
+
+
+func _resolve_start_room_id(floor_state: DungeonFloorState) -> String:
+	var candidate := floor_state.start_room_id.strip_edges()
+	if not candidate.is_empty() and floor_state.has_room(candidate):
+		return candidate
+	for room_id in floor_state.room_order:
+		if floor_state.has_room(room_id):
+			return room_id
+	return ""
+
+
+func _collect_reachable_room_ids(floor_state: DungeonFloorState, start_room_id: String) -> Array[String]:
+	var start_id := start_room_id.strip_edges()
+	if start_id.is_empty() or not floor_state.has_room(start_id):
+		return []
+	var pending: Array[String] = [start_id]
+	var visited: Array[String] = []
+	while not pending.is_empty():
+		var room_id: String = pending.pop_front()
+		if visited.has(room_id):
+			continue
+		visited.append(room_id)
+		var room := floor_state.get_room(room_id)
+		if room == null:
+			continue
+		for target_room_id in room.connections:
+			if floor_state.has_room(target_room_id) and not visited.has(target_room_id) and not pending.has(target_room_id):
+				pending.append(target_room_id)
+	return visited
+
+
+func _resolve_goal_room_id(floor_state: DungeonFloorState, reachable_room_ids: Array[String]) -> String:
+	var candidate := floor_state.goal_room_id.strip_edges()
+	if not candidate.is_empty() and floor_state.has_room(candidate) and reachable_room_ids.has(candidate):
+		return candidate
+	for index in range(floor_state.room_order.size() - 1, -1, -1):
+		var room_id := floor_state.room_order[index]
+		if not reachable_room_ids.has(room_id):
+			continue
+		var room := floor_state.get_room(room_id)
+		if room != null and room.is_goal:
+			return room_id
+	for index in range(floor_state.room_order.size() - 1, -1, -1):
+		var room_id := floor_state.room_order[index]
+		if not reachable_room_ids.has(room_id):
+			continue
+		var room := floor_state.get_room(room_id)
+		if room == null:
+			continue
+		var has_reachable_exit := false
+		for target_room_id in room.connections:
+			if reachable_room_ids.has(target_room_id):
+				has_reachable_exit = true
+				break
+		if not has_reachable_exit:
+			return room_id
+	for index in range(floor_state.room_order.size() - 1, -1, -1):
+		var room_id := floor_state.room_order[index]
+		if reachable_room_ids.has(room_id):
+			return room_id
+	return ""
+
+
+func _apply_goal_room_flag(floor_state: DungeonFloorState) -> void:
+	for room_id in floor_state.room_order:
+		var room := floor_state.get_room(room_id)
+		if room == null:
+			continue
+		room.is_goal = room.room_id == floor_state.goal_room_id
+
+
+func _collect_unreachable_room_ids(floor_state: DungeonFloorState, reachable_room_ids: Array[String]) -> Array[String]:
+	var unreachable_room_ids: Array[String] = []
+	for room_id in floor_state.room_order:
+		if reachable_room_ids.has(room_id):
+			continue
+		unreachable_room_ids.append(room_id)
+	return unreachable_room_ids
+
+
+func _resolve_floor_id(floor_row: Dictionary, floor_index: int) -> String:
+	return String(floor_row.get("id", "floor_%d" % (floor_index + 1))).strip_edges()
+
+
+func _resolve_floor_mutator_id(
+	floor_row: Dictionary,
+	template: Dictionary,
+	floor_index: int,
+	template_id: String,
+	seed: int
+) -> String:
+	var mutator_id := String(floor_row.get("mutator_id", template.get("mutator_id", ""))).strip_edges().to_lower()
+	if not mutator_id.is_empty():
+		return mutator_id
+	var mutator_pool_variant: Variant = floor_row.get("mutator_pool", template.get("mutator_pool", []))
+	if not (mutator_pool_variant is Array):
 		return ""
-	return chosen
+	var mutator_pool: Array = mutator_pool_variant
+	var normalized_pool: Array[String] = []
+	for mutator_variant in mutator_pool:
+		var normalized := String(mutator_variant).strip_edges().to_lower()
+		if normalized.is_empty() or normalized_pool.has(normalized):
+			continue
+		normalized_pool.append(normalized)
+	if normalized_pool.is_empty():
+		return ""
+	var seed_basis: int = abs(seed) + floor_index * 131
+	var token := "%s|%s" % [_resolve_floor_id(floor_row, floor_index), template_id]
+	for character in token.to_utf8_buffer():
+		seed_basis = int((seed_basis * 33 + int(character) + 17) & 0x7fffffff)
+	return normalized_pool[seed_basis % normalized_pool.size()]
+
+
+func _coerce_vector2(value: Variant, fallback: Vector2) -> Vector2:
+	if value is Vector2:
+		return value
+	if value is Array:
+		var parts: Array = value
+		if parts.size() >= 2:
+			return Vector2(float(parts[0]), float(parts[1]))
+	if value is Dictionary:
+		var payload: Dictionary = value
+		return Vector2(float(payload.get("x", fallback.x)), float(payload.get("y", fallback.y)))
+	return fallback
 
 
 func _merge_room_dictionary(base_room: Dictionary, override_room: Dictionary) -> Dictionary:

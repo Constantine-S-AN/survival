@@ -1,11 +1,13 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "encounters": [
     {
       "id": "reef_patrol",
       "label": "Reef Patrol",
+      "label_zh": "礁巡",
       "category": "standard",
       "category_label": "Standard Combat",
+      "category_label_zh": "标准战斗",
       "reward_table_id": "combat_standard",
       "difficulty": 1,
       "spawn_set_id": "reef_patrol_channels"
@@ -13,8 +15,10 @@
     {
       "id": "swarm_nest",
       "label": "Swarm Nest",
+      "label_zh": "虫巢",
       "category": "elite",
       "category_label": "Elite Combat",
+      "category_label_zh": "精英战斗",
       "reward_table_id": "combat_elite",
       "difficulty": 2,
       "spawn_set_id": "swarm_nest_cluster"
@@ -22,11 +26,303 @@
     {
       "id": "apex_guardian",
       "label": "Apex Guardian",
+      "label_zh": "顶点守卫",
       "category": "boss",
       "category_label": "Boss Combat",
+      "category_label_zh": "首领战",
       "reward_table_id": "combat_boss",
       "difficulty": 3,
       "spawn_set_id": "apex_guardian_sanctum"
+    },
+    {
+      "id": "reef_patrol_volley",
+      "label": "Reef Patrol",
+      "label_zh": "礁巡火线",
+      "category": "standard",
+      "category_label": "Standard Combat",
+      "category_label_zh": "标准战斗",
+      "reward_table_id": "combat_standard_v2",
+      "difficulty": 1,
+      "spawn_set_id": "reef_patrol_volley_open",
+      "clear_mode": "kill_all",
+      "objective_id": "kill_all",
+      "objective_label": "Clear the chamber",
+      "objective_label_zh": "清空房间",
+      "time_limit_sec": 0.0,
+      "waves": [],
+      "objective_props": [],
+      "room_mutators": [],
+      "success_bonus": {
+        "carryover_materials": {
+          "scrap": 1
+        }
+      },
+      "fail_penalty": {},
+      "tags": [
+        "starter",
+        "tempo"
+      ]
+    },
+    {
+      "id": "relay_holdout",
+      "label": "Relay Holdout",
+      "label_zh": "灯塔守点",
+      "category": "standard",
+      "category_label": "Objective Combat",
+      "category_label_zh": "目标战斗",
+      "reward_table_id": "combat_objective_v2",
+      "difficulty": 2,
+      "spawn_set_id": "relay_holdout_wave_1",
+      "clear_mode": "complete_objective",
+      "objective_id": "hold_zone",
+      "objective_label": "Hold the beacon for 22 seconds",
+      "objective_label_zh": "守住信标 22 秒",
+      "time_limit_sec": 22.0,
+      "waves": [
+        {
+          "trigger": "on_timer",
+          "at_sec": 8.0,
+          "spawn_set_id": "relay_holdout_wave_2"
+        },
+        {
+          "trigger": "on_timer",
+          "at_sec": 16.0,
+          "spawn_set_id": "relay_holdout_wave_3"
+        }
+      ],
+      "objective_props": [
+        {
+          "prop_id": "beacon_core",
+          "marker": "Center",
+          "radius": 92.0,
+          "label": "Beacon",
+          "label_zh": "信标"
+        }
+      ],
+      "room_mutators": [
+        "partial_darkness",
+        "hazard_pulse_low"
+      ],
+      "success_bonus": {
+        "carryover_materials": {
+          "lumen_resin": 2
+        },
+        "reward_bias": [
+          "blessing",
+          "tempo"
+        ]
+      },
+      "fail_penalty": {
+        "spawn_set_id": "relay_holdout_fail_cleanup"
+      },
+      "tags": [
+        "defense",
+        "area_control"
+      ]
+    },
+    {
+      "id": "turret_cache_lockdown",
+      "label": "Turret Cache",
+      "label_zh": "炮塔锁库",
+      "category": "elite",
+      "category_label": "Elite Objective",
+      "category_label_zh": "精英目标战",
+      "reward_table_id": "combat_elite_v2",
+      "difficulty": 3,
+      "spawn_set_id": "turret_cache_guards",
+      "clear_mode": "objective_then_cleanup",
+      "objective_id": "destroy_nodes",
+      "objective_label": "Destroy 4 turrets to unlock the cache",
+      "objective_label_zh": "摧毁 4 座炮塔以解锁缓存",
+      "time_limit_sec": 0.0,
+      "waves": [
+        {
+          "trigger": "on_objective_progress",
+          "at_count": 2,
+          "spawn_set_id": "turret_cache_reinforce"
+        }
+      ],
+      "objective_props": [
+        {
+          "prop_id": "turret_node",
+          "marker": "NorthWest",
+          "hp": 120.0,
+          "label": "Turret Node",
+          "label_zh": "炮塔节点"
+        },
+        {
+          "prop_id": "turret_node",
+          "marker": "NorthEast",
+          "hp": 120.0,
+          "label": "Turret Node",
+          "label_zh": "炮塔节点"
+        },
+        {
+          "prop_id": "turret_node",
+          "marker": "SouthWest",
+          "hp": 120.0,
+          "label": "Turret Node",
+          "label_zh": "炮塔节点"
+        },
+        {
+          "prop_id": "turret_node",
+          "marker": "SouthEast",
+          "hp": 120.0,
+          "label": "Turret Node",
+          "label_zh": "炮塔节点"
+        }
+      ],
+      "room_mutators": [
+        "crossfire",
+        "projectile_dense"
+      ],
+      "success_bonus": {
+        "carryover_materials": {
+          "coil_fragment": 2
+        },
+        "reward_bias": [
+          "weapon_trait"
+        ]
+      },
+      "fail_penalty": {},
+      "tags": [
+        "burst",
+        "objective"
+      ]
+    },
+    {
+      "id": "swarm_nest_breach",
+      "label": "Swarm Nest",
+      "label_zh": "虫巢爆破",
+      "category": "elite",
+      "category_label": "Elite Objective",
+      "category_label_zh": "精英目标战",
+      "reward_table_id": "combat_elite_v2",
+      "difficulty": 3,
+      "spawn_set_id": "swarm_nest_intro",
+      "clear_mode": "objective_then_cleanup",
+      "objective_id": "destroy_spawner",
+      "objective_label": "Destroy the nest while waves keep spawning",
+      "objective_label_zh": "在刷怪压力下摧毁虫巢",
+      "time_limit_sec": 0.0,
+      "waves": [
+        {
+          "trigger": "repeat",
+          "every_sec": 7.0,
+          "spawn_set_id": "swarm_nest_repeat",
+          "until_objective_complete": true
+        }
+      ],
+      "objective_props": [
+        {
+          "prop_id": "nest_core",
+          "marker": "Center",
+          "hp": 320.0,
+          "radius": 28.0,
+          "label": "Nest Core",
+          "label_zh": "虫巢核心"
+        }
+      ],
+      "room_mutators": [
+        "hazard_pulse_mid",
+        "melee_pressure"
+      ],
+      "success_bonus": {
+        "carryover_materials": {
+          "moon_spore": 2,
+          "abyssfin": 1
+        },
+        "reward_bias": [
+          "damage",
+          "weapon_trait"
+        ]
+      },
+      "fail_penalty": {},
+      "tags": [
+        "summon",
+        "pressure"
+      ]
+    },
+    {
+      "id": "pressure_lock_trial",
+      "label": "Pressure Lock",
+      "label_zh": "压舱试炼",
+      "category": "elite",
+      "category_label": "Challenge Combat",
+      "category_label_zh": "挑战战斗",
+      "reward_table_id": "combat_challenge_v2",
+      "difficulty": 4,
+      "spawn_set_id": "pressure_lock_trial_open",
+      "clear_mode": "kill_all",
+      "objective_id": "kill_all",
+      "objective_label": "Survive the challenge condition",
+      "objective_label_zh": "顶住本房挑战条件",
+      "time_limit_sec": 0.0,
+      "waves": [],
+      "objective_props": [],
+      "room_mutators": [
+        "double_elite_chance",
+        "floor_shock",
+        "healing_blocked"
+      ],
+      "success_bonus": {
+        "carryover_materials": {
+          "challenge_seal": 1
+        },
+        "reward_bias": [
+          "blessing",
+          "rare_trait"
+        ]
+      },
+      "fail_penalty": {},
+      "tags": [
+        "challenge",
+        "risk_reward"
+      ]
+    },
+    {
+      "id": "apex_siren_ritual",
+      "label": "Apex Siren",
+      "label_zh": "顶潮海妖",
+      "category": "boss",
+      "category_label": "Boss Combat",
+      "category_label_zh": "首领战",
+      "reward_table_id": "combat_boss_v2",
+      "difficulty": 5,
+      "spawn_set_id": "apex_siren_phase_1",
+      "clear_mode": "kill_all",
+      "objective_id": "boss_multi_phase",
+      "objective_label": "Break the ritual and finish the Siren",
+      "objective_label_zh": "打断祭仪并击倒海妖",
+      "time_limit_sec": 0.0,
+      "waves": [
+        {
+          "trigger": "on_timer",
+          "at_sec": 12.0,
+          "spawn_set_id": "apex_siren_phase_2_adds"
+        },
+        {
+          "trigger": "on_timer",
+          "at_sec": 24.0,
+          "spawn_set_id": "apex_siren_phase_4_ritual"
+        }
+      ],
+      "objective_props": [],
+      "room_mutators": [
+        "boss_fog_ring",
+        "hazard_pulse_high"
+      ],
+      "success_bonus": {
+        "carryover_materials": {
+          "kitchen_blueprint_fragment": 1,
+          "abyssfin": 2
+        }
+      },
+      "fail_penalty": {},
+      "tags": [
+        "boss",
+        "phase"
+      ]
     }
   ]
 }

@@ -12,6 +12,9 @@ const RunModifierStateClass := preload("res://scripts/night/run_modifier_state.g
 const RoomRewardPickerClass := preload("res://scripts/night/room_reward_picker.gd")
 const BossRoomControllerClass := preload("res://scripts/night/boss_room_controller.gd")
 const ExtractionControllerClass := preload("res://scripts/night/extraction_controller.gd")
+const ObjectiveNodeScene := preload("res://scenes/night/rooms/setpieces/ObjectiveNode.tscn")
+const ObjectiveZoneScene := preload("res://scenes/night/rooms/setpieces/ObjectiveZone.tscn")
+const RoomInteractableScene := preload("res://scenes/night/rooms/setpieces/RoomInteractable.tscn")
 
 const STATE_BOOTING := "booting"
 const STATE_ENTERING_ROOM := "entering_room"
@@ -27,6 +30,8 @@ const EMBEDDED_PRESENTATION_PROFILE := "clear_dungeon"
 const ROOM_SCENE_BASE_SIZE := Vector2(928.0, 608.0)
 const ROOM_SHELL_NODE_NAME := "RuntimeRoomShell"
 const ROOM_COVER_PROXY_NODE_NAME := "RuntimeCoverProxies"
+const ROOM_OBJECTIVE_ROOT_NODE_NAME := "RuntimeObjectives"
+const ROOM_INTERACTION_ROOT_NODE_NAME := "RuntimeInteractions"
 const ROOM_TRANSITION_PREVIEW_NODE_NAME := "RuntimeTransitionPreview"
 const ROOM_TRANSITION_CORRIDOR_NODE_NAME := "RuntimeTransitionCorridor"
 const ROOM_PLAYER_TARGET_OFFSET := Vector2(0.0, 96.0)
@@ -74,6 +79,56 @@ const ROOM_THEME := {
 	"event": {"floor": Color(0.40, 0.27, 0.21, 0.96), "outline": Color(1.0, 0.69, 0.47, 1.0)},
 	"boss": {"floor": Color(0.36, 0.20, 0.24, 0.98), "outline": Color(1.0, 0.56, 0.62, 1.0)}
 }
+const SHRINE_BLESSING_POOLS := {
+	"tide_statue_pool": [
+		"blessing_tide_burst",
+		"blessing_anchor_spark",
+		"blessing_shell_guard",
+		"blessing_hunter_gull",
+		"blessing_broker_surge",
+		"blessing_omen_lowtide",
+		"blessing_choir_silence",
+		"blessing_harbor_light"
+	],
+	"undertow_altar_pool": [
+		"blessing_shell_guard",
+		"blessing_hunter_gull",
+		"blessing_broker_surge",
+		"blessing_omen_lowtide",
+		"blessing_choir_silence",
+		"blessing_harbor_light"
+	]
+}
+const SHOP_INVENTORY_POOLS := {
+	"night_market_tier_1": {
+		"bundle_entries": ["salvage_drift_pack", "relay_field_rations", "coil_haul"],
+		"trait_entries": [
+			"trait_ricochet_rifling",
+			"trait_chilled_chamber",
+			"trait_overcrank_burst",
+			"trait_harpoon_spool",
+			"trait_mining_tip"
+		],
+		"price_offsets": [-12, 0, 12]
+	},
+	"night_market_tier_2": {
+		"bundle_entries": ["challenge_bounty", "sanctum_manifest", "coil_haul"],
+		"trait_entries": [
+			"trait_harpoon_spool",
+			"trait_split_core",
+			"trait_mining_tip",
+			"trait_salt_edge",
+			"trait_sonar_fins",
+			"trait_conductive_chain"
+		],
+		"price_offsets": [-6, 12, 24]
+	}
+}
+const ROOM_INTERACTION_OFFSETS := {
+	"shrine": Vector2(0.0, -52.0),
+	"shop": Vector2(0.0, -8.0),
+	"generic": Vector2.ZERO
+}
 
 @onready var game_mount: Node = $GameMount
 @onready var floor_label: Label = $Overlay/MarginContainer/PanelContainer/VBoxContainer/FloorLabel
@@ -87,6 +142,8 @@ const ROOM_THEME := {
 @onready var reward_button_one: Button = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons/RewardButton1
 @onready var reward_button_two: Button = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons/RewardButton2
 @onready var reward_button_three: Button = $Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons/RewardButton3
+@onready var interaction_panel: PanelContainer = $Overlay/InteractionPanel
+@onready var interaction_label: Label = $Overlay/InteractionPanel/MarginContainer/InteractionLabel
 @onready var boss_panel: PanelContainer = $Overlay/BossClimaxPanel
 @onready var boss_title_label: Label = $Overlay/BossClimaxPanel/MarginContainer/VBoxContainer/BossTitle
 @onready var boss_phase_label: Label = $Overlay/BossClimaxPanel/MarginContainer/VBoxContainer/BossPhase
@@ -116,6 +173,7 @@ var _transition_preview_room_node: Node2D = null
 var _transition_corridor_node: Node2D = null
 var _active_exit_nodes: Array = []
 var _pending_room_rewards: Array[Dictionary] = []
+var _pending_reward_context: Dictionary = {}
 var _run_state: String = STATE_BOOTING
 var _boot_attempts: int = 0
 var _bootstrap_reported: bool = false
@@ -133,6 +191,11 @@ var _transition_start_position: Vector2 = Vector2.ZERO
 var _transition_end_position: Vector2 = Vector2.ZERO
 var _pending_entry_anchor_side: String = ""
 var _current_room_entry_anchor_side: String = ""
+var _objective_state: Dictionary = {}
+var _active_room_interactions: Array = []
+var _focused_room_interaction_id: String = ""
+var _current_floor_mutator: Dictionary = {}
+var _applied_floor_mutator_floor_ids: Array[String] = []
 
 
 func _ready() -> void:
@@ -152,6 +215,7 @@ func _ready() -> void:
 	if extract_button != null and not extract_button.pressed.is_connected(_on_extract_button_pressed):
 		extract_button.pressed.connect(_on_extract_button_pressed)
 	_hide_reward_panel()
+	_hide_interaction_panel()
 	_boss_room_controller.reset()
 	_extraction_controller.reset()
 	_boss_climax_snapshot = _boss_room_controller.get_snapshot()
@@ -161,22 +225,35 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if _run_state != STATE_TRANSITING:
+	if _run_state == STATE_TRANSITING:
+		if _transition_target_room == null:
+			return
+		var player := _get_player()
+		if not (player is Node2D):
+			_complete_room_transition(_transition_target_room)
+			return
+		_transition_elapsed_sec += maxf(delta, 0.0)
+		var progress := 1.0
+		if ROOM_TRANSITION_DURATION_SEC > 0.0:
+			progress = clampf(_transition_elapsed_sec / ROOM_TRANSITION_DURATION_SEC, 0.0, 1.0)
+		var eased := 0.5 - 0.5 * cos(progress * PI)
+		(player as Node2D).global_position = _transition_start_position.lerp(_transition_end_position, eased)
+		if progress >= 1.0:
+			_complete_room_transition(_transition_target_room)
 		return
-	if _transition_target_room == null:
+	_update_room_objective(maxf(delta, 0.0))
+	_update_room_interaction_focus()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event == null or _completion_emitted:
 		return
-	var player := _get_player()
-	if not (player is Node2D):
-		_complete_room_transition(_transition_target_room)
+	if _has_pending_room_rewards():
 		return
-	_transition_elapsed_sec += maxf(delta, 0.0)
-	var progress := 1.0
-	if ROOM_TRANSITION_DURATION_SEC > 0.0:
-		progress = clampf(_transition_elapsed_sec / ROOM_TRANSITION_DURATION_SEC, 0.0, 1.0)
-	var eased := 0.5 - 0.5 * cos(progress * PI)
-	(player as Node2D).global_position = _transition_start_position.lerp(_transition_end_position, eased)
-	if progress >= 1.0:
-		_complete_room_transition(_transition_target_room)
+	if event.is_echo():
+		return
+	if event.is_action_pressed("night_interact"):
+		_try_activate_room_interaction()
 
 
 func start_session(request: Dictionary) -> void:
@@ -216,6 +293,7 @@ func start_session(request: Dictionary) -> void:
 func stop_session() -> void:
 	if _enemy_manager != null and is_instance_valid(_enemy_manager) and _enemy_manager.has_method("clear_scripted_encounter"):
 		_enemy_manager.call("clear_scripted_encounter", true, false)
+	_clear_room_objective_runtime()
 	_disconnect_enemy_manager()
 	_cleanup_transition_nodes()
 	_set_player_input_locked(false)
@@ -230,6 +308,7 @@ func stop_session() -> void:
 	_current_room_entry_anchor_side = ""
 	_cleanup_active_room()
 	_clear_pending_room_rewards()
+	_clear_room_interactions()
 	_boss_room_controller.reset()
 	_extraction_controller.reset()
 	_boss_climax_snapshot = _boss_room_controller.get_snapshot()
@@ -238,6 +317,8 @@ func stop_session() -> void:
 	_game_root = null
 	_world = null
 	_active_request.clear()
+	_current_floor_mutator.clear()
+	_applied_floor_mutator_floor_ids.clear()
 	_refresh_boss_panel()
 	_refresh_extraction_panel()
 
@@ -338,7 +419,11 @@ func debug_get_snapshot() -> Dictionary:
 		"encounter_category_label": String(_current_room_payload.get("encounter_category_label", "")),
 		"spawn_set_id": String(_current_room_payload.get("spawn_set_id", "")),
 		"reward_panel_visible": reward_panel != null and reward_panel.visible,
+		"interaction_panel_visible": interaction_panel != null and interaction_panel.visible,
 		"reward_choices": _pending_room_rewards.duplicate(true),
+		"interactions": _build_room_interaction_snapshot(),
+		"objective": _objective_state.duplicate(true),
+		"floor_mutator": _current_floor_mutator.duplicate(true),
 		"run_modifier_state": modifier_snapshot,
 		"visited_room_ids": _visited_room_ids.duplicate(),
 		"rooms_cleared_total": _rooms_cleared_total,
@@ -357,6 +442,8 @@ func debug_get_snapshot() -> Dictionary:
 func debug_force_clear_room() -> void:
 	if _has_pending_room_rewards():
 		return
+	if _has_active_objective():
+		_complete_room_objective(true)
 	if _enemy_manager != null and is_instance_valid(_enemy_manager) and _enemy_manager.has_method("clear_scripted_encounter"):
 		_enemy_manager.call("clear_scripted_encounter", true, true)
 		return
@@ -371,6 +458,18 @@ func debug_use_exit(target_room_id: String) -> void:
 
 func debug_select_room_reward(option_index: int) -> bool:
 	return _claim_pending_room_reward(option_index)
+
+
+func debug_interact_room_feature(interaction_id: String = "") -> bool:
+	var normalized_interaction_id := interaction_id.strip_edges()
+	if normalized_interaction_id.is_empty():
+		for interaction_node in _active_room_interactions:
+			if interaction_node == null or not is_instance_valid(interaction_node):
+				continue
+			normalized_interaction_id = String(interaction_node.get("interaction_id")).strip_edges()
+			if not normalized_interaction_id.is_empty():
+				break
+	return _try_activate_room_interaction(normalized_interaction_id)
 
 
 func debug_request_extract() -> bool:
@@ -443,6 +542,7 @@ func _enter_room(room_state: RoomState) -> void:
 	_clear_pending_room_rewards()
 	_cleanup_transition_nodes()
 	_cleanup_active_room()
+	_clear_room_interactions()
 	if _enemy_manager != null and is_instance_valid(_enemy_manager) and _enemy_manager.has_method("clear_scripted_encounter"):
 		_enemy_manager.call("clear_scripted_encounter", true, false)
 	_set_player_input_locked(false)
@@ -487,11 +587,13 @@ func _enter_room(room_state: RoomState) -> void:
 		_lock_active_exits(true)
 		_run_state = STATE_ROOM_LOCKED
 		_current_room_payload = _encounter_director.build_room_payload(_get_current_floor(), room_state, _active_room_node)
+		_start_room_objective(_current_room_payload)
 		var enemy_specs: Array = _current_room_payload.get("enemies", [])
 		var spawned_total := 0
 		if _enemy_manager != null and is_instance_valid(_enemy_manager) and _enemy_manager.has_method("start_scripted_encounter"):
 			spawned_total = int(_enemy_manager.call("start_scripted_encounter", room_state.room_id, enemy_specs))
-		if spawned_total <= 0:
+		_sync_objective_hold_open()
+		if spawned_total <= 0 and not _should_defer_room_resolution():
 			_mark_current_room_cleared()
 			if not _present_room_clear_rewards():
 				if room_state.is_goal and room_state.connections.is_empty():
@@ -499,9 +601,14 @@ func _enter_room(room_state: RoomState) -> void:
 				else:
 					_last_room_note = _tr("night.run.note.choose_door")
 	else:
-		if room_state.reward_on_enter and not room_state.reward_claimed:
+		_clear_room_objective_runtime()
+		var spawned_interactions := _spawn_room_interactions(room_state)
+		if room_state.reward_on_enter and not room_state.reward_claimed and not spawned_interactions:
 			_claim_room_reward(room_state)
 		_mark_current_room_cleared()
+		if spawned_interactions:
+			var special_kind := String(room_state.metadata.get("special_room_kind", "")).strip_edges().to_lower()
+			_last_room_note = _interaction_panel_hint_for_kind(special_kind)
 		if room_state.is_goal and room_state.connections.is_empty():
 			_complete_or_advance_floor()
 	_emit_bootstrap_result(true)
@@ -565,6 +672,7 @@ func _rebuild_runtime_room_shell_for_node(room_node: Node2D, room_state: RoomSta
 		return
 	var existing_shell := room_node.get_node_or_null(ROOM_SHELL_NODE_NAME)
 	if existing_shell != null:
+		room_node.remove_child(existing_shell)
 		existing_shell.queue_free()
 	var shell_root := Node2D.new()
 	shell_root.name = ROOM_SHELL_NODE_NAME
@@ -621,6 +729,7 @@ func _rebuild_runtime_cover_proxies_for_node(room_node: Node2D) -> void:
 		return
 	var existing_root := room_node.get_node_or_null(ROOM_COVER_PROXY_NODE_NAME)
 	if existing_root != null:
+		room_node.remove_child(existing_root)
 		existing_root.queue_free()
 	var cover_bodies := _collect_ballistic_cover_bodies(room_node)
 	if cover_bodies.is_empty():
@@ -817,12 +926,17 @@ func _resolve_room_open_sides(room_state: RoomState, extra_side: String = "") ->
 		return []
 	var open_sides: Array[String] = []
 	var floor_state = _get_current_floor()
+	var visible_connections: Array[String] = []
 	if floor_state != null:
-		for anchor_name in _resolve_connection_anchor_names(room_state, floor_state):
+		visible_connections = _get_visible_room_connections(room_state, floor_state)
+		for anchor_name in _resolve_connection_anchor_names(room_state, floor_state, visible_connections):
 			if not anchor_name.is_empty() and not open_sides.has(anchor_name):
 				open_sides.append(anchor_name)
 	if open_sides.is_empty():
-		var connection_count := mini(room_state.connections.size(), 4)
+		var connection_count := mini(
+			visible_connections.size() if floor_state != null else room_state.connections.size(),
+			4
+		)
 		if connection_count > 0:
 			var anchor_names_variant: Variant = EXIT_ANCHOR_LAYOUTS.get(connection_count, EXIT_ANCHOR_LAYOUTS[4])
 			if anchor_names_variant is Array:
@@ -836,13 +950,18 @@ func _resolve_room_open_sides(room_state: RoomState, extra_side: String = "") ->
 	return open_sides
 
 
-func _resolve_connection_anchor_names(room_state: RoomState, floor_state) -> Array[String]:
+func _resolve_connection_anchor_names(room_state: RoomState, floor_state, room_connections: Array[String] = []) -> Array[String]:
 	var anchor_names: Array[String] = []
 	if room_state == null or floor_state == null:
 		return anchor_names
+	var connections: Array[String] = room_connections.duplicate()
+	if connections.is_empty():
+		connections = _get_visible_room_connections(room_state, floor_state)
+	if connections.is_empty():
+		connections = room_state.connections.duplicate()
 	var used: Array[String] = []
-	for connection_index in range(room_state.connections.size()):
-		var target_room_id := String(room_state.connections[connection_index]).strip_edges()
+	for connection_index in range(connections.size()):
+		var target_room_id := String(connections[connection_index]).strip_edges()
 		var target_room: RoomState = floor_state.get_room(target_room_id)
 		var chosen_anchor := ""
 		if target_room != null:
@@ -852,7 +971,7 @@ func _resolve_connection_anchor_names(room_state: RoomState, floor_state) -> Arr
 					chosen_anchor = candidate
 					break
 		if chosen_anchor.is_empty():
-			var fallback_variant: Variant = EXIT_ANCHOR_LAYOUTS.get(mini(room_state.connections.size(), 4), EXIT_ANCHOR_LAYOUTS[4])
+			var fallback_variant: Variant = EXIT_ANCHOR_LAYOUTS.get(mini(connections.size(), 4), EXIT_ANCHOR_LAYOUTS[4])
 			if fallback_variant is Array:
 				var fallback_names: Array = fallback_variant
 				chosen_anchor = String(fallback_names[min(connection_index, fallback_names.size() - 1)]).strip_edges()
@@ -894,6 +1013,68 @@ func _anchor_candidates_for_delta(delta: Vector2) -> Array[String]:
 		if not candidates.has(fallback_side):
 			candidates.append(fallback_side)
 	return candidates
+
+
+func _is_connection_hidden(room_state: RoomState, target_room_id: String, floor_state) -> bool:
+	if room_state == null or floor_state == null:
+		return false
+	if not floor_state.has_method("get_connection_metadata"):
+		return false
+	var metadata_variant: Variant = floor_state.call("get_connection_metadata", room_state.room_id, target_room_id)
+	var metadata: Dictionary = metadata_variant if metadata_variant is Dictionary else {}
+	return bool(metadata.get("hidden", false))
+
+
+func _is_hidden_room_revealed(room_id: String, floor_state) -> bool:
+	var normalized_room_id := room_id.strip_edges()
+	if normalized_room_id.is_empty() or floor_state == null:
+		return false
+	var room: RoomState = floor_state.get_room(normalized_room_id)
+	if room == null:
+		return false
+	var metadata: Dictionary = room.metadata if room.metadata is Dictionary else {}
+	if not bool(metadata.get("hidden_room", false)):
+		return true
+	if room.visited or _visited_room_ids.has(normalized_room_id):
+		return true
+	for source_room_id in floor_state.room_order:
+		var source_room: RoomState = floor_state.get_room(String(source_room_id))
+		if source_room == null:
+			continue
+		if not _is_connection_hidden(source_room, normalized_room_id, floor_state):
+			continue
+		if source_room.status == RoomState.STATUS_CLEARED:
+			return true
+	return false
+
+
+func _get_visible_room_connections(room_state: RoomState, floor_state) -> Array[String]:
+	var visible_connections: Array[String] = []
+	if room_state == null:
+		return visible_connections
+	for target_room_id in room_state.connections:
+		var normalized_target := String(target_room_id).strip_edges()
+		if normalized_target.is_empty():
+			continue
+		if not _is_connection_hidden(room_state, normalized_target, floor_state):
+			visible_connections.append(normalized_target)
+			continue
+		if _is_hidden_room_revealed(normalized_target, floor_state):
+			visible_connections.append(normalized_target)
+	return visible_connections
+
+
+func _should_show_room_on_map(room: RoomState, floor_state) -> bool:
+	if room == null:
+		return false
+	if _current_room != null and room.room_id == _current_room.room_id:
+		return true
+	if room.visited or _visited_room_ids.has(room.room_id):
+		return true
+	var metadata: Dictionary = room.metadata if room.metadata is Dictionary else {}
+	if not bool(metadata.get("hidden_room", false)):
+		return true
+	return _is_hidden_room_revealed(room.room_id, floor_state)
 
 
 func _add_shell_rect(parent: Node2D, node_name: String, position: Vector2, size: Vector2, color: Color, z_order: int) -> void:
@@ -1357,18 +1538,26 @@ func _resolve_room_mount() -> Node:
 	return _world
 
 
-func _spawn_exit_nodes(room_state: RoomState) -> void:
+func _clear_active_exit_nodes() -> void:
+	for exit_node in _active_exit_nodes:
+		if exit_node == null or not is_instance_valid(exit_node):
+			continue
+		exit_node.queue_free()
 	_active_exit_nodes.clear()
+
+
+func _spawn_exit_nodes(room_state: RoomState) -> void:
+	_clear_active_exit_nodes()
 	if _active_room_node == null:
 		return
 	var floor_state = _get_current_floor()
 	if floor_state == null:
 		return
-	var connections: Array[String] = room_state.connections.duplicate()
+	var connections: Array[String] = _get_visible_room_connections(room_state, floor_state)
 	if connections.is_empty():
 		return
 	var anchor_root := _active_room_node.get_node_or_null("ExitAnchors")
-	var anchor_names: Array[String] = _resolve_connection_anchor_names(room_state, floor_state)
+	var anchor_names: Array[String] = _resolve_connection_anchor_names(room_state, floor_state, connections)
 	for index in range(connections.size()):
 		var target_room_id := connections[index]
 		var anchor_name := String(anchor_names[min(index, anchor_names.size() - 1)] if not anchor_names.is_empty() else "East")
@@ -1411,6 +1600,396 @@ func _teleport_player_to_active_room() -> void:
 	(player as Node2D).global_position = (spawn_node as Node2D).global_position
 	if player is CharacterBody2D:
 		(player as CharacterBody2D).velocity = Vector2.ZERO
+
+
+func _start_room_objective(payload: Dictionary) -> void:
+	_clear_room_objective_runtime()
+	if _active_room_node == null or not is_instance_valid(_active_room_node):
+		return
+	var objective_id := String(payload.get("objective_id", "kill_all")).strip_edges().to_lower()
+	var clear_mode := String(payload.get("clear_mode", "kill_all")).strip_edges().to_lower()
+	var waves := _duplicate_dictionary_array(payload.get("waves", []))
+	var props := _duplicate_dictionary_array(payload.get("objective_props", []))
+	var blocks_clear := objective_id == "hold_zone" or objective_id == "destroy_nodes" or objective_id == "destroy_spawner"
+	if not blocks_clear and waves.is_empty() and props.is_empty():
+		return
+	var objective_root := Node2D.new()
+	objective_root.name = ROOM_OBJECTIVE_ROOT_NODE_NAME
+	objective_root.z_as_relative = false
+	objective_root.z_index = ROOM_COVER_PROXY_LAYER_Z + 2
+	_active_room_node.add_child(objective_root)
+	objective_root.owner = null
+	_objective_state = {
+		"objective_id": objective_id,
+		"clear_mode": clear_mode,
+		"objective_label": String(payload.get("objective_label", "")).strip_edges(),
+		"time_limit_sec": maxf(0.0, float(payload.get("time_limit_sec", 0.0))),
+		"elapsed_sec": 0.0,
+		"progress_sec": 0.0,
+		"progress_count": 0,
+		"required_count": 0,
+		"completed": false,
+		"active": blocks_clear,
+		"blocks_clear": blocks_clear,
+		"waves": waves,
+		"success_bonus": _duplicate_dictionary(payload.get("success_bonus", {})),
+		"fail_penalty": _duplicate_dictionary(payload.get("fail_penalty", {})),
+		"room_mutators": _duplicate_string_array(payload.get("room_mutators", [])),
+		"tags": _duplicate_string_array(payload.get("tags", []))
+	}
+	for prop_index in range(props.size()):
+		var prop_variant: Variant = props[prop_index]
+		if not (prop_variant is Dictionary):
+			continue
+		_spawn_room_objective_prop(objective_root, prop_variant as Dictionary, objective_id, prop_index)
+	var objective_node_count := _count_objective_nodes()
+	if objective_id == "destroy_nodes" or objective_id == "destroy_spawner":
+		_objective_state["required_count"] = objective_node_count
+		_objective_state["active"] = objective_node_count > 0
+		_objective_state["blocks_clear"] = objective_node_count > 0
+	elif objective_id == "hold_zone":
+		_objective_state["required_count"] = 1 if _get_objective_zone() != null else 0
+		_objective_state["active"] = _get_objective_zone() != null
+		_objective_state["blocks_clear"] = _get_objective_zone() != null
+	_sync_objective_hold_open()
+
+
+func _spawn_room_objective_prop(
+	objective_root: Node2D,
+	prop: Dictionary,
+	objective_id: String,
+	prop_index: int
+) -> void:
+	if objective_root == null:
+		return
+	var world_position: Vector2 = _coerce_vector2(prop.get("position", objective_root.global_position))
+	var local_position: Vector2 = objective_root.to_local(world_position)
+	var prop_id := String(prop.get("prop_id", prop.get("id", ""))).strip_edges().to_lower()
+	var use_zone := objective_id == "hold_zone"
+	if not use_zone:
+		use_zone = prop_id.find("zone") >= 0 or prop_id.find("beacon") >= 0
+	if use_zone:
+		var zone_variant: Variant = ObjectiveZoneScene.instantiate()
+		if not (zone_variant is Node2D):
+			return
+		var zone := zone_variant as Node2D
+		zone.name = "ObjectiveZone_%d" % prop_index
+		zone.position = local_position
+		objective_root.add_child(zone)
+		if zone.has_method("configure_from_payload"):
+			zone.call("configure_from_payload", prop)
+		return
+	var node_variant: Variant = ObjectiveNodeScene.instantiate()
+	if not (node_variant is StaticBody2D):
+		return
+	var objective_node := node_variant as StaticBody2D
+	objective_node.name = "ObjectiveNode_%d" % prop_index
+	objective_node.position = local_position
+	objective_root.add_child(objective_node)
+	if objective_node.has_method("configure_from_payload"):
+		objective_node.call("configure_from_payload", prop)
+	if objective_node.has_signal("objective_destroyed"):
+		var destroyed_callable := Callable(self, "_on_room_objective_node_destroyed")
+		if not objective_node.is_connected("objective_destroyed", destroyed_callable):
+			objective_node.connect("objective_destroyed", destroyed_callable)
+
+
+func _update_room_objective(delta: float) -> void:
+	if _objective_state.is_empty() or bool(_objective_state.get("completed", false)):
+		return
+	_objective_state["elapsed_sec"] = float(_objective_state.get("elapsed_sec", 0.0)) + maxf(delta, 0.0)
+	_process_objective_waves()
+	var objective_id := String(_objective_state.get("objective_id", "")).strip_edges().to_lower()
+	match objective_id:
+		"hold_zone":
+			_update_hold_zone_objective(delta)
+		"destroy_nodes", "destroy_spawner":
+			var required_count := maxi(0, int(_objective_state.get("required_count", 0)))
+			var progress_count := maxi(0, int(_objective_state.get("progress_count", 0)))
+			if required_count > 0 and progress_count >= required_count:
+				_complete_room_objective(false)
+	_sync_objective_hold_open()
+	if _run_state == STATE_ROOM_LOCKED:
+		_update_ui()
+
+
+func _update_hold_zone_objective(delta: float) -> void:
+	var zone := _get_objective_zone()
+	if zone == null or not zone.has_method("contains_world_point"):
+		return
+	var player := _get_player()
+	if not (player is Node2D):
+		return
+	if bool(zone.call("contains_world_point", (player as Node2D).global_position)):
+		var progress_sec := float(_objective_state.get("progress_sec", 0.0)) + maxf(delta, 0.0)
+		var required_sec := maxf(0.0, float(_objective_state.get("time_limit_sec", 0.0)))
+		if required_sec > 0.0:
+			progress_sec = minf(progress_sec, required_sec)
+		_objective_state["progress_sec"] = progress_sec
+	var goal_sec := maxf(0.0, float(_objective_state.get("time_limit_sec", 0.0)))
+	if goal_sec <= 0.0 or float(_objective_state.get("progress_sec", 0.0)) >= goal_sec:
+		_complete_room_objective(false)
+
+
+func _process_objective_waves() -> void:
+	var waves_variant: Variant = _objective_state.get("waves", [])
+	if not (waves_variant is Array):
+		return
+	var waves: Array = waves_variant
+	if waves.is_empty():
+		return
+	var elapsed_sec := float(_objective_state.get("elapsed_sec", 0.0))
+	var progress_count := maxi(0, int(_objective_state.get("progress_count", 0)))
+	var objective_completed := bool(_objective_state.get("completed", false))
+	for wave_index in range(waves.size()):
+		var wave_variant: Variant = waves[wave_index]
+		if not (wave_variant is Dictionary):
+			continue
+		var wave: Dictionary = (wave_variant as Dictionary).duplicate(true)
+		var trigger := String(wave.get("trigger", "on_timer")).strip_edges().to_lower()
+		var should_fire := false
+		match trigger:
+			"on_start":
+				should_fire = not bool(wave.get("_fired", false))
+			"on_timer":
+				should_fire = (
+					not bool(wave.get("_fired", false))
+					and elapsed_sec >= maxf(0.0, float(wave.get("at_sec", 0.0)))
+				)
+			"on_objective_progress":
+				should_fire = (
+					not bool(wave.get("_fired", false))
+					and not objective_completed
+					and progress_count >= maxi(1, int(wave.get("at_count", 1)))
+				)
+			"repeat":
+				if objective_completed and bool(wave.get("until_objective_complete", false)):
+					should_fire = false
+				else:
+					var every_sec := maxf(0.5, float(wave.get("every_sec", 6.0)))
+					var next_fire_sec := float(wave.get("_next_fire_sec", every_sec))
+					if elapsed_sec >= next_fire_sec:
+						should_fire = true
+						wave["_next_fire_sec"] = next_fire_sec + every_sec
+			_:
+				should_fire = false
+		if should_fire:
+			var enemies_variant: Variant = wave.get("enemies", [])
+			if _enemy_manager != null and is_instance_valid(_enemy_manager) and _enemy_manager.has_method("spawn_scripted_wave"):
+				_enemy_manager.call(
+					"spawn_scripted_wave",
+					_current_room.room_id if _current_room != null else "",
+					enemies_variant
+				)
+			if trigger != "repeat":
+				wave["_fired"] = true
+		waves[wave_index] = wave
+	_objective_state["waves"] = waves
+
+
+func _complete_room_objective(force_clear: bool = false) -> void:
+	if _objective_state.is_empty():
+		return
+	if bool(_objective_state.get("completed", false)):
+		return
+	_objective_state["completed"] = true
+	_objective_state["active"] = false
+	_objective_state["blocks_clear"] = false
+	var success_bonus_variant: Variant = _objective_state.get("success_bonus", {})
+	if success_bonus_variant is Dictionary:
+		var success_bonus: Dictionary = success_bonus_variant
+		var materials_variant: Variant = success_bonus.get("carryover_materials", {})
+		if materials_variant is Dictionary and _extraction_controller != null:
+			_extraction_controller.record_bonus_materials(materials_variant)
+	var clear_mode := String(_objective_state.get("clear_mode", "kill_all")).strip_edges().to_lower()
+	var handled_by_enemy_manager := false
+	if _enemy_manager != null and is_instance_valid(_enemy_manager):
+		if _enemy_manager.has_method("set_scripted_encounter_hold_open"):
+			_enemy_manager.call("set_scripted_encounter_hold_open", false)
+		if _enemy_manager.has_method("clear_scripted_encounter"):
+			if force_clear or clear_mode == "complete_objective":
+				_enemy_manager.call("clear_scripted_encounter", true, true)
+				handled_by_enemy_manager = true
+			elif clear_mode == "objective_then_cleanup" and _get_alive_enemy_count() <= 0:
+				_enemy_manager.call("clear_scripted_encounter", false, true)
+				handled_by_enemy_manager = true
+	if handled_by_enemy_manager:
+		_update_ui()
+		return
+	if force_clear or clear_mode == "complete_objective" or (clear_mode == "objective_then_cleanup" and _get_alive_enemy_count() <= 0):
+		_mark_current_room_cleared()
+		if _current_room != null and _current_room.reward_on_enter and not _current_room.reward_claimed:
+			_claim_room_reward(_current_room)
+		if _present_room_clear_rewards():
+			_update_ui()
+			return
+		if _current_room != null and _current_room.is_goal and _current_room.connections.is_empty():
+			_complete_or_advance_floor()
+		else:
+			_last_room_note = _tr("night.run.note.choose_door")
+			_update_ui()
+		return
+	_update_ui()
+
+
+func _clear_room_objective_runtime() -> void:
+	if _enemy_manager != null and is_instance_valid(_enemy_manager) and _enemy_manager.has_method("set_scripted_encounter_hold_open"):
+		_enemy_manager.call("set_scripted_encounter_hold_open", false)
+	var objective_root := _get_objective_root()
+	if objective_root != null and is_instance_valid(objective_root):
+		objective_root.queue_free()
+	_objective_state.clear()
+
+
+func _has_active_objective() -> bool:
+	return bool(_objective_state.get("active", false)) and bool(_objective_state.get("blocks_clear", false))
+
+
+func _should_defer_room_resolution() -> bool:
+	return _has_active_objective() or _objective_has_pending_waves()
+
+
+func _sync_objective_hold_open() -> void:
+	if _enemy_manager == null or not is_instance_valid(_enemy_manager) or not _enemy_manager.has_method("set_scripted_encounter_hold_open"):
+		return
+	var hold_open := _has_active_objective() or _objective_has_pending_waves()
+	_enemy_manager.call("set_scripted_encounter_hold_open", hold_open)
+
+
+func _objective_has_pending_waves() -> bool:
+	if _objective_state.is_empty() or bool(_objective_state.get("completed", false)):
+		return false
+	var waves_variant: Variant = _objective_state.get("waves", [])
+	if not (waves_variant is Array):
+		return false
+	for wave_variant in waves_variant:
+		if not (wave_variant is Dictionary):
+			continue
+		var wave: Dictionary = wave_variant
+		var trigger := String(wave.get("trigger", "on_timer")).strip_edges().to_lower()
+		if trigger == "repeat":
+			if bool(wave.get("until_objective_complete", false)) and bool(_objective_state.get("completed", false)):
+				continue
+			return true
+		if not bool(wave.get("_fired", false)):
+			return true
+	return false
+
+
+func _get_objective_node_count() -> int:
+	var total := _count_objective_nodes()
+	if _get_objective_zone() != null:
+		total += 1
+	return total
+
+
+func _resolve_objective_status_text() -> String:
+	if _objective_state.is_empty() or bool(_objective_state.get("completed", false)):
+		return ""
+	if not bool(_objective_state.get("blocks_clear", false)):
+		return ""
+	var objective_label := String(_objective_state.get("objective_label", "")).strip_edges()
+	var objective_id := String(_objective_state.get("objective_id", "")).strip_edges().to_lower()
+	match objective_id:
+		"hold_zone":
+			var progress_sec := float(_objective_state.get("progress_sec", 0.0))
+			var required_sec := maxf(0.0, float(_objective_state.get("time_limit_sec", 0.0)))
+			return "%s %.1fs / %.1fs" % [objective_label, progress_sec, required_sec]
+		"destroy_nodes", "destroy_spawner":
+			return "%s %d / %d" % [
+				objective_label,
+				maxi(0, int(_objective_state.get("progress_count", 0))),
+				maxi(0, int(_objective_state.get("required_count", 0)))
+			]
+	return objective_label
+
+
+func _get_objective_root() -> Node2D:
+	if _active_room_node == null or not is_instance_valid(_active_room_node):
+		return null
+	var objective_root_variant: Variant = _active_room_node.get_node_or_null(ROOM_OBJECTIVE_ROOT_NODE_NAME)
+	if objective_root_variant is Node2D:
+		return objective_root_variant as Node2D
+	return null
+
+
+func _get_objective_zone() -> Node2D:
+	var objective_root := _get_objective_root()
+	if objective_root == null:
+		return null
+	for child in objective_root.get_children():
+		if child == null or not is_instance_valid(child):
+			continue
+		if child is Node2D and child.has_method("contains_world_point"):
+			return child as Node2D
+	return null
+
+
+func _count_objective_nodes() -> int:
+	var objective_root := _get_objective_root()
+	if objective_root == null:
+		return 0
+	var total := 0
+	for child in objective_root.get_children():
+		if child == null or not is_instance_valid(child):
+			continue
+		if String(child.name).begins_with("ObjectiveNode_"):
+			total += 1
+	return total
+
+
+func _get_alive_enemy_count() -> int:
+	if _enemy_manager == null or not is_instance_valid(_enemy_manager):
+		return 0
+	return maxi(0, int(_enemy_manager.get("alive_enemy_count")))
+
+
+func _on_room_objective_node_destroyed(_objective_id: String) -> void:
+	if _objective_state.is_empty() or bool(_objective_state.get("completed", false)):
+		return
+	var required_count := maxi(1, int(_objective_state.get("required_count", 1)))
+	var progress_count := maxi(0, int(_objective_state.get("progress_count", 0))) + 1
+	_objective_state["progress_count"] = mini(required_count, progress_count)
+	_update_room_objective(0.0)
+
+
+func _duplicate_dictionary(value: Variant) -> Dictionary:
+	return value.duplicate(true) if value is Dictionary else {}
+
+
+func _duplicate_dictionary_array(value: Variant) -> Array:
+	var rows: Array = []
+	if not (value is Array):
+		return rows
+	for row_variant in value:
+		if row_variant is Dictionary:
+			rows.append((row_variant as Dictionary).duplicate(true))
+	return rows
+
+
+func _duplicate_string_array(value: Variant) -> Array[String]:
+	var rows: Array[String] = []
+	if not (value is Array):
+		return rows
+	for row_variant in value:
+		var normalized := String(row_variant).strip_edges()
+		if normalized.is_empty():
+			continue
+		rows.append(normalized)
+	return rows
+
+
+func _coerce_vector2(value: Variant) -> Vector2:
+	if value is Vector2:
+		return value
+	if value is Array:
+		var parts: Array = value
+		if parts.size() >= 2:
+			return Vector2(float(parts[0]), float(parts[1]))
+	if value is Dictionary:
+		var payload: Dictionary = value
+		return Vector2(float(payload.get("x", 0.0)), float(payload.get("y", 0.0)))
+	return Vector2.ZERO
 
 
 func _begin_room_transition(target_room_id: String, anchor_side: String) -> void:
@@ -1656,7 +2235,9 @@ func _mark_current_room_cleared() -> void:
 			var boss_bonus_payload := _boss_room_controller.finalize_boss_room()
 			if not boss_bonus_payload.is_empty():
 				_extraction_controller.record_boss_bonus(boss_bonus_payload)
-	_lock_active_exits(false)
+		_rebuild_runtime_room_shell(_current_room)
+		_spawn_exit_nodes(_current_room)
+	_clear_room_objective_runtime()
 	_run_state = STATE_ROOM_CLEARED
 	_update_ui()
 
@@ -1664,6 +2245,9 @@ func _mark_current_room_cleared() -> void:
 func _present_room_clear_rewards() -> bool:
 	if _current_room == null or _current_room.reward_claimed or not _current_room.is_combat_room():
 		return false
+	_pending_reward_context = {
+		"source": "combat_clear"
+	}
 	_pending_room_rewards = _room_reward_picker.build_room_rewards(
 		int(_active_request.get("seed", 0)),
 		_current_room,
@@ -1685,14 +2269,24 @@ func _claim_pending_room_reward(option_index: int) -> bool:
 	if option_index < 0 or option_index >= _pending_room_rewards.size():
 		return false
 	var offer: Dictionary = _pending_room_rewards[option_index].duplicate(true)
+	var interaction_note := ""
+	if String(_pending_reward_context.get("source", "")).strip_edges().to_lower() == "interaction":
+		var cost_result := _apply_interaction_cost(offer)
+		if not bool(cost_result.get("paid", false)):
+			return false
+		interaction_note = String(cost_result.get("note", "")).strip_edges()
 	var applied := _run_modifier_state.apply_offer(offer, _build_reward_context())
 	if applied.is_empty():
 		return false
 	_current_room.mark_reward_claimed()
+	if String(_pending_reward_context.get("source", "")).strip_edges().to_lower() == "interaction":
+		_clear_room_interactions()
 	_clear_pending_room_rewards()
-	_last_room_note = _tr("night.run.note.reward_claimed", {
-		"value": String(applied.get("label", _tr("night.reward.kind.reward")))
-	})
+	var applied_label := String(applied.get("label", _tr("night.reward.kind.reward")))
+	if interaction_note.is_empty():
+		_last_room_note = _tr("night.run.note.reward_claimed", {"value": applied_label})
+	else:
+		_last_room_note = "%s · %s" % [interaction_note, applied_label]
 	_update_ui()
 	if _current_room.is_goal and _current_room.connections.is_empty():
 		_complete_or_advance_floor()
@@ -1799,6 +2393,29 @@ func _complete_or_advance_floor() -> void:
 	_complete_run()
 
 
+func _apply_floor_mutator(floor_state) -> void:
+	_current_floor_mutator.clear()
+	if floor_state == null:
+		return
+	var floor_id := String(floor_state.floor_id).strip_edges()
+	var mutator_id := String(floor_state.floor_mutator_id).strip_edges().to_lower()
+	if floor_id.is_empty() or mutator_id.is_empty():
+		return
+	if _applied_floor_mutator_floor_ids.has(floor_id):
+		var existing_variant: Variant = floor_state.floor_mutator if floor_state != null else {}
+		_current_floor_mutator = existing_variant.duplicate(true) if existing_variant is Dictionary else {"id": mutator_id}
+		return
+	var applied := _run_modifier_state.apply_system_modifier(mutator_id, _build_reward_context(), "floor_mutator")
+	if applied.is_empty():
+		return
+	_current_floor_mutator = applied.duplicate(true)
+	_current_floor_mutator["mutator_id"] = mutator_id
+	_current_floor_mutator["floor_id"] = floor_id
+	_current_floor_mutator["floor_label"] = String(floor_state.label)
+	floor_state.floor_mutator = _current_floor_mutator.duplicate(true)
+	_applied_floor_mutator_floor_ids.append(floor_id)
+
+
 func _enter_floor_start_room(floor_state) -> bool:
 	if floor_state == null:
 		return false
@@ -1813,6 +2430,7 @@ func _enter_floor_start_room(floor_state) -> bool:
 			% [String(floor_state.floor_id), String(floor_state.start_room_id)]
 		)
 		return false
+	_apply_floor_mutator(floor_state)
 	_enter_room(start_room)
 	return true
 
@@ -1844,6 +2462,8 @@ func _on_scripted_encounter_cleared(encounter_id: String) -> void:
 	if _current_room == null:
 		return
 	if encounter_id.strip_edges() != _current_room.room_id:
+		return
+	if _has_active_objective() and not bool(_objective_state.get("completed", false)):
 		return
 	_mark_current_room_cleared()
 	if _current_room.reward_on_enter and not _current_room.reward_claimed:
@@ -1877,6 +2497,8 @@ func _on_exit_selected(_exit_id: String, target_room_id: String) -> void:
 		return
 	if not floor_state.has_room(normalized_target):
 		return
+	if not _get_visible_room_connections(_current_room, floor_state).has(normalized_target):
+		return
 	_lock_active_exits(true)
 	var anchor_side := _resolve_exit_anchor_side(_exit_id, normalized_target)
 	call_deferred("_begin_room_transition", normalized_target, anchor_side)
@@ -1903,7 +2525,9 @@ func _on_embedded_session_finished(summary: Dictionary) -> void:
 	payload["dungeon_last_encounter_category"] = String(_current_room_payload.get("encounter_category", ""))
 	payload["dungeon_run_rewards"] = modifier_snapshot.get("claimed_rewards", [])
 	payload["dungeon_run_modifiers"] = modifier_snapshot.get("applied_modifiers", [])
+	payload["dungeon_system_modifiers"] = modifier_snapshot.get("system_modifiers", [])
 	payload["dungeon_reward_multipliers"] = modifier_snapshot.get("reward_multipliers", {})
+	payload["dungeon_floor_mutator"] = _current_floor_mutator.duplicate(true)
 	var exit_reason := String(payload.get("exit_reason", "completed")).strip_edges().to_lower()
 	var outcome_payload := _extraction_controller.build_outcome_payload(exit_reason, {
 		"room_id": _current_room.room_id if _current_room != null else "",
@@ -1916,7 +2540,9 @@ func _on_embedded_session_finished(summary: Dictionary) -> void:
 
 
 func _cleanup_active_room() -> void:
-	_active_exit_nodes.clear()
+	_clear_active_exit_nodes()
+	_clear_room_objective_runtime()
+	_clear_room_interactions()
 	if _active_room_node != null and is_instance_valid(_active_room_node):
 		_active_room_node.queue_free()
 	_active_room_node = null
@@ -1954,6 +2580,7 @@ func _reset_runtime_state() -> void:
 	_floors.clear()
 	_active_exit_nodes.clear()
 	_pending_room_rewards.clear()
+	_pending_reward_context.clear()
 	_run_modifier_state.reset({})
 	_run_state = STATE_BOOTING
 	_boot_attempts = 0
@@ -1966,6 +2593,9 @@ func _reset_runtime_state() -> void:
 	_current_room_entry_anchor_side = ""
 	_boss_climax_snapshot = _boss_room_controller.get_snapshot()
 	_extraction_snapshot.clear()
+	_objective_state.clear()
+	_current_floor_mutator.clear()
+	_applied_floor_mutator_floor_ids.clear()
 	_update_ui()
 
 
@@ -2008,9 +2638,19 @@ func _get_active_room_content_snapshot() -> Dictionary:
 		if snapshot_variant is Dictionary:
 			var snapshot: Dictionary = snapshot_variant
 			snapshot["cover_proxy_count"] = cover_proxy_count
+			snapshot["objective_count"] = _get_objective_node_count()
+			snapshot["interaction_count"] = _active_room_interactions.size()
 			return snapshot
-		return {"cover_proxy_count": cover_proxy_count}
-	return {"cover_proxy_count": cover_proxy_count}
+		return {
+			"cover_proxy_count": cover_proxy_count,
+			"objective_count": _get_objective_node_count(),
+			"interaction_count": _active_room_interactions.size()
+		}
+	return {
+		"cover_proxy_count": cover_proxy_count,
+		"objective_count": _get_objective_node_count(),
+		"interaction_count": _active_room_interactions.size()
+	}
 
 
 func _extract_base_reward_multipliers() -> Dictionary:
@@ -2042,7 +2682,12 @@ func _build_floor_rooms_snapshot() -> Array[Dictionary]:
 		var room: RoomState = floor_state.get_room(room_id)
 		if room == null:
 			continue
+		if not _should_show_room_on_map(room, floor_state):
+			continue
 		var room_snapshot := room.to_dictionary()
+		room_snapshot["connections"] = _get_visible_room_connections(room, floor_state)
+		room_snapshot["hidden_room"] = bool(room.metadata.get("hidden_room", false))
+		room_snapshot["revealed"] = _is_hidden_room_revealed(room.room_id, floor_state)
 		var encounter_snapshot := _encounter_director.describe_room(floor_state, room)
 		room_snapshot["encounter_id"] = String(encounter_snapshot.get("encounter_id", ""))
 		room_snapshot["encounter_label"] = String(encounter_snapshot.get("encounter_label", ""))
@@ -2060,6 +2705,7 @@ func _build_minimap_snapshot() -> Dictionary:
 	return {
 		"layout_mode": "spatial",
 		"floor_label": _resolve_floor_label(),
+		"floor_mutator": _current_floor_mutator.duplicate(true),
 		"current_room_id": _current_room.room_id if _current_room != null else "",
 		"current_room_label": _current_room.label if _current_room != null else "",
 		"current_room_type_label": _resolve_current_room_focus_label(),
@@ -2087,6 +2733,9 @@ func _resolve_current_room_focus_label() -> String:
 
 
 func _resolve_status_text() -> String:
+	var objective_status := _resolve_objective_status_text()
+	if _run_state == STATE_ROOM_LOCKED and not objective_status.is_empty():
+		return objective_status
 	if not _last_room_note.is_empty():
 		return _last_room_note
 	match _run_state:
@@ -2122,6 +2771,7 @@ func _update_ui() -> void:
 	if status_label != null:
 		status_label.text = _resolve_status_text()
 	_refresh_reward_panel()
+	_refresh_interaction_panel()
 	_refresh_boss_panel()
 	_refresh_extraction_panel()
 	if minimap != null and is_instance_valid(minimap) and minimap.has_method("set_map_snapshot"):
@@ -2136,14 +2786,19 @@ func _refresh_reward_panel() -> void:
 		return
 	reward_panel.visible = true
 	if reward_title_label != null:
-		reward_title_label.text = _tr("night.reward.panel_title")
+		var title_text := String(_pending_reward_context.get("panel_title", "")).strip_edges()
+		reward_title_label.text = title_text if not title_text.is_empty() else _tr("night.reward.panel_title")
 	if reward_subtitle_label != null:
-		reward_subtitle_label.text = "%s · %s" % [
-			_current_room.label if _current_room != null else _tr("night.reward.unknown_room"),
-			_resolve_current_room_focus_label()
-		]
+		var subtitle_text := String(_pending_reward_context.get("panel_subtitle", "")).strip_edges()
+		if subtitle_text.is_empty():
+			subtitle_text = "%s · %s" % [
+				_current_room.label if _current_room != null else _tr("night.reward.unknown_room"),
+				_resolve_current_room_focus_label()
+			]
+		reward_subtitle_label.text = subtitle_text
 	if reward_hint_label != null:
-		reward_hint_label.text = _tr("night.reward.panel_hint")
+		var hint_text := String(_pending_reward_context.get("panel_hint", "")).strip_edges()
+		reward_hint_label.text = hint_text if not hint_text.is_empty() else _tr("night.reward.panel_hint")
 	for button_index in range(_reward_buttons.size()):
 		var button := _reward_buttons[button_index]
 		if button == null:
@@ -2155,7 +2810,7 @@ func _refresh_reward_panel() -> void:
 			continue
 		var offer: Dictionary = _pending_room_rewards[button_index]
 		button.visible = true
-		button.disabled = false
+		button.disabled = not _is_offer_affordable(offer)
 		button.text = _format_reward_button_text(offer)
 
 
@@ -2165,9 +2820,13 @@ func _format_reward_button_text(offer: Dictionary) -> String:
 		reward_kind = _localized_reward_kind(String(offer.get("reward_kind", "reward")).strip_edges())
 	var label := String(offer.get("label", _tr("night.reward.kind.reward"))).strip_edges()
 	var summary := String(offer.get("summary", offer.get("description", ""))).strip_edges()
-	if summary.is_empty():
-		return "%s\n%s" % [reward_kind, label]
-	return "%s\n%s\n%s" % [reward_kind, label, summary]
+	var text := "%s\n%s" % [reward_kind, label]
+	if not summary.is_empty():
+		text += "\n%s" % summary
+	var cost_label := String(offer.get("cost_label", "")).strip_edges()
+	if not cost_label.is_empty():
+		text += "\n%s" % cost_label
+	return text
 
 
 func _hide_reward_panel() -> void:
@@ -2175,13 +2834,450 @@ func _hide_reward_panel() -> void:
 		reward_panel.visible = false
 
 
+func _hide_interaction_panel() -> void:
+	if interaction_panel != null:
+		interaction_panel.visible = false
+	if interaction_label != null:
+		interaction_label.text = ""
+
+
 func _clear_pending_room_rewards() -> void:
 	_pending_room_rewards.clear()
+	_pending_reward_context.clear()
 	_hide_reward_panel()
 
 
 func _has_pending_room_rewards() -> bool:
 	return not _pending_room_rewards.is_empty()
+
+
+func _refresh_interaction_panel() -> void:
+	if interaction_panel == null:
+		return
+	if _has_pending_room_rewards() or _current_room == null or _current_room.reward_claimed:
+		_hide_interaction_panel()
+		return
+	var interaction_node := _find_room_interaction_by_id(_focused_room_interaction_id)
+	if interaction_node == null or not is_instance_valid(interaction_node):
+		_hide_interaction_panel()
+		return
+	var prompt := ""
+	if interaction_node.has_method("get_snapshot"):
+		var snapshot_variant: Variant = interaction_node.call("get_snapshot")
+		if snapshot_variant is Dictionary:
+			prompt = String((snapshot_variant as Dictionary).get("prompt_text", "")).strip_edges()
+	if prompt.is_empty():
+		prompt = _interaction_prompt_for_kind(String(interaction_node.get("interaction_kind")), String(interaction_node.get("label")))
+	interaction_panel.visible = true
+	if interaction_label != null:
+		interaction_label.text = prompt
+
+
+func _spawn_room_interactions(room_state: RoomState) -> bool:
+	_clear_room_interactions()
+	if room_state == null or room_state.reward_claimed or _active_room_node == null or not is_instance_valid(_active_room_node):
+		return false
+	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
+	var interaction_kind := String(metadata.get("special_room_kind", "")).strip_edges().to_lower()
+	if interaction_kind.is_empty():
+		return false
+	var interaction_root := Node2D.new()
+	interaction_root.name = ROOM_INTERACTION_ROOT_NODE_NAME
+	interaction_root.z_index = ROOM_COVER_PROXY_LAYER_Z + 2
+	_active_room_node.add_child(interaction_root)
+	var interaction_variant: Variant = RoomInteractableScene.instantiate()
+	if not (interaction_variant is Node2D):
+		interaction_root.queue_free()
+		return false
+	var interaction_node: Node2D = interaction_variant
+	interaction_node.name = "RoomInteraction_%s" % interaction_kind
+	interaction_node.position = _resolve_room_interaction_local_position(room_state, interaction_kind)
+	interaction_root.add_child(interaction_node)
+	if interaction_node.has_method("configure_from_payload"):
+		interaction_node.call("configure_from_payload", {
+			"interaction_id": "%s_%s" % [room_state.room_id, interaction_kind],
+			"interaction_kind": interaction_kind,
+			"label": room_state.label,
+			"prompt_text": _interaction_prompt_for_kind(interaction_kind, room_state.label),
+			"radius": float(metadata.get("interaction_radius", 92.0))
+		})
+	_active_room_interactions = [interaction_node]
+	_focused_room_interaction_id = ""
+	_refresh_interaction_panel()
+	return true
+
+
+func _clear_room_interactions() -> void:
+	for interaction_node in _active_room_interactions:
+		if interaction_node == null or not is_instance_valid(interaction_node):
+			continue
+		interaction_node.queue_free()
+	_active_room_interactions.clear()
+	_focused_room_interaction_id = ""
+	_hide_interaction_panel()
+
+
+func _update_room_interaction_focus() -> void:
+	if _active_room_interactions.is_empty():
+		if not _focused_room_interaction_id.is_empty():
+			_focused_room_interaction_id = ""
+			_refresh_interaction_panel()
+		return
+	if _has_pending_room_rewards() or _run_state == STATE_TRANSITING:
+		for interaction_node in _active_room_interactions:
+			if interaction_node != null and is_instance_valid(interaction_node) and interaction_node.has_method("set_focused"):
+				interaction_node.call("set_focused", false)
+		if not _focused_room_interaction_id.is_empty():
+			_focused_room_interaction_id = ""
+			_refresh_interaction_panel()
+		return
+	var player := _get_player()
+	if not (player is Node2D):
+		return
+	var best_id := ""
+	var best_distance := INF
+	var player_position := (player as Node2D).global_position
+	for interaction_node in _active_room_interactions:
+		if interaction_node == null or not is_instance_valid(interaction_node):
+			continue
+		var contains := false
+		if interaction_node.has_method("contains_world_point"):
+			contains = bool(interaction_node.call("contains_world_point", player_position))
+		if not contains:
+			if interaction_node.has_method("set_focused"):
+				interaction_node.call("set_focused", false)
+			continue
+		var interaction_id := String(interaction_node.get("interaction_id")).strip_edges()
+		var distance := (interaction_node as Node2D).global_position.distance_to(player_position)
+		if distance < best_distance:
+			best_distance = distance
+			best_id = interaction_id
+	for interaction_node in _active_room_interactions:
+		if interaction_node == null or not is_instance_valid(interaction_node):
+			continue
+		if not interaction_node.has_method("set_focused"):
+			continue
+		var interaction_id := String(interaction_node.get("interaction_id")).strip_edges()
+		interaction_node.call("set_focused", interaction_id == best_id and not best_id.is_empty())
+	if best_id != _focused_room_interaction_id:
+		_focused_room_interaction_id = best_id
+		_refresh_interaction_panel()
+
+
+func _find_room_interaction_by_id(interaction_id: String) -> Node2D:
+	var normalized_interaction_id := interaction_id.strip_edges()
+	if normalized_interaction_id.is_empty():
+		return null
+	for interaction_node in _active_room_interactions:
+		if interaction_node == null or not is_instance_valid(interaction_node):
+			continue
+		if String(interaction_node.get("interaction_id")).strip_edges() == normalized_interaction_id:
+			return interaction_node
+	return null
+
+
+func _try_activate_room_interaction(interaction_id: String = "") -> bool:
+	if _current_room == null or _current_room.reward_claimed or _has_pending_room_rewards():
+		return false
+	var normalized_interaction_id := interaction_id.strip_edges()
+	if normalized_interaction_id.is_empty():
+		normalized_interaction_id = _focused_room_interaction_id
+	var interaction_node := _find_room_interaction_by_id(normalized_interaction_id)
+	if interaction_node == null:
+		return false
+	return _present_special_room_rewards(_current_room, interaction_node)
+
+
+func _present_special_room_rewards(room_state: RoomState, interaction_node: Node2D) -> bool:
+	if room_state == null or interaction_node == null or not is_instance_valid(interaction_node):
+		return false
+	var interaction_kind := String(interaction_node.get("interaction_kind")).strip_edges().to_lower()
+	var offers: Array[Dictionary] = []
+	match interaction_kind:
+		"shrine":
+			offers = _build_shrine_offers(room_state)
+		"shop":
+			offers = _build_shop_offers(room_state)
+		_:
+			return false
+	if offers.is_empty():
+		return false
+	_pending_room_rewards = offers
+	_pending_reward_context = {
+		"source": "interaction",
+		"interaction_id": String(interaction_node.get("interaction_id")).strip_edges(),
+		"interaction_kind": interaction_kind,
+		"panel_title": _interaction_panel_title_for_kind(interaction_kind),
+		"panel_subtitle": room_state.label,
+		"panel_hint": _interaction_panel_hint_for_kind(interaction_kind)
+	}
+	_run_state = STATE_REWARD_PENDING
+	_refresh_reward_panel()
+	_refresh_interaction_panel()
+	_update_ui()
+	return true
+
+
+func _build_shrine_offers(room_state: RoomState) -> Array[Dictionary]:
+	var offers: Array[Dictionary] = []
+	if room_state == null:
+		return offers
+	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
+	var pool_id := String(metadata.get("shrine_pool_id", "")).strip_edges().to_lower()
+	var pool_variant: Variant = SHRINE_BLESSING_POOLS.get(pool_id, [])
+	if not (pool_variant is Array):
+		return offers
+	var base_pool: Array = _filter_available_modifier_ids(pool_variant as Array)
+	if base_pool.is_empty():
+		base_pool = pool_variant as Array
+	var offer_ids := _pick_unique_offer_ids(base_pool, _build_interaction_seed(room_state, "shrine"), 3)
+	var cost_type := String(metadata.get("cost_type", "hp_or_noise")).strip_edges().to_lower()
+	var cost_value := maxi(0, int(metadata.get("cost_value", 0)))
+	var cost_label := _interaction_cost_label(cost_type, cost_value)
+	for modifier_id in offer_ids:
+		var offer_variant: Variant = _run_modifier_state.build_modifier_offer(modifier_id)
+		if not (offer_variant is Dictionary) or (offer_variant as Dictionary).is_empty():
+			continue
+		var offer: Dictionary = (offer_variant as Dictionary).duplicate(true)
+		offer["cost_type"] = cost_type
+		offer["cost_value"] = cost_value
+		offer["cost_label"] = cost_label
+		offers.append(offer)
+	return offers
+
+
+func _build_shop_offers(room_state: RoomState) -> Array[Dictionary]:
+	var offers: Array[Dictionary] = []
+	if room_state == null:
+		return offers
+	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
+	var inventory_id := String(metadata.get("shop_inventory_id", "")).strip_edges().to_lower()
+	var inventory_variant: Variant = SHOP_INVENTORY_POOLS.get(inventory_id, {})
+	if not (inventory_variant is Dictionary):
+		return offers
+	var inventory: Dictionary = inventory_variant
+	var base_price := maxi(12, int(metadata.get("shop_price_xp", 36)))
+	var price_offsets_variant: Variant = inventory.get("price_offsets", [-12, 0, 12])
+	var price_offsets: Array = [-12, 0, 12]
+	if price_offsets_variant is Array:
+		price_offsets = (price_offsets_variant as Array).duplicate()
+	var bundle_pool_variant: Variant = inventory.get("bundle_entries", [])
+	if bundle_pool_variant is Array:
+		var bundle_ids := _pick_unique_offer_ids(bundle_pool_variant as Array, _build_interaction_seed(room_state, "shop_bundle"), 1)
+		if not bundle_ids.is_empty():
+			var bundle_offer := _room_reward_picker.build_bundle_offer(String(bundle_ids[0]))
+			if not bundle_offer.is_empty():
+				var bundle_price: int = maxi(12, base_price - 12)
+				if not price_offsets.is_empty():
+					bundle_price = base_price + int(price_offsets[0])
+				bundle_offer["cost_type"] = "xp"
+				bundle_offer["cost_value"] = maxi(12, bundle_price)
+				bundle_offer["cost_label"] = _interaction_cost_label("xp", int(bundle_offer.get("cost_value", 0)))
+				offers.append(bundle_offer)
+	var trait_pool_variant: Variant = inventory.get("trait_entries", [])
+	if trait_pool_variant is Array:
+		var filtered_trait_pool: Array = _filter_available_modifier_ids(trait_pool_variant as Array)
+		if filtered_trait_pool.is_empty():
+			filtered_trait_pool = trait_pool_variant as Array
+		var trait_ids := _pick_unique_offer_ids(filtered_trait_pool, _build_interaction_seed(room_state, "shop_traits"), 2)
+		for trait_index in range(trait_ids.size()):
+			var offer_variant: Variant = _run_modifier_state.build_modifier_offer(String(trait_ids[trait_index]))
+			if not (offer_variant is Dictionary) or (offer_variant as Dictionary).is_empty():
+				continue
+			var offer: Dictionary = (offer_variant as Dictionary).duplicate(true)
+			var price_index := trait_index + 1
+			if not price_offsets.is_empty():
+				price_index = mini(price_offsets.size() - 1, trait_index + 1)
+			var trait_price := base_price
+			if price_index >= 0 and price_index < price_offsets.size():
+				trait_price = base_price + int(price_offsets[price_index])
+			offer["cost_type"] = "xp"
+			offer["cost_value"] = maxi(12, trait_price)
+			offer["cost_label"] = _interaction_cost_label("xp", int(offer.get("cost_value", 0)))
+			offers.append(offer)
+	return offers
+
+
+func _pick_unique_offer_ids(pool: Array, seed_value: int, count: int) -> Array[String]:
+	var picks: Array[String] = []
+	var normalized_pool: Array[String] = []
+	for entry_variant in pool:
+		var entry_id := String(entry_variant).strip_edges().to_lower()
+		if entry_id.is_empty() or normalized_pool.has(entry_id):
+			continue
+		normalized_pool.append(entry_id)
+	if normalized_pool.is_empty():
+		return picks
+	var rng := RandomNumberGenerator.new()
+	rng.seed = maxi(1, abs(seed_value))
+	var working_pool: Array[String] = normalized_pool.duplicate()
+	for _pick in range(mini(maxi(0, count), working_pool.size())):
+		var index := rng.randi_range(0, working_pool.size() - 1)
+		picks.append(working_pool[index])
+		working_pool.remove_at(index)
+	return picks
+
+
+func _filter_available_modifier_ids(pool: Array) -> Array:
+	var filtered: Array = []
+	for modifier_id_variant in pool:
+		var modifier_id := String(modifier_id_variant).strip_edges().to_lower()
+		if modifier_id.is_empty():
+			continue
+		if _run_modifier_state.has_method("has_modifier") and bool(_run_modifier_state.call("has_modifier", modifier_id)):
+			continue
+		filtered.append(modifier_id)
+	return filtered
+
+
+func _is_offer_affordable(offer: Dictionary) -> bool:
+	var player := _get_player()
+	if player == null or not is_instance_valid(player):
+		return false
+	var cost_type := String(offer.get("cost_type", "")).strip_edges().to_lower()
+	var cost_value := maxi(0, int(offer.get("cost_value", 0)))
+	match cost_type:
+		"xp":
+			return float(player.get("xp")) + 0.001 >= float(cost_value)
+		"hp":
+			return float(player.get("hp")) > float(cost_value)
+		_:
+			return true
+
+
+func _apply_interaction_cost(offer: Dictionary) -> Dictionary:
+	var player := _get_player()
+	if player == null or not is_instance_valid(player):
+		return {"paid": false}
+	var cost_type := String(offer.get("cost_type", "")).strip_edges().to_lower()
+	var cost_value := maxi(0, int(offer.get("cost_value", 0)))
+	if cost_type.is_empty() or cost_value <= 0:
+		return {"paid": true, "note": ""}
+	match cost_type:
+		"xp":
+			var xp_value := float(player.get("xp"))
+			if xp_value + 0.001 < float(cost_value):
+				_last_room_note = _tr("night.run.note.interaction_insufficient_xp")
+				_update_ui()
+				return {"paid": false}
+			player.set("xp", maxf(0.0, xp_value - float(cost_value)))
+			if player.has_method("emit_stats_changed"):
+				player.call("emit_stats_changed")
+			return {"paid": true, "note": _interaction_cost_label(cost_type, cost_value)}
+		"hp":
+			var hp_value := float(player.get("hp"))
+			if hp_value <= float(cost_value):
+				return {"paid": false}
+			player.set("hp", maxf(1.0, hp_value - float(cost_value)))
+			if player.has_method("emit_stats_changed"):
+				player.call("emit_stats_changed")
+			return {"paid": true, "note": _tr("night.run.note.interaction_paid_hp", {"value": cost_value})}
+		"noise":
+			if player.has_method("add_noise_delta"):
+				player.call("add_noise_delta", float(cost_value))
+			if player.has_method("emit_stats_changed"):
+				player.call("emit_stats_changed")
+			return {"paid": true, "note": _tr("night.run.note.interaction_paid_noise", {"value": cost_value})}
+		"hp_or_noise":
+			var current_hp := float(player.get("hp"))
+			var max_hp := maxf(1.0, float(player.get("max_hp")))
+			var hp_threshold := float(cost_value) + minf(18.0, maxf(10.0, max_hp * 0.15))
+			if current_hp > hp_threshold:
+				player.set("hp", maxf(1.0, current_hp - float(cost_value)))
+				if player.has_method("emit_stats_changed"):
+					player.call("emit_stats_changed")
+				return {"paid": true, "note": _tr("night.run.note.interaction_paid_hp", {"value": cost_value})}
+			if player.has_method("add_noise_delta"):
+				player.call("add_noise_delta", float(cost_value))
+			if player.has_method("emit_stats_changed"):
+				player.call("emit_stats_changed")
+			return {"paid": true, "note": _tr("night.run.note.interaction_paid_noise", {"value": cost_value})}
+	return {"paid": false}
+
+
+func _build_room_interaction_snapshot() -> Array[Dictionary]:
+	var snapshots: Array[Dictionary] = []
+	for interaction_node in _active_room_interactions:
+		if interaction_node == null or not is_instance_valid(interaction_node):
+			continue
+		if interaction_node.has_method("get_snapshot"):
+			snapshots.append(interaction_node.call("get_snapshot"))
+	return snapshots
+
+
+func _interaction_prompt_for_kind(kind: String, label: String) -> String:
+	var normalized_kind := kind.strip_edges().to_lower()
+	var key := "night.interaction.prompt.%s" % normalized_kind
+	if normalized_kind != "shrine" and normalized_kind != "shop":
+		key = "night.interaction.prompt.generic"
+	return _tr(key, {"value": label})
+
+
+func _interaction_panel_title_for_kind(kind: String) -> String:
+	var normalized_kind := kind.strip_edges().to_lower()
+	match normalized_kind:
+		"shrine":
+			return _tr("night.interaction.panel_title.shrine")
+		"shop":
+			return _tr("night.interaction.panel_title.shop")
+	return _tr("night.reward.panel_title")
+
+
+func _interaction_panel_hint_for_kind(kind: String) -> String:
+	var normalized_kind := kind.strip_edges().to_lower()
+	match normalized_kind:
+		"shrine":
+			return _tr("night.interaction.panel_hint.shrine")
+		"shop":
+			return _tr("night.interaction.panel_hint.shop")
+	return _tr("night.interaction.prompt.generic", {"value": _current_room.label if _current_room != null else _tr("night.reward.unknown_room")})
+
+
+func _interaction_cost_label(kind: String, value: int) -> String:
+	var normalized_kind := kind.strip_edges().to_lower()
+	if value <= 0:
+		return ""
+	match normalized_kind:
+		"hp":
+			return _tr("night.interaction.cost.hp", {"value": value})
+		"noise":
+			return _tr("night.interaction.cost.noise", {"value": value})
+		"xp":
+			return _tr("night.interaction.cost.xp", {"value": value})
+		"hp_or_noise":
+			return _tr("night.interaction.cost.hp_or_noise", {"value": value})
+	return ""
+
+
+func _resolve_room_interaction_local_position(room_state: RoomState, interaction_kind: String) -> Vector2:
+	if _active_room_node == null or not is_instance_valid(_active_room_node):
+		return Vector2.ZERO
+	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
+	var offset: Vector2 = _coerce_vector2(ROOM_INTERACTION_OFFSETS.get(
+		interaction_kind,
+		ROOM_INTERACTION_OFFSETS["generic"]
+	))
+	offset += _coerce_vector2(metadata.get("interaction_offset", Vector2.ZERO))
+	var marker_name := String(metadata.get("interaction_marker", "Center")).strip_edges()
+	var spawn_points := _active_room_node.get_node_or_null("SpawnPoints")
+	var marker := _find_named_child(spawn_points, marker_name)
+	if marker == null:
+		marker = _find_named_child(spawn_points, "Center")
+	if marker is Node2D:
+		return (marker as Node2D).position + offset
+	var anchor := _active_room_node.get_node_or_null("EncounterAnchor")
+	if anchor is Node2D:
+		return (anchor as Node2D).position + offset
+	return offset
+
+
+func _build_interaction_seed(room_state: RoomState, salt: String) -> int:
+	return maxi(1, abs(hash("%s|%s|%s|%s" % [
+		int(_active_request.get("seed", 0)),
+		room_state.room_id,
+		String(room_state.metadata.get("special_room_kind", "")),
+		salt
+	])))
 
 
 func _refresh_boss_panel() -> void:

@@ -29,13 +29,13 @@ offset_bottom = 98.0
 theme_override_constants/separation = 4
 
 [node name="FloorLabel" type="Label" parent="Overlay/MarginContainer/PanelContainer/VBoxContainer"]
-text = "Night Run"
+text = ""
 
 [node name="RoomLabel" type="Label" parent="Overlay/MarginContainer/PanelContainer/VBoxContainer"]
-text = "Staging Chamber"
+text = ""
 
 [node name="StatusLabel" type="Label" parent="Overlay/MarginContainer/PanelContainer/VBoxContainer"]
-text = "Initializing night run"
+text = ""
 
 [node name="NightMinimap" parent="Overlay" instance=ExtResource("2")]
 
@@ -62,14 +62,14 @@ offset_bottom = 78.0
 theme_override_constants/separation = 4
 
 [node name="BossTitle" type="Label" parent="Overlay/BossClimaxPanel/MarginContainer/VBoxContainer"]
-text = "Floor Climax"
+text = ""
 
 [node name="BossPhase" type="Label" parent="Overlay/BossClimaxPanel/MarginContainer/VBoxContainer"]
-text = "Boss Active"
+text = ""
 
 [node name="BossStatus" type="Label" parent="Overlay/BossClimaxPanel/MarginContainer/VBoxContainer"]
 autowrap_mode = 3
-text = "A floor-end threat is rising."
+text = ""
 
 [node name="RewardPanel" type="PanelContainer" parent="Overlay"]
 visible = false
@@ -94,28 +94,52 @@ offset_bottom = 322.0
 theme_override_constants/separation = 8
 
 [node name="RewardTitle" type="Label" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer"]
-text = "Room Reward"
+text = ""
 
 [node name="RewardSubtitle" type="Label" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer"]
-text = "Choose a reward"
+text = ""
 
 [node name="RewardButtons" type="VBoxContainer" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer"]
 theme_override_constants/separation = 8
 
 [node name="RewardButton1" type="Button" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons"]
 custom_minimum_size = Vector2(0, 74)
-text = "Reward 1"
+text = ""
 
 [node name="RewardButton2" type="Button" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons"]
 custom_minimum_size = Vector2(0, 74)
-text = "Reward 2"
+text = ""
 
 [node name="RewardButton3" type="Button" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer/RewardButtons"]
 custom_minimum_size = Vector2(0, 74)
-text = "Reward 3"
+text = ""
 
 [node name="RewardHint" type="Label" parent="Overlay/RewardPanel/MarginContainer/VBoxContainer"]
-text = "Pick one reward before taking the next door."
+text = ""
+
+[node name="InteractionPanel" type="PanelContainer" parent="Overlay"]
+visible = false
+offset_left = 424.0
+offset_top = 632.0
+offset_right = 864.0
+offset_bottom = 704.0
+
+[node name="MarginContainer" type="MarginContainer" parent="Overlay/InteractionPanel"]
+offset_left = 10.0
+offset_top = 8.0
+offset_right = 430.0
+offset_bottom = 64.0
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="InteractionLabel" type="Label" parent="Overlay/InteractionPanel/MarginContainer"]
+offset_right = 420.0
+offset_bottom = 56.0
+horizontal_alignment = 1
+autowrap_mode = 3
+text = ""
 
 [node name="ExtractionPanel" type="PanelContainer" parent="Overlay"]
 offset_left = 16.0
@@ -139,13 +163,13 @@ offset_bottom = 108.0
 theme_override_constants/separation = 8
 
 [node name="ExtractionTitle" type="Label" parent="Overlay/ExtractionPanel/MarginContainer/VBoxContainer"]
-text = "Extraction"
+text = ""
 
 [node name="ExtractionStatus" type="Label" parent="Overlay/ExtractionPanel/MarginContainer/VBoxContainer"]
 autowrap_mode = 3
-text = "Clear at least one combat room to secure haul."
+text = ""
 
 [node name="ExtractButton" type="Button" parent="Overlay/ExtractionPanel/MarginContainer/VBoxContainer"]
 custom_minimum_size = Vector2(0, 42)
 disabled = true
-text = "Extract"
+text = ""

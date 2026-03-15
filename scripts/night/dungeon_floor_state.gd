@@ -7,9 +7,14 @@ var label: String = ""
 var template_id: String = ""
 var start_room_id: String = ""
 var goal_room_id: String = ""
+var map_grid_spacing: Vector2 = Vector2(1180.0, 860.0)
+var map_corridor_width: float = 96.0
+var floor_mutator_id: String = ""
+var floor_mutator: Dictionary = {}
 var room_order: Array[String] = []
 var rooms_by_id: Dictionary = {}
 var encounters: Dictionary = {}
+var connection_metadata_by_source: Dictionary = {}
 
 
 func add_room(room: RoomState) -> void:
@@ -34,7 +39,7 @@ func get_room(room_id: String) -> RoomState:
 	return null
 
 
-func connect_rooms(from_room_id: String, to_room_id: String) -> void:
+func connect_rooms(from_room_id: String, to_room_id: String, connection_metadata: Dictionary = {}) -> void:
 	var from_room := get_room(from_room_id)
 	if from_room == null:
 		return
@@ -44,6 +49,28 @@ func connect_rooms(from_room_id: String, to_room_id: String) -> void:
 	if from_room.connections.has(normalized_target):
 		return
 	from_room.connections.append(normalized_target)
+	var normalized_source := from_room_id.strip_edges()
+	if normalized_source.is_empty():
+		return
+	if not connection_metadata_by_source.has(normalized_source):
+		connection_metadata_by_source[normalized_source] = {}
+	var source_rows_variant: Variant = connection_metadata_by_source.get(normalized_source, {})
+	if source_rows_variant is Dictionary:
+		var source_rows: Dictionary = (source_rows_variant as Dictionary).duplicate(true)
+		source_rows[normalized_target] = connection_metadata.duplicate(true)
+		connection_metadata_by_source[normalized_source] = source_rows
+
+
+func get_connection_metadata(from_room_id: String, to_room_id: String) -> Dictionary:
+	var normalized_source := from_room_id.strip_edges()
+	var normalized_target := to_room_id.strip_edges()
+	if normalized_source.is_empty() or normalized_target.is_empty():
+		return {}
+	var source_rows_variant: Variant = connection_metadata_by_source.get(normalized_source, {})
+	if not (source_rows_variant is Dictionary):
+		return {}
+	var row_variant: Variant = (source_rows_variant as Dictionary).get(normalized_target, {})
+	return row_variant.duplicate(true) if row_variant is Dictionary else {}
 
 
 func get_connected_room_ids(room_id: String) -> Array[String]:
@@ -76,6 +103,11 @@ func to_dictionary() -> Dictionary:
 		"template_id": template_id,
 		"start_room_id": start_room_id,
 		"goal_room_id": goal_room_id,
+		"map_grid_spacing": map_grid_spacing,
+		"map_corridor_width": map_corridor_width,
+		"floor_mutator_id": floor_mutator_id,
+		"floor_mutator": floor_mutator.duplicate(true),
 		"rooms": serialized_rooms,
-		"encounters": encounters.duplicate(true)
+		"encounters": encounters.duplicate(true),
+		"connection_metadata_by_source": connection_metadata_by_source.duplicate(true)
 	}

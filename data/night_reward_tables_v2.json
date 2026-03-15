@@ -1,0 +1,289 @@
+{
+  "schema_version": 2,
+  "bundles": [
+    {
+      "id": "salvage_drift_pack",
+      "reward_kind": "materials",
+      "label": "Drift Salvage",
+      "label_zh": "漂流打捞包",
+      "summary": "+48 XP now, DROP x1.06 this run",
+      "summary_zh": "立即 +48 经验，本局掉落 x1.06",
+      "description": "A light haul that keeps the run moving without sacrificing later drops.",
+      "description_zh": "一笔轻量战利品，维持节奏，同时抬一点后续掉落。",
+      "instant": {
+        "xp_pickups": 4,
+        "xp_amount": 12
+      },
+      "reward_multipliers": {
+        "drop": 1.06
+      }
+    },
+    {
+      "id": "relay_field_rations",
+      "reward_kind": "materials",
+      "label": "Field Rations",
+      "label_zh": "前线口粮",
+      "summary": "Heal 18% HP, XP x1.10 this run",
+      "summary_zh": "治疗 18% 生命，本局经验 x1.10",
+      "description": "Stabilize after an objective room and accelerate leveling in the next fights.",
+      "description_zh": "在目标房后稳住血线，并让后续成长更快。",
+      "instant": {
+        "heal_pct": 0.18
+      },
+      "reward_multipliers": {
+        "xp": 1.10
+      }
+    },
+    {
+      "id": "coil_haul",
+      "reward_kind": "materials",
+      "label": "Coil Haul",
+      "label_zh": "线圈货包",
+      "summary": "+60 XP now, DROP x1.10, META x1.10",
+      "summary_zh": "立即 +60 经验，掉落 x1.10，元货币 x1.10",
+      "description": "A clean take from an equipment cache with balanced immediate and carryover value.",
+      "description_zh": "来自设备缓存的平衡收益，同时兼顾即时和带回价值。",
+      "instant": {
+        "xp_pickups": 5,
+        "xp_amount": 12
+      },
+      "reward_multipliers": {
+        "drop": 1.10,
+        "meta_currency": 1.10
+      }
+    },
+    {
+      "id": "spore_crate",
+      "reward_kind": "materials",
+      "label": "Spore Crate",
+      "label_zh": "孢子箱",
+      "summary": "Heal 12% HP, DROP x1.18 this run",
+      "summary_zh": "治疗 12% 生命，本局掉落 x1.18",
+      "description": "A volatile box from a nest breach that trades safety for stronger harvests.",
+      "description_zh": "来自虫巢突破的一箱高波动收获，以稳定性换更高掉落。",
+      "instant": {
+        "heal_pct": 0.12
+      },
+      "reward_multipliers": {
+        "drop": 1.18
+      }
+    },
+    {
+      "id": "challenge_bounty",
+      "reward_kind": "materials",
+      "label": "Challenge Bounty",
+      "label_zh": "试炼赏金",
+      "summary": "+90 XP now, XP x1.12, META x1.15",
+      "summary_zh": "立即 +90 经验，经验 x1.12，元货币 x1.15",
+      "description": "A higher-risk payout reserved for rooms that push harder than normal.",
+      "description_zh": "更高风险房间才给的额外赏金，回报也更高。",
+      "instant": {
+        "xp_pickups": 6,
+        "xp_amount": 15
+      },
+      "reward_multipliers": {
+        "xp": 1.12,
+        "meta_currency": 1.15
+      }
+    },
+    {
+      "id": "sanctum_manifest",
+      "reward_kind": "materials",
+      "label": "Sanctum Manifest",
+      "label_zh": "圣所清单",
+      "summary": "Heal 30% HP, DROP x1.20, META x1.20",
+      "summary_zh": "治疗 30% 生命，掉落 x1.20，元货币 x1.20",
+      "description": "A boss-grade manifest that resets your footing while amplifying the return haul.",
+      "description_zh": "首领级战利品清单，既重整状态，也显著抬高返航收益。",
+      "instant": {
+        "heal_pct": 0.30
+      },
+      "reward_multipliers": {
+        "drop": 1.20,
+        "meta_currency": 1.20
+      }
+    }
+  ],
+  "tables": [
+    {
+      "id": "combat_standard_v2",
+      "draws": 3,
+      "category_weights": {
+        "upgrade": 0.4,
+        "weapon_trait": 0.4,
+        "blessing": 0.2
+      },
+      "reward_groups": {
+        "upgrade": {
+          "offer_type": "modifier",
+          "entries": [
+            "surge_coils",
+            "drift_fins",
+            "quiet_heart"
+          ]
+        },
+        "weapon_trait": {
+          "offer_type": "modifier",
+          "entries": [
+            "trait_ricochet_rifling",
+            "trait_chilled_chamber",
+            "trait_overcrank_burst"
+          ]
+        },
+        "blessing": {
+          "offer_type": "modifier",
+          "entries": [
+            "blessing_tide_burst",
+            "blessing_anchor_spark",
+            "blessing_hunter_gull"
+          ]
+        }
+      }
+    },
+    {
+      "id": "combat_objective_v2",
+      "draws": 3,
+      "category_weights": {
+        "upgrade": 0.4,
+        "weapon_trait": 0.4,
+        "blessing": 0.2
+      },
+      "reward_groups": {
+        "upgrade": {
+          "offer_type": "modifier",
+          "entries": [
+            "surge_coils",
+            "drift_fins",
+            "pressure_mesh",
+            "kill_switch"
+          ]
+        },
+        "weapon_trait": {
+          "offer_type": "modifier",
+          "entries": [
+            "trait_ricochet_rifling",
+            "trait_harpoon_spool",
+            "trait_mining_tip",
+            "trait_scavenger_feed"
+          ]
+        },
+        "blessing": {
+          "offer_type": "modifier",
+          "entries": [
+            "blessing_tide_burst",
+            "blessing_shell_guard",
+            "blessing_broker_surge"
+          ]
+        }
+      }
+    },
+    {
+      "id": "combat_elite_v2",
+      "draws": 3,
+      "category_weights": {
+        "upgrade": 0.4,
+        "weapon_trait": 0.4,
+        "blessing": 0.2
+      },
+      "reward_groups": {
+        "upgrade": {
+          "offer_type": "modifier",
+          "entries": [
+            "pressure_mesh",
+            "kill_switch",
+            "quiet_heart"
+          ]
+        },
+        "weapon_trait": {
+          "offer_type": "modifier",
+          "entries": [
+            "trait_split_core",
+            "trait_mining_tip",
+            "trait_salt_edge",
+            "trait_sonar_fins"
+          ]
+        },
+        "blessing": {
+          "offer_type": "modifier",
+          "entries": [
+            "blessing_shell_guard",
+            "blessing_omen_lowtide",
+            "blessing_choir_silence"
+          ]
+        }
+      }
+    },
+    {
+      "id": "combat_challenge_v2",
+      "draws": 3,
+      "category_weights": {
+        "upgrade": 0.4,
+        "weapon_trait": 0.4,
+        "blessing": 0.2
+      },
+      "reward_groups": {
+        "upgrade": {
+          "offer_type": "modifier",
+          "entries": [
+            "pressure_mesh",
+            "kill_switch",
+            "abyss_battery"
+          ]
+        },
+        "weapon_trait": {
+          "offer_type": "modifier",
+          "entries": [
+            "trait_salt_edge",
+            "trait_sonar_fins",
+            "trait_conductive_chain",
+            "trait_split_core"
+          ]
+        },
+        "blessing": {
+          "offer_type": "modifier",
+          "entries": [
+            "blessing_broker_surge",
+            "blessing_omen_lowtide",
+            "blessing_harbor_light"
+          ]
+        }
+      }
+    },
+    {
+      "id": "combat_boss_v2",
+      "draws": 3,
+      "category_weights": {
+        "upgrade": 0.4,
+        "weapon_trait": 0.4,
+        "blessing": 0.2
+      },
+      "reward_groups": {
+        "upgrade": {
+          "offer_type": "modifier",
+          "entries": [
+            "abyss_battery",
+            "pressure_mesh",
+            "kill_switch"
+          ]
+        },
+        "weapon_trait": {
+          "offer_type": "modifier",
+          "entries": [
+            "trait_salt_edge",
+            "trait_conductive_chain",
+            "trait_split_core",
+            "trait_mining_tip"
+          ]
+        },
+        "blessing": {
+          "offer_type": "modifier",
+          "entries": [
+            "blessing_choir_silence",
+            "blessing_harbor_light",
+            "blessing_shell_guard"
+          ]
+        }
+      }
+    }
+  ]
+}
