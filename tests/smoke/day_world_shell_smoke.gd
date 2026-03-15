@@ -64,6 +64,13 @@ func _ready() -> void:
 	if not _require(not visible_pickups.has("harbor_herb"), "Collected world pickups should disappear until the next day"):
 		return
 
+	if not _require(bool(_meta_root.call("debug_day_world_snap_player_to_zone", "farm_plot_0")), "Day world smoke should be able to place the player on plot 0 for overlap-sensitive farm checks"):
+		return
+	await _await_physics_frames(2)
+	snapshot = _snapshot()
+	if not _require(String(snapshot.get("day_world_focus_id", "")) == "farm_plot_0", "Player focus should lock onto plot 0 before overlap-sensitive farm interactions"):
+		return
+
 	if not _require(bool(_meta_root.call("debug_day_world_select_farm_tool", "till")), "Day world should expose the till tool"):
 		return
 	await _await_frames(1)
@@ -509,6 +516,12 @@ func _snapshot() -> Dictionary:
 func _await_frames(frame_count: int) -> void:
 	for _i in range(frame_count):
 		await get_tree().process_frame
+
+
+func _await_physics_frames(frame_count: int) -> void:
+	for _i in range(frame_count):
+		await get_tree().physics_frame
+	await get_tree().process_frame
 
 
 func _reset_daily_orders_runtime() -> void:
