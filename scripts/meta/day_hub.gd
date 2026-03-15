@@ -109,8 +109,8 @@ func _apply_view_model() -> void:
 	var ready_to_claim := 0
 	if DailyOrders != null and DailyOrders.has_method("get_ready_to_claim_count"):
 		ready_to_claim = int(DailyOrders.call("get_ready_to_claim_count"))
-	orders_button.text = "Daily Orders (%d)" % ready_to_claim if ready_to_claim > 0 else "Daily Orders"
-	orders_button.tooltip_text = "View and claim today's side orders."
+	orders_button.text = _t("meta.hub.orders_ready", {"value": ready_to_claim}) if ready_to_claim > 0 else _t("meta.hub.orders")
+	orders_button.tooltip_text = _t("meta.hub.orders_tooltip")
 	shop_button.text = String(_view_model.get("shop_button_text", _t("meta.hub.shop")))
 	shop_button.tooltip_text = String(_view_model.get("shop_button_tooltip", ""))
 	night_button.text = _t("meta.hub.launch_night")

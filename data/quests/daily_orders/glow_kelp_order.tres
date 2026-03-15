@@ -6,8 +6,11 @@
 script = ExtResource("1")
 id = 106
 quest_name = "Luminous Fronds"
+quest_name_zh = "辉光叶束"
 quest_description = "Bring back fresh glow kelp so the kitchen can turn night salvage into premium noodles."
+quest_description_zh = "带回新鲜辉光海带，让厨房能把夜里打捞物做成更高价的面食。"
 quest_objective = "Bring back 1 Glow Kelp."
+quest_objective_zh = "带回 1 份辉光海带。"
 order_type = "material_gain"
 pillar = "night"
 target_id = "glow_kelp"

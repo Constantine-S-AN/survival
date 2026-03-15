@@ -4,7 +4,9 @@
 		{
 			"id": "field_stew",
 			"name": "Field Stew",
+			"name_zh": "田园炖菜",
 			"description": "A hearty lunch bowl built from grain and fresh greens.",
+			"description_zh": "用谷物和新鲜蔬菜做成的扎实午餐炖碗。",
 			"ingredients": {
 				"wheat": 2,
 				"herb": 1
@@ -18,14 +20,17 @@
 				"demand_bonus": 0.12,
 				"satisfaction_bonus": 0.04,
 				"max_bonus_servings": 2,
-				"feedback": "A salvage garnish gave the stew a memorable hook."
+				"feedback": "A salvage garnish gave the stew a memorable hook.",
+				"feedback_zh": "一点废料风味点缀，让这锅炖菜多了个让人记住的亮点。"
 			},
 			"starts_unlocked": true
 		},
 		{
 			"id": "herb_tea",
 			"name": "Herb Tea",
+			"name_zh": "香草茶",
 			"description": "A quick daytime pour that keeps service moving.",
+			"description_zh": "快速出杯的日间饮品，能让营业节奏维持顺畅。",
 			"ingredients": {
 				"herb": 1
 			},
@@ -38,7 +43,9 @@
 		{
 			"id": "sweet_bread",
 			"name": "Sweet Bread",
+			"name_zh": "甜面包",
 			"description": "A richer bakery staple once the restaurant finds its footing.",
+			"description_zh": "餐馆站稳脚跟后常驻菜单里的高价值烘焙主食。",
 			"ingredients": {
 				"wheat": 3,
 				"herb": 1
@@ -52,14 +59,17 @@
 				"demand_bonus": 0.18,
 				"satisfaction_bonus": 0.06,
 				"max_bonus_servings": 2,
-				"feedback": "The night-forged glaze turned heads at the counter."
+				"feedback": "The night-forged glaze turned heads at the counter.",
+				"feedback_zh": "夜间调出的釉层让前台顾客一眼就记住了这道甜面包。"
 			},
 			"starts_unlocked": false
 		},
 		{
 			"id": "kelpfire_noodles",
 			"name": "Kelpfire Noodles",
+			"name_zh": "海火面",
 			"description": "Glow Kelp turns a basic pantry into a high-demand daytime special, making even short night hauls worth plating.",
+			"description_zh": "辉光海带能把普通库存抬成高需求的日间特餐，让短途夜跑也值得上桌。",
 			"ingredients": {
 				"wheat": 2,
 				"herb": 1,
@@ -74,14 +84,17 @@
 				"demand_bonus": 0.16,
 				"satisfaction_bonus": 0.07,
 				"max_bonus_servings": 1,
-				"feedback": "A shaved ribbon of abyssfin pushed one bowl into premium-special territory."
+				"feedback": "A shaved ribbon of abyssfin pushed one bowl into premium-special territory.",
+				"feedback_zh": "一缕深渊鳍鱼片，就足以把这一碗推到高价特供的档位。"
 			},
 			"starts_unlocked": true
 		},
 		{
 			"id": "kelpberry_tart",
 			"name": "Kelpberry Tart",
+			"name_zh": "海莓挞",
 			"description": "A bright shore-market tart that turns a humble berry crop into real daytime margin.",
+			"description_zh": "带海岸集市气息的明亮甜挞，能把朴素的莓果变成真正的白天利润。",
 			"ingredients": {
 				"wheat": 1,
 				"kelpberry": 1
@@ -95,14 +108,17 @@
 				"demand_bonus": 0.1,
 				"satisfaction_bonus": 0.03,
 				"max_bonus_servings": 2,
-				"feedback": "A glow-kelp glaze turned the tart into a window-draw special."
+				"feedback": "A glow-kelp glaze turned the tart into a window-draw special.",
+				"feedback_zh": "辉光海带糖衣让这份甜挞成了橱窗级招徕单品。"
 			},
 			"starts_unlocked": true
 		},
 		{
 			"id": "emberleaf_flatbread",
 			"name": "Emberleaf Flatbread",
+			"name_zh": "余烬叶薄饼",
 			"description": "Peppery leaves and fresh herbs make this lunch special worth more than dumping raw produce on the stall.",
+			"description_zh": "辛香叶和新鲜香草让这道午市特餐远比原料直接摆摊更值钱。",
 			"ingredients": {
 				"wheat": 1,
 				"herb": 1,
@@ -117,14 +133,17 @@
 				"demand_bonus": 0.08,
 				"satisfaction_bonus": 0.05,
 				"max_bonus_servings": 2,
-				"feedback": "Reef salt sharpened the emberleaf finish and sold out the hot trays."
+				"feedback": "Reef salt sharpened the emberleaf finish and sold out the hot trays.",
+				"feedback_zh": "礁盐把余烬叶的收尾风味提得更利，热盘很快就被一扫而空。"
 			},
 			"starts_unlocked": true
 		},
 		{
 			"id": "mooncap_hotpot",
 			"name": "Mooncap Hotpot",
+			"name_zh": "月菇火锅",
 			"description": "A marquee hotpot that proves Moon Spores and Abyssfin can reshape the whole daytime economy.",
+			"description_zh": "一锅招牌级火锅，足以证明月孢和深渊鳍能重塑整套白天经济。",
 			"ingredients": {
 				"mooncap": 2,
 				"abyssfin": 1,
@@ -139,7 +158,9 @@
 		{
 			"id": "abyssfin_crudo",
 			"name": "Abyssfin Crudo",
+			"name_zh": "深渊鳍生片",
 			"description": "Pure night-haul cuisine: scarce ingredients, minimal prep, and the best single-plate payout in the restaurant.",
+			"description_zh": "彻底的夜间渔获料理：原料稀缺、处理极简，却能带来餐馆单盘最高回报。",
 			"ingredients": {
 				"abyssfin": 1,
 				"glow_kelp": 1,

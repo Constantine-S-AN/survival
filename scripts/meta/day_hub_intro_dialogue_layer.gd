@@ -19,6 +19,7 @@ const RESTAURANT_FIELD_STEW_DIALOGUE_ID := "restaurant_special_customer_field_st
 const RESTAURANT_FIELD_STEW_DIALOGUE_TITLE := "field_stew_special"
 const MORNING_PHASE := "morning"
 const FIELD_STEW_RECIPE_ID := "field_stew"
+const CHINESE_DIALOGUE_SUFFIX := "_zh.dialogue"
 const RARE_LOOT_IDS := [
 	"abyssfin",
 	"glow_kelp",
@@ -256,12 +257,13 @@ func _show_dialogue(resource_path: String, dialogue_title: String, dialogue_id: 
 	var dialogue_manager := _get_dialogue_manager()
 	if dialogue_manager == null or not dialogue_manager.has_method("show_dialogue_balloon"):
 		return
-	if not ResourceLoader.exists(resource_path):
-		push_warning("Missing dialogue resource: %s" % resource_path)
+	var resolved_resource_path := _resolve_dialogue_resource_path(resource_path)
+	if not ResourceLoader.exists(resolved_resource_path):
+		push_warning("Missing dialogue resource: %s" % resolved_resource_path)
 		return
-	var resource: Resource = load(resource_path)
+	var resource: Resource = load(resolved_resource_path)
 	if resource == null:
-		push_warning("Failed to load dialogue resource: %s" % resource_path)
+		push_warning("Failed to load dialogue resource: %s" % resolved_resource_path)
 		return
 	var balloon: Variant = dialogue_manager.call("show_dialogue_balloon", resource, dialogue_title)
 	if balloon == null:
@@ -269,6 +271,10 @@ func _show_dialogue(resource_path: String, dialogue_title: String, dialogue_id: 
 	_active_dialogue_resource_path = resource.resource_path
 	_set_dialogue_blocking(true)
 	_mark_dialogue_seen(dialogue_id)
+
+
+func debug_resolve_dialogue_resource_path(resource_path: String) -> String:
+	return _resolve_dialogue_resource_path(resource_path)
 
 
 func debug_mark_dialogue_seen(dialogue_id: String) -> void:
@@ -342,6 +348,18 @@ func _on_dialogue_ended(resource: Resource) -> void:
 		return
 	_active_dialogue_resource_path = ""
 	_set_dialogue_blocking(false)
+
+
+func _resolve_dialogue_resource_path(resource_path: String) -> String:
+	var normalized_path := resource_path.strip_edges()
+	if normalized_path.is_empty():
+		return normalized_path
+	if Localization == null or not Localization.has_method("is_chinese") or not bool(Localization.call("is_chinese")):
+		return normalized_path
+	if not normalized_path.ends_with(".dialogue"):
+		return normalized_path
+	var localized_path := "%s%s" % [normalized_path.get_basename(), CHINESE_DIALOGUE_SUFFIX]
+	return localized_path if ResourceLoader.exists(localized_path) else normalized_path
 
 
 func _get_pending_return_summary() -> Dictionary:

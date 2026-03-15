@@ -112,6 +112,7 @@ var boss_hidden_damage_multiplier: float = 0.35
 var boss_fake_echoes: int = 0
 var boss_phase_spawn_rate_mult: float = 1.0
 var boss_phase_fog_radius_mult: float = 1.0
+var always_revealed: bool = false
 var boss_pending_attack: bool = false
 var boss_attack_windup_remaining: float = 0.0
 var boss_attack_windup_duration: float = 0.42
@@ -732,17 +733,30 @@ func set_revealed(duration_sec: float) -> void:
 				shield_hp = 0.0
 		_:
 			pass
-	if behavior == "boss" and boss_requires_reveal_lock and is_revealed():
-		if not boss_true_form_exposed_announced:
-			boss_true_form_exposed_announced = true
-			boss_true_form_revealed.emit(global_position)
-		_dissipate_boss_decoys()
+	_unlock_boss_reveal_lock_if_needed()
+	_update_reveal_visual()
+
+
+func set_always_revealed(enabled: bool) -> void:
+	always_revealed = enabled
+	_unlock_boss_reveal_lock_if_needed()
 	_update_reveal_visual()
 
 
 func is_revealed() -> bool:
+	if always_revealed:
+		return true
 	var now_sec := float(Time.get_ticks_msec()) * 0.001
 	return now_sec < reveal_until
+
+
+func _unlock_boss_reveal_lock_if_needed() -> void:
+	if behavior != "boss" or not boss_requires_reveal_lock or not is_revealed():
+		return
+	if not boss_true_form_exposed_announced:
+		boss_true_form_exposed_announced = true
+		boss_true_form_revealed.emit(global_position)
+	_dissipate_boss_decoys()
 
 
 func _update_reveal_visual() -> void:
@@ -852,12 +866,13 @@ func apply_boss_phase(phase: Dictionary, boss_config: Dictionary = {}) -> void:
 		"line_width": 5.5,
 		"color": String(boss_config.get("telegraph_color", "#8be8ff"))
 	})
-	if boss_requires_reveal_lock:
+	if boss_requires_reveal_lock and not always_revealed:
 		_spawn_boss_echo_decoys(boss_echo_count_runtime)
 		boss_echoes_spawned.emit(get_boss_decoy_count(), global_position)
 		outline_visual.visible = true
 	else:
 		_clear_boss_decoys()
+	_unlock_boss_reveal_lock_if_needed()
 
 
 func get_hp_ratio() -> float:
@@ -1095,6 +1110,7 @@ func on_pool_recycle() -> void:
 	knockback_velocity = Vector2.ZERO
 	contact_timer = 0.0
 	reveal_until = 0.0
+	always_revealed = false
 	stagger_timer = 0.0
 	rage_timer = 0.0
 	dash_cooldown_remaining = 0.0

@@ -6,8 +6,11 @@
 script = ExtResource("1")
 id = 111
 quest_name = "Lunch Counter Flatbread"
+quest_name_zh = "午台薄饼"
 quest_description = "Plate one emberleaf flatbread to prove the farm's pepper crop has real lunch value."
+quest_description_zh = "上一份余烬叶薄饼，证明农场种出的辛香作物确实能撑起午市价值。"
 quest_objective = "Sell 1 Emberleaf Flatbread."
+quest_objective_zh = "售出 1 份余烬叶薄饼。"
 order_type = "dish_sales"
 pillar = "restaurant"
 target_id = "emberleaf_flatbread"

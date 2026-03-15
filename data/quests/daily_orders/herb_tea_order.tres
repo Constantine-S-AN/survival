@@ -6,8 +6,11 @@
 script = ExtResource("1")
 id = 104
 quest_name = "Warm Kettle"
+quest_name_zh = "暖壶热茶"
 quest_description = "Keep a simple tea service moving so the lunch line never fully stalls out."
+quest_description_zh = "让简单的茶水供应持续运转，别让午市队伍彻底断掉。"
 quest_objective = "Sell 2 Herb Tea."
+quest_objective_zh = "售出 2 份香草茶。"
 order_type = "dish_sales"
 pillar = "restaurant"
 target_id = "herb_tea"

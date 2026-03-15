@@ -163,6 +163,123 @@ func complete_night(summary_override: Dictionary = {}) -> bool:
 	return String(snapshot().get("current_screen", "")) == "return_summary"
 
 
+func get_night_combat_root() -> Node:
+	if meta_root == null:
+		return null
+	return meta_root.get_node_or_null("NightCombatRoot")
+
+
+func get_night_run_snapshot() -> Dictionary:
+	var night_root := get_night_combat_root()
+	if night_root == null or not night_root.has_method("debug_get_run_snapshot"):
+		return {}
+	var snapshot_variant: Variant = night_root.call("debug_get_run_snapshot")
+	return snapshot_variant if snapshot_variant is Dictionary else {}
+
+
+func wait_for_night_room(target_room_id: String = "", frame_budget: int = 90) -> Dictionary:
+	var normalized_target := target_room_id.strip_edges()
+	for _frame in range(maxi(1, frame_budget)):
+		var run_snapshot := get_night_run_snapshot()
+		var active_room_id := String(run_snapshot.get("room_id", "")).strip_edges()
+		if normalized_target.is_empty():
+			if not active_room_id.is_empty():
+				return run_snapshot
+		elif active_room_id == normalized_target:
+			return run_snapshot
+		await await_frames(1)
+	return {}
+
+
+func wait_for_night_reward_panel(frame_budget: int = 45) -> Dictionary:
+	for _frame in range(maxi(1, frame_budget)):
+		var run_snapshot := get_night_run_snapshot()
+		if bool(run_snapshot.get("reward_panel_visible", false)):
+			return run_snapshot
+		await await_frames(1)
+	return {}
+
+
+func finish_night_run_via_extraction(route_room_id: String = "reef_patrol", reward_index: int = 0) -> bool:
+	var night_root := get_night_combat_root()
+	if night_root == null:
+		return false
+	var start_snapshot := await wait_for_night_room("camp")
+	if start_snapshot.is_empty():
+		return false
+	if not bool(night_root.call("debug_use_exit", route_room_id)):
+		return false
+	var room_snapshot := await wait_for_night_room(route_room_id)
+	if room_snapshot.is_empty():
+		return false
+	if not bool(night_root.call("debug_force_clear_room")):
+		return false
+	var reward_snapshot := await wait_for_night_reward_panel()
+	if reward_snapshot.is_empty():
+		return false
+	if not bool(night_root.call("debug_select_room_reward", reward_index)):
+		return false
+	await await_frames(2)
+	if not bool(night_root.call("debug_request_extract")):
+		return false
+	for _frame in range(90):
+		if String(snapshot().get("current_screen", "")) == "return_summary":
+			return true
+		await await_frames(1)
+	return false
+
+
+func finish_night_run_via_completion(route_reward_indices: Array[int] = [2, 0]) -> bool:
+	var night_root := get_night_combat_root()
+	if night_root == null:
+		return false
+	var start_snapshot := await wait_for_night_room("camp")
+	if start_snapshot.is_empty():
+		return false
+	if not bool(night_root.call("debug_use_exit", "swarm_nest")):
+		return false
+	var elite_snapshot := await wait_for_night_room("swarm_nest")
+	if elite_snapshot.is_empty():
+		return false
+	if not bool(night_root.call("debug_force_clear_room")):
+		return false
+	var elite_reward_snapshot := await wait_for_night_reward_panel()
+	if elite_reward_snapshot.is_empty():
+		return false
+	var elite_reward_index := route_reward_indices[0] if not route_reward_indices.is_empty() else 0
+	if not bool(night_root.call("debug_select_room_reward", elite_reward_index)):
+		return false
+	await await_frames(2)
+	if not bool(night_root.call("debug_use_exit", "quiet_niche")):
+		return false
+	var rest_snapshot := await wait_for_night_room("quiet_niche")
+	if rest_snapshot.is_empty():
+		return false
+	if not bool(night_root.call("debug_use_exit", "omen_shrine")):
+		return false
+	var event_snapshot := await wait_for_night_room("omen_shrine")
+	if event_snapshot.is_empty():
+		return false
+	if not bool(night_root.call("debug_use_exit", "apex_guardian")):
+		return false
+	var boss_snapshot := await wait_for_night_room("apex_guardian")
+	if boss_snapshot.is_empty():
+		return false
+	if not bool(night_root.call("debug_force_clear_room")):
+		return false
+	var boss_reward_snapshot := await wait_for_night_reward_panel()
+	if boss_reward_snapshot.is_empty():
+		return false
+	var boss_reward_index := route_reward_indices[1] if route_reward_indices.size() > 1 else 0
+	if not bool(night_root.call("debug_select_room_reward", boss_reward_index)):
+		return false
+	for _frame in range(120):
+		if String(snapshot().get("current_screen", "")) == "return_summary":
+			return true
+		await await_frames(1)
+	return false
+
+
 func continue_summary() -> bool:
 	if meta_root == null:
 		return false

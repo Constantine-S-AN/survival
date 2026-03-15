@@ -27,6 +27,7 @@ var _tracked_materials: Dictionary = {}
 var _quests_by_id: Dictionary = {}
 var _profile_path: String = ""
 var _is_rolling_over_day: bool = false
+var _order_templates: Array[DailyOrderQuest] = []
 
 
 func _ready() -> void:
@@ -91,7 +92,7 @@ func get_featured_order_cards(limit: int = 0) -> Array[Dictionary]:
 func describe_reward(reward: Dictionary) -> String:
 	var parts := _build_reward_parts(reward)
 	if parts.is_empty():
-		return "No reward"
+		return _t("meta.orders.reward_none")
 	return " · ".join(parts)
 
 
@@ -106,6 +107,7 @@ func claim_order(order_id: int) -> Dictionary:
 	if not QuestSystem.is_quest_active(quest) or not quest.objective_completed:
 		return {"ok": false, "error": "order_not_ready"}
 	var reward := _grant_reward(quest)
+	_refresh_tracked_snapshots()
 	_persist_state()
 	state_changed.emit()
 	reward_claimed.emit(order_id, reward)
@@ -235,6 +237,14 @@ func _persist_state() -> void:
 		"tracked_dish_sales": _tracked_dish_sales.duplicate(true),
 		"tracked_materials": _tracked_materials.duplicate(true)
 	})
+
+
+func _refresh_tracked_snapshots() -> void:
+	if ProfileStore == null:
+		return
+	var meta_progress := ProfileStore.get_meta_progress_state()
+	_tracked_dish_sales = _snapshot_dish_sales(meta_progress)
+	_tracked_materials = _snapshot_materials(meta_progress)
 
 
 func _grant_reward(quest: DailyOrderQuest) -> Dictionary:
@@ -377,10 +387,10 @@ func _build_reward_parts(reward: Dictionary) -> Array[String]:
 	var parts: Array[String] = []
 	var gold_amount := int(normalized_reward.get("gold", 0))
 	if gold_amount > 0:
-		parts.append("+%d gold" % gold_amount)
+		parts.append(_t("meta.orders.reward_gold", {"value": gold_amount}))
 	var reputation_amount := int(normalized_reward.get("reputation", 0))
 	if reputation_amount > 0:
-		parts.append("+%d reputation" % reputation_amount)
+		parts.append(_t("meta.orders.reward_reputation", {"value": reputation_amount}))
 	var materials_variant: Variant = normalized_reward.get("materials", {})
 	var materials: Dictionary = materials_variant if materials_variant is Dictionary else {}
 	var material_ids: Array[String] = []
@@ -390,7 +400,7 @@ func _build_reward_parts(reward: Dictionary) -> Array[String]:
 	for material_id in material_ids:
 		parts.append("+%d %s" % [int(materials.get(material_id, 0)), _get_material_display_name(material_id)])
 	for seed_id in _normalize_string_id_array(normalized_reward.get("seed_ids", [])):
-		parts.append("Unlock %s" % _get_seed_display_name(seed_id))
+		parts.append(_t("meta.orders.reward_seed_unlock", {"value": _get_seed_display_name(seed_id)}))
 	return parts
 
 
@@ -440,6 +450,7 @@ func _auto_claim_ready_orders() -> int:
 		if not QuestSystem.is_quest_active(quest) or not quest.objective_completed:
 			continue
 		var reward := _grant_reward(quest)
+		_refresh_tracked_snapshots()
 		reward_claimed.emit(quest.id, reward)
 		claimed_count += 1
 	return claimed_count
@@ -460,15 +471,23 @@ func _reset_runtime_state() -> void:
 
 func _load_order_instances() -> Array[DailyOrderQuest]:
 	var quests: Array[DailyOrderQuest] = []
+	for order_template in _get_order_templates():
+		var runtime_quest_variant: Variant = (order_template as Resource).duplicate(true)
+		if runtime_quest_variant is DailyOrderQuest:
+			quests.append(runtime_quest_variant as DailyOrderQuest)
+	return quests
+
+
+func _get_order_templates() -> Array[DailyOrderQuest]:
+	if not _order_templates.is_empty():
+		return _order_templates
 	for resource_path in ORDER_RESOURCE_PATHS:
 		var resource_variant: Variant = load(resource_path)
 		if not (resource_variant is DailyOrderQuest):
 			push_warning("Daily order resource is missing or invalid: %s" % resource_path)
 			continue
-		var runtime_quest_variant: Variant = (resource_variant as Resource).duplicate(true)
-		if runtime_quest_variant is DailyOrderQuest:
-			quests.append(runtime_quest_variant as DailyOrderQuest)
-	return quests
+		_order_templates.append(resource_variant as DailyOrderQuest)
+	return _order_templates
 
 
 func _state_matches_catalog(state: Dictionary) -> bool:
@@ -476,7 +495,7 @@ func _state_matches_catalog(state: Dictionary) -> bool:
 	var serialized: Dictionary = serialized_variant if serialized_variant is Dictionary else {}
 	if serialized.size() != ORDER_RESOURCE_PATHS.size():
 		return false
-	for quest in _load_order_instances():
+	for quest in _get_order_templates():
 		if not serialized.has(str(quest.id)):
 			return false
 	return true
@@ -545,9 +564,9 @@ func _build_order_card(quest: DailyOrderQuest, completed: bool, ready_to_claim: 
 		"id": quest.id,
 		"pillar": quest.pillar,
 		"pillar_title": quest.get_pillar_title(),
-		"name": quest.quest_name,
-		"description": quest.quest_description,
-		"objective": quest.quest_objective,
+		"name": quest.get_localized_quest_name(),
+		"description": quest.get_localized_quest_description(),
+		"objective": quest.get_localized_quest_objective(),
 		"progress_text": quest.get_progress_text(),
 		"reward_text": describe_reward(_get_reward_config(quest)),
 		"completed": completed,

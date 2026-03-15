@@ -207,6 +207,8 @@ var flare_exposure_surge_rate: float = 0.0
 var flare_overdrive_remaining: float = 0.0
 var darkness_pressure: float = 0.0
 var last_flare_strength: float = FLARE_DECISION_MIN_STRENGTH
+var clear_dungeon_visibility_mode: bool = false
+var input_locked: bool = false
 var _hud_build_tags_dirty: bool = true
 var _hud_snapshot_cache_dirty: bool = true
 var _cached_top_build_tags: Array[String] = []
@@ -317,6 +319,30 @@ func setup(enemy_manager_ref: Node, projectile_manager_ref: Node, run_rng: Rando
 	apply_character(character_def)
 	_ensure_weapon_state()
 	emit_stats_changed()
+
+
+func set_clear_dungeon_visibility_mode(enabled: bool) -> void:
+	clear_dungeon_visibility_mode = enabled
+	if clear_dungeon_visibility_mode:
+		_reset_visibility_pressure_state()
+	emit_stats_changed()
+
+
+func set_input_locked(locked: bool) -> void:
+	input_locked = locked
+	if input_locked:
+		velocity = Vector2.ZERO
+		dash_time_remaining = 0.0
+
+
+func _reset_visibility_pressure_state() -> void:
+	flare_visibility_grace_remaining = 0.0
+	flare_exposure_surge_remaining = 0.0
+	flare_exposure_surge_duration = 0.0
+	flare_exposure_surge_rate = 0.0
+	flare_overdrive_remaining = 0.0
+	darkness_pressure = 0.0
+	last_flare_strength = FLARE_DECISION_MIN_STRENGTH
 
 
 func _reset_run_stats() -> void:
@@ -520,36 +546,46 @@ func _physics_process(delta: float) -> void:
 	beam_visual_timer = max(0.0, beam_visual_timer - delta)
 	var recoil_decay := 1.8 + (0.8 if velocity.length() < 24.0 else 0.0)
 	recoil_heat = maxf(0.0, recoil_heat - recoil_decay * delta)
-	_tick_flare_risk_state(delta)
+	if clear_dungeon_visibility_mode:
+		_reset_visibility_pressure_state()
+	else:
+		_tick_flare_risk_state(delta)
 
 	if regen_per_second > 0.0 and hp > 0.0:
 		hp = min(max_hp, hp + regen_per_second * delta)
 
-	if Input.is_action_just_pressed("toggle_attack_mode"):
+	if not input_locked and Input.is_action_just_pressed("toggle_attack_mode"):
 		auto_attack = not auto_attack
 		attack_mode_changed.emit(auto_attack)
 
-	var input_direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var input_direction := Vector2.ZERO
+	if not input_locked:
+		input_direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if input_direction.length() > 0.01:
 		last_move_direction = input_direction.normalized()
 	_update_weapon_sticker_transform()
 
-	if not contract_dash_disabled and Input.is_action_just_pressed("dash") and dash_cd_remaining <= 0.0:
+	if not input_locked and not contract_dash_disabled and Input.is_action_just_pressed("dash") and dash_cd_remaining <= 0.0:
 		dash_direction = last_move_direction if last_move_direction.length() > 0.01 else Vector2.RIGHT
 		dash_time_remaining = DASH_DURATION
 		dash_cd_remaining = _current_dash_cooldown()
 		_add_noise_source("dash")
 
-	if Input.is_action_just_pressed("sonar_skill") and skill_cd_remaining <= 0.0:
-		_trigger_flare_skill()
+	if not input_locked and Input.is_action_just_pressed("sonar_skill") and skill_cd_remaining <= 0.0:
+		if clear_dungeon_visibility_mode:
+			_trigger_pulse_skill()
+		else:
+			_trigger_flare_skill()
 
-	if dash_time_remaining > 0.0:
+	if input_locked:
+		velocity = Vector2.ZERO
+	elif dash_time_remaining > 0.0:
 		velocity = dash_direction * BASE_DASH_SPEED
 	else:
 		velocity = input_direction * ((BASE_MOVE_SPEED * character_move_speed_multiplier) + move_speed_bonus)
 	move_and_slide()
 
-	if attack_cd_remaining <= 0.0:
+	if not input_locked and attack_cd_remaining <= 0.0:
 		_attempt_fire()
 
 	var noise_decay = (noise_decay_per_second + bonus_noise_decay_per_second) * environment_noise_decay_multiplier
@@ -659,6 +695,24 @@ func _trigger_flare_skill() -> void:
 	})
 
 
+func _trigger_pulse_skill() -> void:
+	skill_cd_remaining = skill_cooldown
+	var sonar_cfg := DataRegistry.get_sonar_config()
+	var pulse_radius := maxf(180.0, float(sonar_cfg.get("max_radius", 720.0))) * environment_sonar_radius_multiplier
+	sonar_ping_count = _estimate_enemy_count_in_radius(global_position, pulse_radius)
+	sonar_ping_sequence += 1
+	sonar_feedback_timer = sonar_feedback_duration
+	FeedbackBus.emit_sonar_pulse(global_position, {
+		"source": "skill",
+		"player_skill": true,
+		"strength": 0.62,
+		"radius_scale": 1.0,
+		"speed": float(sonar_cfg.get("wave_speed", 980.0)),
+		"line_width": float(sonar_cfg.get("line_width", 5.5)),
+		"reveal_duration_multiplier": get_sonar_reveal_duration_multiplier()
+	})
+
+
 func _estimate_enemy_count_in_radius(center: Vector2, radius: float) -> int:
 	return _query_enemy_nodes(center, radius, 96, true).size()
 
@@ -683,6 +737,8 @@ func _tick_flare_risk_state(delta: float) -> void:
 
 
 func _get_darkness_pressure_ratio() -> float:
+	if clear_dungeon_visibility_mode:
+		return 0.0
 	return clampf(darkness_pressure, 0.0, 1.0)
 
 
@@ -2454,6 +2510,8 @@ func _estimate_light_ratio_for_position(world_position: Vector2) -> float:
 
 
 func _get_runtime_vision_radius() -> float:
+	if clear_dungeon_visibility_mode:
+		return 2400.0
 	var base_radius := 420.0
 	var world_node := get_parent()
 	if world_node != null and world_node.has_method("get_effective_fog_config"):

@@ -29,7 +29,7 @@ const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 const MAP_SELECT_SCENE := preload("res://scenes/ui/MapSelect.tscn")
 const CONTRACT_SELECT_SCENE := preload("res://scenes/ui/ContractSelect.tscn")
 const TAG_DISPLAY_NAMES: Dictionary = {
-	"sonar": "Flare",
+	"sonar": "Pulse",
 	"silence": "Silence",
 	"heat": "Heat",
 	"crit": "Crit",

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/smoke/day_world_night_completion_smoke.gd" id="1"]
+
+[node name="DayWorldNightCompletionSmoke" type="Node"]
+script = ExtResource("1")

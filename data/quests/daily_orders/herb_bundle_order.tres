@@ -6,8 +6,11 @@
 script = ExtResource("1")
 id = 105
 quest_name = "Fresh Cut Herbs"
+quest_name_zh = "鲜切香草"
 quest_description = "Pull in a quick herb bundle so the board sees the farm can answer same-day demand."
+quest_description_zh = "快速收一束香草，让公告板知道农场能回应当天的即时需求。"
 quest_objective = "Gain 2 Herb."
+quest_objective_zh = "获得 2 份香草。"
 order_type = "material_gain"
 pillar = "farm"
 target_id = "herb"

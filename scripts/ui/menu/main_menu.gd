@@ -130,7 +130,7 @@ func _update_version_text() -> void:
 
 
 func _set_labels() -> void:
-	title_label.text = "s u r v i v e"
+	title_label.text = _t("menu.title")
 	subtitle_label.text = _t("menu.subtitle")
 	play_button.text = _t("menu.play")
 	profile_button.text = _t("menu.profile")

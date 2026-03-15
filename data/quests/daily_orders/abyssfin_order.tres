@@ -6,8 +6,11 @@
 script = ExtResource("1")
 id = 112
 quest_name = "Cold Storage"
+quest_name_zh = "冷库备货"
 quest_description = "Bring back an abyssfin cut so tomorrow's board can promise a premium plate worth opening the restaurant for."
+quest_description_zh = "带回一份深渊鳍鱼片，让明天的公告板能挂出值得专门开店营业的高价菜。"
 quest_objective = "Bring back 1 Abyssfin Fillet."
+quest_objective_zh = "带回 1 份深渊鳍鱼片。"
 order_type = "material_gain"
 pillar = "night"
 target_id = "abyssfin"

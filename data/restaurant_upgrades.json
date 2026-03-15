@@ -4,7 +4,9 @@
 		{
 			"id": "decor_window_box",
 			"name": "Window Herb Boxes",
+			"name_zh": "窗台香草箱",
 			"description": "Adds a lived-in daytime look and improves walk-in appeal.",
+			"description_zh": "让白天门面更有生活感，并提升路过客流的吸引力。",
 			"category": "decor",
 			"gold_cost": 18,
 			"effects": {
@@ -14,7 +16,9 @@
 		{
 			"id": "equipment_second_pot",
 			"name": "Second Stock Pot",
+			"name_zh": "第二口高汤锅",
 			"description": "Raises kitchen throughput for heavier lunch menus.",
+			"description_zh": "提高后厨吞吐量，更适合支撑份量更重的午市菜单。",
 			"category": "equipment",
 			"gold_cost": 24,
 			"effects": {
@@ -24,7 +28,9 @@
 		{
 			"id": "staff_counter_runner",
 			"name": "Counter Runner",
+			"name_zh": "前台跑堂",
 			"description": "Keeps orders moving and cushions complex menus.",
+			"description_zh": "让订单流转更顺，也能缓冲复杂菜单带来的压力。",
 			"category": "staff",
 			"gold_cost": 28,
 			"effects": {
@@ -34,7 +40,9 @@
 		{
 			"id": "specials_night_board",
 			"name": "Night Specials Board",
+			"name_zh": "夜间特供板",
 			"description": "Unlocks future service hooks for night-only dishes.",
+			"description_zh": "解锁只在夜间食材路线中才会出现的后续营业钩子。",
 			"category": "special",
 			"gold_cost": 32,
 			"effects": {

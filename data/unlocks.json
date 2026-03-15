@@ -4,7 +4,9 @@
 		{
 			"id": "mooncap_seed_study",
 			"name": "Mooncap Seed Study",
+			"name_zh": "月菇育种研究",
 			"description": "Accumulate enough Moon Spores to stabilize Mooncap Mycelium for the farm.",
+			"description_zh": "积攒足够的月孢，把它们稳定成可供农场种植的月菇菌丝。",
 			"target_type": "seed",
 			"target_id": "mooncap_seed",
 			"requirements": {
@@ -15,7 +17,9 @@
 		{
 			"id": "mooncap_hotpot_blueprint",
 			"name": "Mooncap Hotpot Blueprint",
+			"name_zh": "月菇火锅蓝图",
 			"description": "Assemble blueprint fragments into a signature night-market recipe.",
+			"description_zh": "把蓝图片段拼完整，解锁一道夜市级招牌食谱。",
 			"target_type": "recipe",
 			"target_id": "mooncap_hotpot",
 			"requirements": {
@@ -26,7 +30,9 @@
 		{
 			"id": "abyssfin_crudo_notes",
 			"name": "Abyssfin Crudo Notes",
+			"name_zh": "深渊鳍生片笔记",
 			"description": "Match Glow Kelp samples to recovered kitchen notes to unlock the restaurant's highest-ticket seafood plate.",
+			"description_zh": "把辉光海带样本和回收厨房笔记配对，解锁餐馆最贵的海鲜招牌菜。",
 			"target_type": "recipe",
 			"target_id": "abyssfin_crudo",
 			"requirements": {

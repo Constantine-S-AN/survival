@@ -64,25 +64,25 @@ theme_override_constants/separation = 12
 [node name="Title" type="Label" parent="Panel/Margin/VBox/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Daily Orders"
+text = ""
 theme_type_variation = &"HeadingLabel"
 
 [node name="CloseButton" type="Button" parent="Panel/Margin/VBox/Header"]
 custom_minimum_size = Vector2(96, 40)
 layout_mode = 2
-text = "Close"
+text = ""
 
 [node name="Subtitle" type="Label" parent="Panel/Margin/VBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 autowrap_mode = 3
-text = "Three small contracts refresh at the start of each new day."
+text = ""
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="Summary" type="Label" parent="Panel/Margin/VBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "No rewards ready yet."
+text = ""
 
 [node name="Scroll" type="ScrollContainer" parent="Panel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 240)

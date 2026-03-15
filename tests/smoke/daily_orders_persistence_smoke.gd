@@ -85,6 +85,8 @@ func _ready() -> void:
 	var updated_inventory: Dictionary = updated_meta_progress.get("inventory", {}) as Dictionary
 	var updated_materials: Dictionary = updated_inventory.get("materials", {}) as Dictionary
 	var updated_seeds: Array = (updated_inventory.get("unlocked_seeds", []) as Array).duplicate()
+	var saved_orders_state := ProfileStore.get_daily_orders_state()
+	var tracked_materials: Dictionary = (saved_orders_state.get("tracked_materials", {}) as Dictionary).duplicate(true)
 	var second_claim_result: Dictionary = daily_orders.call("claim_order", 101)
 	if bool(second_claim_result.get("ok", false)):
 		push_error("Claimed the same order twice")
@@ -109,6 +111,14 @@ func _ready() -> void:
 		return
 	if updated_seeds.find("kelpberry_seed") == -1 or unlocked_seeds_before.find("kelpberry_seed") != -1:
 		push_error("Daily order seed unlock rewards did not persist to the shared inventory state")
+		_cleanup(daily_orders)
+		return
+	if int(tracked_materials.get("wheat", 0)) != int(updated_materials.get("wheat", 0)):
+		push_error("Daily order tracking baseline did not refresh to the post-claim wheat inventory")
+		_cleanup(daily_orders)
+		return
+	if int(tracked_materials.get("reef_salt", 0)) != int(updated_materials.get("reef_salt", 0)):
+		push_error("Daily order tracking baseline did not refresh to the post-claim night-loot inventory")
 		_cleanup(daily_orders)
 		return
 	daily_orders.call("_reset_runtime_state")
@@ -140,6 +150,12 @@ func _ready() -> void:
 		return
 	if persisted_seeds.find("kelpberry_seed") == -1:
 		push_error("Seed unlock reward did not survive reload")
+		_cleanup(daily_orders)
+		return
+	var persisted_orders_state := ProfileStore.get_daily_orders_state()
+	var persisted_tracked_materials: Dictionary = (persisted_orders_state.get("tracked_materials", {}) as Dictionary).duplicate(true)
+	if int(persisted_tracked_materials.get("wheat", 0)) != int(persisted_materials.get("wheat", 0)):
+		push_error("Tracked wheat baseline did not survive reload after the claim")
 		_cleanup(daily_orders)
 		return
 	print("Daily orders persistence smoke PASS")

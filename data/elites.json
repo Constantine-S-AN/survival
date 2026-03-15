@@ -6,7 +6,9 @@
     {
       "id": "haste",
       "name": "Haste",
+      "name_zh": "疾速",
       "description": "Movement speed and dash tempo increased.",
+      "description_zh": "移动速度和冲刺节奏都更快。",
       "color": "#7cf7ff",
       "stat_multipliers": {
         "max_hp_mult": 1.1,
@@ -20,7 +22,9 @@
     {
       "id": "armored",
       "name": "Armored",
+      "name_zh": "重甲",
       "description": "High durability shell and lower knockback.",
+      "description_zh": "外壳更耐打，也更不容易被击退。",
       "color": "#89ffa6",
       "stat_multipliers": {
         "max_hp_mult": 1.6,
@@ -36,7 +40,9 @@
     {
       "id": "volatile",
       "name": "Volatile",
+      "name_zh": "易爆",
       "description": "Explodes on death and forces repositioning.",
+      "description_zh": "死亡时会爆炸，迫使你重新走位。",
       "color": "#ff9a74",
       "stat_multipliers": {
         "max_hp_mult": 1.2,
@@ -53,7 +59,9 @@
     {
       "id": "jammer",
       "name": "Jammer",
+      "name_zh": "干扰",
       "description": "Weakens flare reveal while nearby.",
+      "description_zh": "靠近时会削弱显形效果。",
       "color": "#b68eff",
       "stat_multipliers": {
         "max_hp_mult": 1.2,
@@ -70,7 +78,9 @@
     {
       "id": "loud",
       "name": "Loud",
+      "name_zh": "喧响",
       "description": "Broadcasts noise and attracts pursuer pressure.",
+      "description_zh": "会主动放大噪声，并吸引更多追猎压力。",
       "color": "#ff7ab0",
       "stat_multipliers": {
         "max_hp_mult": 1.15,
@@ -87,7 +97,9 @@
     {
       "id": "siphon",
       "name": "Siphon",
+      "name_zh": "虹吸",
       "description": "Siphons xp and weakens pickup economy nearby.",
+      "description_zh": "会抽走经验，并压低附近的拾取收益。",
       "color": "#ffd67e",
       "stat_multipliers": {
         "max_hp_mult": 1.25,

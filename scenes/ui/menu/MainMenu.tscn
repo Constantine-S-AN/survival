@@ -84,14 +84,14 @@ theme_override_constants/separation = 20
 
 [node name="Title" type="Label" parent="ContentLayer/Stack"]
 layout_mode = 2
-text = "s u r v i v e"
+text = ""
 horizontal_alignment = 1
 theme_type_variation = &"HeadingLabel"
 theme_override_font_sizes/font_size = 86
 
 [node name="Subtitle" type="Label" parent="ContentLayer/Stack"]
 layout_mode = 2
-text = "FOG / FLARE / NOISE"
+text = ""
 horizontal_alignment = 1
 theme_type_variation = &"SubheadingLabel"
 theme_override_font_sizes/font_size = 20
@@ -103,7 +103,7 @@ theme_override_constants/separation = 10
 
 [node name="LanguageLabel" type="Label" parent="ContentLayer/Stack/LanguageRow"]
 layout_mode = 2
-text = "Language"
+text = ""
 theme_type_variation = &"BodyMutedLabel"
 
 [node name="LanguageSelect" type="OptionButton" parent="ContentLayer/Stack/LanguageRow"]
@@ -118,7 +118,7 @@ theme_override_constants/separation = 16
 [node name="PlayButton" type="Button" parent="ContentLayer/Stack/Buttons"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
-text = "Play"
+text = ""
 script = ExtResource("4")
 use_primary_style = true
 enable_motion = true
@@ -126,7 +126,7 @@ enable_motion = true
 [node name="ProfileButton" type="Button" parent="ContentLayer/Stack/Buttons"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
-text = "Profile"
+text = ""
 script = ExtResource("4")
 use_primary_style = false
 enable_motion = true
@@ -134,7 +134,7 @@ enable_motion = true
 [node name="SettingsButton" type="Button" parent="ContentLayer/Stack/Buttons"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
-text = "Settings"
+text = ""
 script = ExtResource("4")
 use_primary_style = false
 enable_motion = true
@@ -142,7 +142,7 @@ enable_motion = true
 [node name="QuitButton" type="Button" parent="ContentLayer/Stack/Buttons"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
-text = "Quit"
+text = ""
 script = ExtResource("4")
 use_primary_style = false
 button_role = 2

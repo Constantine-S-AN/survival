@@ -11,6 +11,7 @@ const STATE_MENU := "menu"
 const STATE_CHARACTER_SELECT := "character_select"
 const STATE_MAP_SELECT := "map_select"
 const STATE_CONTRACT_SELECT := "contract_select"
+const PRESENTATION_PROFILE_CLEAR_DUNGEON := "clear_dungeon"
 const InputConfig := preload("res://scripts/core/input_config.gd")
 const RunStatsClass := preload("res://scripts/core/run_stats.gd")
 const CombatPaletteClass := preload("res://scripts/visual/combat_palette.gd")
@@ -46,6 +47,7 @@ var fixed_noise_value: float = 0.0
 var selected_character_id: String = ""
 var selected_map_id: String = ""
 var selected_contract_ids: Array[String] = []
+var presentation_profile: String = ""
 var last_fog_overlay_signature: String = ""
 var run_started: bool = false
 var run_stats = RunStatsClass.new()
@@ -82,6 +84,39 @@ func is_embedded_session_mode() -> bool:
 
 func _has_embedded_session_request() -> bool:
 	return embedded_session_mode and not embedded_session_request.is_empty()
+
+
+func get_presentation_profile() -> String:
+	return presentation_profile
+
+
+func _resolve_presentation_profile() -> String:
+	if not _has_embedded_session_request():
+		return ""
+	return String(embedded_session_request.get("presentation_profile", "")).strip_edges().to_lower()
+
+
+func _uses_clear_dungeon_presentation() -> bool:
+	return presentation_profile == PRESENTATION_PROFILE_CLEAR_DUNGEON
+
+
+func _apply_runtime_presentation_profile() -> void:
+	presentation_profile = _resolve_presentation_profile()
+	var clear_dungeon := _uses_clear_dungeon_presentation()
+	if clear_dungeon:
+		fog_enabled = false
+		sonar_visual_enabled = false
+	if world != null:
+		if world.has_method("set_clear_dungeon_presentation"):
+			world.call("set_clear_dungeon_presentation", clear_dungeon)
+		world.set_fog_enabled(fog_enabled)
+		world.set_sonar_visual_enabled(sonar_visual_enabled)
+		if world.enemy_manager != null and world.enemy_manager.has_method("set_force_revealed"):
+			world.enemy_manager.call("set_force_revealed", clear_dungeon)
+		if world.player != null and world.player.has_method("set_clear_dungeon_visibility_mode"):
+			world.player.call("set_clear_dungeon_visibility_mode", clear_dungeon)
+	if ui != null:
+		ui.set_fog_overlay_enabled(fog_enabled)
 
 
 func _boot_embedded_session() -> void:
@@ -152,6 +187,7 @@ func _ready() -> void:
 	if selected_map_id.is_empty() or not DataRegistry.has_map(selected_map_id):
 		selected_map_id = default_map_id
 	selected_contract_ids = DataRegistry.normalize_contract_selection(ProfileStore.get_selected_contract_ids())
+	presentation_profile = _resolve_presentation_profile()
 
 	var fog_cfg: Dictionary = DataRegistry.get_fog_config()
 	fog_enabled = bool(fog_cfg.get("enabled", true))
@@ -164,6 +200,7 @@ func _ready() -> void:
 	world.apply_sonar_config(sonar_cfg)
 	world.set_sonar_visual_enabled(sonar_visual_enabled)
 	world.player.apply_noise_config(DataRegistry.get_noise_config())
+	_apply_runtime_presentation_profile()
 
 	world.player.died.connect(_on_player_died)
 	world.player.level_up_requested.connect(_on_player_level_up_requested)
@@ -967,6 +1004,7 @@ func _start_run(character_id: String, map_id: String = "", contract_ids: Array =
 
 	var character_def := DataRegistry.get_character(selected_character_id)
 	world.setup_run(rng, character_def, selected_map_id, run_seed, contract_modifiers, selected_contract_ids)
+	_apply_runtime_presentation_profile()
 	set_runtime_reward_multipliers(run_reward_multipliers)
 	if ui != null and ui.has_method("clear_run_summary"):
 		ui.clear_run_summary()
@@ -1228,12 +1266,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			_refresh_hud()
 			return
 	if event.keycode == KEY_F2:
+		if _uses_clear_dungeon_presentation():
+			return
 		fog_enabled = not fog_enabled
 		world.set_fog_enabled(fog_enabled)
 		ui.set_fog_overlay_enabled(fog_enabled)
 	elif event.keycode == KEY_F1:
 		ui.set_debug_visible(not ui.is_debug_visible())
 	elif event.keycode == KEY_F3:
+		if _uses_clear_dungeon_presentation():
+			return
 		sonar_visual_enabled = not sonar_visual_enabled
 		world.set_sonar_visual_enabled(sonar_visual_enabled)
 	elif event.keycode == KEY_F5:
@@ -1386,6 +1428,7 @@ func _push_debug_snapshot() -> void:
 	snapshot["fixed_noise_value"] = fixed_noise_value
 	snapshot["fog_enabled"] = fog_enabled
 	snapshot["sonar_visual_enabled"] = sonar_visual_enabled
+	snapshot["presentation_profile"] = presentation_profile
 	snapshot["fog_version"] = DataRegistry.get_data_version("fog")
 	snapshot["sonar_version"] = DataRegistry.get_data_version("sonar")
 	snapshot["noise_version"] = DataRegistry.get_data_version("noise")
@@ -1464,6 +1507,7 @@ func _reload_runtime_data() -> void:
 	var sonar_cfg: Dictionary = DataRegistry.get_sonar_config()
 	world.apply_sonar_config(sonar_cfg)
 	world.set_sonar_visual_enabled(sonar_visual_enabled)
+	_apply_runtime_presentation_profile()
 	if selected_map_id.is_empty() or not DataRegistry.has_map(selected_map_id):
 		selected_map_id = DataRegistry.get_default_map_id()
 	world.set_current_map(selected_map_id, run_seed)

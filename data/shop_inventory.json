@@ -4,44 +4,52 @@
 		{
 			"seed_id": "kelpberry_seed",
 			"gold_cost": 5,
-			"description": "A flexible berry vine that can be sold raw or baked into Kelpberry Tart."
+			"description": "A flexible berry vine that can be sold raw or baked into Kelpberry Tart.",
+			"description_zh": "灵活好用的莓果藤，既能直接卖，也能烤成海莓挞。"
 		},
 		{
 			"seed_id": "emberleaf_seed",
 			"gold_cost": 7,
-			"description": "A spiced leaf crop for sharper daytime specials or a dependable cash fallback."
+			"description": "A spiced leaf crop for sharper daytime specials or a dependable cash fallback.",
+			"description_zh": "带辛香的叶类作物，既能做更锋利的日间特餐，也能稳定换现金。"
 		}
 	],
 	"sell_entries": [
 		{
 			"material_id": "wheat",
 			"gold_value": 3,
-			"description": "Move staple grain to nearby stalls for safe but modest cash."
+			"description": "Move staple grain to nearby stalls for safe but modest cash.",
+			"description_zh": "把基础谷物卖给附近摊位，收益稳但不高。"
 		},
 		{
 			"material_id": "herb",
 			"gold_value": 4,
-			"description": "Fresh herbs sell quickly, though the restaurant usually gets more from them."
+			"description": "Fresh herbs sell quickly, though the restaurant usually gets more from them.",
+			"description_zh": "新鲜香草卖得很快，但通常留给餐馆更划算。"
 		},
 		{
 			"material_id": "kelpberry",
 			"gold_value": 7,
-			"description": "Reliable berry cash flow when you need gold more than menu planning."
+			"description": "Reliable berry cash flow when you need gold more than menu planning.",
+			"description_zh": "当你更缺金币而不是菜单搭配时，海莓能提供稳定现金流。"
 		},
 		{
 			"material_id": "emberleaf",
 			"gold_value": 8,
-			"description": "A good emergency sale, but flatbreads make better use of it."
+			"description": "A good emergency sale, but flatbreads make better use of it.",
+			"description_zh": "应急出售不错，但做成薄饼通常更有价值。"
 		},
 		{
 			"material_id": "mooncap",
 			"gold_value": 13,
-			"description": "A premium luminous fungus with a strong market price."
+			"description": "A premium luminous fungus with a strong market price.",
+			"description_zh": "高档发光菌类，市场收购价相当可观。"
 		},
 		{
 			"material_id": "scrap",
 			"gold_value": 2,
-			"description": "Recovered salvage can always be traded for upkeep money."
+			"description": "Recovered salvage can always be traded for upkeep money.",
+			"description_zh": "回收废料随时都能换成维持运转的零花钱。"
 		}
 	],
 	"upgrade_ids": [

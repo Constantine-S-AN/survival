@@ -87,7 +87,9 @@ const BUILTIN_MATERIALS: Dictionary = {
 	"scrap": {
 		"id": "scrap",
 		"name": "Scrap",
+		"name_zh": "废料",
 		"description": "Recovered salvage from a night run.",
+		"description_zh": "从夜间行动中回收的零散打捞物。",
 		"category": "common_materials",
 		"builtin": true
 	}
@@ -737,10 +739,45 @@ func _localize_event_table(event_table: Dictionary) -> Dictionary:
 	return localized
 
 
+func _localize_elite_affix_row(row: Dictionary) -> Dictionary:
+	return _localize_dictionary_row(row)
+
+
+func _localize_boss_row(row: Dictionary) -> Dictionary:
+	var localized := _localize_dictionary_row(row)
+	var phases_variant: Variant = localized.get("phases", [])
+	if not (phases_variant is Array):
+		return localized
+	var localized_phases: Array = []
+	for phase_variant in phases_variant:
+		if phase_variant is Dictionary:
+			localized_phases.append(_localize_dictionary_row(phase_variant as Dictionary))
+		else:
+			localized_phases.append(phase_variant)
+	localized["phases"] = localized_phases
+	return localized
+
+
+func _localize_recipe_row(row: Dictionary) -> Dictionary:
+	var localized := _localize_dictionary_row(row)
+	var synergy_variant: Variant = localized.get("night_material_synergy", {})
+	if synergy_variant is Dictionary:
+		localized["night_material_synergy"] = _localize_dictionary_row(synergy_variant as Dictionary)
+	return localized
+
+
+func _localize_shop_offer_row(row: Dictionary) -> Dictionary:
+	return _localize_dictionary_row(row)
+
+
+func _localize_builtin_material_row(row: Dictionary) -> Dictionary:
+	return _localize_dictionary_row(row)
+
+
 func get_elite_affix(affix_id: String) -> Dictionary:
 	var payload: Variant = elite_affixes.get(affix_id, {})
 	if payload is Dictionary:
-		return (payload as Dictionary).duplicate(true)
+		return _localize_elite_affix_row(payload as Dictionary)
 	return {}
 
 
@@ -749,7 +786,7 @@ func get_elite_affixes() -> Array:
 	for affix_id in elite_affix_order:
 		var affix_variant: Variant = elite_affixes.get(affix_id, {})
 		if affix_variant is Dictionary:
-			output.append((affix_variant as Dictionary).duplicate(true))
+			output.append(_localize_elite_affix_row(affix_variant as Dictionary))
 	return output
 
 
@@ -764,7 +801,7 @@ func get_max_active_elites() -> int:
 func get_boss(boss_id: String) -> Dictionary:
 	var payload: Variant = bosses.get(boss_id, {})
 	if payload is Dictionary:
-		return (payload as Dictionary).duplicate(true)
+		return _localize_boss_row(payload as Dictionary)
 	return {}
 
 
@@ -773,7 +810,7 @@ func get_bosses() -> Array:
 	for boss_id in boss_order:
 		var boss_variant: Variant = bosses.get(boss_id, {})
 		if boss_variant is Dictionary:
-			output.append((boss_variant as Dictionary).duplicate(true))
+			output.append(_localize_boss_row(boss_variant as Dictionary))
 	return output
 
 
@@ -880,7 +917,8 @@ func get_material_display_name(material_id: String) -> String:
 	if not ingredient.is_empty():
 		return String(ingredient.get("name", normalized_id.capitalize()))
 	if BUILTIN_MATERIALS.has(normalized_id):
-		return String((BUILTIN_MATERIALS[normalized_id] as Dictionary).get("name", normalized_id.capitalize()))
+		var builtin := _localize_builtin_material_row(BUILTIN_MATERIALS[normalized_id] as Dictionary)
+		return String(builtin.get("name", normalized_id.capitalize()))
 	return normalized_id.capitalize()
 
 
@@ -945,7 +983,7 @@ func get_crop_by_seed(seed_id: String) -> Dictionary:
 func get_recipe(recipe_id: String) -> Dictionary:
 	var payload: Variant = recipes.get(recipe_id, {})
 	if payload is Dictionary:
-		return _localize_dictionary_row(payload as Dictionary)
+		return _localize_recipe_row(payload as Dictionary)
 	return {}
 
 
@@ -954,7 +992,7 @@ func get_recipes() -> Array:
 	for recipe_id in recipe_order:
 		var recipe_variant: Variant = recipes.get(recipe_id, {})
 		if recipe_variant is Dictionary:
-			output.append(_localize_dictionary_row(recipe_variant as Dictionary))
+			output.append(_localize_recipe_row(recipe_variant as Dictionary))
 	return output
 
 
@@ -996,7 +1034,7 @@ func get_shop_seed_offers() -> Array[Dictionary]:
 		return output
 	for row_variant in rows_variant:
 		if row_variant is Dictionary:
-			output.append((row_variant as Dictionary).duplicate(true))
+			output.append(_localize_shop_offer_row(row_variant as Dictionary))
 	return output
 
 
@@ -1017,7 +1055,7 @@ func get_shop_sell_entries() -> Array[Dictionary]:
 		return output
 	for row_variant in rows_variant:
 		if row_variant is Dictionary:
-			output.append((row_variant as Dictionary).duplicate(true))
+			output.append(_localize_shop_offer_row(row_variant as Dictionary))
 	return output
 
 
@@ -1231,7 +1269,7 @@ func get_weapon_runtime(weapon_id: String) -> Dictionary:
 func get_enemy(enemy_id: String) -> Dictionary:
 	var enemy_variant: Variant = enemies.get(enemy_id, {})
 	if enemy_variant is Dictionary:
-		return enemy_variant
+		return _localize_dictionary_row(enemy_variant as Dictionary)
 	return {}
 
 

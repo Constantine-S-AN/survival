@@ -6,8 +6,11 @@
 script = ExtResource("1")
 id = 108
 quest_name = "Shore Market Crate"
+quest_name_zh = "海岸市集果筐"
 quest_description = "Fill a small crate of kelpberries for the market side of the daytime loop."
+quest_description_zh = "装满一小筐海莓，供给白天循环里的市集销售线。"
 quest_objective = "Gain 2 Kelpberry."
+quest_objective_zh = "获得 2 份海莓。"
 order_type = "material_gain"
 pillar = "farm"
 target_id = "kelpberry"

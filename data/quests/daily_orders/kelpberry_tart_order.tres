@@ -6,8 +6,11 @@
 script = ExtResource("1")
 id = 109
 quest_name = "Window Tart"
+quest_name_zh = "橱窗海莓挞"
 quest_description = "Bake a bright tart that shows the board the farm can feed a real dessert counter."
+quest_description_zh = "烤一份醒目的海莓挞，让公告板看到农场也能撑起正经的甜点台。"
 quest_objective = "Sell 1 Kelpberry Tart."
+quest_objective_zh = "售出 1 份海莓挞。"
 order_type = "dish_sales"
 pillar = "restaurant"
 target_id = "kelpberry_tart"

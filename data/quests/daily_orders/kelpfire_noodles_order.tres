@@ -6,8 +6,11 @@
 script = ExtResource("1")
 id = 107
 quest_name = "Night Special"
+quest_name_zh = "夜间招牌"
 quest_description = "Turn a fresh night haul into the board's favorite noodle special."
+quest_description_zh = "把新鲜夜间收获做成公告板最受欢迎的招牌面。"
 quest_objective = "Sell 1 Kelpfire Noodles."
+quest_objective_zh = "售出 1 份海火面。"
 order_type = "dish_sales"
 pillar = "restaurant"
 target_id = "kelpfire_noodles"

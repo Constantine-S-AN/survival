@@ -68,17 +68,20 @@ func _ready() -> void:
 	var night_snapshot: Dictionary = _helper.snapshot()
 	if not _require(String(night_snapshot.get("current_screen", "")) == "night", "Transition save/load should launch the night run after confirming restored departure"):
 		return
+	var live_run_snapshot: Dictionary = await _helper.wait_for_night_room("camp")
+	if not _require(not live_run_snapshot.is_empty(), "Transition save/load should boot into the real NightRun room graph before extraction"):
+		return
 
-	_helper.meta_root.call("debug_complete_active_night", {
-		"exit_reason": "completed",
-		"time_survived_sec": 88.0,
-		"kills": 16,
-		"seed": 525252
-	})
-	await _helper.await_frames(2)
+	if not _require(await _helper.finish_night_run_via_extraction("reef_patrol", 0), "Transition save/load should allow extracting through a real NightRun route"):
+		return
 
 	var summary_snapshot_before: Dictionary = _helper.snapshot()
 	var summary_payload_before: Dictionary = summary_snapshot_before.get("return_summary_payload", {})
+	var raw_summary_before: Dictionary = summary_payload_before.get("raw_summary", {})
+	var materials_reward_before_variant: Variant = summary_payload_before.get("materials_reward", {})
+	var materials_reward_before: Dictionary = materials_reward_before_variant if materials_reward_before_variant is Dictionary else {}
+	var carryover_materials_before_variant: Variant = raw_summary_before.get("dungeon_carryover_materials", {})
+	var carryover_materials_before: Dictionary = carryover_materials_before_variant if carryover_materials_before_variant is Dictionary else {}
 	if not _require(String(summary_snapshot_before.get("current_screen", "")) == "return_summary", "Transition save/load should save from the return summary context"):
 		return
 	if not _require(bool(summary_snapshot_before.get("pending_summary", false)), "Transition save/load should capture the pending return summary flag"):
@@ -86,6 +89,25 @@ func _ready() -> void:
 	if not _require(bool(summary_snapshot_before.get("day_world_overlay_blocked", false)), "Transition save/load should capture the blocked day world overlay behind the summary"):
 		return
 	if not _require(String(summary_snapshot_before.get("phase", "")) == "night", "Transition save/load should preserve the night phase while the summary is pending"):
+		return
+	if not _require(String(summary_payload_before.get("exit_reason", "")) == "extracted", "Transition save/load should preserve the extracted outcome from the real night run"):
+		return
+	if not _require(bool(raw_summary_before.get("dungeon_extracted_early", false)), "Transition save/load should preserve the extraction marker from the real night run"):
+		return
+	if not _require(String(raw_summary_before.get("dungeon_extraction_room_id", "")) == "reef_patrol", "Transition save/load should preserve the extraction room id from the real night run"):
+		return
+	if not _require((raw_summary_before.get("dungeon_room_path", []) as Array).has("reef_patrol"), "Transition save/load should preserve the visited room path from the real night run"):
+		return
+	if not _require(int((raw_summary_before.get("dungeon_carryover_materials", {}) as Dictionary).get("scrap", 0)) >= 1, "Transition save/load should carry secured room materials out of the real night run"):
+		return
+	var common_material_rows_before := _loot_category_rows(summary_payload_before, "common_materials")
+	if not _require(common_material_rows_before.size() == 1, "Transition save/load should render common material rewards once even when carryover uses the same category"):
+		return
+	var common_material_items_before_variant: Variant = common_material_rows_before[0].get("items", {})
+	var common_material_items_before: Dictionary = common_material_items_before_variant if common_material_items_before_variant is Dictionary else {}
+	if not _require(int(common_material_items_before.get("scrap", 0)) == 2, "Transition save/load should keep the loot summary scrap row scoped to the extracted reward table"):
+		return
+	if not _require(int(materials_reward_before.get("scrap", 0)) == int(common_material_items_before.get("scrap", 0)) + int(carryover_materials_before.get("scrap", 0)), "Transition save/load should still grant carryover scrap without duplicating it in the loot summary rows"):
 		return
 
 	var summary_gold_before := int(summary_snapshot_before.get("gold", 0))
@@ -100,6 +122,7 @@ func _ready() -> void:
 
 	var summary_snapshot_after: Dictionary = _helper.snapshot()
 	var summary_payload_after: Dictionary = summary_snapshot_after.get("return_summary_payload", {})
+	var raw_summary_after: Dictionary = summary_payload_after.get("raw_summary", {})
 	if not _require(String(summary_snapshot_after.get("current_screen", "")) == "return_summary", "Transition save/load should restore the return summary context"):
 		return
 	if not _require(bool(summary_snapshot_after.get("pending_summary", false)), "Transition save/load should preserve the pending return summary flag after reload"):
@@ -115,6 +138,14 @@ func _ready() -> void:
 	if not _require(int(summary_payload_after.get("gold_reward", 0)) == int(summary_payload_before.get("gold_reward", 0)), "Transition save/load should preserve the summary gold reward payload"):
 		return
 	if not _require(summary_payload_after.get("materials_reward", {}) == summary_payload_before.get("materials_reward", {}), "Transition save/load should preserve the summary material reward payload"):
+		return
+	if not _require(summary_payload_after.get("loot_categories", []) == summary_payload_before.get("loot_categories", []), "Transition save/load should preserve the de-duplicated loot summary rows after reload"):
+		return
+	if not _require(String(summary_payload_after.get("exit_reason", "")) == "extracted", "Transition save/load should preserve the extracted outcome after reload"):
+		return
+	if not _require(raw_summary_after.get("dungeon_room_path", []) == raw_summary_before.get("dungeon_room_path", []), "Transition save/load should preserve the real night run room path after reload"):
+		return
+	if not _require(raw_summary_after.get("dungeon_carryover_materials", {}) == raw_summary_before.get("dungeon_carryover_materials", {}), "Transition save/load should preserve carryover material details after reload"):
 		return
 
 	_helper.meta_root.call("debug_continue_summary")
@@ -153,6 +184,22 @@ func _reach_evening() -> bool:
 	await _helper.await_frames(1)
 	var snapshot: Dictionary = _helper.snapshot()
 	return _require(String(snapshot.get("phase", "")) == "evening", "Transition save/load should reach the evening phase through the day world flow")
+
+
+func _loot_category_rows(summary_payload: Dictionary, category_id: String) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var normalized_category := category_id.strip_edges().to_lower()
+	var loot_categories_variant: Variant = summary_payload.get("loot_categories", [])
+	if not (loot_categories_variant is Array):
+		return rows
+	for row_variant in (loot_categories_variant as Array):
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		if String(row.get("category", "")).strip_edges().to_lower() != normalized_category:
+			continue
+		rows.append(row.duplicate(true))
+	return rows
 
 
 func _require(condition: bool, message: String) -> bool:

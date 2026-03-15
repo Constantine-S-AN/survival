@@ -100,7 +100,8 @@ const DEFAULT_META_PROGRESS: Dictionary = {
 		"restaurant_popup_id": "",
 		"shop_popup_id": ""
 	},
-	"pending_return_summary": {}
+	"pending_return_summary": {},
+	"pending_night_session": {}
 }
 
 var profile: Dictionary = {}
@@ -637,6 +638,7 @@ func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
 
 	var summary_variant: Variant = source.get("pending_return_summary", {})
 	output["pending_return_summary"] = (summary_variant as Dictionary).duplicate(true) if summary_variant is Dictionary else {}
+	output["pending_night_session"] = _normalize_pending_night_session(source.get("pending_night_session", {}))
 	return output
 
 
@@ -674,6 +676,22 @@ func _normalize_farm_state(farm_variant: Variant) -> Dictionary:
 			"crop": {}
 		})
 	output["plots"] = normalized_plots
+	return output
+
+
+func _normalize_pending_night_session(session_variant: Variant) -> Dictionary:
+	if not (session_variant is Dictionary):
+		return {}
+	var source: Dictionary = session_variant
+	if source.is_empty():
+		return {}
+	var output: Dictionary = {}
+	output["day"] = maxi(1, int(source.get("day", 1)))
+	output["character_id"] = String(source.get("character_id", "")).strip_edges()
+	output["map_id"] = String(source.get("map_id", "")).strip_edges()
+	output["contract_ids"] = _normalize_string_array(source.get("contract_ids", []))
+	output["seed"] = maxi(0, int(source.get("seed", 0)))
+	output["session_duration_sec"] = maxf(0.0, float(source.get("session_duration_sec", 0.0)))
 	return output
 
 

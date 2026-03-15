@@ -4,7 +4,9 @@
 		{
 			"id": "abyssfin",
 			"name": "Abyssfin Fillet",
+			"name_zh": "深渊鳍鱼片",
 			"description": "A rare night-catch cut prized for premium restaurant dishes and raw-bar specials.",
+			"description_zh": "稀有的夜间渔获切片，适合高价招牌菜和生食特供。",
 			"category": "rare_monster_ingredients",
 			"night_only": true,
 			"usage_tags": ["restaurant"]
@@ -12,7 +14,9 @@
 		{
 			"id": "glow_kelp",
 			"name": "Glow Kelp",
+			"name_zh": "辉光海带",
 			"description": "A bright trench frond that turns into premium noodle specials and unlocks riskier kitchen experiments.",
+			"description_zh": "明亮的海沟藻叶，可做成高价面食特餐，也能解锁更冒险的厨房尝试。",
 			"category": "rare_monster_ingredients",
 			"night_only": true,
 			"usage_tags": ["restaurant", "unlock"]
@@ -20,7 +24,9 @@
 		{
 			"id": "reef_salt",
 			"name": "Reef Salt",
+			"name_zh": "礁盐",
 			"description": "Crystalline salt scraped from night reefs, best saved for the restaurant's highest-ticket seafood plate.",
+			"description_zh": "从夜间礁区刮取的晶盐，最适合留给最贵的海鲜招牌菜。",
 			"category": "common_materials",
 			"night_only": true,
 			"usage_tags": ["restaurant"]
@@ -28,7 +34,9 @@
 		{
 			"id": "moon_spore",
 			"name": "Moon Spore",
+			"name_zh": "月孢",
 			"description": "Bioluminescent spores that stabilize into Mooncap Mycelium for a premium farm crop.",
+			"description_zh": "带生物荧光的孢子，可稳定成月菇菌丝，培育高价农作物。",
 			"category": "special_seeds_spores",
 			"night_only": true,
 			"usage_tags": ["farm", "unlock"]
@@ -36,7 +44,9 @@
 		{
 			"id": "kitchen_blueprint_fragment",
 			"name": "Kitchen Blueprint Fragment",
+			"name_zh": "厨房蓝图片段",
 			"description": "Recovered night notes that piece together high-value recipe unlocks and chef progression.",
+			"description_zh": "从夜里带回的厨房笔记残片，可拼出高价值食谱与主厨成长路线。",
 			"category": "unlock_tokens",
 			"night_only": true,
 			"usage_tags": ["unlock"]

@@ -4,7 +4,9 @@
 		{
 			"id": "wheat_seed",
 			"name": "Wheat Seeds",
+			"name_zh": "小麦种子",
 			"description": "A sturdy grain that grows on a short two-day cycle.",
+			"description_zh": "结实耐种的谷物，两天左右就能完成一轮生长。",
 			"crop_id": "wheat",
 			"plant_stamina_cost": 1,
 			"starts_unlocked": true
@@ -12,7 +14,9 @@
 		{
 			"id": "herb_seed",
 			"name": "Herb Cuttings",
+			"name_zh": "香草枝条",
 			"description": "Fast-growing greens used for light kitchen prep.",
+			"description_zh": "生长很快的绿植，适合轻量厨房备料。",
 			"crop_id": "herb",
 			"plant_stamina_cost": 1,
 			"starts_unlocked": true
@@ -20,7 +24,9 @@
 		{
 			"id": "mooncap_seed",
 			"name": "Mooncap Mycelium",
+			"name_zh": "月菇菌丝",
 			"description": "Night-borne spores stabilized for a delicate premium crop that feeds Mooncap Hotpot.",
+			"description_zh": "由夜间孢子稳定而成的精细高价作物，可用于月菇火锅。",
 			"crop_id": "mooncap",
 			"plant_stamina_cost": 2,
 			"starts_unlocked": false
@@ -28,7 +34,9 @@
 		{
 			"id": "kelpberry_seed",
 			"name": "Kelpberry Starts",
+			"name_zh": "海莓苗",
 			"description": "A hardy shoreline berry cultivated for steady daytime sale value.",
+			"description_zh": "生长稳健的岸边莓果，适合提供稳定的白天出售收益。",
 			"crop_id": "kelpberry",
 			"plant_stamina_cost": 1,
 			"starts_unlocked": false
@@ -36,7 +44,9 @@
 		{
 			"id": "emberleaf_seed",
 			"name": "Emberleaf Pods",
+			"name_zh": "余烬叶荚",
 			"description": "A peppery leaf crop that sells well once the farm can spare the effort.",
+			"description_zh": "带辛香的叶类作物，农场余力充足时卖价很不错。",
 			"crop_id": "emberleaf",
 			"plant_stamina_cost": 1,
 			"starts_unlocked": false

@@ -6,6 +6,7 @@ const CombatPaletteClass := preload("res://scripts/visual/combat_palette.gd")
 const PROJECTILE_IDLE_FRAME_SEC := 0.16
 const PROJECTILE_GLOW_SCALE_MULT := 1.88
 const PROJECTILE_GLOW_PULSE_AMPLITUDE := 0.14
+const BALLISTIC_BLOCKER_MASK := 8
 
 var direction := Vector2.RIGHT
 var speed := 520.0
@@ -124,6 +125,9 @@ func _on_body_entered(body: Node) -> void:
 		return
 	if body == source_owner:
 		return
+	if _is_ballistic_blocker(body):
+		_request_recycle()
+		return
 	if body.is_in_group("enemy") and body.has_method("take_hit"):
 		var final_damage := damage
 		var is_crit := false
@@ -152,20 +156,33 @@ func _on_body_entered(body: Node) -> void:
 		if reveal_bonus_duration > 0.0 and body.has_method("set_revealed"):
 			body.set_revealed(reveal_bonus_duration)
 		var intensity := clampf((final_damage / 34.0) + (0.07 if killed else 0.0) + (0.05 if is_crit else 0.0), 0.08, 0.36)
-		FeedbackBus.emit_hit(global_position, intensity, killed, {
-			"is_crit": is_crit,
-			"source": "projectile",
-			"weapon_id": weapon_id,
-			"attack_model": attack_model,
-			"weapon_tags": weapon_tags.duplicate(),
-			"fx_color": fx_color.to_html(false),
-			"damage": final_damage
-		})
+		var feedback_bus := _feedback_bus()
+		if feedback_bus != null and feedback_bus.has_method("emit_hit"):
+			feedback_bus.call("emit_hit", global_position, intensity, killed, {
+				"is_crit": is_crit,
+				"source": "projectile",
+				"weapon_id": weapon_id,
+				"attack_model": attack_model,
+				"weapon_tags": weapon_tags.duplicate(),
+				"fx_color": fx_color.to_html(false),
+				"damage": final_damage
+			})
 		_apply_impact_aoe(body, final_damage)
 		_emit_impact_pulse()
 		hit_count += 1
 		if hit_count > pierce:
 			_request_recycle()
+
+
+func _is_ballistic_blocker(body: Node) -> bool:
+	if body == null or not is_instance_valid(body):
+		return false
+	if body.is_in_group("ballistic_cover"):
+		return true
+	if not (body is CollisionObject2D):
+		return false
+	var collider := body as CollisionObject2D
+	return body is StaticBody2D and (collider.collision_layer & BALLISTIC_BLOCKER_MASK) != 0
 
 
 func on_pool_spawned() -> void:
@@ -324,12 +341,14 @@ func _apply_projectile_sticker(weapon_id: String, projectile_radius: float) -> v
 func _emit_impact_pulse() -> void:
 	if impact_pulse_strength <= 0.0:
 		return
-	FeedbackBus.emit_sonar_pulse(global_position, {
-		"source": "hit",
-		"strength": clampf(impact_pulse_strength, 0.1, 2.2),
-		"radius_scale": impact_pulse_radius_scale,
-		"reveal_duration_multiplier": 1.0
-	})
+	var feedback_bus := _feedback_bus()
+	if feedback_bus != null and feedback_bus.has_method("emit_sonar_pulse"):
+		feedback_bus.call("emit_sonar_pulse", global_position, {
+			"source": "hit",
+			"strength": clampf(impact_pulse_strength, 0.1, 2.2),
+			"radius_scale": impact_pulse_radius_scale,
+			"reveal_duration_multiplier": 1.0
+		})
 
 
 func _apply_impact_aoe(primary_target: Node, base_impact_damage: float) -> void:
@@ -353,15 +372,17 @@ func _apply_impact_aoe(primary_target: Node, base_impact_damage: float) -> void:
 		if reveal_bonus_duration > 0.0 and enemy.has_method("set_revealed"):
 			enemy.set_revealed(reveal_bonus_duration * 0.55)
 		var intensity := clampf((resolved_damage / 42.0) + (0.05 if killed else 0.0), 0.05, 0.28)
-		FeedbackBus.emit_hit(enemy.global_position, intensity, killed, {
-			"is_crit": false,
-			"source": "projectile_aoe",
-			"weapon_id": weapon_id,
-			"attack_model": attack_model,
-			"weapon_tags": weapon_tags.duplicate(),
-			"fx_color": fx_color.to_html(false),
-			"damage": resolved_damage
-		})
+		var feedback_bus := _feedback_bus()
+		if feedback_bus != null and feedback_bus.has_method("emit_hit"):
+			feedback_bus.call("emit_hit", enemy.global_position, intensity, killed, {
+				"is_crit": false,
+				"source": "projectile_aoe",
+				"weapon_id": weapon_id,
+				"attack_model": attack_model,
+				"weapon_tags": weapon_tags.duplicate(),
+				"fx_color": fx_color.to_html(false),
+				"damage": resolved_damage
+			})
 
 
 func _query_enemy_nodes(center: Vector2, search_radius: float, max_results: int = 24) -> Array[Node2D]:
@@ -389,6 +410,13 @@ func _query_enemy_nodes(center: Vector2, search_radius: float, max_results: int 
 		if candidates.size() >= max_results:
 			break
 	return candidates
+
+
+func _feedback_bus() -> Node:
+	var tree := get_tree()
+	if tree == null:
+		return null
+	return tree.root.get_node_or_null("FeedbackBus")
 
 
 func _tick_weapon_sticker(delta: float) -> void:

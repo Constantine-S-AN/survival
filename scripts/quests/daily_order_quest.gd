@@ -11,6 +11,9 @@ const PILLAR_NIGHT := "night"
 @export_enum("farm", "restaurant", "night") var pillar: String = PILLAR_FARM
 @export var target_id: String = ""
 @export var target_amount: int = 1
+@export var quest_name_zh: String = ""
+@export_multiline var quest_description_zh: String = ""
+@export var quest_objective_zh: String = ""
 @export var reward_gold: int = 0
 @export var reward_reputation: int = 0
 @export var reward_material_id: String = ""
@@ -51,12 +54,24 @@ func get_safe_target_id() -> String:
 func get_pillar_title() -> String:
 	match pillar:
 		PILLAR_FARM:
-			return "Farm"
+			return _t("meta.orders.pillar_farm", "Farm")
 		PILLAR_RESTAURANT:
-			return "Restaurant"
+			return _t("meta.orders.pillar_restaurant", "Restaurant")
 		PILLAR_NIGHT:
-			return "Night Run"
-	return "Orders"
+			return _t("meta.orders.pillar_night", "Night Run")
+	return _t("meta.orders.pillar_orders", "Orders")
+
+
+func get_localized_quest_name() -> String:
+	return _localized_text(quest_name_zh, quest_name)
+
+
+func get_localized_quest_description() -> String:
+	return _localized_text(quest_description_zh, quest_description)
+
+
+func get_localized_quest_objective() -> String:
+	return _localized_text(quest_objective_zh, quest_objective)
 
 
 func get_reward_config() -> Dictionary:
@@ -94,3 +109,28 @@ func get_featured_priority_for_day(day: int) -> int:
 
 func _get_safe_target_amount() -> int:
 	return maxi(1, target_amount)
+
+
+func _localized_text(chinese_text: String, fallback_text: String) -> String:
+	var fallback := fallback_text.strip_edges()
+	var localization := _get_localization_service()
+	if localization != null and localization.has_method("is_chinese") and bool(localization.call("is_chinese")):
+		var localized := chinese_text.strip_edges()
+		if not localized.is_empty():
+			return localized
+	return fallback
+
+
+func _t(key: String, fallback: String) -> String:
+	var localization := _get_localization_service()
+	if localization == null or not localization.has_method("t"):
+		return fallback
+	var translated := String(localization.call("t", key)).strip_edges()
+	return translated if not translated.is_empty() and translated != key else fallback
+
+
+func _get_localization_service() -> Node:
+	var main_loop := Engine.get_main_loop()
+	if not (main_loop is SceneTree):
+		return null
+	return (main_loop as SceneTree).root.get_node_or_null("Localization")

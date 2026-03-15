@@ -1379,7 +1379,9 @@
   {
     "id": "u_shadow_lattice",
     "name": "Shadow Lattice",
+    "name_zh": "影幕晶格",
     "description": "Stealth finisher: darkness venting scales harder and low-noise shots gain stronger cadence.",
+    "description_zh": "潜行终结强化：暗域泄压更强，低噪射击节奏进一步提升。",
     "rarity": "rare",
     "max_stacks": 2,
     "tags": [
@@ -1420,7 +1422,9 @@
   {
     "id": "u_cold_spark_recycler",
     "name": "Cold Spark Recycler",
+    "name_zh": "冷火花回收器",
     "description": "Stealth utility: kill refunds flare cooldown while flare itself causes less exposure burst.",
+    "description_zh": "潜行功能强化：击杀会返还照明技能冷却，同时显形本身带来的暴露爆发更低。",
     "rarity": "epic",
     "max_stacks": 2,
     "tags": [
@@ -1466,7 +1470,9 @@
   {
     "id": "u_redline_combustor",
     "name": "Redline Combustor",
+    "name_zh": "红线燃烧室",
     "description": "Burst amplifier: flare triggers short overdrive and high-noise state escalates DPS.",
+    "description_zh": "爆发放大器：显形会触发短时过载，高噪状态也会继续抬升输出。",
     "rarity": "rare",
     "max_stacks": 2,
     "tags": [
@@ -1511,7 +1517,9 @@
   {
     "id": "u_bloodrush_reservoir",
     "name": "Bloodrush Reservoir",
+    "name_zh": "血涌储能仓",
     "description": "Burst loop: chain kills rapidly refund attack and flare cooldowns at the cost of louder combat.",
+    "description_zh": "爆发循环强化：连杀会快速返还攻击和显形冷却，但战斗也会变得更吵。",
     "rarity": "epic",
     "max_stacks": 2,
     "tags": [
@@ -1557,7 +1565,9 @@
   {
     "id": "u_hivemind_router",
     "name": "Hivemind Router",
+    "name_zh": "群脑路由器",
     "description": "Summon control layer: expands orbit ring and collision envelope for zone denial.",
+    "description_zh": "召唤控场层：扩大环绕范围和碰撞包络，更适合封锁区域。",
     "rarity": "rare",
     "max_stacks": 2,
     "tags": [
@@ -1598,7 +1608,9 @@
   {
     "id": "u_sigil_guard_net",
     "name": "Sigil Guard Net",
+    "name_zh": "符印护卫网",
     "description": "Summon fortress: active summons grant stronger mitigation and accelerate flare cycle through kills.",
+    "description_zh": "召唤堡垒强化：场上召唤物会提供更强减伤，并通过击杀加快显形循环。",
     "rarity": "epic",
     "max_stacks": 2,
     "tags": [

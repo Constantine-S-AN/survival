@@ -75,6 +75,7 @@ func close_board() -> void:
 
 func _refresh() -> void:
 	title_label.text = _t("meta.orders.title")
+	close_button.text = _t("meta.common.close")
 	subtitle_label.text = _build_subtitle_text()
 	for child in orders_list.get_children():
 		orders_list.remove_child(child)

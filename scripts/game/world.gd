@@ -210,6 +210,15 @@ const BOSS_TINT_PHASE_1 := Color(1.0, 0.86, 0.70, 1.0)
 const BOSS_TINT_PHASE_2 := Color(1.0, 0.60, 0.64, 1.0)
 const BOSS_TINT_PHASE_3 := Color(0.82, 0.60, 1.0, 1.0)
 const BOSS_TINT_PHASE_4 := Color(1.0, 0.34, 0.42, 1.0)
+const CLEAR_DUNGEON_CAMERA_ZOOM := Vector2(0.60, 0.60)
+const CLEAR_DUNGEON_BACKGROUND_COLOR := Color(0.05, 0.07, 0.09, 1.0)
+const CLEAR_DUNGEON_GRID_COLOR := Color(0.26, 0.33, 0.40, 0.09)
+const CLEAR_DUNGEON_GRID_SPACING := 224.0
+const CLEAR_DUNGEON_ROOM_LAYER_Z := 20
+const CLEAR_DUNGEON_PICKUP_LAYER_Z := 48
+const CLEAR_DUNGEON_ENEMY_LAYER_Z := 50
+const CLEAR_DUNGEON_PLAYER_LAYER_Z := 60
+const CLEAR_DUNGEON_PROJECTILE_LAYER_Z := 70
 const MAP_ROOM_SYNTAX_KEYS := [
 	"narrow_corridor",
 	"open_hall",
@@ -229,6 +238,7 @@ const MAP_ROOM_SYNTAX_KEYS := [
 @onready var backdrop_main: Sprite2D = $Backdrop/BackdropMain
 @onready var backdrop_accent: Sprite2D = $Backdrop/BackdropAccent
 @onready var terrain_floor: Sprite2D = $Terrain/Floor
+@onready var runtime_room_layer: Node2D = $Terrain/RuntimeRoomLayer
 @onready var obstacle_visuals: Node2D = $Terrain/ObstacleVisuals
 @onready var obstacle_foreground_visuals: Node2D = $Terrain/ForegroundVisuals
 @onready var candle_layer: Node2D = $Terrain/Candles
@@ -238,7 +248,12 @@ const MAP_ROOM_SYNTAX_KEYS := [
 
 var xp_pickup_scene := preload("res://scenes/pickup/XPPickup.tscn")
 var sfx_rng := RandomNumberGenerator.new()
+var _last_generated_seed: int = 0
 var fog_enabled: bool = true
+var fog_requested_enabled: bool = true
+var clear_dungeon_presentation_enabled: bool = false
+var clear_dungeon_camera_zoom_override_enabled: bool = false
+var clear_dungeon_camera_zoom_override: Vector2 = Vector2.ZERO
 var fog_config: Dictionary = {}
 var base_fog_config: Dictionary = {}
 var effective_fog_config: Dictionary = {}
@@ -325,6 +340,7 @@ var _layout_seed: int = 0
 var _active_map_obstacles: Array = []
 var _active_map_candles: Array[Vector2] = []
 var _active_map_room_syntax: Array[String] = []
+var _default_camera_zoom: Vector2 = Vector2.ONE
 const PROJECTILE_POOL_KEY := "projectile"
 const PICKUP_POOL_KEY := "pickup"
 const ENEMY_POOL_KEY := "enemy"
@@ -334,7 +350,12 @@ const ENEMY_POOL_PREWARM := 120
 
 
 func _ready() -> void:
-	sfx_rng.seed = int(Time.get_unix_time_from_system())
+	sfx_rng.seed = _next_runtime_seed()
+	if runtime_room_layer != null:
+		runtime_room_layer.z_as_relative = false
+		runtime_room_layer.z_index = CLEAR_DUNGEON_ROOM_LAYER_Z
+	if camera != null:
+		_default_camera_zoom = camera.zoom
 	_create_surface_mist_overlay()
 	_create_world_post_fx_overlay()
 	_create_flare_screen_fx_overlays()
@@ -373,6 +394,18 @@ func _ready() -> void:
 		enemy_manager.boss_true_form_revealed.connect(_on_boss_true_form_revealed)
 	set_process(true)
 	queue_redraw()
+
+
+func _next_runtime_seed() -> int:
+	var wall_usec: int = int(floor(Time.get_unix_time_from_system() * 1000000.0))
+	var tick_usec: int = int(Time.get_ticks_usec())
+	var seed: int = abs(wall_usec ^ (tick_usec << 11) ^ (tick_usec >> 3))
+	if seed == 0:
+		seed = 1
+	if seed <= _last_generated_seed:
+		seed = _last_generated_seed + 1
+	_last_generated_seed = seed
+	return seed
 
 
 func _create_flare_screen_fx_overlays() -> void:
@@ -569,9 +602,25 @@ func _process(delta: float) -> void:
 func _update_flare_screen_fx_overlays() -> void:
 	if _flare_edge_overlay == null or _flare_warm_overlay == null:
 		return
+	var hit_flash_alpha := _resolve_hit_flash_alpha()
+	if clear_dungeon_presentation_enabled:
+		if _flare_edge_overlay.visible:
+			_flare_edge_overlay.visible = false
+		if _flare_warm_overlay.visible:
+			_flare_warm_overlay.visible = false
+		if _flare_edge_material != null:
+			_set_cached_shader_param(_flare_edge_material, _flare_edge_param_cache, "edge_strength", 0.0)
+		if _hit_flash_overlay != null:
+			var clear_flash_color := _hit_flash_color
+			clear_flash_color.a = hit_flash_alpha
+			if _hit_flash_overlay.color != clear_flash_color:
+				_hit_flash_overlay.color = clear_flash_color
+			var clear_flash_visible := hit_flash_alpha > 0.002
+			if _hit_flash_overlay.visible != clear_flash_visible:
+				_hit_flash_overlay.visible = clear_flash_visible
+		return
 	var edge_ratio := clampf(_flare_edge_flash_remaining / FLARE_EDGE_FLASH_SEC, 0.0, 1.0)
 	var edge_strength := pow(edge_ratio, 0.44) * FLARE_EDGE_FLASH_MAX_STRENGTH
-	var hit_flash_alpha := _resolve_hit_flash_alpha()
 	var boss_curve := clampf(_boss_visual_intensity, 0.0, 1.0)
 	edge_strength += hit_flash_alpha * HIT_FLASH_EDGE_STRENGTH_MULT
 	edge_strength += boss_curve * BOSS_EDGE_STRENGTH_BOOST
@@ -676,6 +725,12 @@ func _apply_map_post_grade_preset(map_id: String) -> void:
 func _apply_map_surface_mist_preset(map_id: String) -> void:
 	if _surface_mist_material == null:
 		return
+	if clear_dungeon_presentation_enabled:
+		_surface_mist_target_density = 0.0
+		_surface_mist_current_density = 0.0
+		if _surface_mist_overlay != null:
+			_surface_mist_overlay.visible = false
+		return
 	var preset_variant: Variant = MAP_SURFACE_MIST_PRESETS.get(map_id, {})
 	var preset: Dictionary = preset_variant if preset_variant is Dictionary else {}
 	var tint_variant: Variant = preset.get("tint", Color(0.10, 0.17, 0.24, 1.0))
@@ -702,6 +757,10 @@ func _apply_map_surface_mist_preset(map_id: String) -> void:
 func _update_surface_mist_fx(delta: float) -> void:
 	if _surface_mist_material == null or _surface_mist_overlay == null:
 		return
+	if clear_dungeon_presentation_enabled:
+		if _surface_mist_overlay.visible:
+			_surface_mist_overlay.visible = false
+		return
 	var blend_ratio := clampf(delta * 3.8, 0.0, 1.0)
 	_surface_mist_current_density = lerpf(_surface_mist_current_density, _surface_mist_target_density, blend_ratio)
 	var flare_ratio := clampf(_flare_boost_remaining / maxf(0.001, FLARE_BOOST_DURATION), 0.0, 1.0)
@@ -716,6 +775,12 @@ func _update_surface_mist_fx(delta: float) -> void:
 func _update_world_post_fx() -> void:
 	if _world_post_material == null:
 		return
+	if clear_dungeon_presentation_enabled:
+		if _world_post_overlay != null and _world_post_overlay.visible:
+			_world_post_overlay.visible = false
+		return
+	if _world_post_overlay != null and not _world_post_overlay.visible:
+		_world_post_overlay.visible = true
 	var flare_ratio := clampf(_flare_boost_remaining / maxf(0.001, FLARE_BOOST_DURATION), 0.0, 1.0)
 	var flare_eased := flare_ratio * flare_ratio
 	var noise_curve := clampf(_noise_visual_ratio_smoothed, 0.0, 1.0)
@@ -981,13 +1046,137 @@ func apply_fog_config(config: Dictionary) -> void:
 
 
 func set_fog_enabled(enabled: bool) -> void:
-	fog_enabled = enabled
+	fog_requested_enabled = enabled
+	fog_enabled = fog_requested_enabled and not clear_dungeon_presentation_enabled
 	fog_darkness.visible = fog_enabled
 	fog_light.enabled = fog_enabled
+	_update_fog_darkness_modulate()
 
 
 func is_fog_enabled() -> bool:
 	return fog_enabled
+
+
+func set_clear_dungeon_presentation(enabled: bool) -> void:
+	clear_dungeon_presentation_enabled = enabled
+	if clear_dungeon_presentation_enabled:
+		_surface_mist_target_density = 0.0
+		_surface_mist_current_density = 0.0
+	else:
+		clear_dungeon_camera_zoom_override_enabled = false
+		clear_dungeon_camera_zoom_override = Vector2.ZERO
+		_apply_map_surface_mist_preset(current_map_id)
+	_apply_clear_dungeon_presentation_state()
+	_apply_clear_dungeon_camera_state()
+	set_fog_enabled(fog_requested_enabled)
+	_update_surface_mist_fx(0.0)
+	_update_world_post_fx()
+	_update_flare_screen_fx_overlays()
+	queue_redraw()
+
+
+func is_clear_dungeon_presentation_enabled() -> bool:
+	return clear_dungeon_presentation_enabled
+
+
+func set_clear_dungeon_camera_zoom_override(zoom: Vector2) -> void:
+	clear_dungeon_camera_zoom_override_enabled = true
+	clear_dungeon_camera_zoom_override = zoom
+	_apply_clear_dungeon_camera_state()
+
+
+func clear_clear_dungeon_camera_zoom_override() -> void:
+	clear_dungeon_camera_zoom_override_enabled = false
+	clear_dungeon_camera_zoom_override = Vector2.ZERO
+	_apply_clear_dungeon_camera_state()
+
+
+func get_runtime_room_root() -> Node2D:
+	return runtime_room_layer if runtime_room_layer != null else self
+
+
+func is_clear_dungeon_map_geometry_hidden() -> bool:
+	var visuals_hidden := (
+		(obstacle_visuals == null or not obstacle_visuals.visible)
+		and (obstacle_foreground_visuals == null or not obstacle_foreground_visuals.visible)
+		and (candle_layer == null or not candle_layer.visible)
+		and (terrain_floor == null or not terrain_floor.visible)
+	)
+	if not visuals_hidden:
+		return false
+	if obstacle_bodies == null:
+		return true
+	for child in obstacle_bodies.get_children():
+		if child is CollisionObject2D and int((child as CollisionObject2D).collision_layer) != 0:
+			return false
+	return true
+
+
+func _apply_clear_dungeon_presentation_state() -> void:
+	if _surface_mist_material != null:
+		_set_cached_shader_param(_surface_mist_material, _surface_mist_param_cache, "effect_enabled", not clear_dungeon_presentation_enabled)
+		if clear_dungeon_presentation_enabled:
+			_set_cached_shader_param(_surface_mist_material, _surface_mist_param_cache, "mist_density", 0.0)
+			_set_cached_shader_param(_surface_mist_material, _surface_mist_param_cache, "flare_reveal", 0.0)
+	if _surface_mist_overlay != null and clear_dungeon_presentation_enabled:
+		_surface_mist_overlay.visible = false
+	if _world_post_overlay != null:
+		_world_post_overlay.visible = not clear_dungeon_presentation_enabled
+	if clear_dungeon_presentation_enabled:
+		if _flare_edge_overlay != null:
+			_flare_edge_overlay.visible = false
+		if _flare_warm_overlay != null:
+			_flare_warm_overlay.visible = false
+		if _flare_edge_material != null:
+			_set_cached_shader_param(_flare_edge_material, _flare_edge_param_cache, "edge_strength", 0.0)
+	_set_clear_dungeon_map_geometry_enabled(not clear_dungeon_presentation_enabled)
+	_apply_clear_dungeon_entity_layering()
+
+
+func _apply_clear_dungeon_camera_state() -> void:
+	if camera == null:
+		return
+	var target_zoom := CLEAR_DUNGEON_CAMERA_ZOOM if clear_dungeon_presentation_enabled else _default_camera_zoom
+	if clear_dungeon_presentation_enabled and clear_dungeon_camera_zoom_override_enabled:
+		target_zoom = clear_dungeon_camera_zoom_override
+	if camera.zoom != target_zoom:
+		camera.zoom = target_zoom
+
+
+func _set_clear_dungeon_map_geometry_enabled(enabled: bool) -> void:
+	if obstacle_visuals != null:
+		obstacle_visuals.visible = enabled
+	if obstacle_foreground_visuals != null:
+		obstacle_foreground_visuals.visible = enabled
+	if candle_layer != null:
+		candle_layer.visible = enabled
+	if terrain_floor != null:
+		terrain_floor.visible = enabled and terrain_floor.texture != null
+	if obstacle_bodies != null:
+		for child in obstacle_bodies.get_children():
+			if not (child is CollisionObject2D):
+				continue
+			var collision_object := child as CollisionObject2D
+			collision_object.collision_layer = TERRAIN_COLLISION_LAYER if enabled else 0
+			collision_object.collision_mask = 0
+
+
+func _apply_clear_dungeon_entity_layering() -> void:
+	if runtime_room_layer != null:
+		runtime_room_layer.z_as_relative = false
+		runtime_room_layer.z_index = CLEAR_DUNGEON_ROOM_LAYER_Z
+	if pickup_layer != null:
+		pickup_layer.z_as_relative = false
+		pickup_layer.z_index = CLEAR_DUNGEON_PICKUP_LAYER_Z if clear_dungeon_presentation_enabled else 0
+	if enemy_manager != null:
+		enemy_manager.z_as_relative = false
+		enemy_manager.z_index = CLEAR_DUNGEON_ENEMY_LAYER_Z if clear_dungeon_presentation_enabled else 0
+	if projectile_manager != null:
+		projectile_manager.z_as_relative = false
+		projectile_manager.z_index = CLEAR_DUNGEON_PROJECTILE_LAYER_Z if clear_dungeon_presentation_enabled else 0
+	if player != null:
+		player.z_as_relative = false
+		player.z_index = CLEAR_DUNGEON_PLAYER_LAYER_Z if clear_dungeon_presentation_enabled else 0
 
 
 func _build_fog_light_texture() -> Texture2D:
@@ -2285,6 +2474,14 @@ func play_boss_true_reveal_sfx() -> void:
 
 
 func _draw() -> void:
+	if clear_dungeon_presentation_enabled:
+		draw_rect(Rect2(Vector2(-4200.0, -4200.0), Vector2(8400.0, 8400.0)), CLEAR_DUNGEON_BACKGROUND_COLOR, true)
+		for i in range(-30, 31):
+			var x := float(i) * CLEAR_DUNGEON_GRID_SPACING
+			draw_line(Vector2(x, -4200.0), Vector2(x, 4200.0), CLEAR_DUNGEON_GRID_COLOR, 2.0)
+			var y := float(i) * CLEAR_DUNGEON_GRID_SPACING
+			draw_line(Vector2(-4200.0, y), Vector2(4200.0, y), CLEAR_DUNGEON_GRID_COLOR, 2.0)
+		return
 	draw_rect(Rect2(Vector2(-4200.0, -4200.0), Vector2(8400.0, 8400.0)), Color(0.022, 0.016, 0.012, 1.0), true)
 	if terrain_floor != null and terrain_floor.visible:
 		return

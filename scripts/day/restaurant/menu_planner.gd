@@ -52,14 +52,15 @@ static func build_recipe_cards(recipe_defs: Array, materials: Dictionary, unlock
 		var unlocked := unlocked_lookup.has(recipe_id)
 		var craftable_servings := max_servings(recipe, materials)
 		var ingredients_text := _build_material_bundle_text(recipe.get("ingredients", {}))
-		var tag_text := _build_tag_text(recipe.get("category_tags", []))
 		var synergy_text := _build_synergy_text(recipe)
 		var night_material_text := _build_night_material_text(recipe)
-		var label := "%s\n$%d · Prep %d · %s" % [
+		var label := "%s\n%s" % [
 			String(recipe.get("name", recipe_id.capitalize())),
-			int(recipe.get("base_price", 0)),
-			int(recipe.get("prep_complexity", 1)),
-			_build_servings_text(craftable_servings)
+			_t("meta.restaurant.recipe_card_stats", {
+				"price": int(recipe.get("base_price", 0)),
+				"prep": int(recipe.get("prep_complexity", 1)),
+				"servings": _build_servings_text(craftable_servings)
+			})
 		]
 		if not ingredients_text.is_empty():
 			label += "\n%s" % ingredients_text
@@ -82,9 +83,13 @@ static func build_selected_menu_entries(selected_menu_ids: Array, recipe_lookup:
 			continue
 		var recipe: Dictionary = recipe_variant
 		var craftable_servings := max_servings(recipe, materials)
+		var ingredients_text := _build_material_bundle_text(recipe.get("ingredients", {}))
+		var detail_line := _build_servings_text(craftable_servings)
+		if not ingredients_text.is_empty():
+			detail_line = "%s · %s" % [detail_line, ingredients_text]
 		var entry_label := "%s\n%s" % [
 			String(recipe.get("name", recipe_id.capitalize())),
-			"%s · %s" % [_build_servings_text(craftable_servings), _build_material_bundle_text(recipe.get("ingredients", {}))]
+			detail_line
 		]
 		entries.append({
 			"id": recipe_id,
@@ -157,7 +162,7 @@ static func _build_tag_text(tags_variant: Variant) -> String:
 		if tag.is_empty():
 			continue
 		parts.append(tag)
-	return "Tags: %s" % ", ".join(parts) if not parts.is_empty() else ""
+	return _t("meta.restaurant.recipe_tooltip.tags", {"value": ", ".join(parts)}) if not parts.is_empty() else ""
 
 
 static func _build_synergy_text(recipe: Dictionary) -> String:
@@ -170,7 +175,7 @@ static func _build_synergy_text(recipe: Dictionary) -> String:
 	var material_id := String(synergy.get("material_id", "")).strip_edges().to_lower()
 	if material_id.is_empty():
 		return ""
-	return "Night synergy: %s" % _material_name(material_id)
+	return _t("meta.restaurant.recipe_tooltip.synergy", {"value": _material_name(material_id)})
 
 
 static func _build_recipe_tooltip(
@@ -194,6 +199,9 @@ static func _build_recipe_tooltip(
 		lines.append(_t("meta.restaurant.recipe_tooltip.ingredients", {"value": ingredients_text}))
 	if not night_material_text.is_empty():
 		lines.append(_t("meta.restaurant.recipe_tooltip.night", {"value": night_material_text}))
+	var tag_text := _build_tag_text(recipe.get("category_tags", []))
+	if not tag_text.is_empty():
+		lines.append(tag_text)
 	if not synergy_text.is_empty():
 		lines.append(synergy_text)
 	if not unlocked:
@@ -254,7 +262,7 @@ static func _material_is_night_only(material_id: String) -> bool:
 
 
 static func _build_servings_text(craftable_servings: int) -> String:
-	return "Ready for %d servings" % maxi(0, craftable_servings)
+	return _t("meta.restaurant.recipe_card_servings", {"value": maxi(0, craftable_servings)})
 
 
 static func _material_name(material_id: String) -> String:

@@ -22,6 +22,8 @@ SCENES=(
 	"res://tests/smoke/DayWorldFarmSaveLoadSmoke.tscn"
 	"res://tests/smoke/DayWorldPhaseSaveLoadSmoke.tscn"
 	"res://tests/smoke/DayWorldTransitionSaveLoadSmoke.tscn"
+	"res://tests/smoke/DayWorldNightCompletionSmoke.tscn"
+	"res://tests/smoke/NightInterruptedReentrySmoke.tscn"
 	"res://tests/smoke/RestaurantWorldShellSmoke.tscn"
 	"res://tests/smoke/RestaurantWorldGatingSmoke.tscn"
 	"res://tests/smoke/RestaurantInteriorSaveLoadSmoke.tscn"

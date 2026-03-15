@@ -287,8 +287,11 @@ func _build_carryover_short_text() -> String:
 		if bool((row_variant as Dictionary).get("secured", false)):
 			secured_count += 1
 	if route_label.is_empty():
-		return "%d secured carryover cache%s" % [secured_count, "" if secured_count == 1 else "s"]
-	return "%s with %d secured cache%s" % [route_label, secured_count, "" if secured_count == 1 else "s"]
+		return _t("meta.summary.carryover_short_count", {"count": secured_count})
+	return _t("meta.summary.carryover_short_route", {
+		"route": route_label,
+		"count": secured_count
+	})
 
 
 func _raw_summary() -> Dictionary:

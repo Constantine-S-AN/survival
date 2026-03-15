@@ -6,8 +6,11 @@
 script = ExtResource("1")
 id = 110
 quest_name = "Pepperleaf Bundle"
+quest_name_zh = "余烬叶束"
 quest_description = "Cut an emberleaf bundle so the kitchen can prep sharper daytime specials."
+quest_description_zh = "收来一束余烬叶，让厨房能准备更有冲劲的白天特供。"
 quest_objective = "Gain 2 Emberleaf."
+quest_objective_zh = "获得 2 份余烬叶。"
 order_type = "material_gain"
 pillar = "farm"
 target_id = "emberleaf"

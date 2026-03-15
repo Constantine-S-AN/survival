@@ -441,8 +441,8 @@ func _update_boss_block(
 		return
 	var safe_name := boss_name.strip_edges()
 	if safe_name.is_empty():
-		safe_name = "Boss"
-	boss_name_label.text = "BOSS · %s" % safe_name
+		safe_name = _t("hud.boss_placeholder")
+	boss_name_label.text = _t("hud.boss_name", {"value": safe_name})
 	boss_phase_label.text = phase_text if not phase_text.strip_edges().is_empty() else "-"
 	var safe_max := maxf(1.0, hp_max)
 	var safe_hp := clampf(hp, 0.0, safe_max)
@@ -456,8 +456,11 @@ func _update_boss_block(
 	var hint := objective_text.strip_edges()
 	if summon_break_active and summon_break_alive > 0:
 		if hint.is_empty():
-			hint = "Break summons to remove shield"
-		hint = "%s | Summons alive: %d" % [hint, summon_break_alive]
+			hint = _t("hud.boss_hint_break_summons")
+		hint = _t("hud.boss_hint_summons_alive", {
+			"value": hint,
+			"count": summon_break_alive
+		})
 	boss_hint_label.text = hint
 	if hp_ratio + 0.01 < _boss_hp_ratio_last and UIMotionClass.is_motion_enabled():
 		if _boss_tween != null and is_instance_valid(_boss_tween):
