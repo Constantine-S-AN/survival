@@ -246,6 +246,10 @@ func debug_get_snapshot() -> Dictionary:
 		"focused_zone_id": _focused_zone_id,
 		"active_popup_id": _active_popup_id,
 		"prompt_text": _build_prompt_text(),
+		"service_button_disabled": service_button.disabled if service_button != null else true,
+		"service_button_text": service_button.text if service_button != null else "",
+		"service_status_text": service_status_label.text if service_status_label != null else "",
+		"service_summary_text": service_summary_label.text if service_summary_label != null else "",
 		"player_position": restaurant_player.global_position if restaurant_player != null else Vector2.ZERO,
 		"customer_count": _customer_count,
 		"lights_on": _lights_on
@@ -900,8 +904,8 @@ func _apply_view_model() -> void:
 
 	service_title_label.text = _t("meta.restaurant.popup_service_title")
 	service_subtitle_label.text = _t("meta.restaurant.popup_service_subtitle")
-	service_summary_label.text = _build_service_summary()
-	service_status_label.text = _build_service_status()
+	service_summary_label.text = String(_view_model.get("service_summary_text", _build_service_summary()))
+	service_status_label.text = String(_view_model.get("service_status_text", _build_service_status()))
 	service_button.text = String(_view_model.get("service_button_text", _t("meta.restaurant.open_service")))
 	service_button.tooltip_text = String(_view_model.get("service_button_tooltip", ""))
 	service_button.disabled = not bool(_view_model.get("service_button_enabled", false))
