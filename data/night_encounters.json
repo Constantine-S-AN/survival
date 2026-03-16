@@ -282,6 +282,384 @@
       ]
     },
     {
+      "id": "escort_convoy_push",
+      "label": "Convoy Push",
+      "label_zh": "护航推进",
+      "category": "standard",
+      "category_label": "Objective Combat",
+      "category_label_zh": "目标战斗",
+      "reward_table_id": "combat_objective_v2",
+      "difficulty": 2,
+      "spawn_set_id": "escort_convoy_wave_1",
+      "clear_mode": "complete_objective",
+      "objective_id": "escort",
+      "objective_label": "Escort the skiff through 3 relay lanes",
+      "objective_label_zh": "护送小艇穿过 3 段中继航道",
+      "time_limit_sec": 16.0,
+      "waves": [
+        {
+          "trigger": "on_timer",
+          "at_sec": 5.0,
+          "spawn_set_id": "escort_convoy_wave_2"
+        },
+        {
+          "trigger": "on_timer",
+          "at_sec": 11.0,
+          "spawn_set_id": "escort_convoy_wave_3"
+        }
+      ],
+      "objective_props": [
+        {
+          "prop_id": "convoy_checkpoint_alpha",
+          "marker": "West",
+          "radius": 84.0,
+          "label": "Relay Lane Alpha",
+          "label_zh": "航道甲"
+        },
+        {
+          "prop_id": "convoy_checkpoint_beta",
+          "marker": "Center",
+          "radius": 84.0,
+          "label": "Relay Lane Beta",
+          "label_zh": "航道乙"
+        },
+        {
+          "prop_id": "convoy_checkpoint_gamma",
+          "marker": "East",
+          "radius": 84.0,
+          "label": "Relay Lane Gamma",
+          "label_zh": "航道丙"
+        }
+      ],
+      "runtime_flags": {
+        "checkpoint_hold_sec": 1.4,
+        "integrity_max": 100.0,
+        "integrity_drain_per_sec": 22.0,
+        "integrity_recover_per_sec": 10.0
+      },
+      "room_mutators": [
+        "partial_darkness",
+        "hazard_pulse_low"
+      ],
+      "success_bonus": {
+        "carryover_materials": {
+          "scrap": 1,
+          "lumen_resin": 1
+        },
+        "reward_bias": [
+          "support",
+          "tempo"
+        ]
+      },
+      "fail_penalty": {
+        "spawn_set_id": "escort_convoy_cleanup"
+      },
+      "tags": [
+        "escort",
+        "tempo",
+        "support"
+      ]
+    },
+    {
+      "id": "payload_hack_breach",
+      "label": "Payload Hack",
+      "label_zh": "载荷劫持",
+      "category": "elite",
+      "category_label": "Elite Objective",
+      "category_label_zh": "精英目标战",
+      "reward_table_id": "combat_elite_v2",
+      "difficulty": 3,
+      "spawn_set_id": "payload_hack_wave_1",
+      "clear_mode": "complete_objective",
+      "objective_id": "payload_hack",
+      "objective_label": "Hack both payload relays before the line collapses",
+      "objective_label_zh": "在线路坍塌前破解 2 座载荷中继",
+      "time_limit_sec": 16.0,
+      "waves": [
+        {
+          "trigger": "on_objective_progress",
+          "at_count": 1,
+          "spawn_set_id": "payload_hack_wave_2"
+        }
+      ],
+      "objective_props": [
+        {
+          "prop_id": "payload_terminal_left",
+          "marker": "West",
+          "radius": 98.0,
+          "label": "Left Payload Relay",
+          "label_zh": "左载荷中继"
+        },
+        {
+          "prop_id": "payload_terminal_right",
+          "marker": "East",
+          "radius": 98.0,
+          "label": "Right Payload Relay",
+          "label_zh": "右载荷中继"
+        }
+      ],
+      "runtime_flags": {
+        "hack_hold_sec": 1.0,
+        "progress_decay_per_sec": 0.8
+      },
+      "room_mutators": [
+        "crossfire",
+        "projectile_dense"
+      ],
+      "success_bonus": {
+        "carryover_materials": {
+          "coil_fragment": 1,
+          "reef_salt": 1
+        },
+        "reward_bias": [
+          "utility",
+          "precision"
+        ]
+      },
+      "fail_penalty": {
+        "spawn_set_id": "payload_hack_cleanup"
+      },
+      "tags": [
+        "hack",
+        "precision",
+        "utility"
+      ]
+    },
+    {
+      "id": "survive_timer_overload",
+      "label": "Floodgate Overload",
+      "label_zh": "闸门超载",
+      "category": "elite",
+      "category_label": "Challenge Combat",
+      "category_label_zh": "挑战战斗",
+      "reward_table_id": "combat_challenge_v2",
+      "difficulty": 3,
+      "spawn_set_id": "survive_timer_wave_1",
+      "clear_mode": "complete_objective",
+      "objective_id": "survive_timer",
+      "objective_label": "Hold until the floodgate cycle completes",
+      "objective_label_zh": "坚持到闸门循环完成",
+      "time_limit_sec": 6.5,
+      "waves": [
+        {
+          "trigger": "repeat",
+          "every_sec": 2.2,
+          "spawn_set_id": "survive_timer_repeat",
+          "until_objective_complete": true
+        }
+      ],
+      "objective_props": [],
+      "room_mutators": [
+        "hazard_pulse_mid",
+        "partial_darkness"
+      ],
+      "success_bonus": {
+        "carryover_materials": {
+          "challenge_seal": 1
+        },
+        "reward_bias": [
+          "defense",
+          "tempo"
+        ]
+      },
+      "fail_penalty": {},
+      "tags": [
+        "survive",
+        "defense",
+        "pressure"
+      ]
+    },
+    {
+      "id": "elite_hunt_pursuit",
+      "label": "Pursuit Hunt",
+      "label_zh": "追猎歼灭",
+      "category": "elite",
+      "category_label": "Elite Combat",
+      "category_label_zh": "精英战斗",
+      "reward_table_id": "combat_elite_v2",
+      "difficulty": 3,
+      "spawn_set_id": "elite_hunt_wave_1",
+      "clear_mode": "complete_objective",
+      "objective_id": "elite_hunt",
+      "objective_label": "Kill 2 pursuers before they slip away",
+      "objective_label_zh": "在追猎者逃离前击杀 2 只",
+      "time_limit_sec": 12.0,
+      "waves": [
+        {
+          "trigger": "on_timer",
+          "at_sec": 5.0,
+          "spawn_set_id": "elite_hunt_wave_2"
+        }
+      ],
+      "objective_props": [],
+      "runtime_flags": {
+        "required_count": 2
+      },
+      "room_mutators": [
+        "double_elite_chance",
+        "melee_pressure"
+      ],
+      "success_bonus": {
+        "carryover_materials": {
+          "moon_spore": 1,
+          "abyssfin": 1
+        },
+        "reward_bias": [
+          "damage",
+          "rare_trait"
+        ]
+      },
+      "fail_penalty": {
+        "spawn_set_id": "elite_hunt_cleanup"
+      },
+      "tags": [
+        "elite",
+        "hunter",
+        "burst"
+      ]
+    },
+    {
+      "id": "power_reroute_grid",
+      "label": "Power Reroute",
+      "label_zh": "电网改线",
+      "category": "standard",
+      "category_label": "Objective Combat",
+      "category_label_zh": "目标战斗",
+      "reward_table_id": "combat_objective_v2",
+      "difficulty": 2,
+      "spawn_set_id": "power_reroute_wave_1",
+      "clear_mode": "complete_objective",
+      "objective_id": "power_reroute",
+      "objective_label": "Reroute 3 relays to wake the gate",
+      "objective_label_zh": "切换 3 座中继以唤醒闸门",
+      "time_limit_sec": 15.0,
+      "waves": [
+        {
+          "trigger": "on_objective_progress",
+          "at_count": 1,
+          "spawn_set_id": "power_reroute_wave_2"
+        },
+        {
+          "trigger": "on_objective_progress",
+          "at_count": 2,
+          "spawn_set_id": "power_reroute_wave_3"
+        }
+      ],
+      "objective_props": [
+        {
+          "prop_id": "power_relay_north",
+          "marker": "NorthWest",
+          "radius": 76.0,
+          "label": "North Relay",
+          "label_zh": "北侧中继"
+        },
+        {
+          "prop_id": "power_relay_core",
+          "marker": "Center",
+          "radius": 76.0,
+          "label": "Core Relay",
+          "label_zh": "核心中继"
+        },
+        {
+          "prop_id": "power_relay_south",
+          "marker": "SouthEast",
+          "radius": 76.0,
+          "label": "South Relay",
+          "label_zh": "南侧中继"
+        }
+      ],
+      "room_mutators": [
+        "crossfire",
+        "hazard_pulse_low"
+      ],
+      "success_bonus": {
+        "carryover_materials": {
+          "glow_kelp": 1,
+          "coil_fragment": 1
+        },
+        "reward_bias": [
+          "support",
+          "utility"
+        ]
+      },
+      "fail_penalty": {
+        "spawn_set_id": "power_reroute_cleanup"
+      },
+      "tags": [
+        "relay",
+        "support",
+        "utility"
+      ]
+    },
+    {
+      "id": "cursed_cache_unseal",
+      "label": "Cursed Cache",
+      "label_zh": "诅咒缓存",
+      "category": "elite",
+      "category_label": "Elite Objective",
+      "category_label_zh": "精英目标战",
+      "reward_table_id": "combat_elite_v2",
+      "difficulty": 4,
+      "spawn_set_id": "cursed_cache_wave_1",
+      "clear_mode": "complete_objective",
+      "objective_id": "cursed_cache",
+      "objective_label": "Break 2 seals and open the cursed cache",
+      "objective_label_zh": "击碎 2 枚封印并开启诅咒缓存",
+      "time_limit_sec": 18.0,
+      "waves": [
+        {
+          "trigger": "on_objective_progress",
+          "at_count": 1,
+          "spawn_set_id": "cursed_cache_wave_2"
+        }
+      ],
+      "objective_props": [
+        {
+          "prop_id": "curse_seal_west",
+          "marker": "NorthWest",
+          "hp": 110.0,
+          "label": "Hex Seal West",
+          "label_zh": "西侧咒印"
+        },
+        {
+          "prop_id": "curse_seal_east",
+          "marker": "NorthEast",
+          "hp": 110.0,
+          "label": "Hex Seal East",
+          "label_zh": "东侧咒印"
+        },
+        {
+          "prop_id": "cursed_cache_core",
+          "marker": "Center",
+          "radius": 82.0,
+          "label": "Cursed Cache",
+          "label_zh": "诅咒缓存"
+        }
+      ],
+      "room_mutators": [
+        "projectile_dense",
+        "hazard_pulse_mid"
+      ],
+      "success_bonus": {
+        "carryover_materials": {
+          "blueprint_fragment": 1,
+          "reef_salt": 1
+        },
+        "reward_bias": [
+          "rare_trait",
+          "curse"
+        ]
+      },
+      "fail_penalty": {
+        "spawn_set_id": "cursed_cache_cleanup"
+      },
+      "tags": [
+        "curse",
+        "cache",
+        "high_value"
+      ]
+    },
+    {
       "id": "apex_siren_ritual",
       "label": "Apex Siren",
       "label_zh": "顶潮海妖",

@@ -51,7 +51,10 @@ const DEFAULT_META_PROGRESS: Dictionary = {
 	"economy": {
 		"gold": 12,
 		"restaurant_reputation": 1,
-		"sold_dishes_stats": {}
+		"sold_dishes_stats": {},
+		"last_route_resource_flow": {},
+		"last_material_use_rows": [],
+		"last_night_feedback_rows": []
 	},
 	"inventory": {
 		"materials": {
@@ -66,7 +69,8 @@ const DEFAULT_META_PROGRESS: Dictionary = {
 			"kelpfire_noodles",
 			"kelpberry_tart",
 			"emberleaf_flatbread"
-		]
+		],
+		"night_feedback_unlocks": []
 	},
 	"farm_state": {
 		"columns": 3,
@@ -125,9 +129,12 @@ func load_profile(default_character_id: String, default_map_id: String = "") -> 
 	var profile_path := _resolve_profile_path()
 	var backup_path := _resolve_profile_backup_path(profile_path)
 	var raw_profile: Dictionary = _load_profile_payload(profile_path, backup_path)
-	profile = _migrate_profile(raw_profile, default_character_id, default_map_id)
+	var migrated_profile := _migrate_profile(raw_profile, default_character_id, default_map_id)
+	var should_persist := _profile_requires_persist(raw_profile, migrated_profile)
+	profile = migrated_profile
 	loaded = true
-	save_profile()
+	if should_persist:
+		save_profile()
 	return get_profile()
 
 
@@ -590,6 +597,14 @@ func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
 					continue
 				sold_dishes_stats[dish_id] = maxi(0, int((sold_dishes_variant as Dictionary).get(dish_id_variant, 0)))
 		economy["sold_dishes_stats"] = sold_dishes_stats
+		var route_flow_variant: Variant = (economy_variant as Dictionary).get("last_route_resource_flow", {})
+		economy["last_route_resource_flow"] = route_flow_variant.duplicate(true) if route_flow_variant is Dictionary else {}
+		economy["last_material_use_rows"] = _normalize_dictionary_array(
+			(economy_variant as Dictionary).get("last_material_use_rows", economy.get("last_material_use_rows", []))
+		)
+		economy["last_night_feedback_rows"] = _normalize_dictionary_array(
+			(economy_variant as Dictionary).get("last_night_feedback_rows", economy.get("last_night_feedback_rows", []))
+		)
 		output["economy"] = economy
 
 	var inventory_variant: Variant = source.get("inventory", {})
@@ -622,6 +637,9 @@ func _normalize_meta_progress(meta_variant: Variant) -> Dictionary:
 					continue
 				unlocked_recipes.append(recipe_id)
 		inventory["unlocked_recipes"] = unlocked_recipes
+		inventory["night_feedback_unlocks"] = _normalize_string_array(
+			source_inventory.get("night_feedback_unlocks", inventory.get("night_feedback_unlocks", []))
+		)
 		output["inventory"] = inventory
 
 	var farm_state_variant: Variant = source.get("farm_state", {})
@@ -690,6 +708,7 @@ func _normalize_pending_night_session(session_variant: Variant) -> Dictionary:
 	output["character_id"] = String(source.get("character_id", "")).strip_edges()
 	output["map_id"] = String(source.get("map_id", "")).strip_edges()
 	output["contract_ids"] = _normalize_string_array(source.get("contract_ids", []))
+	output["day_feedback"] = _normalize_meta_day_feedback(source.get("day_feedback", {}))
 	output["seed"] = maxi(0, int(source.get("seed", 0)))
 	output["session_duration_sec"] = maxf(0.0, float(source.get("session_duration_sec", 0.0)))
 	return output
@@ -856,6 +875,17 @@ func _normalize_string_array(source: Variant) -> Array[String]:
 	return output
 
 
+func _normalize_dictionary_array(source: Variant) -> Array[Dictionary]:
+	var output: Array[Dictionary] = []
+	if not (source is Array):
+		return output
+	for row_variant in (source as Array):
+		if not (row_variant is Dictionary):
+			continue
+		output.append((row_variant as Dictionary).duplicate(true))
+	return output
+
+
 func _normalize_int_array(source: Variant) -> Array[int]:
 	var output: Array[int] = []
 	if not (source is Array):
@@ -877,6 +907,18 @@ func _normalize_string_int_dictionary(source_variant: Variant) -> Dictionary:
 			continue
 		output[key] = maxi(0, int(source.get(key_variant, 0)))
 	return output
+
+
+func _normalize_meta_day_feedback(source_variant: Variant) -> Dictionary:
+	if not (source_variant is Dictionary):
+		return {}
+	var source: Dictionary = source_variant
+	return {
+		"unlocked_ids": _normalize_string_array(source.get("unlocked_ids", [])),
+		"start_route_resources": _normalize_string_int_dictionary(source.get("start_route_resources", {})),
+		"shop_feedback_tags": _normalize_string_array(source.get("shop_feedback_tags", [])),
+		"shop_refresh_discount_xp": maxi(0, int(source.get("shop_refresh_discount_xp", 0)))
+	}
 
 
 func _resolve_profile_path() -> String:
@@ -946,6 +988,10 @@ func _read_profile_payload_result(path: String) -> Dictionary:
 	}
 
 
+func _profile_requires_persist(raw_profile: Dictionary, migrated_profile: Dictionary) -> bool:
+	return raw_profile != migrated_profile
+
+
 func _remove_path_if_exists(path: String) -> void:
 	if not FileAccess.file_exists(path):
 		return
@@ -958,7 +1004,7 @@ func _maybe_enable_auto_test_session() -> void:
 	var test_scene := ""
 	for arg in OS.get_cmdline_args():
 		var value := String(arg).strip_edges()
-		if value.begins_with("res://tests/") and value.ends_with(".tscn"):
+		if value.begins_with("res://tests/") and (value.ends_with(".tscn") or value.ends_with(".gd")):
 			test_scene = value
 			break
 	if test_scene.is_empty():

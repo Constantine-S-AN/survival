@@ -20,6 +20,7 @@ const RESTAURANT_FIELD_STEW_DIALOGUE_TITLE := "field_stew_special"
 const MORNING_PHASE := "morning"
 const FIELD_STEW_RECIPE_ID := "field_stew"
 const CHINESE_DIALOGUE_SUFFIX := "_zh.dialogue"
+const COMPACT_DIALOGUE_BALLOON_SCENE := preload("res://scenes/ui/dialogue/CompactDialogueBalloon.tscn")
 const RARE_LOOT_IDS := [
 	"abyssfin",
 	"glow_kelp",
@@ -265,7 +266,11 @@ func _show_dialogue(resource_path: String, dialogue_title: String, dialogue_id: 
 	if resource == null:
 		push_warning("Failed to load dialogue resource: %s" % resolved_resource_path)
 		return
-	var balloon: Variant = dialogue_manager.call("show_dialogue_balloon", resource, dialogue_title)
+	var balloon: Variant = null
+	if dialogue_manager.has_method("show_dialogue_balloon_scene") and COMPACT_DIALOGUE_BALLOON_SCENE != null:
+		balloon = dialogue_manager.call("show_dialogue_balloon_scene", COMPACT_DIALOGUE_BALLOON_SCENE, resource, dialogue_title)
+	else:
+		balloon = dialogue_manager.call("show_dialogue_balloon", resource, dialogue_title)
 	if balloon == null:
 		return
 	_active_dialogue_resource_path = resource.resource_path

@@ -108,6 +108,196 @@
       ]
     },
     {
+      "id": "escort_convoy_wave_1",
+      "label": "Convoy Push Wave 1",
+      "label_zh": "护航推进波次 1",
+      "enemies": [
+        {"enemy_id": "shielded", "spawn_point": "North"},
+        {"enemy_id": "drifter", "spawn_point": "West"},
+        {"enemy_id": "drifter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "escort_convoy_wave_2",
+      "label": "Convoy Push Wave 2",
+      "label_zh": "护航推进波次 2",
+      "enemies": [
+        {"enemy_id": "shooter", "spawn_point": "NorthWest"},
+        {"enemy_id": "shooter", "spawn_point": "NorthEast"},
+        {"enemy_id": "sprinter", "spawn_point": "South"}
+      ]
+    },
+    {
+      "id": "escort_convoy_wave_3",
+      "label": "Convoy Push Wave 3",
+      "label_zh": "护航推进波次 3",
+      "enemies": [
+        {"enemy_id": "lurker", "spawn_point": "North", "allow_elite": true},
+        {"enemy_id": "sprinter", "spawn_point": "West"},
+        {"enemy_id": "sprinter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "escort_convoy_cleanup",
+      "label": "Convoy Cleanup",
+      "label_zh": "护航失败清场",
+      "enemies": [
+        {"enemy_id": "splitter", "spawn_point": "Center"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthWest"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthEast"}
+      ]
+    },
+    {
+      "id": "payload_hack_wave_1",
+      "label": "Payload Hack Wave 1",
+      "label_zh": "载荷劫持波次 1",
+      "enemies": [
+        {"enemy_id": "shielded", "spawn_point": "Center"},
+        {"enemy_id": "shooter", "spawn_point": "North"},
+        {"enemy_id": "drifter", "spawn_point": "West"},
+        {"enemy_id": "drifter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "payload_hack_wave_2",
+      "label": "Payload Hack Wave 2",
+      "label_zh": "载荷劫持波次 2",
+      "enemies": [
+        {"enemy_id": "lurker", "spawn_point": "North", "allow_elite": true},
+        {"enemy_id": "sprinter", "spawn_point": "SouthWest"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthEast"}
+      ]
+    },
+    {
+      "id": "payload_hack_cleanup",
+      "label": "Payload Cleanup",
+      "label_zh": "载荷劫持失败清场",
+      "enemies": [
+        {"enemy_id": "splitter", "spawn_point": "Center"},
+        {"enemy_id": "shooter", "spawn_point": "NorthWest"},
+        {"enemy_id": "shooter", "spawn_point": "NorthEast"}
+      ]
+    },
+    {
+      "id": "survive_timer_wave_1",
+      "label": "Floodgate Overload Wave 1",
+      "label_zh": "闸门超载波次 1",
+      "enemies": [
+        {"enemy_id": "shielded", "spawn_point": "Center"},
+        {"enemy_id": "lurker", "spawn_point": "West"},
+        {"enemy_id": "shooter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "survive_timer_repeat",
+      "label": "Floodgate Overload Repeat",
+      "label_zh": "闸门超载持续波",
+      "enemies": [
+        {"enemy_id": "sprinter", "spawn_point": "West"},
+        {"enemy_id": "sprinter", "spawn_point": "East"},
+        {"enemy_id": "ink_mite", "spawn_point": "North", "count": 2, "offset_radius": 18.0}
+      ]
+    },
+    {
+      "id": "elite_hunt_wave_1",
+      "label": "Pursuit Hunt Wave 1",
+      "label_zh": "追猎歼灭波次 1",
+      "enemies": [
+        {"enemy_id": "pursuer_stalker", "spawn_point": "North"},
+        {"enemy_id": "shooter", "spawn_point": "West"},
+        {"enemy_id": "shooter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "elite_hunt_wave_2",
+      "label": "Pursuit Hunt Wave 2",
+      "label_zh": "追猎歼灭波次 2",
+      "enemies": [
+        {"enemy_id": "pursuer_stalker", "spawn_point": "South"},
+        {"enemy_id": "sprinter", "spawn_point": "West"},
+        {"enemy_id": "sprinter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "elite_hunt_cleanup",
+      "label": "Pursuit Hunt Cleanup",
+      "label_zh": "追猎失败清场",
+      "enemies": [
+        {"enemy_id": "splitter", "spawn_point": "Center"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthWest"},
+        {"enemy_id": "sprinter", "spawn_point": "SouthEast"}
+      ]
+    },
+    {
+      "id": "power_reroute_wave_1",
+      "label": "Power Reroute Wave 1",
+      "label_zh": "电网改线波次 1",
+      "enemies": [
+        {"enemy_id": "shielded", "spawn_point": "North"},
+        {"enemy_id": "drifter", "spawn_point": "West"},
+        {"enemy_id": "drifter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "power_reroute_wave_2",
+      "label": "Power Reroute Wave 2",
+      "label_zh": "电网改线波次 2",
+      "enemies": [
+        {"enemy_id": "shooter", "spawn_point": "NorthWest"},
+        {"enemy_id": "shooter", "spawn_point": "NorthEast"},
+        {"enemy_id": "sprinter", "spawn_point": "South"}
+      ]
+    },
+    {
+      "id": "power_reroute_wave_3",
+      "label": "Power Reroute Wave 3",
+      "label_zh": "电网改线波次 3",
+      "enemies": [
+        {"enemy_id": "lurker", "spawn_point": "North", "allow_elite": true},
+        {"enemy_id": "splitter", "spawn_point": "Center"}
+      ]
+    },
+    {
+      "id": "power_reroute_cleanup",
+      "label": "Power Reroute Cleanup",
+      "label_zh": "电网改线失败清场",
+      "enemies": [
+        {"enemy_id": "splitter", "spawn_point": "Center"},
+        {"enemy_id": "sprinter", "spawn_point": "West"},
+        {"enemy_id": "sprinter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "cursed_cache_wave_1",
+      "label": "Cursed Cache Wave 1",
+      "label_zh": "诅咒缓存波次 1",
+      "enemies": [
+        {"enemy_id": "summoner", "spawn_point": "West"},
+        {"enemy_id": "shielded", "spawn_point": "Center"},
+        {"enemy_id": "lurker", "spawn_point": "East", "allow_elite": true}
+      ]
+    },
+    {
+      "id": "cursed_cache_wave_2",
+      "label": "Cursed Cache Wave 2",
+      "label_zh": "诅咒缓存波次 2",
+      "enemies": [
+        {"enemy_id": "ink_mite", "spawn_point": "Center", "count": 3, "offset_radius": 20.0},
+        {"enemy_id": "sprinter", "spawn_point": "West"},
+        {"enemy_id": "sprinter", "spawn_point": "East"}
+      ]
+    },
+    {
+      "id": "cursed_cache_cleanup",
+      "label": "Cursed Cache Cleanup",
+      "label_zh": "诅咒缓存失败清场",
+      "enemies": [
+        {"enemy_id": "splitter", "spawn_point": "North"},
+        {"enemy_id": "shooter", "spawn_point": "West"},
+        {"enemy_id": "shooter", "spawn_point": "East"}
+      ]
+    },
+    {
       "id": "apex_siren_phase_1",
       "label": "Apex Siren",
       "label_zh": "顶潮海妖",

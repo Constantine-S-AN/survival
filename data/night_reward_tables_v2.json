@@ -103,6 +103,480 @@
         "drop": 1.20,
         "meta_currency": 1.20
       }
+    },
+    {
+      "id": "route_key_cache",
+      "reward_kind": "route",
+      "label": "Skeleton Key",
+      "label_zh": "骨架钥匙",
+      "summary": "Gain 1 key, +36 XP now",
+      "summary_zh": "获得 1 把钥匙，立即 +36 经验",
+      "description": "A stripped access key that opens one contraband route before it burns out.",
+      "description_zh": "一把拆出来的通行钥匙，足够再打开一次夹层路线。",
+      "instant": {
+        "xp_pickups": 3,
+        "xp_amount": 12
+      },
+      "route_resources": {
+        "grant": {
+          "key": 1
+        }
+      }
+    },
+    {
+      "id": "route_curse_cleanse",
+      "reward_kind": "route",
+      "label": "Clean Slate Sigil",
+      "label_zh": "净咒印记",
+      "summary": "Spend 1 curse, META x1.05 this run",
+      "summary_zh": "消耗 1 层诅咒，本局元货币 x1.05",
+      "description": "A broker-marked seal that scrubs one layer of curse off the route ledger.",
+      "description_zh": "带有经纪人印记的净化封条，能把路线账本上的一层诅咒抹掉。",
+      "reward_multipliers": {
+        "meta_currency": 1.05
+      },
+      "route_resources": {
+        "require": {
+          "curse": 1
+        },
+        "cost": {
+          "curse": 1
+        }
+      }
+    }
+  ],
+  "shop_inventories": [
+    {
+      "id": "night_market_tier_1",
+      "refresh_cost_xp": 18,
+      "refresh_cost_step_xp": 6,
+      "refresh_cost_cap_xp": 36,
+      "slots": [
+        {
+          "id": "cache",
+          "label": "Cache",
+          "label_zh": "货包",
+          "offer_type": "bundle",
+          "price_offset": -12,
+          "entries": [
+            {
+              "id": "salvage_drift_pack",
+              "weight": 1.0,
+              "tags": ["utility", "harbor", "salvage"],
+              "theme_weights": {"harbor_rift": 2.4, "sunken_exchange": 0.8}
+            },
+            {
+              "id": "relay_field_rations",
+              "weight": 1.0,
+              "tags": ["sustain", "field", "objective"],
+              "theme_weights": {"harbor_rift": 1.3, "sunken_exchange": 1.0}
+            },
+            {
+              "id": "coil_haul",
+              "weight": 1.0,
+              "tags": ["materials", "coil", "exchange"],
+              "theme_weights": {"harbor_rift": 1.1, "sunken_exchange": 1.6}
+            },
+            {
+              "id": "spore_crate",
+              "weight": 0.8,
+              "tags": ["spore", "elite", "drop"],
+              "theme_weights": {"harbor_rift": 0.9, "sunken_exchange": 1.2}
+            }
+          ]
+        },
+        {
+          "id": "loadout_a",
+          "label": "Loadout",
+          "label_zh": "武装位",
+          "offer_type": "modifier",
+          "price_offset": 0,
+          "entries": [
+            {
+              "id": "trait_ricochet_rifling",
+              "weight": 1.0,
+              "tags": ["pierce", "lane", "precision"],
+              "theme_weights": {"harbor_rift": 1.8, "sunken_exchange": 0.9},
+              "build_tag_weights": {"pierce": 1.6, "lane": 1.4}
+            },
+            {
+              "id": "trait_chilled_chamber",
+              "weight": 1.0,
+              "tags": ["reveal", "precision", "control"],
+              "theme_weights": {"harbor_rift": 1.0, "sunken_exchange": 1.2},
+              "build_tag_weights": {"reveal": 1.6, "precision": 1.4}
+            },
+            {
+              "id": "trait_glass_current",
+              "weight": 1.0,
+              "tags": ["silence", "precision", "quiet", "reveal"],
+              "theme_weights": {"harbor_rift": 1.2, "sunken_exchange": 1.5},
+              "build_tag_weights": {"silence": 2.0, "precision": 1.8, "quiet": 1.8, "low_noise": 2.0}
+            },
+            {
+              "id": "trait_overcrank_burst",
+              "weight": 0.9,
+              "tags": ["burst", "overload", "high_noise", "tempo"],
+              "theme_weights": {"harbor_rift": 1.2, "sunken_exchange": 1.0},
+              "build_tag_weights": {"burst": 1.5, "overload": 1.8, "high_noise": 1.9, "tempo": 1.3}
+            },
+            {
+              "id": "trait_harpoon_spool",
+              "weight": 1.0,
+              "tags": ["precision", "crit", "harbor"],
+              "theme_weights": {"harbor_rift": 1.9, "sunken_exchange": 0.8},
+              "build_tag_weights": {"precision": 1.6, "crit": 1.4}
+            },
+            {
+              "id": "trait_breakwater_slide",
+              "weight": 0.95,
+              "tags": ["mobility", "dash", "skirmish", "position"],
+              "theme_weights": {"harbor_rift": 1.7, "sunken_exchange": 1.0},
+              "build_tag_weights": {"mobility": 2.2, "dash": 2.0, "skirmish": 1.8, "position": 1.6}
+            },
+            {
+              "id": "trait_relay_forge",
+              "weight": 0.9,
+              "tags": ["summon", "device", "trap", "orbit"],
+              "theme_weights": {"harbor_rift": 1.1, "sunken_exchange": 1.7},
+              "build_tag_weights": {"summon": 2.4, "device": 2.0, "trap": 1.8, "orbit": 1.8}
+            },
+            {
+              "id": "trait_mining_tip",
+              "weight": 1.0,
+              "tags": ["damage", "pierce", "objective"],
+              "theme_weights": {"harbor_rift": 1.4, "sunken_exchange": 1.1},
+              "build_tag_weights": {"damage": 1.5, "objective": 1.4}
+            }
+          ]
+        },
+        {
+          "id": "loadout_b",
+          "label": "Tuned Slot",
+          "label_zh": "强化位",
+          "offer_type": "modifier",
+          "price_offset": 12,
+          "entries": [
+            {
+              "id": "trait_ricochet_rifling",
+              "weight": 0.8,
+              "tags": ["pierce", "lane", "precision"],
+              "theme_weights": {"harbor_rift": 1.6, "sunken_exchange": 0.9},
+              "build_tag_weights": {"pierce": 1.6, "lane": 1.4}
+            },
+            {
+              "id": "trait_chilled_chamber",
+              "weight": 1.0,
+              "tags": ["reveal", "precision", "control"],
+              "theme_weights": {"harbor_rift": 1.0, "sunken_exchange": 1.3},
+              "build_tag_weights": {"reveal": 1.6, "precision": 1.4}
+            },
+            {
+              "id": "trait_glass_current",
+              "weight": 1.0,
+              "tags": ["silence", "precision", "quiet", "reveal"],
+              "theme_weights": {"harbor_rift": 1.2, "sunken_exchange": 1.6},
+              "build_tag_weights": {"silence": 2.0, "precision": 1.8, "quiet": 1.8, "low_noise": 2.0}
+            },
+            {
+              "id": "trait_overcrank_burst",
+              "weight": 1.0,
+              "tags": ["burst", "overload", "high_noise", "tempo"],
+              "theme_weights": {"harbor_rift": 1.3, "sunken_exchange": 1.0},
+              "build_tag_weights": {"burst": 1.5, "overload": 1.8, "high_noise": 1.9, "tempo": 1.3}
+            },
+            {
+              "id": "trait_harpoon_spool",
+              "weight": 0.9,
+              "tags": ["precision", "crit", "harbor"],
+              "theme_weights": {"harbor_rift": 1.8, "sunken_exchange": 0.8},
+              "build_tag_weights": {"precision": 1.6, "crit": 1.4}
+            },
+            {
+              "id": "trait_breakwater_slide",
+              "weight": 1.0,
+              "tags": ["mobility", "dash", "skirmish", "position"],
+              "theme_weights": {"harbor_rift": 1.8, "sunken_exchange": 1.0},
+              "build_tag_weights": {"mobility": 2.3, "dash": 2.1, "skirmish": 1.9, "position": 1.7}
+            },
+            {
+              "id": "trait_relay_forge",
+              "weight": 1.0,
+              "tags": ["summon", "device", "trap", "orbit"],
+              "theme_weights": {"harbor_rift": 1.1, "sunken_exchange": 1.8},
+              "build_tag_weights": {"summon": 2.5, "device": 2.1, "trap": 1.9, "orbit": 1.9}
+            },
+            {
+              "id": "trait_mining_tip",
+              "weight": 1.0,
+              "tags": ["damage", "pierce", "objective"],
+              "theme_weights": {"harbor_rift": 1.4, "sunken_exchange": 1.2},
+              "build_tag_weights": {"damage": 1.5, "objective": 1.4}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "night_market_tier_2",
+      "refresh_cost_xp": 24,
+      "refresh_cost_step_xp": 8,
+      "refresh_cost_cap_xp": 48,
+      "slots": [
+        {
+          "id": "premium_cache",
+          "label": "Premium Cache",
+          "label_zh": "高价货包",
+          "offer_type": "bundle",
+          "price_offset": -6,
+          "entries": [
+            {
+              "id": "route_key_cache",
+              "weight": 1.0,
+              "tags": ["route", "key", "harbor"],
+              "theme_weights": {"harbor_rift": 4.0, "sunken_exchange": 0.35}
+            },
+            {
+              "id": "route_curse_cleanse",
+              "weight": 1.0,
+              "tags": ["route", "cleanse", "exchange"],
+              "theme_weights": {"harbor_rift": 0.35, "sunken_exchange": 4.0}
+            }
+          ]
+        },
+        {
+          "id": "synergy_pick",
+          "label": "Synergy Pick",
+          "label_zh": "协同位",
+          "offer_type": "modifier",
+          "price_offset": 12,
+          "entries": [
+            {
+              "id": "trait_harpoon_spool",
+              "weight": 1.0,
+              "tags": ["precision", "crit", "harbor"],
+              "theme_weights": {"harbor_rift": 1.8, "sunken_exchange": 0.8},
+              "build_tag_weights": {"precision": 1.6, "crit": 1.4}
+            },
+            {
+              "id": "trait_glass_current",
+              "weight": 0.95,
+              "tags": ["silence", "precision", "quiet", "reveal"],
+              "theme_weights": {"harbor_rift": 1.1, "sunken_exchange": 1.8},
+              "build_tag_weights": {"silence": 2.6, "precision": 2.2, "quiet": 2.0, "low_noise": 2.4}
+            },
+            {
+              "id": "trait_split_core",
+              "weight": 1.0,
+              "tags": ["volley", "damage", "rare"],
+              "theme_weights": {"harbor_rift": 1.6, "sunken_exchange": 1.0},
+              "build_tag_weights": {"volley": 1.7, "damage": 1.3}
+            },
+            {
+              "id": "trait_overcrank_burst",
+              "weight": 0.95,
+              "tags": ["burst", "overload", "high_noise", "tempo"],
+              "theme_weights": {"harbor_rift": 1.5, "sunken_exchange": 0.9},
+              "build_tag_weights": {"overload": 2.8, "high_noise": 3.0, "burst": 2.0, "tempo": 1.7}
+            },
+            {
+              "id": "trait_mining_tip",
+              "weight": 0.9,
+              "tags": ["damage", "pierce", "objective"],
+              "theme_weights": {"harbor_rift": 1.4, "sunken_exchange": 1.1},
+              "build_tag_weights": {"damage": 1.5, "objective": 1.4}
+            },
+            {
+              "id": "trait_salt_edge",
+              "weight": 1.0,
+              "tags": ["precision", "elite", "exchange"],
+              "theme_weights": {"harbor_rift": 0.8, "sunken_exchange": 1.9},
+              "build_tag_weights": {"precision": 1.6, "elite": 1.5}
+            },
+            {
+              "id": "trait_sonar_fins",
+              "weight": 1.0,
+              "tags": ["reveal", "damage", "exchange"],
+              "theme_weights": {"harbor_rift": 0.9, "sunken_exchange": 1.8},
+              "build_tag_weights": {"reveal": 1.7, "damage": 1.3}
+            },
+            {
+              "id": "trait_breakwater_slide",
+              "weight": 1.0,
+              "tags": ["mobility", "dash", "skirmish", "position"],
+              "theme_weights": {"harbor_rift": 1.8, "sunken_exchange": 1.0},
+              "build_tag_weights": {"mobility": 3.2, "dash": 2.8, "skirmish": 2.4, "position": 2.0}
+            },
+            {
+              "id": "trait_relay_forge",
+              "weight": 1.0,
+              "tags": ["summon", "device", "trap", "orbit"],
+              "theme_weights": {"harbor_rift": 1.1, "sunken_exchange": 2.0},
+              "build_tag_weights": {"summon": 3.4, "device": 2.8, "trap": 2.4, "orbit": 2.6}
+            },
+            {
+              "id": "trait_conductive_chain",
+              "weight": 1.0,
+              "tags": ["aoe", "volley", "exchange"],
+              "theme_weights": {"harbor_rift": 0.9, "sunken_exchange": 2.0},
+              "build_tag_weights": {"aoe": 1.7, "volley": 1.5}
+            }
+          ]
+        },
+        {
+          "id": "rare_pick",
+          "label": "Rare Slot",
+          "label_zh": "稀有位",
+          "offer_type": "modifier",
+          "price_offset": 24,
+          "rare_slot": true,
+          "rarity": "rare",
+          "entries": [
+            {
+              "id": "relic_tide_lens",
+              "weight": 1.0,
+              "tags": ["pressure", "overload", "high_noise", "tempo", "relic", "rare"],
+              "theme_weights": {"harbor_rift": 4.5, "sunken_exchange": 0.35},
+              "build_tag_weights": {"pressure": 1.8, "overload": 2.0, "high_noise": 2.2, "tempo": 1.5, "damage": 1.4},
+              "rarity": "rare"
+            },
+            {
+              "id": "relic_hush_compass",
+              "weight": 0.85,
+              "tags": ["silence", "precision", "relic", "rare"],
+              "theme_weights": {"harbor_rift": 0.9, "sunken_exchange": 0.75},
+              "build_tag_weights": {"silence": 2.8, "precision": 2.6, "quiet": 2.4, "low_noise": 3.0, "reveal": 1.8},
+              "rarity": "rare"
+            },
+            {
+              "id": "relic_riptide_gyro",
+              "weight": 0.95,
+              "tags": ["mobility", "dash", "skirmish", "position", "relic", "rare"],
+              "theme_weights": {"harbor_rift": 0.35, "sunken_exchange": 0.65},
+              "build_tag_weights": {"mobility": 3.8, "dash": 3.2, "skirmish": 2.8, "position": 2.2},
+              "rarity": "rare"
+            },
+            {
+              "id": "relic_ballast_array",
+              "weight": 0.95,
+              "tags": ["summon", "device", "trap", "orbit", "relic", "rare"],
+              "theme_weights": {"harbor_rift": 0.25, "sunken_exchange": 1.3},
+              "build_tag_weights": {"summon": 4.2, "device": 3.4, "trap": 2.8, "orbit": 3.0},
+              "rarity": "rare"
+            },
+            {
+              "id": "relic_black_ledger",
+              "weight": 1.0,
+              "tags": ["return", "economy", "meta", "relic", "legendary"],
+              "theme_weights": {"harbor_rift": 0.45, "sunken_exchange": 4.2},
+              "build_tag_weights": {"return": 2.0, "economy": 1.8, "meta": 1.7},
+              "rarity": "legendary"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "shrine_pools": [
+    {
+      "id": "tide_statue_pool",
+      "fallback_direction_id": "pressure",
+      "directions": [
+        {
+          "id": "pressure",
+          "label": "Pressure Current",
+          "label_zh": "压制潮流",
+          "cost_type": "hp",
+          "cost_value": 10,
+          "entries": [
+            "blessing_tide_burst",
+            "blessing_hunter_gull",
+            "blessing_omen_lowtide"
+          ]
+        },
+        {
+          "id": "silence",
+          "label": "Silent Wake",
+          "label_zh": "静潮回迹",
+          "cost_type": "noise",
+          "cost_value": 12,
+          "entries": [
+            "blessing_anchor_spark",
+            "blessing_shell_guard",
+            "blessing_choir_silence"
+          ]
+        },
+        {
+          "id": "return",
+          "label": "Return Ledger",
+          "label_zh": "返航账本",
+          "cost_type": "curse",
+          "cost_value": 1,
+          "route_resources": {
+            "require": {
+              "contract": 1
+            },
+            "cost": {
+              "contract": 1
+            }
+          },
+          "entries": [
+            "blessing_broker_surge",
+            "blessing_harbor_light",
+            "blessing_shell_guard"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "undertow_altar_pool",
+      "fallback_direction_id": "pressure",
+      "directions": [
+        {
+          "id": "pressure",
+          "label": "Undertow Spike",
+          "label_zh": "暗流尖锋",
+          "cost_type": "hp",
+          "cost_value": 14,
+          "entries": [
+            "blessing_omen_lowtide",
+            "blessing_tide_burst",
+            "blessing_hunter_gull"
+          ]
+        },
+        {
+          "id": "silence",
+          "label": "Low-Tide Hymn",
+          "label_zh": "低潮静歌",
+          "cost_type": "noise",
+          "cost_value": 16,
+          "entries": [
+            "blessing_choir_silence",
+            "blessing_anchor_spark",
+            "blessing_shell_guard"
+          ]
+        },
+        {
+          "id": "return",
+          "label": "Black Ledger",
+          "label_zh": "黑潮账本",
+          "cost_type": "curse",
+          "cost_value": 2,
+          "route_resources": {
+            "require": {
+              "contract": 1
+            },
+            "cost": {
+              "contract": 1
+            }
+          },
+          "entries": [
+            "blessing_broker_surge",
+            "blessing_harbor_light",
+            "blessing_omen_lowtide"
+          ]
+        }
+      ]
     }
   ],
   "tables": [
@@ -128,7 +602,9 @@
           "entries": [
             "trait_ricochet_rifling",
             "trait_chilled_chamber",
-            "trait_overcrank_burst"
+            "trait_glass_current",
+            "trait_overcrank_burst",
+            "trait_breakwater_slide"
           ]
         },
         "blessing": {
@@ -136,7 +612,8 @@
           "entries": [
             "blessing_tide_burst",
             "blessing_anchor_spark",
-            "blessing_hunter_gull"
+            "blessing_hunter_gull",
+            "blessing_riptide_step"
           ]
         }
       }
@@ -165,7 +642,9 @@
             "trait_ricochet_rifling",
             "trait_harpoon_spool",
             "trait_mining_tip",
-            "trait_scavenger_feed"
+            "trait_scavenger_feed",
+            "trait_breakwater_slide",
+            "trait_relay_forge"
           ]
         },
         "blessing": {
@@ -173,7 +652,8 @@
           "entries": [
             "blessing_tide_burst",
             "blessing_shell_guard",
-            "blessing_broker_surge"
+            "blessing_broker_surge",
+            "blessing_dockyard_creed"
           ]
         }
       }
@@ -201,7 +681,9 @@
             "trait_split_core",
             "trait_mining_tip",
             "trait_salt_edge",
-            "trait_sonar_fins"
+            "trait_sonar_fins",
+            "trait_glass_current",
+            "trait_relay_forge"
           ]
         },
         "blessing": {
@@ -209,7 +691,8 @@
           "entries": [
             "blessing_shell_guard",
             "blessing_omen_lowtide",
-            "blessing_choir_silence"
+            "blessing_choir_silence",
+            "blessing_redline_howl"
           ]
         }
       }
@@ -237,7 +720,9 @@
             "trait_salt_edge",
             "trait_sonar_fins",
             "trait_conductive_chain",
-            "trait_split_core"
+            "trait_split_core",
+            "trait_breakwater_slide",
+            "trait_relay_forge"
           ]
         },
         "blessing": {
@@ -245,7 +730,9 @@
           "entries": [
             "blessing_broker_surge",
             "blessing_omen_lowtide",
-            "blessing_harbor_light"
+            "blessing_harbor_light",
+            "blessing_redline_howl",
+            "blessing_riptide_step"
           ]
         }
       }
@@ -273,7 +760,9 @@
             "trait_salt_edge",
             "trait_conductive_chain",
             "trait_split_core",
-            "trait_mining_tip"
+            "trait_mining_tip",
+            "trait_breakwater_slide",
+            "trait_relay_forge"
           ]
         },
         "blessing": {
@@ -281,7 +770,9 @@
           "entries": [
             "blessing_choir_silence",
             "blessing_harbor_light",
-            "blessing_shell_guard"
+            "blessing_shell_guard",
+            "blessing_dockyard_creed",
+            "blessing_redline_howl"
           ]
         }
       }

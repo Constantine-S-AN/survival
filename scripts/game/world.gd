@@ -373,8 +373,9 @@ func _ready() -> void:
 	_hit_fx_sprite_pool_root = Node2D.new()
 	_hit_fx_sprite_pool_root.name = "HitFxSpritePoolRoot"
 	add_child(_hit_fx_sprite_pool_root)
-	_configure_synth_player(hit_sfx)
-	_configure_synth_player(shot_sfx)
+	if _runtime_synth_audio_enabled():
+		_configure_synth_player(hit_sfx)
+		_configure_synth_player(shot_sfx)
 	_setup_pools()
 	apply_fog_config(DataRegistry.get_fog_config())
 	set_fog_enabled(bool(fog_config.get("enabled", true)))
@@ -394,6 +395,15 @@ func _ready() -> void:
 		enemy_manager.boss_true_form_revealed.connect(_on_boss_true_form_revealed)
 	set_process(true)
 	queue_redraw()
+
+
+func _exit_tree() -> void:
+	shutdown_runtime()
+
+
+func shutdown_runtime() -> void:
+	_shutdown_synth_player(hit_sfx)
+	_shutdown_synth_player(shot_sfx)
 
 
 func _next_runtime_seed() -> int:
@@ -2277,28 +2287,48 @@ func _configure_synth_player(player_ref: AudioStreamPlayer) -> void:
 	player_ref.stream = stream
 
 
-func _play_shot_sfx(intensity: float) -> void:
-	shot_sfx.play()
-	var playback = shot_sfx.get_stream_playback()
+func _runtime_synth_audio_enabled() -> bool:
+	return DisplayServer.get_name() != "headless"
+
+
+func _shutdown_synth_player(player_ref: AudioStreamPlayer) -> void:
+	if player_ref == null:
+		return
+	player_ref.stop()
+	player_ref.stream = null
+
+
+func _get_synth_playback(player_ref: AudioStreamPlayer) -> AudioStreamGeneratorPlayback:
+	if player_ref == null or not is_instance_valid(player_ref):
+		return null
+	if not (player_ref.stream is AudioStreamGenerator):
+		return null
+	player_ref.play()
+	var playback = player_ref.get_stream_playback()
 	if playback is AudioStreamGeneratorPlayback:
-		var generator: AudioStreamGeneratorPlayback = playback
-		var sample_rate := 44100.0
-		var length := 0.055
-		var freq_base := sfx_rng.randf_range(620.0, 780.0)
-		for i in range(int(sample_rate * length)):
-			var t := float(i) / sample_rate
-			var env := exp(-t * 42.0)
-			var wave := sin(TAU * (freq_base - 260.0 * t) * t)
-			var sample := wave * env * (0.09 + intensity * 0.18)
-			generator.push_frame(Vector2(sample, sample))
+		return playback
+	return null
+
+
+func _play_shot_sfx(intensity: float) -> void:
+	var generator := _get_synth_playback(shot_sfx)
+	if generator == null:
+		return
+	var sample_rate := 44100.0
+	var length := 0.055
+	var freq_base := sfx_rng.randf_range(620.0, 780.0)
+	for i in range(int(sample_rate * length)):
+		var t := float(i) / sample_rate
+		var env := exp(-t * 42.0)
+		var wave := sin(TAU * (freq_base - 260.0 * t) * t)
+		var sample := wave * env * (0.09 + intensity * 0.18)
+		generator.push_frame(Vector2(sample, sample))
 
 
 func _play_flare_skill_sfx(intensity: float, ping_count: int = -1) -> void:
-	shot_sfx.play()
-	var playback = shot_sfx.get_stream_playback()
-	if not (playback is AudioStreamGeneratorPlayback):
+	var generator := _get_synth_playback(shot_sfx)
+	if generator == null:
 		return
-	var generator: AudioStreamGeneratorPlayback = playback
 	var sample_rate := 44100.0
 	var length := 0.24
 	var count_boost := 1.0 + clampf(float(maxi(0, ping_count)) * 0.03, 0.0, 0.24)
@@ -2312,67 +2342,65 @@ func _play_flare_skill_sfx(intensity: float, ping_count: int = -1) -> void:
 
 
 func _play_hit_sfx(intensity: float, killed: bool, is_crit: bool = false, style: Dictionary = {}) -> void:
-	hit_sfx.play()
-	var playback = hit_sfx.get_stream_playback()
-	if playback is AudioStreamGeneratorPlayback:
-		var generator: AudioStreamGeneratorPlayback = playback
-		var sample_rate := 44100.0
-		var accent := clampf(intensity, 0.04, 1.0)
-		var transient_variant: Variant = style.get("transient", {})
-		var transient: Dictionary = transient_variant if transient_variant is Dictionary else {}
-		var pitch_mult := clampf(float(transient.get("pitch_mult", 1.0)), 0.65, 1.55)
-		var click_gain := clampf(float(transient.get("click_gain", 1.0)), 0.45, 1.70)
-		var low_gain := clampf(float(transient.get("low_gain", 1.0)), 0.45, 1.90)
-		var high_gain := clampf(float(transient.get("high_gain", 1.0)), 0.45, 1.90)
-		var noise_gain := clampf(float(transient.get("noise_gain", 1.0)), 0.20, 1.90)
-		var rhythm_hz_add := clampf(float(transient.get("rhythm_hz_add", 0.0)), -3.0, 4.0)
-		var length := 0.090 + accent * 0.020 + (0.034 if killed else 0.0) + (0.018 if is_crit else 0.0)
-		var freq_base := sfx_rng.randf_range(740.0, 980.0) * pitch_mult
-		var rhythm_hz := 10.8 + accent * 5.6 + rhythm_hz_add
-		var beat_phase := sfx_rng.randf_range(0.0, TAU)
-		var crit_mix := 1.0 if is_crit else 0.0
-		var kill_mix := 1.0 if killed else 0.0
-		for i in range(int(sample_rate * length)):
-			var t := float(i) / sample_rate
-			var body_env := exp(-t * (24.0 - accent * 4.0))
-			var click_env := exp(-t * (78.0 + accent * 26.0))
-			var body_wave := sin(TAU * (freq_base - (360.0 + accent * 200.0) * t) * t)
-			var click_wave := sin(TAU * (freq_base * 2.25 + 1220.0 * t) * t)
-			var sub_wave := sin(TAU * (freq_base * 0.46 + 22.0 * sin(t * 33.0)) * t)
-			var crit_env := exp(-t * (118.0 - accent * 24.0))
-			var crit_wave := sin(TAU * (1840.0 + 460.0 * sin(t * 30.0)) * t + beat_phase * 0.4)
-			var crit_hiss := sin(TAU * (2440.0 + 820.0 * t) * t)
-			var kill_env := exp(-t * 10.8)
-			var kill_wave := sin(TAU * (freq_base * 0.34 + 18.0 * sin(t * 20.0)) * t)
-			var noise := sfx_rng.randf_range(-1.0, 1.0)
-			var rhythm_gate := 0.84 + 0.16 * sin(TAU * rhythm_hz * t + beat_phase)
-			var sample := (
-				body_wave * (0.66 * low_gain) * body_env +
-				click_wave * (0.42 * click_gain) * click_env +
-				sub_wave * (0.28 * low_gain) * body_env +
-				noise * (0.22 * noise_gain) * click_env +
-				(crit_wave * (0.26 * high_gain) + crit_hiss * (0.14 * high_gain)) * crit_env * crit_mix +
-				kill_wave * (0.34 * low_gain) * kill_env * kill_mix
-			) * rhythm_gate * (0.10 + accent * 0.22)
-			if killed:
-				sample += sin(TAU * (freq_base * 1.38 + 180.0 * t) * t) * exp(-t * 13.5) * (0.10 * low_gain)
-			sample = clampf(sample, -0.95, 0.95)
-			generator.push_frame(Vector2(sample, sample))
+	var generator := _get_synth_playback(hit_sfx)
+	if generator == null:
+		return
+	var sample_rate := 44100.0
+	var accent := clampf(intensity, 0.04, 1.0)
+	var transient_variant: Variant = style.get("transient", {})
+	var transient: Dictionary = transient_variant if transient_variant is Dictionary else {}
+	var pitch_mult := clampf(float(transient.get("pitch_mult", 1.0)), 0.65, 1.55)
+	var click_gain := clampf(float(transient.get("click_gain", 1.0)), 0.45, 1.70)
+	var low_gain := clampf(float(transient.get("low_gain", 1.0)), 0.45, 1.90)
+	var high_gain := clampf(float(transient.get("high_gain", 1.0)), 0.45, 1.90)
+	var noise_gain := clampf(float(transient.get("noise_gain", 1.0)), 0.20, 1.90)
+	var rhythm_hz_add := clampf(float(transient.get("rhythm_hz_add", 0.0)), -3.0, 4.0)
+	var length := 0.090 + accent * 0.020 + (0.034 if killed else 0.0) + (0.018 if is_crit else 0.0)
+	var freq_base := sfx_rng.randf_range(740.0, 980.0) * pitch_mult
+	var rhythm_hz := 10.8 + accent * 5.6 + rhythm_hz_add
+	var beat_phase := sfx_rng.randf_range(0.0, TAU)
+	var crit_mix := 1.0 if is_crit else 0.0
+	var kill_mix := 1.0 if killed else 0.0
+	for i in range(int(sample_rate * length)):
+		var t := float(i) / sample_rate
+		var body_env := exp(-t * (24.0 - accent * 4.0))
+		var click_env := exp(-t * (78.0 + accent * 26.0))
+		var body_wave := sin(TAU * (freq_base - (360.0 + accent * 200.0) * t) * t)
+		var click_wave := sin(TAU * (freq_base * 2.25 + 1220.0 * t) * t)
+		var sub_wave := sin(TAU * (freq_base * 0.46 + 22.0 * sin(t * 33.0)) * t)
+		var crit_env := exp(-t * (118.0 - accent * 24.0))
+		var crit_wave := sin(TAU * (1840.0 + 460.0 * sin(t * 30.0)) * t + beat_phase * 0.4)
+		var crit_hiss := sin(TAU * (2440.0 + 820.0 * t) * t)
+		var kill_env := exp(-t * 10.8)
+		var kill_wave := sin(TAU * (freq_base * 0.34 + 18.0 * sin(t * 20.0)) * t)
+		var noise := sfx_rng.randf_range(-1.0, 1.0)
+		var rhythm_gate := 0.84 + 0.16 * sin(TAU * rhythm_hz * t + beat_phase)
+		var sample := (
+			body_wave * (0.66 * low_gain) * body_env +
+			click_wave * (0.42 * click_gain) * click_env +
+			sub_wave * (0.28 * low_gain) * body_env +
+			noise * (0.22 * noise_gain) * click_env +
+			(crit_wave * (0.26 * high_gain) + crit_hiss * (0.14 * high_gain)) * crit_env * crit_mix +
+			kill_wave * (0.34 * low_gain) * kill_env * kill_mix
+		) * rhythm_gate * (0.10 + accent * 0.22)
+		if killed:
+			sample += sin(TAU * (freq_base * 1.38 + 180.0 * t) * t) * exp(-t * 13.5) * (0.10 * low_gain)
+		sample = clampf(sample, -0.95, 0.95)
+		generator.push_frame(Vector2(sample, sample))
 
 
 func play_pursuer_warning_sfx() -> void:
-	shot_sfx.play()
-	var playback = shot_sfx.get_stream_playback()
-	if playback is AudioStreamGeneratorPlayback:
-		var generator: AudioStreamGeneratorPlayback = playback
-		var sample_rate := 44100.0
-		var length := 0.16
-		for i in range(int(sample_rate * length)):
-			var t := float(i) / sample_rate
-			var env := exp(-t * 11.0)
-			var sweep := 560.0 + 320.0 * sin(t * TAU * 4.0)
-			var sample := sin(TAU * sweep * t) * env * 0.20
-			generator.push_frame(Vector2(sample, sample))
+	var generator := _get_synth_playback(shot_sfx)
+	if generator == null:
+		return
+	var sample_rate := 44100.0
+	var length := 0.16
+	for i in range(int(sample_rate * length)):
+		var t := float(i) / sample_rate
+		var env := exp(-t * 11.0)
+		var sweep := 560.0 + 320.0 * sin(t * TAU * 4.0)
+		var sample := sin(TAU * sweep * t) * env * 0.20
+		generator.push_frame(Vector2(sample, sample))
 
 
 func play_telegraph_sfx(bucket: String, severity: float = 1.0, text_key: String = "") -> void:
@@ -2399,78 +2427,73 @@ func play_telegraph_sfx(bucket: String, severity: float = 1.0, text_key: String 
 
 
 func play_warning_ping_sfx(severity: float = 1.0) -> void:
-	shot_sfx.play()
-	var playback = shot_sfx.get_stream_playback()
-	if playback is AudioStreamGeneratorPlayback:
-		var generator: AudioStreamGeneratorPlayback = playback
-		var sample_rate := 44100.0
-		var length := 0.08 + clampf(severity, 0.1, 3.0) * 0.02
-		var freq := 720.0 + 60.0 * clampf(severity, 0.1, 3.0)
-		for i in range(int(sample_rate * length)):
-			var t := float(i) / sample_rate
-			var env := exp(-t * 21.0)
-			var sample := sin(TAU * freq * t) * env * 0.12
-			generator.push_frame(Vector2(sample, sample))
+	var generator := _get_synth_playback(shot_sfx)
+	if generator == null:
+		return
+	var sample_rate := 44100.0
+	var length := 0.08 + clampf(severity, 0.1, 3.0) * 0.02
+	var freq := 720.0 + 60.0 * clampf(severity, 0.1, 3.0)
+	for i in range(int(sample_rate * length)):
+		var t := float(i) / sample_rate
+		var env := exp(-t * 21.0)
+		var sample := sin(TAU * freq * t) * env * 0.12
+		generator.push_frame(Vector2(sample, sample))
 
 
 func play_boss_warning_sfx() -> void:
-	hit_sfx.play()
-	var playback = hit_sfx.get_stream_playback()
-	if playback is AudioStreamGeneratorPlayback:
-		var generator: AudioStreamGeneratorPlayback = playback
-		var sample_rate := 44100.0
-		var length := 0.28
-		for i in range(int(sample_rate * length)):
-			var t := float(i) / sample_rate
-			var env := exp(-t * 7.6)
-			var freq := 210.0 + 70.0 * sin(t * TAU * 2.0)
-			var sample := sin(TAU * freq * t) * env * 0.27
-			generator.push_frame(Vector2(sample, sample))
+	var generator := _get_synth_playback(hit_sfx)
+	if generator == null:
+		return
+	var sample_rate := 44100.0
+	var length := 0.28
+	for i in range(int(sample_rate * length)):
+		var t := float(i) / sample_rate
+		var env := exp(-t * 7.6)
+		var freq := 210.0 + 70.0 * sin(t * TAU * 2.0)
+		var sample := sin(TAU * freq * t) * env * 0.27
+		generator.push_frame(Vector2(sample, sample))
 
 
 func play_boss_phase2_sfx() -> void:
-	hit_sfx.play()
-	var playback = hit_sfx.get_stream_playback()
-	if playback is AudioStreamGeneratorPlayback:
-		var generator: AudioStreamGeneratorPlayback = playback
-		var sample_rate := 44100.0
-		var length := 0.32
-		for i in range(int(sample_rate * length)):
-			var t := float(i) / sample_rate
-			var env := exp(-t * 6.4)
-			var freq := 140.0 + 110.0 * sin(t * TAU * 3.2)
-			var sample := sin(TAU * freq * t) * env * 0.31
-			generator.push_frame(Vector2(sample, sample))
+	var generator := _get_synth_playback(hit_sfx)
+	if generator == null:
+		return
+	var sample_rate := 44100.0
+	var length := 0.32
+	for i in range(int(sample_rate * length)):
+		var t := float(i) / sample_rate
+		var env := exp(-t * 6.4)
+		var freq := 140.0 + 110.0 * sin(t * TAU * 3.2)
+		var sample := sin(TAU * freq * t) * env * 0.31
+		generator.push_frame(Vector2(sample, sample))
 
 
 func play_boss_echo_spawn_sfx() -> void:
-	shot_sfx.play()
-	var playback = shot_sfx.get_stream_playback()
-	if playback is AudioStreamGeneratorPlayback:
-		var generator: AudioStreamGeneratorPlayback = playback
-		var sample_rate := 44100.0
-		var length := 0.14
-		for i in range(int(sample_rate * length)):
-			var t := float(i) / sample_rate
-			var env := exp(-t * 13.0)
-			var freq := 460.0 + 220.0 * sin(t * TAU * 6.0)
-			var sample := sin(TAU * freq * t) * env * 0.19
-			generator.push_frame(Vector2(sample, sample))
+	var generator := _get_synth_playback(shot_sfx)
+	if generator == null:
+		return
+	var sample_rate := 44100.0
+	var length := 0.14
+	for i in range(int(sample_rate * length)):
+		var t := float(i) / sample_rate
+		var env := exp(-t * 13.0)
+		var freq := 460.0 + 220.0 * sin(t * TAU * 6.0)
+		var sample := sin(TAU * freq * t) * env * 0.19
+		generator.push_frame(Vector2(sample, sample))
 
 
 func play_boss_true_reveal_sfx() -> void:
-	hit_sfx.play()
-	var playback = hit_sfx.get_stream_playback()
-	if playback is AudioStreamGeneratorPlayback:
-		var generator: AudioStreamGeneratorPlayback = playback
-		var sample_rate := 44100.0
-		var length := 0.18
-		for i in range(int(sample_rate * length)):
-			var t := float(i) / sample_rate
-			var env := exp(-t * 10.0)
-			var sweep := 280.0 + 640.0 * t
-			var sample := sin(TAU * sweep * t) * env * 0.24
-			generator.push_frame(Vector2(sample, sample))
+	var generator := _get_synth_playback(hit_sfx)
+	if generator == null:
+		return
+	var sample_rate := 44100.0
+	var length := 0.18
+	for i in range(int(sample_rate * length)):
+		var t := float(i) / sample_rate
+		var env := exp(-t * 10.0)
+		var sweep := 280.0 + 640.0 * t
+		var sample := sin(TAU * sweep * t) * env * 0.24
+		generator.push_frame(Vector2(sample, sample))
 
 
 func _draw() -> void:

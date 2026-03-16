@@ -1564,7 +1564,15 @@ func _t(key: String, args: Dictionary = {}) -> String:
 	return String(Localization.call("t", key, args))
 
 
+func stop_session() -> void:
+	get_tree().set_deferred("paused", false)
+	_clear_hitstop_state(true)
+	if world != null and is_instance_valid(world) and world.has_method("shutdown_runtime"):
+		world.call("shutdown_runtime")
+	set_process(false)
+
+
 func _exit_tree() -> void:
 	if run_started and run_state == STATE_PLAYING:
 		_evaluate_character_unlocks()
-	_clear_hitstop_state(true)
+	stop_session()

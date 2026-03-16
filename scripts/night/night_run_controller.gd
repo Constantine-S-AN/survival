@@ -79,54 +79,10 @@ const ROOM_THEME := {
 	"event": {"floor": Color(0.40, 0.27, 0.21, 0.96), "outline": Color(1.0, 0.69, 0.47, 1.0)},
 	"boss": {"floor": Color(0.36, 0.20, 0.24, 0.98), "outline": Color(1.0, 0.56, 0.62, 1.0)}
 }
-const SHRINE_BLESSING_POOLS := {
-	"tide_statue_pool": [
-		"blessing_tide_burst",
-		"blessing_anchor_spark",
-		"blessing_shell_guard",
-		"blessing_hunter_gull",
-		"blessing_broker_surge",
-		"blessing_omen_lowtide",
-		"blessing_choir_silence",
-		"blessing_harbor_light"
-	],
-	"undertow_altar_pool": [
-		"blessing_shell_guard",
-		"blessing_hunter_gull",
-		"blessing_broker_surge",
-		"blessing_omen_lowtide",
-		"blessing_choir_silence",
-		"blessing_harbor_light"
-	]
-}
-const SHOP_INVENTORY_POOLS := {
-	"night_market_tier_1": {
-		"bundle_entries": ["salvage_drift_pack", "relay_field_rations", "coil_haul"],
-		"trait_entries": [
-			"trait_ricochet_rifling",
-			"trait_chilled_chamber",
-			"trait_overcrank_burst",
-			"trait_harpoon_spool",
-			"trait_mining_tip"
-		],
-		"price_offsets": [-12, 0, 12]
-	},
-	"night_market_tier_2": {
-		"bundle_entries": ["challenge_bounty", "sanctum_manifest", "coil_haul"],
-		"trait_entries": [
-			"trait_harpoon_spool",
-			"trait_split_core",
-			"trait_mining_tip",
-			"trait_salt_edge",
-			"trait_sonar_fins",
-			"trait_conductive_chain"
-		],
-		"price_offsets": [-6, 12, 24]
-	}
-}
 const ROOM_INTERACTION_OFFSETS := {
 	"shrine": Vector2(0.0, -52.0),
 	"shop": Vector2(0.0, -8.0),
+	"breach": Vector2(116.0, -18.0),
 	"generic": Vector2.ZERO
 }
 
@@ -195,6 +151,17 @@ var _pending_entry_anchor_side: String = ""
 var _current_room_entry_anchor_side: String = ""
 var _active_room_interactions: Array = []
 var _focused_room_interaction_id: String = ""
+var _shrine_sessions_by_room_id: Dictionary = {}
+var _shrine_action_log: Array[Dictionary] = []
+var _shop_sessions_by_room_id: Dictionary = {}
+var _shop_action_log: Array[Dictionary] = []
+var _route_resources: Dictionary = {}
+var _route_resource_start_state: Dictionary = {}
+var _route_resource_action_log: Array[Dictionary] = []
+var _revealed_hidden_room_ids: Dictionary = {}
+var _hidden_reveal_log: Array[Dictionary] = []
+var _peak_room_log: Array[Dictionary] = []
+var _objective_material_log: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -318,6 +285,17 @@ func stop_session() -> void:
 	_world = null
 	_active_request.clear()
 	_floor_mutator_controller.reset()
+	_shrine_sessions_by_room_id.clear()
+	_shrine_action_log.clear()
+	_shop_sessions_by_room_id.clear()
+	_shop_action_log.clear()
+	_route_resources.clear()
+	_route_resource_start_state.clear()
+	_route_resource_action_log.clear()
+	_revealed_hidden_room_ids.clear()
+	_hidden_reveal_log.clear()
+	_peak_room_log.clear()
+	_objective_material_log.clear()
 	_refresh_boss_panel()
 	_refresh_extraction_panel()
 
@@ -332,6 +310,9 @@ func debug_get_snapshot() -> Dictionary:
 	var modifier_snapshot := _run_modifier_state.get_snapshot()
 	var floor_mutator_snapshot := _floor_mutator_controller.get_current_mutator()
 	var floor_mutator_state := _floor_mutator_controller.get_snapshot()
+	var shrine_snapshot := _build_current_shrine_snapshot()
+	var shop_snapshot := _build_current_shop_snapshot()
+	var route_resource_snapshot := _snapshot_route_resources()
 	var room_render_parent := ""
 	var room_scene_scale := Vector2.ONE
 	var room_position := Vector2.ZERO
@@ -398,6 +379,7 @@ func debug_get_snapshot() -> Dictionary:
 		"room_reward_claimed": bool(_current_room.reward_claimed) if _current_room != null else false,
 		"room_goal": bool(_current_room.is_goal) if _current_room != null else false,
 		"room_note": _last_room_note,
+		"status_text": _resolve_status_text(),
 		"room_render_parent": room_render_parent,
 		"room_position": room_position,
 		"room_scene_scale": room_scene_scale,
@@ -424,17 +406,31 @@ func debug_get_snapshot() -> Dictionary:
 		"reward_panel_visible": reward_panel != null and reward_panel.visible,
 		"interaction_panel_visible": interaction_panel != null and interaction_panel.visible,
 		"reward_choices": _pending_room_rewards.duplicate(true),
+		"shrine_state": shrine_snapshot,
+		"shrine_action_log": _shrine_action_log.duplicate(true),
+		"shop_state": shop_snapshot,
+		"shop_action_log": _shop_action_log.duplicate(true),
+		"route_resources": route_resource_snapshot,
+		"route_resource_start_state": _route_resource_start_state.duplicate(true),
+		"route_resource_action_log": _route_resource_action_log.duplicate(true),
+		"revealed_hidden_room_ids": _revealed_hidden_room_ids.keys().duplicate(),
+		"hidden_reveal_log": _hidden_reveal_log.duplicate(true),
+		"peak_rooms": _peak_room_log.duplicate(true),
+		"objective_material_log": _objective_material_log.duplicate(true),
+		"day_feedback": _get_day_feedback_payload(),
 		"interactions": _build_room_interaction_snapshot(),
 		"objective": _objective_runtime_controller.get_snapshot(),
 		"floor_mutator": floor_mutator_snapshot,
 		"floor_mutator_state": floor_mutator_state,
 		"schema_contracts": {
 			"encounter": _encounter_director.get_schema_contract() if _encounter_director != null and _encounter_director.has_method("get_schema_contract") else {},
+			"objective": _encounter_director.get_objective_schema_contract() if _encounter_director != null and _encounter_director.has_method("get_objective_schema_contract") else {},
 			"floor": _room_graph_generator.get_schema_contract() if _room_graph_generator != null and _room_graph_generator.has_method("get_schema_contract") else {},
 			"reward": _room_reward_picker.get_schema_contract() if _room_reward_picker != null and _room_reward_picker.has_method("get_schema_contract") else {}
 		},
 		"schema_warnings": {
 			"encounter": _encounter_director.get_schema_warnings() if _encounter_director != null and _encounter_director.has_method("get_schema_warnings") else [],
+			"objective": _encounter_director.get_schema_warnings() if _encounter_director != null and _encounter_director.has_method("get_schema_warnings") else [],
 			"floor": _room_graph_generator.get_schema_warnings() if _room_graph_generator != null and _room_graph_generator.has_method("get_schema_warnings") else [],
 			"reward": _room_reward_picker.get_schema_warnings() if _room_reward_picker != null and _room_reward_picker.has_method("get_schema_warnings") else []
 		},
@@ -475,6 +471,10 @@ func debug_select_room_reward(option_index: int) -> bool:
 	return _claim_pending_room_reward(option_index)
 
 
+func debug_reject_room_interaction() -> bool:
+	return _reject_current_room_interaction()
+
+
 func debug_interact_room_feature(interaction_id: String = "") -> bool:
 	var normalized_interaction_id := interaction_id.strip_edges()
 	if normalized_interaction_id.is_empty():
@@ -487,8 +487,26 @@ func debug_interact_room_feature(interaction_id: String = "") -> bool:
 	return _try_activate_room_interaction(normalized_interaction_id)
 
 
+func debug_refresh_shop() -> bool:
+	return _refresh_current_shop_session()
+
+
+func debug_toggle_shop_lock(slot_ref) -> bool:
+	return _toggle_current_shop_lock(slot_ref)
+
+
 func debug_request_extract() -> bool:
 	return _try_extract_early()
+
+
+func debug_adjust_route_resource(kind: String, delta: int) -> bool:
+	var normalized_kind := kind.strip_edges().to_lower()
+	if not ["key", "curse", "contract"].has(normalized_kind) or delta == 0:
+		return false
+	if delta > 0:
+		_grant_route_resources({normalized_kind: delta}, "debug", {"label": "debug_adjust"})
+		return true
+	return _spend_route_resources({normalized_kind: -delta}, "debug", {"label": "debug_adjust"}, true)
 
 
 func _finish_bootstrap() -> void:
@@ -515,6 +533,10 @@ func _finish_bootstrap() -> void:
 		var cleared_callable := Callable(self, "_on_scripted_encounter_cleared")
 		if not _enemy_manager.is_connected("scripted_encounter_cleared", cleared_callable):
 			_enemy_manager.connect("scripted_encounter_cleared", cleared_callable)
+	if _enemy_manager.has_signal("enemy_killed"):
+		var enemy_killed_callable := Callable(self, "_on_enemy_killed_for_objective")
+		if not _enemy_manager.is_connected("enemy_killed", enemy_killed_callable):
+			_enemy_manager.connect("enemy_killed", enemy_killed_callable)
 	if _enemy_manager.has_signal("boss_spawned"):
 		var boss_spawned_callable := Callable(self, "_on_boss_spawned")
 		if not _enemy_manager.is_connected("boss_spawned", boss_spawned_callable):
@@ -622,8 +644,10 @@ func _enter_room(room_state: RoomState) -> void:
 			_claim_room_reward(room_state)
 		_mark_current_room_cleared()
 		if spawned_interactions:
-			var special_kind := String(room_state.metadata.get("special_room_kind", "")).strip_edges().to_lower()
-			_last_room_note = _interaction_panel_hint_for_kind(special_kind)
+			var interaction_kind := String(room_state.metadata.get("special_room_kind", "")).strip_edges().to_lower()
+			if interaction_kind.is_empty() and not _active_room_interactions.is_empty():
+				interaction_kind = String(_active_room_interactions[0].get("interaction_kind")).strip_edges().to_lower()
+			_last_room_note = _interaction_panel_hint_for_kind(interaction_kind)
 		if room_state.is_goal and room_state.connections.is_empty():
 			_complete_or_advance_floor()
 	_emit_bootstrap_result(true)
@@ -1040,6 +1064,256 @@ func _is_connection_hidden(room_state: RoomState, target_room_id: String, floor_
 	return bool(metadata.get("hidden", false))
 
 
+func _normalize_identifier_array(value: Variant) -> Array[String]:
+	var normalized_rows: Array[String] = []
+	if value is String:
+		var single_value := String(value).strip_edges().to_lower()
+		if not single_value.is_empty():
+			normalized_rows.append(single_value)
+		return normalized_rows
+	if not (value is Array):
+		return normalized_rows
+	for row_variant in value:
+		var normalized := String(row_variant).strip_edges().to_lower()
+		if normalized.is_empty() or normalized_rows.has(normalized):
+			continue
+		normalized_rows.append(normalized)
+	return normalized_rows
+
+
+func _get_hidden_source_room_ids(room_id: String, floor_state) -> Array[String]:
+	var source_room_ids: Array[String] = []
+	var normalized_room_id := room_id.strip_edges().to_lower()
+	if normalized_room_id.is_empty() or floor_state == null:
+		return source_room_ids
+	for source_room_id_variant in floor_state.room_order:
+		var source_room_id := String(source_room_id_variant).strip_edges().to_lower()
+		if source_room_id.is_empty():
+			continue
+		var source_room: RoomState = floor_state.get_room(source_room_id)
+		if source_room == null or not _is_connection_hidden(source_room, normalized_room_id, floor_state):
+			continue
+		if source_room_ids.has(source_room_id):
+			continue
+		source_room_ids.append(source_room_id)
+	return source_room_ids
+
+
+func _normalize_hidden_reveal_condition(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var source: Dictionary = value
+	var normalized: Dictionary = {}
+	var room_cleared_ids := _normalize_identifier_array(
+		source.get("room_cleared_ids", source.get("room_cleared", source.get("rooms_cleared", [])))
+	)
+	if not room_cleared_ids.is_empty():
+		normalized["room_cleared_ids"] = room_cleared_ids
+	var room_visited_ids := _normalize_identifier_array(
+		source.get("room_visited_ids", source.get("room_visited", source.get("rooms_visited", [])))
+	)
+	if not room_visited_ids.is_empty():
+		normalized["room_visited_ids"] = room_visited_ids
+	var route_resources := _normalize_route_resource_counts(
+		source.get("route_resources", source.get("route_resource_min", source.get("route_resource_requirements", {})))
+	)
+	if not route_resources.is_empty():
+		normalized["route_resources"] = route_resources
+	if source.has("all_sources_cleared"):
+		normalized["all_sources_cleared"] = bool(source.get("all_sources_cleared", false))
+	if source.has("any_source_cleared"):
+		normalized["any_source_cleared"] = bool(source.get("any_source_cleared", false))
+	if source.has("require_source_visited"):
+		normalized["require_source_visited"] = bool(source.get("require_source_visited", false))
+	return normalized
+
+
+func _normalize_hidden_reveal_config(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var source: Dictionary = value
+	var normalized: Dictionary = {}
+	var reveal_type := String(source.get("type", source.get("reveal_type", ""))).strip_edges().to_lower()
+	match reveal_type:
+		"", "clear", "clear_room", "clear_source", "cleared_room":
+			reveal_type = "clear_source"
+		"breach", "breach_wall", "wall":
+			reveal_type = "breach_wall"
+		"condition", "conditional":
+			reveal_type = "condition"
+	normalized["type"] = reveal_type
+	var source_room_ids := _normalize_identifier_array(
+		source.get("source_room_ids", source.get("source_room_id", source.get("sources", [])))
+	)
+	if not source_room_ids.is_empty():
+		normalized["source_room_ids"] = source_room_ids
+	var condition_source: Variant = source.get("condition", source)
+	var condition := _normalize_hidden_reveal_condition(condition_source)
+	if not condition.is_empty():
+		normalized["condition"] = condition
+	if source.has("interaction_label"):
+		normalized["interaction_label"] = String(source.get("interaction_label", "")).strip_edges()
+	if source.has("prompt_text"):
+		normalized["prompt_text"] = String(source.get("prompt_text", "")).strip_edges()
+	if source.has("interaction_marker"):
+		normalized["interaction_marker"] = String(source.get("interaction_marker", "")).strip_edges()
+	if source.has("interaction_radius"):
+		normalized["interaction_radius"] = maxf(24.0, float(source.get("interaction_radius", 82.0)))
+	if source.has("interaction_offset"):
+		normalized["interaction_offset"] = _coerce_vector2(source.get("interaction_offset", Vector2.ZERO))
+	return normalized
+
+
+func _get_hidden_reveal_config(room_id: String, floor_state) -> Dictionary:
+	var normalized_room_id := room_id.strip_edges().to_lower()
+	if normalized_room_id.is_empty() or floor_state == null:
+		return {}
+	var room: RoomState = floor_state.get_room(normalized_room_id)
+	if room == null:
+		return {}
+	var metadata: Dictionary = room.metadata if room.metadata is Dictionary else {}
+	var source_room_ids := _get_hidden_source_room_ids(normalized_room_id, floor_state)
+	var config := _normalize_hidden_reveal_config(metadata.get("hidden_reveal", {}))
+	if config.is_empty():
+		if source_room_ids.is_empty():
+			return {}
+		return {
+			"type": "clear_source",
+			"source_room_ids": source_room_ids
+		}
+	if (config.get("source_room_ids", []) as Array).is_empty() and not source_room_ids.is_empty():
+		config["source_room_ids"] = source_room_ids
+	return config
+
+
+func _is_room_marked_visited(room_id: String, floor_state) -> bool:
+	var normalized_room_id := room_id.strip_edges().to_lower()
+	if normalized_room_id.is_empty() or floor_state == null:
+		return false
+	var room: RoomState = floor_state.get_room(normalized_room_id)
+	if room == null:
+		return false
+	return room.visited or _visited_room_ids.has(normalized_room_id)
+
+
+func _is_room_marked_cleared(room_id: String, floor_state) -> bool:
+	var normalized_room_id := room_id.strip_edges().to_lower()
+	if normalized_room_id.is_empty() or floor_state == null:
+		return false
+	var room: RoomState = floor_state.get_room(normalized_room_id)
+	if room == null:
+		return false
+	return room.status == RoomState.STATUS_CLEARED
+
+
+func _hidden_reveal_condition_met(config: Dictionary, floor_state) -> bool:
+	if config.is_empty() or floor_state == null:
+		return false
+	var reveal_type := String(config.get("type", "clear_source")).strip_edges().to_lower()
+	var source_room_ids := _normalize_identifier_array(config.get("source_room_ids", []))
+	match reveal_type:
+		"clear_source":
+			for source_room_id in source_room_ids:
+				if _is_room_marked_cleared(source_room_id, floor_state):
+					return true
+			return false
+		"condition":
+			var condition: Dictionary = config.get("condition", {}) if config.get("condition", {}) is Dictionary else {}
+			var matched := false
+			for room_id in _normalize_identifier_array(condition.get("room_cleared_ids", [])):
+				matched = true
+				if not _is_room_marked_cleared(room_id, floor_state):
+					return false
+			for room_id in _normalize_identifier_array(condition.get("room_visited_ids", [])):
+				matched = true
+				if not _is_room_marked_visited(room_id, floor_state):
+					return false
+			var route_resources := _normalize_route_resource_counts(condition.get("route_resources", {}))
+			if not route_resources.is_empty():
+				matched = true
+				var route_resource_snapshot := _snapshot_route_resources()
+				for kind_variant in route_resources.keys():
+					var kind := String(kind_variant).strip_edges().to_lower()
+					if int(route_resource_snapshot.get(kind, 0)) < int(route_resources.get(kind_variant, 0)):
+						return false
+			if bool(condition.get("all_sources_cleared", false)):
+				matched = true
+				if source_room_ids.is_empty():
+					return false
+				for source_room_id in source_room_ids:
+					if not _is_room_marked_cleared(source_room_id, floor_state):
+						return false
+			elif bool(condition.get("any_source_cleared", false)):
+				matched = true
+				var any_source_cleared := false
+				for source_room_id in source_room_ids:
+					if _is_room_marked_cleared(source_room_id, floor_state):
+						any_source_cleared = true
+						break
+				if not any_source_cleared:
+					return false
+			if bool(condition.get("require_source_visited", false)):
+				matched = true
+				if source_room_ids.is_empty():
+					return false
+				for source_room_id in source_room_ids:
+					if not _is_room_marked_visited(source_room_id, floor_state):
+						return false
+			return matched
+		"breach_wall":
+			return false
+	return false
+
+
+func _reveal_hidden_room(room_id: String, trigger_reason: String, config: Dictionary = {}) -> bool:
+	var normalized_room_id := room_id.strip_edges().to_lower()
+	var floor_state = _get_current_floor()
+	if normalized_room_id.is_empty() or floor_state == null or _revealed_hidden_room_ids.has(normalized_room_id):
+		return false
+	var room: RoomState = floor_state.get_room(normalized_room_id)
+	if room == null:
+		return false
+	_revealed_hidden_room_ids[normalized_room_id] = true
+	var entry := {
+		"room_id": normalized_room_id,
+		"label": room.label,
+		"room_type_id": room.room_type_id,
+		"reveal_type": String(config.get("type", "clear_source")).strip_edges().to_lower(),
+		"trigger": trigger_reason.strip_edges().to_lower(),
+		"floor_index": _current_floor_index + 1,
+		"floor_template_id": floor_state.template_id,
+		"source_room_ids": _normalize_identifier_array(config.get("source_room_ids", []))
+	}
+	if config.has("condition") and config.get("condition", {}) is Dictionary:
+		entry["condition"] = (config.get("condition", {}) as Dictionary).duplicate(true)
+	_hidden_reveal_log.append(entry)
+	return true
+
+
+func _refresh_hidden_room_reveals(trigger_reason: String = "") -> int:
+	var floor_state = _get_current_floor()
+	if floor_state == null:
+		return 0
+	var revealed_total := 0
+	for room_id_variant in floor_state.room_order:
+		var room_id := String(room_id_variant).strip_edges().to_lower()
+		var room: RoomState = floor_state.get_room(room_id)
+		if room == null:
+			continue
+		var metadata: Dictionary = room.metadata if room.metadata is Dictionary else {}
+		if not bool(metadata.get("hidden_room", false)) or _revealed_hidden_room_ids.has(room_id):
+			continue
+		var config := _get_hidden_reveal_config(room_id, floor_state)
+		if room.visited or _visited_room_ids.has(room_id):
+			if _reveal_hidden_room(room_id, "visited", config):
+				revealed_total += 1
+			continue
+		if _hidden_reveal_condition_met(config, floor_state):
+			if _reveal_hidden_room(room_id, trigger_reason if not trigger_reason.is_empty() else String(config.get("type", "")), config):
+				revealed_total += 1
+	return revealed_total
+
+
 func _is_hidden_room_revealed(room_id: String, floor_state) -> bool:
 	var normalized_room_id := room_id.strip_edges()
 	if normalized_room_id.is_empty() or floor_state == null:
@@ -1052,15 +1326,9 @@ func _is_hidden_room_revealed(room_id: String, floor_state) -> bool:
 		return true
 	if room.visited or _visited_room_ids.has(normalized_room_id):
 		return true
-	for source_room_id in floor_state.room_order:
-		var source_room: RoomState = floor_state.get_room(String(source_room_id))
-		if source_room == null:
-			continue
-		if not _is_connection_hidden(source_room, normalized_room_id, floor_state):
-			continue
-		if source_room.status == RoomState.STATUS_CLEARED:
-			return true
-	return false
+	if _revealed_hidden_room_ids.has(normalized_room_id):
+		return true
+	return _hidden_reveal_condition_met(_get_hidden_reveal_config(normalized_room_id, floor_state), floor_state)
 
 
 func _get_visible_room_connections(room_state: RoomState, floor_state) -> Array[String]:
@@ -1666,6 +1934,14 @@ func _on_room_objective_node_destroyed(_objective_id: String) -> void:
 		_update_ui()
 
 
+func _on_enemy_killed_for_objective(enemy_id: String, _xp_reward: int, _world_position: Vector2, meta: Dictionary = {}) -> void:
+	var result := _objective_runtime_controller.handle_enemy_killed(enemy_id, meta, _build_objective_runtime_context())
+	if not result.is_empty():
+		_handle_objective_runtime_result(result)
+	elif _run_state == STATE_ROOM_LOCKED:
+		_update_ui()
+
+
 func _build_objective_runtime_context() -> Dictionary:
 	return {
 		"room_id": _current_room.room_id if _current_room != null else "",
@@ -1680,6 +1956,9 @@ func _build_objective_runtime_context() -> Dictionary:
 func _handle_objective_runtime_result(result: Dictionary) -> void:
 	if result.is_empty():
 		return
+	var note := String(result.get("note", "")).strip_edges()
+	if not note.is_empty():
+		_last_room_note = note
 	var materials_variant: Variant = result.get("success_bonus_materials", {})
 	if materials_variant is Dictionary and _extraction_controller != null:
 		_extraction_controller.record_bonus_materials(materials_variant)
@@ -1969,6 +2248,7 @@ func _record_room_visit(room_id: String) -> void:
 	if _visited_room_ids.has(normalized):
 		return
 	_visited_room_ids.append(normalized)
+	_refresh_hidden_room_reveals("room_visit")
 
 
 func _mark_current_room_cleared() -> void:
@@ -1984,6 +2264,9 @@ func _mark_current_room_cleared() -> void:
 			var boss_bonus_payload := _boss_room_controller.finalize_boss_room()
 			if not boss_bonus_payload.is_empty():
 				_extraction_controller.record_boss_bonus(boss_bonus_payload)
+		_record_objective_material_source(_current_room)
+		_record_peak_room_clear(_current_room)
+		_refresh_hidden_room_reveals("room_clear")
 		_rebuild_runtime_room_shell(_current_room)
 		_spawn_exit_nodes(_current_room)
 	_clear_room_objective_runtime()
@@ -2018,6 +2301,21 @@ func _claim_pending_room_reward(option_index: int) -> bool:
 	if option_index < 0 or option_index >= _pending_room_rewards.size():
 		return false
 	var offer: Dictionary = _pending_room_rewards[option_index].duplicate(true)
+	var modifier_offer_check := _check_modifier_offer_availability(offer)
+	if not bool(modifier_offer_check.get("ok", true)):
+		_last_room_note = String(modifier_offer_check.get("note", _tr("night.run.note.reward_already_owned", {
+			"value": String(offer.get("label", _tr("night.reward.kind.reward"))).strip_edges()
+		}))).strip_edges()
+		_update_ui()
+		return false
+	var is_shrine_interaction := _is_shrine_reward_context()
+	var is_shop_interaction := _is_shop_reward_context()
+	var route_resource_spec := _normalize_route_resource_spec(offer.get("route_resources", {}))
+	var route_affordability := _can_apply_route_resource_spec(route_resource_spec)
+	if not bool(route_affordability.get("ok", true)):
+		_last_room_note = String(route_affordability.get("note", _tr("night.run.note.route_resource_missing_generic"))).strip_edges()
+		_update_ui()
+		return false
 	var interaction_note := ""
 	if String(_pending_reward_context.get("source", "")).strip_edges().to_lower() == "interaction":
 		var cost_result := _apply_interaction_cost(offer)
@@ -2027,8 +2325,21 @@ func _claim_pending_room_reward(option_index: int) -> bool:
 	var applied := _run_modifier_state.apply_offer(offer, _build_reward_context())
 	if applied.is_empty():
 		return false
-	_current_room.mark_reward_claimed()
-	if String(_pending_reward_context.get("source", "")).strip_edges().to_lower() == "interaction":
+	_apply_route_resource_spec(route_resource_spec, "offer", {
+		"room_id": _current_room.room_id if _current_room != null else "",
+		"offer_id": String(offer.get("offer_id", offer.get("id", ""))).strip_edges().to_lower(),
+		"label": String(applied.get("label", offer.get("label", ""))).strip_edges(),
+		"reward_kind": String(applied.get("reward_kind", offer.get("reward_kind", ""))).strip_edges().to_lower(),
+		"interaction_kind": String(_pending_reward_context.get("interaction_kind", "")).strip_edges().to_lower()
+	})
+	if is_shop_interaction:
+		_record_shop_purchase(offer, applied, interaction_note)
+	elif is_shrine_interaction:
+		_record_shrine_accept(offer, applied, interaction_note)
+		_current_room.mark_reward_claimed()
+	else:
+		_current_room.mark_reward_claimed()
+	if String(_pending_reward_context.get("source", "")).strip_edges().to_lower() == "interaction" and not is_shop_interaction:
 		_clear_room_interactions()
 	_clear_pending_room_rewards()
 	var applied_label := String(applied.get("label", _tr("night.reward.kind.reward")))
@@ -2059,6 +2370,11 @@ func _claim_room_reward(room_state: RoomState) -> void:
 			_last_room_note = _tr("night.run.note.event_resolved")
 		_:
 			_last_room_note = _tr("night.run.note.room_reward_claimed")
+	_apply_route_resource_spec(room_state.route_resources, "room_reward", {
+		"room_id": room_state.room_id,
+		"label": room_state.label,
+		"reward_kind": reward_kind
+	}, true, false, false)
 	room_state.mark_reward_claimed()
 
 
@@ -2115,6 +2431,28 @@ func _build_reward_context() -> Dictionary:
 	}
 
 
+func _check_modifier_offer_availability(offer: Dictionary) -> Dictionary:
+	if _run_modifier_state == null or not _run_modifier_state.has_method("get_modifier_offer_availability"):
+		return {"ok": true}
+	if String(offer.get("offer_type", "")).strip_edges().to_lower() != "modifier":
+		return {"ok": true}
+	var modifier_id := String(offer.get("modifier_id", offer.get("id", ""))).strip_edges().to_lower()
+	var availability_variant: Variant = _run_modifier_state.call("get_modifier_offer_availability", modifier_id)
+	if not (availability_variant is Dictionary):
+		return {"ok": true}
+	var availability: Dictionary = availability_variant
+	if bool(availability.get("ok", true)):
+		return availability
+	var blocked_label := String(availability.get("blocked_label", offer.get("label", ""))).strip_edges()
+	if blocked_label.is_empty():
+		blocked_label = String(offer.get("label", _tr("night.reward.kind.reward"))).strip_edges()
+	var reason := String(availability.get("reason", "")).strip_edges().to_lower()
+	availability["note"] = _tr("night.run.note.reward_already_owned", {"value": blocked_label})
+	if reason == "conflict" or reason == "conflict_group":
+		availability["note"] = _tr("night.run.note.relic_conflict", {"value": blocked_label})
+	return availability
+
+
 func _room_anchor_position() -> Vector2:
 	if _active_room_node == null:
 		return Vector2.ZERO
@@ -2161,6 +2499,7 @@ func _enter_floor_start_room(floor_state) -> bool:
 		)
 		return false
 	_apply_floor_mutator(floor_state)
+	_apply_floor_route_resource_defaults(floor_state)
 	_enter_room(start_room)
 	return true
 
@@ -2229,6 +2568,19 @@ func _on_exit_selected(_exit_id: String, target_room_id: String) -> void:
 		return
 	if not _get_visible_room_connections(_current_room, floor_state).has(normalized_target):
 		return
+	var target_room: RoomState = floor_state.get_room(normalized_target)
+	if target_room == null:
+		return
+	var room_entry_check := _can_apply_route_resource_spec(target_room.route_resources)
+	if not bool(room_entry_check.get("ok", true)):
+		_last_room_note = String(room_entry_check.get("note", _tr("night.run.note.route_resource_missing_generic"))).strip_edges()
+		_update_ui()
+		return
+	_apply_route_resource_spec(target_room.route_resources, "room_entry", {
+		"room_id": target_room.room_id,
+		"label": target_room.label,
+		"target_room_id": target_room.room_id
+	}, false, true, true)
 	_lock_active_exits(true)
 	var anchor_side := _resolve_exit_anchor_side(_exit_id, normalized_target)
 	call_deferred("_begin_room_transition", normalized_target, anchor_side)
@@ -2254,9 +2606,31 @@ func _on_embedded_session_finished(summary: Dictionary) -> void:
 	payload["dungeon_last_encounter_id"] = String(_current_room_payload.get("encounter_id", ""))
 	payload["dungeon_last_encounter_category"] = String(_current_room_payload.get("encounter_category", ""))
 	payload["dungeon_run_rewards"] = modifier_snapshot.get("claimed_rewards", [])
+	payload["dungeon_run_relics"] = modifier_snapshot.get("claimed_relics", [])
 	payload["dungeon_run_modifiers"] = modifier_snapshot.get("applied_modifiers", [])
 	payload["dungeon_system_modifiers"] = modifier_snapshot.get("system_modifiers", [])
 	payload["dungeon_reward_multipliers"] = modifier_snapshot.get("reward_multipliers", {})
+	payload["dungeon_curse_level"] = int(modifier_snapshot.get("curse_level", 0))
+	payload["dungeon_curse_events"] = modifier_snapshot.get("curse_events", [])
+	payload["dungeon_shrine_actions"] = _shrine_action_log.duplicate(true)
+	payload["dungeon_shrine_rooms"] = _build_shrine_summary_rooms()
+	payload["dungeon_shrine_accept_count"] = _count_shrine_actions("accept")
+	payload["dungeon_shrine_reject_count"] = _count_shrine_actions("reject")
+	payload["dungeon_shop_actions"] = _shop_action_log.duplicate(true)
+	payload["dungeon_shop_rooms"] = _build_shop_summary_rooms()
+	payload["dungeon_shop_purchase_count"] = _count_shop_actions("purchase")
+	payload["dungeon_shop_refresh_count"] = _count_shop_actions("refresh")
+	payload["dungeon_shop_lock_count"] = _count_shop_actions("lock") + _count_shop_actions("unlock")
+	payload["dungeon_route_resources"] = _snapshot_route_resources()
+	payload["dungeon_route_resource_start_state"] = _route_resource_start_state.duplicate(true)
+	payload["dungeon_route_resource_actions"] = _route_resource_action_log.duplicate(true)
+	payload["dungeon_route_resource_flow"] = _build_route_resource_flow_summary()
+	payload["dungeon_hidden_reveals"] = _hidden_reveal_log.duplicate(true)
+	payload["dungeon_hidden_reveal_count"] = _hidden_reveal_log.size()
+	payload["dungeon_hidden_room_ids"] = _revealed_hidden_room_ids.keys().duplicate()
+	payload["dungeon_peak_rooms"] = _peak_room_log.duplicate(true)
+	payload["dungeon_peak_clear_count"] = _peak_room_log.size()
+	payload["dungeon_objective_materials"] = _objective_material_log.duplicate(true)
 	var floor_mutator_summary := _floor_mutator_controller.build_summary_payload()
 	for key_variant in floor_mutator_summary.keys():
 		payload[String(key_variant)] = floor_mutator_summary[key_variant]
@@ -2289,6 +2663,10 @@ func _disconnect_enemy_manager() -> void:
 		var cleared_callable := Callable(self, "_on_scripted_encounter_cleared")
 		if _enemy_manager.is_connected("scripted_encounter_cleared", cleared_callable):
 			_enemy_manager.disconnect("scripted_encounter_cleared", cleared_callable)
+	if _enemy_manager.has_signal("enemy_killed"):
+		var enemy_killed_callable := Callable(self, "_on_enemy_killed_for_objective")
+		if _enemy_manager.is_connected("enemy_killed", enemy_killed_callable):
+			_enemy_manager.disconnect("enemy_killed", enemy_killed_callable)
 	if _enemy_manager.has_signal("boss_spawned"):
 		var boss_spawned_callable := Callable(self, "_on_boss_spawned")
 		if _enemy_manager.is_connected("boss_spawned", boss_spawned_callable):
@@ -2327,6 +2705,14 @@ func _reset_runtime_state() -> void:
 	_extraction_snapshot.clear()
 	_objective_runtime_controller.reset(_build_objective_runtime_context())
 	_floor_mutator_controller.reset()
+	_shrine_sessions_by_room_id.clear()
+	_shrine_action_log.clear()
+	_shop_sessions_by_room_id.clear()
+	_shop_action_log.clear()
+	_revealed_hidden_room_ids.clear()
+	_hidden_reveal_log.clear()
+	_peak_room_log.clear()
+	_objective_material_log.clear()
 	_update_ui()
 
 
@@ -2419,6 +2805,8 @@ func _build_floor_rooms_snapshot() -> Array[Dictionary]:
 		room_snapshot["connections"] = _get_visible_room_connections(room, floor_state)
 		room_snapshot["hidden_room"] = bool(room.metadata.get("hidden_room", false))
 		room_snapshot["revealed"] = _is_hidden_room_revealed(room.room_id, floor_state)
+		room_snapshot["hidden_reveal_type"] = String(_get_hidden_reveal_config(room.room_id, floor_state).get("type", "")).strip_edges().to_lower()
+		room_snapshot["peak_room_kind"] = String(room.metadata.get("peak_room_kind", "")).strip_edges().to_lower()
 		var encounter_snapshot := _encounter_director.describe_room(floor_state, room)
 		room_snapshot["encounter_id"] = String(encounter_snapshot.get("encounter_id", ""))
 		room_snapshot["encounter_label"] = String(encounter_snapshot.get("encounter_label", ""))
@@ -2549,14 +2937,27 @@ func _format_reward_button_text(offer: Dictionary) -> String:
 	var reward_kind := String(offer.get("reward_kind_label", "")).strip_edges()
 	if reward_kind.is_empty():
 		reward_kind = _localized_reward_kind(String(offer.get("reward_kind", "reward")).strip_edges())
+	var shrine_direction_label := String(offer.get("shrine_direction_label", "")).strip_edges()
+	if not shrine_direction_label.is_empty():
+		reward_kind = "%s · %s" % [reward_kind, shrine_direction_label]
+	var slot_label := String(offer.get("shop_slot_label", "")).strip_edges()
+	if not slot_label.is_empty():
+		reward_kind = "%s · %s" % [reward_kind, slot_label]
+	if bool(offer.get("shop_slot_rare", false)):
+		reward_kind = "%s [RARE]" % reward_kind
 	var label := String(offer.get("label", _tr("night.reward.kind.reward"))).strip_edges()
 	var summary := String(offer.get("summary", offer.get("description", ""))).strip_edges()
 	var text := "%s\n%s" % [reward_kind, label]
 	if not summary.is_empty():
 		text += "\n%s" % summary
+	if bool(offer.get("shop_locked", false)):
+		text += "\nLOCKED"
 	var cost_label := String(offer.get("cost_label", "")).strip_edges()
 	if not cost_label.is_empty():
 		text += "\n%s" % cost_label
+	var route_resource_label := _build_route_resource_spec_label(_normalize_route_resource_spec(offer.get("route_resources", {})))
+	if not route_resource_label.is_empty():
+		text += "\n%s" % route_resource_label
 	return text
 
 
@@ -2588,17 +2989,16 @@ func _refresh_interaction_panel() -> void:
 	if _has_pending_room_rewards() or _current_room == null or _current_room.reward_claimed:
 		_hide_interaction_panel()
 		return
-	var interaction_node := _find_room_interaction_by_id(_focused_room_interaction_id)
-	if interaction_node == null or not is_instance_valid(interaction_node):
+	var interaction_snapshot := _get_focused_interaction_snapshot()
+	if interaction_snapshot.is_empty():
 		_hide_interaction_panel()
 		return
-	var prompt := ""
-	if interaction_node.has_method("get_snapshot"):
-		var snapshot_variant: Variant = interaction_node.call("get_snapshot")
-		if snapshot_variant is Dictionary:
-			prompt = String((snapshot_variant as Dictionary).get("prompt_text", "")).strip_edges()
+	var prompt := String(interaction_snapshot.get("prompt_text", "")).strip_edges()
 	if prompt.is_empty():
-		prompt = _interaction_prompt_for_kind(String(interaction_node.get("interaction_kind")), String(interaction_node.get("label")))
+		prompt = _interaction_prompt_for_kind(
+			String(interaction_snapshot.get("interaction_kind", "")),
+			String(interaction_snapshot.get("label", ""))
+		)
 	interaction_panel.visible = true
 	if interaction_label != null:
 		interaction_label.text = prompt
@@ -2608,34 +3008,93 @@ func _spawn_room_interactions(room_state: RoomState) -> bool:
 	_clear_room_interactions()
 	if room_state == null or room_state.reward_claimed or _active_room_node == null or not is_instance_valid(_active_room_node):
 		return false
-	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
-	var interaction_kind := String(metadata.get("special_room_kind", "")).strip_edges().to_lower()
-	if interaction_kind.is_empty():
+	var interaction_payloads := _build_room_interaction_payloads(room_state)
+	if interaction_payloads.is_empty():
 		return false
 	var interaction_root := Node2D.new()
 	interaction_root.name = ROOM_INTERACTION_ROOT_NODE_NAME
 	interaction_root.z_index = ROOM_COVER_PROXY_LAYER_Z + 2
 	_active_room_node.add_child(interaction_root)
-	var interaction_variant: Variant = RoomInteractableScene.instantiate()
-	if not (interaction_variant is Node2D):
+	for interaction_index in range(interaction_payloads.size()):
+		var payload: Dictionary = interaction_payloads[interaction_index]
+		var interaction_variant: Variant = RoomInteractableScene.instantiate()
+		if not (interaction_variant is Node2D):
+			continue
+		var interaction_node: Node2D = interaction_variant
+		var interaction_kind := String(payload.get("interaction_kind", "generic")).strip_edges().to_lower()
+		interaction_node.name = "RoomInteraction_%s_%d" % [interaction_kind, interaction_index]
+		interaction_node.position = _resolve_room_interaction_local_position(room_state, interaction_kind, payload, interaction_index)
+		interaction_root.add_child(interaction_node)
+		if interaction_node.has_method("configure_from_payload"):
+			interaction_node.call("configure_from_payload", payload)
+		_active_room_interactions.append(interaction_node)
+	if _active_room_interactions.is_empty():
 		interaction_root.queue_free()
 		return false
-	var interaction_node: Node2D = interaction_variant
-	interaction_node.name = "RoomInteraction_%s" % interaction_kind
-	interaction_node.position = _resolve_room_interaction_local_position(room_state, interaction_kind)
-	interaction_root.add_child(interaction_node)
-	if interaction_node.has_method("configure_from_payload"):
-		interaction_node.call("configure_from_payload", {
+	_focused_room_interaction_id = ""
+	_refresh_interaction_panel()
+	return true
+
+
+func _build_room_interaction_payloads(room_state: RoomState) -> Array[Dictionary]:
+	var payloads: Array[Dictionary] = []
+	if room_state == null:
+		return payloads
+	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
+	var interaction_kind := String(metadata.get("special_room_kind", "")).strip_edges().to_lower()
+	if not interaction_kind.is_empty():
+		payloads.append({
 			"interaction_id": "%s_%s" % [room_state.room_id, interaction_kind],
 			"interaction_kind": interaction_kind,
 			"label": room_state.label,
 			"prompt_text": _interaction_prompt_for_kind(interaction_kind, room_state.label),
 			"radius": float(metadata.get("interaction_radius", 92.0))
 		})
-	_active_room_interactions = [interaction_node]
-	_focused_room_interaction_id = ""
-	_refresh_interaction_panel()
-	return true
+	for payload in _build_hidden_reveal_interaction_payloads(room_state):
+		payloads.append(payload)
+	return payloads
+
+
+func _build_hidden_reveal_interaction_payloads(room_state: RoomState) -> Array[Dictionary]:
+	var payloads: Array[Dictionary] = []
+	var floor_state = _get_current_floor()
+	if room_state == null or floor_state == null:
+		return payloads
+	for target_room_id_variant in room_state.connections:
+		var target_room_id := String(target_room_id_variant).strip_edges().to_lower()
+		if target_room_id.is_empty() or not _is_connection_hidden(room_state, target_room_id, floor_state):
+			continue
+		if _is_hidden_room_revealed(target_room_id, floor_state):
+			continue
+		var config := _get_hidden_reveal_config(target_room_id, floor_state)
+		if String(config.get("type", "")).strip_edges().to_lower() != "breach_wall":
+			continue
+		var source_room_ids := _normalize_identifier_array(config.get("source_room_ids", []))
+		if not source_room_ids.is_empty() and not source_room_ids.has(room_state.room_id.to_lower()):
+			continue
+		var hidden_room: RoomState = floor_state.get_room(target_room_id)
+		if hidden_room == null:
+			continue
+		var label := String(config.get("interaction_label", hidden_room.label)).strip_edges()
+		if label.is_empty():
+			label = hidden_room.label
+		var prompt_text := String(config.get("prompt_text", "")).strip_edges()
+		if prompt_text.is_empty():
+			prompt_text = _tr("night.interaction.prompt.breach", {"value": hidden_room.label})
+		var payload := {
+			"interaction_id": "%s_breach_%s" % [room_state.room_id, target_room_id],
+			"interaction_kind": "breach",
+			"label": label,
+			"prompt_text": prompt_text,
+			"radius": float(config.get("interaction_radius", 82.0)),
+			"target_room_id": target_room_id
+		}
+		if config.has("interaction_marker"):
+			payload["interaction_marker"] = String(config.get("interaction_marker", "")).strip_edges()
+		if config.has("interaction_offset"):
+			payload["interaction_offset"] = _coerce_vector2(config.get("interaction_offset", Vector2.ZERO))
+		payloads.append(payload)
+	return payloads
 
 
 func _clear_room_interactions() -> void:
@@ -2649,21 +3108,18 @@ func _clear_room_interactions() -> void:
 
 
 func _update_room_interaction_focus() -> void:
-	if _active_room_interactions.is_empty():
-		if not _focused_room_interaction_id.is_empty():
-			_focused_room_interaction_id = ""
-			_refresh_interaction_panel()
-		return
 	if _has_pending_room_rewards() or _run_state == STATE_TRANSITING:
 		for interaction_node in _active_room_interactions:
 			if interaction_node != null and is_instance_valid(interaction_node) and interaction_node.has_method("set_focused"):
 				interaction_node.call("set_focused", false)
-		if not _focused_room_interaction_id.is_empty():
-			_focused_room_interaction_id = ""
-			_refresh_interaction_panel()
+		_focused_room_interaction_id = ""
+		_objective_runtime_controller.update_interaction_focus({})
+		_refresh_interaction_panel()
 		return
 	var player := _get_player()
 	if not (player is Node2D):
+		_objective_runtime_controller.update_interaction_focus({})
+		_refresh_interaction_panel()
 		return
 	var best_id := ""
 	var best_distance := INF
@@ -2690,9 +3146,12 @@ func _update_room_interaction_focus() -> void:
 			continue
 		var interaction_id := String(interaction_node.get("interaction_id")).strip_edges()
 		interaction_node.call("set_focused", interaction_id == best_id and not best_id.is_empty())
-	if best_id != _focused_room_interaction_id:
-		_focused_room_interaction_id = best_id
-		_refresh_interaction_panel()
+	_focused_room_interaction_id = best_id
+	if best_id.is_empty():
+		_objective_runtime_controller.update_interaction_focus(_build_objective_runtime_context())
+	else:
+		_objective_runtime_controller.update_interaction_focus({})
+	_refresh_interaction_panel()
 
 
 func _find_room_interaction_by_id(interaction_id: String) -> Node2D:
@@ -2714,9 +3173,18 @@ func _try_activate_room_interaction(interaction_id: String = "") -> bool:
 	if normalized_interaction_id.is_empty():
 		normalized_interaction_id = _focused_room_interaction_id
 	var interaction_node := _find_room_interaction_by_id(normalized_interaction_id)
-	if interaction_node == null:
+	if interaction_node != null:
+		if String(interaction_node.get("interaction_kind")).strip_edges().to_lower() == "breach":
+			return _activate_hidden_room_reveal_interaction(interaction_node)
+		return _present_special_room_rewards(_current_room, interaction_node)
+	var objective_result := _objective_runtime_controller.activate_interaction(
+		normalized_interaction_id,
+		_build_objective_runtime_context()
+	)
+	if objective_result.is_empty():
 		return false
-	return _present_special_room_rewards(_current_room, interaction_node)
+	_handle_objective_runtime_result(objective_result)
+	return true
 
 
 func _present_special_room_rewards(room_state: RoomState, interaction_node: Node2D) -> bool:
@@ -2749,84 +3217,677 @@ func _present_special_room_rewards(room_state: RoomState, interaction_node: Node
 	return true
 
 
+func _activate_hidden_room_reveal_interaction(interaction_node: Node2D) -> bool:
+	if _current_room == null or interaction_node == null or not is_instance_valid(interaction_node):
+		return false
+	var target_room_id := String(interaction_node.get("target_room_id")).strip_edges().to_lower()
+	if target_room_id.is_empty():
+		return false
+	var floor_state = _get_current_floor()
+	if floor_state == null:
+		return false
+	var config := _get_hidden_reveal_config(target_room_id, floor_state)
+	if String(config.get("type", "")).strip_edges().to_lower() != "breach_wall":
+		return false
+	if not _reveal_hidden_room(target_room_id, "interaction", config):
+		return false
+	var hidden_room: RoomState = floor_state.get_room(target_room_id)
+	_spawn_exit_nodes(_current_room)
+	_spawn_room_interactions(_current_room)
+	_last_room_note = _tr("night.run.note.hidden_room_revealed", {
+		"value": hidden_room.label if hidden_room != null else target_room_id
+	})
+	_update_ui()
+	return true
+
+
 func _build_shrine_offers(room_state: RoomState) -> Array[Dictionary]:
-	var offers: Array[Dictionary] = []
 	if room_state == null:
-		return offers
+		return []
+	var session := _ensure_shrine_session(room_state)
+	if session.is_empty():
+		return []
+	var offers_variant: Variant = session.get("offers", [])
+	var offers: Array[Dictionary] = []
+	if offers_variant is Array:
+		for offer_variant in (offers_variant as Array):
+			if not (offer_variant is Dictionary):
+				continue
+			offers.append((offer_variant as Dictionary).duplicate(true))
+	return offers
+
+
+func _ensure_shrine_session(room_state: RoomState) -> Dictionary:
+	if room_state == null or not _is_shrine_room(room_state):
+		return {}
+	var room_id := String(room_state.room_id).strip_edges()
+	if room_id.is_empty():
+		return {}
+	var existing_variant: Variant = _shrine_sessions_by_room_id.get(room_id, {})
+	if existing_variant is Dictionary and not (existing_variant as Dictionary).is_empty():
+		return existing_variant as Dictionary
 	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
 	var pool_id := String(metadata.get("shrine_pool_id", "")).strip_edges().to_lower()
-	var pool_variant: Variant = SHRINE_BLESSING_POOLS.get(pool_id, [])
-	if not (pool_variant is Array):
-		return offers
-	var base_pool: Array = _filter_available_modifier_ids(pool_variant as Array)
-	if base_pool.is_empty():
-		base_pool = pool_variant as Array
-	var offer_ids := _pick_unique_offer_ids(base_pool, _build_interaction_seed(room_state, "shrine"), 3)
-	var cost_type := String(metadata.get("cost_type", "hp_or_noise")).strip_edges().to_lower()
-	var cost_value := maxi(0, int(metadata.get("cost_value", 0)))
-	var cost_label := _interaction_cost_label(cost_type, cost_value)
-	for modifier_id in offer_ids:
-		var offer_variant: Variant = _run_modifier_state.build_modifier_offer(modifier_id)
-		if not (offer_variant is Dictionary) or (offer_variant as Dictionary).is_empty():
+	if pool_id.is_empty():
+		return {}
+	var session := {
+		"room_id": room_id,
+		"pool_id": pool_id,
+		"theme_id": _resolve_shop_theme_id(room_state),
+		"room_tags": _normalize_shop_tag_array(metadata.get("room_tags", [])),
+		"actions": [],
+		"offers": []
+	}
+	var offers := _room_reward_picker.build_shrine_offers(
+		pool_id,
+		_build_interaction_seed(room_state, "shrine"),
+		{
+			"default_cost_type": String(metadata.get("cost_type", "hp_or_noise")).strip_edges().to_lower(),
+			"default_cost_value": maxi(0, int(metadata.get("cost_value", 0)))
+		},
+		_run_modifier_state
+	)
+	session["offers"] = _decorate_shrine_offers(offers)
+	_shrine_sessions_by_room_id[room_id] = session
+	return session
+
+
+func _decorate_shrine_offers(offers_variant: Variant) -> Array[Dictionary]:
+	var decorated: Array[Dictionary] = []
+	if not (offers_variant is Array):
+		return decorated
+	var offers: Array = offers_variant
+	for offer_variant in offers:
+		if not (offer_variant is Dictionary):
 			continue
 		var offer: Dictionary = (offer_variant as Dictionary).duplicate(true)
-		offer["cost_type"] = cost_type
-		offer["cost_value"] = cost_value
-		offer["cost_label"] = cost_label
-		offers.append(offer)
-	return offers
+		offer["cost_label"] = _interaction_cost_label(
+			String(offer.get("cost_type", "")).strip_edges().to_lower(),
+			int(offer.get("cost_value", 0))
+		)
+		decorated.append(offer)
+	return decorated
+
+
+func _record_shrine_accept(offer: Dictionary, applied: Dictionary, interaction_note: String) -> void:
+	if not _is_shrine_room(_current_room):
+		return
+	var session := _ensure_shrine_session(_current_room)
+	if session.is_empty():
+		return
+	session["accepted_offer_id"] = String(applied.get("id", offer.get("id", ""))).strip_edges().to_lower()
+	session["accepted_direction_id"] = String(offer.get("shrine_direction_id", "")).strip_edges().to_lower()
+	_record_shrine_action(session, "accept", {
+		"offer_id": String(applied.get("id", offer.get("id", ""))).strip_edges().to_lower(),
+		"direction_id": String(offer.get("shrine_direction_id", "")).strip_edges().to_lower(),
+		"direction_label": String(offer.get("shrine_direction_label", "")).strip_edges(),
+		"label": String(applied.get("label", offer.get("label", ""))).strip_edges(),
+		"reward_kind": String(applied.get("reward_kind", offer.get("reward_kind", ""))).strip_edges().to_lower(),
+		"cost_type": String(offer.get("cost_type", "")).strip_edges().to_lower(),
+		"cost_value": int(offer.get("cost_value", 0)),
+		"note": interaction_note,
+		"tags": _normalize_shop_tag_array(offer.get("tags", []))
+	})
+	_shrine_sessions_by_room_id[String(session.get("room_id", ""))] = session
+
+
+func _record_shrine_action(session: Dictionary, action_id: String, payload: Dictionary = {}) -> void:
+	var action := payload.duplicate(true)
+	action["action"] = action_id.strip_edges().to_lower()
+	action["room_id"] = String(session.get("room_id", "")).strip_edges()
+	action["pool_id"] = String(session.get("pool_id", "")).strip_edges().to_lower()
+	action["theme_id"] = String(session.get("theme_id", "")).strip_edges().to_lower()
+	action["index"] = _shrine_action_log.size()
+	var actions_variant: Variant = session.get("actions", [])
+	var actions: Array = actions_variant if actions_variant is Array else []
+	actions.append(action.duplicate(true))
+	session["actions"] = actions
+	_shrine_action_log.append(action.duplicate(true))
+
+
+func _build_current_shrine_snapshot() -> Dictionary:
+	var session := _get_current_shrine_session()
+	if session.is_empty():
+		return {}
+	return _build_shrine_session_snapshot(session)
+
+
+func _build_shrine_summary_rooms() -> Array[Dictionary]:
+	var room_ids: Array[String] = []
+	for room_id_variant in _shrine_sessions_by_room_id.keys():
+		var room_id := String(room_id_variant).strip_edges()
+		if room_id.is_empty():
+			continue
+		room_ids.append(room_id)
+	room_ids.sort()
+	var rooms: Array[Dictionary] = []
+	for room_id in room_ids:
+		var session_variant: Variant = _shrine_sessions_by_room_id.get(room_id, {})
+		if not (session_variant is Dictionary):
+			continue
+		rooms.append(_build_shrine_session_snapshot(session_variant as Dictionary))
+	return rooms
+
+
+func _build_shrine_session_snapshot(session: Dictionary) -> Dictionary:
+	var offers_snapshot: Array[Dictionary] = []
+	var offers_variant: Variant = session.get("offers", [])
+	if offers_variant is Array:
+		var offers: Array = offers_variant
+		for offer_variant in offers:
+			if not (offer_variant is Dictionary):
+				continue
+			var offer: Dictionary = offer_variant
+			offers_snapshot.append({
+				"offer_id": String(offer.get("offer_id", offer.get("id", ""))).strip_edges().to_lower(),
+				"direction_id": String(offer.get("shrine_direction_id", "")).strip_edges().to_lower(),
+				"direction_label": String(offer.get("shrine_direction_label", "")).strip_edges(),
+				"label": String(offer.get("label", "")).strip_edges(),
+				"reward_kind": String(offer.get("reward_kind", "")).strip_edges().to_lower(),
+				"cost_type": String(offer.get("cost_type", "")).strip_edges().to_lower(),
+				"cost_value": int(offer.get("cost_value", 0)),
+				"tags": _normalize_shop_tag_array(offer.get("tags", [])),
+				"route_resources": _normalize_route_resource_spec(offer.get("route_resources", {}))
+			})
+	var actions_variant: Variant = session.get("actions", [])
+	return {
+		"room_id": String(session.get("room_id", "")).strip_edges(),
+		"pool_id": String(session.get("pool_id", "")).strip_edges().to_lower(),
+		"theme_id": String(session.get("theme_id", "")).strip_edges().to_lower(),
+		"room_tags": _normalize_shop_tag_array(session.get("room_tags", [])),
+		"accepted_offer_id": String(session.get("accepted_offer_id", "")).strip_edges().to_lower(),
+		"accepted_direction_id": String(session.get("accepted_direction_id", "")).strip_edges().to_lower(),
+		"offers": offers_snapshot,
+		"actions": actions_variant.duplicate(true) if actions_variant is Array else []
+	}
+
+
+func _get_current_shrine_session() -> Dictionary:
+	if not _is_shrine_room(_current_room):
+		return {}
+	var room_id := String(_current_room.room_id).strip_edges()
+	if room_id.is_empty():
+		return {}
+	var session_variant: Variant = _shrine_sessions_by_room_id.get(room_id, {})
+	return session_variant if session_variant is Dictionary else {}
+
+
+func _reject_current_room_interaction() -> bool:
+	if not _is_shrine_reward_context() or _pending_room_rewards.is_empty():
+		return false
+	var session := _get_current_shrine_session()
+	if session.is_empty():
+		return false
+	var direction_ids: Array[String] = []
+	for offer_variant in _pending_room_rewards:
+		if not (offer_variant is Dictionary):
+			continue
+		var direction_id := String((offer_variant as Dictionary).get("shrine_direction_id", "")).strip_edges().to_lower()
+		if direction_id.is_empty() or direction_ids.has(direction_id):
+			continue
+		direction_ids.append(direction_id)
+	_record_shrine_action(session, "reject", {
+		"direction_ids": direction_ids.duplicate(),
+		"offer_count": _pending_room_rewards.size()
+	})
+	_shrine_sessions_by_room_id[String(session.get("room_id", ""))] = session
+	_clear_pending_room_rewards()
+	_run_state = STATE_ROOM_CLEARED
+	_last_room_note = _tr("night.run.note.interaction_rejected")
+	_update_ui()
+	return true
 
 
 func _build_shop_offers(room_state: RoomState) -> Array[Dictionary]:
-	var offers: Array[Dictionary] = []
 	if room_state == null:
-		return offers
+		return []
+	var session := _ensure_shop_session(room_state)
+	if session.is_empty():
+		return []
+	var offers_variant: Variant = session.get("offers", [])
+	var offers: Array[Dictionary] = []
+	if offers_variant is Array:
+		for offer_variant in (offers_variant as Array):
+			if not (offer_variant is Dictionary):
+				continue
+			offers.append((offer_variant as Dictionary).duplicate(true))
+	return offers
+
+
+func _ensure_shop_session(room_state: RoomState) -> Dictionary:
+	if room_state == null or not _is_shop_room(room_state):
+		return {}
+	var room_id := String(room_state.room_id).strip_edges()
+	if room_id.is_empty():
+		return {}
+	var existing_variant: Variant = _shop_sessions_by_room_id.get(room_id, {})
+	if existing_variant is Dictionary and not (existing_variant as Dictionary).is_empty():
+		return existing_variant as Dictionary
 	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
 	var inventory_id := String(metadata.get("shop_inventory_id", "")).strip_edges().to_lower()
-	var inventory_variant: Variant = SHOP_INVENTORY_POOLS.get(inventory_id, {})
-	if not (inventory_variant is Dictionary):
-		return offers
-	var inventory: Dictionary = inventory_variant
-	var base_price := maxi(12, int(metadata.get("shop_price_xp", 36)))
-	var price_offsets_variant: Variant = inventory.get("price_offsets", [-12, 0, 12])
-	var price_offsets: Array = [-12, 0, 12]
-	if price_offsets_variant is Array:
-		price_offsets = (price_offsets_variant as Array).duplicate()
-	var bundle_pool_variant: Variant = inventory.get("bundle_entries", [])
-	if bundle_pool_variant is Array:
-		var bundle_ids := _pick_unique_offer_ids(bundle_pool_variant as Array, _build_interaction_seed(room_state, "shop_bundle"), 1)
-		if not bundle_ids.is_empty():
-			var bundle_offer := _room_reward_picker.build_bundle_offer(String(bundle_ids[0]))
-			if not bundle_offer.is_empty():
-				var bundle_price: int = maxi(12, base_price - 12)
-				if not price_offsets.is_empty():
-					bundle_price = base_price + int(price_offsets[0])
-				bundle_offer["cost_type"] = "xp"
-				bundle_offer["cost_value"] = maxi(12, bundle_price)
-				bundle_offer["cost_label"] = _interaction_cost_label("xp", int(bundle_offer.get("cost_value", 0)))
-				offers.append(bundle_offer)
-	var trait_pool_variant: Variant = inventory.get("trait_entries", [])
-	if trait_pool_variant is Array:
-		var filtered_trait_pool: Array = _filter_available_modifier_ids(trait_pool_variant as Array)
-		if filtered_trait_pool.is_empty():
-			filtered_trait_pool = trait_pool_variant as Array
-		var trait_ids := _pick_unique_offer_ids(filtered_trait_pool, _build_interaction_seed(room_state, "shop_traits"), 2)
-		for trait_index in range(trait_ids.size()):
-			var offer_variant: Variant = _run_modifier_state.build_modifier_offer(String(trait_ids[trait_index]))
-			if not (offer_variant is Dictionary) or (offer_variant as Dictionary).is_empty():
+	var inventory := _room_reward_picker.get_shop_inventory(inventory_id)
+	if inventory.is_empty():
+		return {}
+	var day_feedback := _get_day_feedback_payload()
+	var refresh_discount_xp := maxi(0, int(day_feedback.get("shop_refresh_discount_xp", 0)))
+	var refresh_cost_xp := maxi(0, int(inventory.get("refresh_cost_xp", metadata.get("shop_refresh_xp", 18))))
+	var refresh_cost_step_xp := maxi(0, int(inventory.get("refresh_cost_step_xp", 6)))
+	var refresh_cost_cap_xp := maxi(refresh_cost_xp, int(inventory.get("refresh_cost_cap_xp", refresh_cost_xp + refresh_cost_step_xp * 3)))
+	refresh_cost_xp = maxi(0, refresh_cost_xp - refresh_discount_xp)
+	refresh_cost_cap_xp = maxi(refresh_cost_xp, refresh_cost_cap_xp - refresh_discount_xp)
+	var session := {
+		"room_id": room_id,
+		"inventory_id": inventory_id,
+		"theme_id": _resolve_shop_theme_id(room_state),
+		"room_tags": _normalize_shop_tag_array(metadata.get("room_tags", [])),
+		"feedback_tags": _normalize_shop_tag_array(day_feedback.get("shop_feedback_tags", [])),
+		"day_feedback_ids": _normalize_shop_tag_array(day_feedback.get("unlocked_ids", [])),
+		"base_price_xp": maxi(12, int(metadata.get("shop_price_xp", 36))),
+		"refresh_cost_xp": refresh_cost_xp,
+		"refresh_cost_step_xp": refresh_cost_step_xp,
+		"refresh_cost_cap_xp": refresh_cost_cap_xp,
+		"refresh_count": 0,
+		"purchased_offer_ids": [],
+		"actions": [],
+		"offers": []
+	}
+	session["offers"] = _roll_shop_session_offers(session)
+	_shop_sessions_by_room_id[room_id] = session
+	return session
+
+
+func _roll_shop_session_offers(session: Dictionary) -> Array[Dictionary]:
+	var inventory_id := String(session.get("inventory_id", "")).strip_edges().to_lower()
+	if inventory_id.is_empty():
+		return []
+	var locked_offers_by_slot := _collect_locked_shop_offers(session)
+	var excluded_offer_ids := _normalize_shop_tag_array(session.get("purchased_offer_ids", []))
+	var offers := _room_reward_picker.build_shop_inventory_offers(
+		inventory_id,
+		_build_shop_seed_for_session(session),
+		{
+			"theme_id": String(session.get("theme_id", "")).strip_edges().to_lower(),
+			"room_tags": _normalize_shop_tag_array(session.get("room_tags", [])),
+			"feedback_tags": _normalize_shop_tag_array(session.get("feedback_tags", [])),
+			"build_tags": _run_modifier_state.get_build_tags() if _run_modifier_state != null and _run_modifier_state.has_method("get_build_tags") else [],
+			"refresh_count": int(session.get("refresh_count", 0))
+		},
+		_run_modifier_state,
+		locked_offers_by_slot,
+		excluded_offer_ids
+	)
+	return _decorate_shop_offers(offers, session)
+
+
+func _decorate_shop_offers(offers_variant: Variant, session: Dictionary) -> Array[Dictionary]:
+	var decorated: Array[Dictionary] = []
+	if not (offers_variant is Array):
+		return decorated
+	var offers: Array = offers_variant
+	for offer_variant in offers:
+		if not (offer_variant is Dictionary):
+			continue
+		var offer: Dictionary = (offer_variant as Dictionary).duplicate(true)
+		var price := maxi(12, int(session.get("base_price_xp", 36)) + int(offer.get("shop_price_offset", 0)))
+		offer["cost_type"] = "xp"
+		offer["cost_value"] = price
+		offer["cost_label"] = _interaction_cost_label("xp", price)
+		decorated.append(offer)
+	return decorated
+
+
+func _collect_locked_shop_offers(session: Dictionary) -> Dictionary:
+	var locked_offers: Dictionary = {}
+	var offers_variant: Variant = session.get("offers", [])
+	if not (offers_variant is Array):
+		return locked_offers
+	var offers: Array = offers_variant
+	for offer_variant in offers:
+		if not (offer_variant is Dictionary):
+			continue
+		var offer: Dictionary = offer_variant
+		if not bool(offer.get("shop_locked", false)):
+			continue
+		var slot_id := String(offer.get("shop_slot_id", "")).strip_edges().to_lower()
+		if slot_id.is_empty():
+			continue
+		locked_offers[slot_id] = offer.duplicate(true)
+	return locked_offers
+
+
+func _refresh_shop_reward_panel(room_state: RoomState) -> void:
+	if room_state == null or not _is_shop_reward_context():
+		return
+	var offers := _build_shop_offers(room_state)
+	if offers.is_empty():
+		_clear_pending_room_rewards()
+		return
+	_pending_room_rewards = offers
+	_refresh_reward_panel()
+
+
+func _refresh_current_shop_session() -> bool:
+	if not _is_shop_room(_current_room):
+		return false
+	var session := _ensure_shop_session(_current_room)
+	if session.is_empty() or not _shop_session_has_refreshable_slots(session):
+		return false
+	var refresh_cost := _get_shop_refresh_cost(session)
+	var cost_result := _apply_interaction_cost({
+		"cost_type": "xp",
+		"cost_value": refresh_cost
+	})
+	if not bool(cost_result.get("paid", false)):
+		return false
+	session["refresh_count"] = int(session.get("refresh_count", 0)) + 1
+	session["offers"] = _roll_shop_session_offers(session)
+	var note := String(cost_result.get("note", "")).strip_edges()
+	_record_shop_action(session, "refresh", {
+		"cost_type": "xp",
+		"cost_value": refresh_cost,
+		"note": note
+	})
+	_shop_sessions_by_room_id[String(session.get("room_id", ""))] = session
+	if _is_shop_reward_context():
+		_pending_room_rewards = (session.get("offers", []) as Array).duplicate(true)
+		_refresh_reward_panel()
+	_last_room_note = note if not note.is_empty() else _tr("night.run.note.reward_claimed", {"value": _tr("night.interaction.panel_title.shop")})
+	_update_ui()
+	return true
+
+
+func _toggle_current_shop_lock(slot_ref) -> bool:
+	if not _is_shop_room(_current_room):
+		return false
+	var session := _ensure_shop_session(_current_room)
+	if session.is_empty():
+		return false
+	var slot_id := _resolve_shop_slot_id(session, slot_ref)
+	if slot_id.is_empty():
+		return false
+	var offers_variant: Variant = session.get("offers", [])
+	if not (offers_variant is Array):
+		return false
+	var offers: Array = offers_variant
+	for offer_index in range(offers.size()):
+		if not (offers[offer_index] is Dictionary):
+			continue
+		var offer: Dictionary = (offers[offer_index] as Dictionary).duplicate(true)
+		if String(offer.get("shop_slot_id", "")).strip_edges().to_lower() != slot_id:
+			continue
+		if not bool(offer.get("shop_lockable", true)):
+			return false
+		var locked := not bool(offer.get("shop_locked", false))
+		offer["shop_locked"] = locked
+		offers[offer_index] = offer
+		session["offers"] = offers
+		_record_shop_action(session, "lock" if locked else "unlock", {
+			"slot_id": slot_id,
+			"offer_id": _resolve_shop_offer_id(offer),
+			"label": String(offer.get("label", "")).strip_edges()
+		})
+		_shop_sessions_by_room_id[String(session.get("room_id", ""))] = session
+		if _is_shop_reward_context():
+			_pending_room_rewards = offers.duplicate(true)
+			_refresh_reward_panel()
+		_update_ui()
+		return true
+	return false
+
+
+func _resolve_shop_slot_id(session: Dictionary, slot_ref) -> String:
+	match typeof(slot_ref):
+		TYPE_INT, TYPE_FLOAT:
+			var offers_variant: Variant = session.get("offers", [])
+			if not (offers_variant is Array):
+				return ""
+			var offers: Array = offers_variant
+			var slot_index := int(slot_ref)
+			if slot_index < 0 or slot_index >= offers.size():
+				return ""
+			if not (offers[slot_index] is Dictionary):
+				return ""
+			return String((offers[slot_index] as Dictionary).get("shop_slot_id", "")).strip_edges().to_lower()
+		_:
+			return String(slot_ref).strip_edges().to_lower()
+
+
+func _record_shop_purchase(offer: Dictionary, applied: Dictionary, interaction_note: String) -> void:
+	if not _is_shop_room(_current_room):
+		return
+	var session := _ensure_shop_session(_current_room)
+	if session.is_empty():
+		return
+	var slot_id := String(offer.get("shop_slot_id", "")).strip_edges().to_lower()
+	var offer_id := _resolve_shop_offer_id(offer)
+	var purchased_offer_ids := _normalize_shop_tag_array(session.get("purchased_offer_ids", []))
+	if not offer_id.is_empty() and not purchased_offer_ids.has(offer_id):
+		purchased_offer_ids.append(offer_id)
+	session["purchased_offer_ids"] = purchased_offer_ids
+	var remaining_offers: Array = []
+	var offers_variant: Variant = session.get("offers", [])
+	if offers_variant is Array:
+		for offer_variant in offers_variant:
+			if not (offer_variant is Dictionary):
 				continue
-			var offer: Dictionary = (offer_variant as Dictionary).duplicate(true)
-			var price_index := trait_index + 1
-			if not price_offsets.is_empty():
-				price_index = mini(price_offsets.size() - 1, trait_index + 1)
-			var trait_price := base_price
-			if price_index >= 0 and price_index < price_offsets.size():
-				trait_price = base_price + int(price_offsets[price_index])
-			offer["cost_type"] = "xp"
-			offer["cost_value"] = maxi(12, trait_price)
-			offer["cost_label"] = _interaction_cost_label("xp", int(offer.get("cost_value", 0)))
-			offers.append(offer)
-	return offers
+			var row: Dictionary = offer_variant
+			if String(row.get("shop_slot_id", "")).strip_edges().to_lower() == slot_id:
+				continue
+			remaining_offers.append(row.duplicate(true))
+	session["offers"] = remaining_offers
+	_record_shop_action(session, "purchase", {
+		"slot_id": slot_id,
+		"offer_id": offer_id,
+		"label": String(applied.get("label", offer.get("label", ""))).strip_edges(),
+		"reward_kind": String(applied.get("reward_kind", offer.get("reward_kind", ""))).strip_edges().to_lower(),
+		"cost_type": String(offer.get("cost_type", "")).strip_edges().to_lower(),
+		"cost_value": int(offer.get("cost_value", 0)),
+		"note": interaction_note,
+		"tags": _normalize_shop_tag_array(offer.get("tags", offer.get("shop_tags", [])))
+	})
+	_shop_sessions_by_room_id[String(session.get("room_id", ""))] = session
+
+
+func _record_shop_action(session: Dictionary, action_id: String, payload: Dictionary = {}) -> void:
+	var action := payload.duplicate(true)
+	action["action"] = action_id.strip_edges().to_lower()
+	action["room_id"] = String(session.get("room_id", "")).strip_edges()
+	action["inventory_id"] = String(session.get("inventory_id", "")).strip_edges().to_lower()
+	action["theme_id"] = String(session.get("theme_id", "")).strip_edges().to_lower()
+	action["refresh_count"] = int(session.get("refresh_count", 0))
+	action["index"] = _shop_action_log.size()
+	var actions_variant: Variant = session.get("actions", [])
+	var actions: Array = actions_variant if actions_variant is Array else []
+	actions.append(action.duplicate(true))
+	session["actions"] = actions
+	_shop_action_log.append(action.duplicate(true))
+
+
+func _build_current_shop_snapshot() -> Dictionary:
+	var session := _get_current_shop_session()
+	if session.is_empty():
+		return {}
+	var snapshot := _build_shop_session_snapshot(session)
+	snapshot["refresh_cost_xp"] = _get_shop_refresh_cost(session)
+	snapshot["refresh_available"] = _shop_session_has_refreshable_slots(session)
+	return snapshot
+
+
+func _build_shop_summary_rooms() -> Array[Dictionary]:
+	var room_ids: Array[String] = []
+	for room_id_variant in _shop_sessions_by_room_id.keys():
+		var room_id := String(room_id_variant).strip_edges()
+		if room_id.is_empty():
+			continue
+		room_ids.append(room_id)
+	room_ids.sort()
+	var rooms: Array[Dictionary] = []
+	for room_id in room_ids:
+		var session_variant: Variant = _shop_sessions_by_room_id.get(room_id, {})
+		if not (session_variant is Dictionary):
+			continue
+		rooms.append(_build_shop_session_snapshot(session_variant as Dictionary))
+	return rooms
+
+
+func _build_shop_session_snapshot(session: Dictionary) -> Dictionary:
+	var offers_snapshot: Array[Dictionary] = []
+	var offers_variant: Variant = session.get("offers", [])
+	if offers_variant is Array:
+		var offers: Array = offers_variant
+		for offer_variant in offers:
+			if not (offer_variant is Dictionary):
+				continue
+			var offer: Dictionary = offer_variant
+			offers_snapshot.append({
+				"slot_id": String(offer.get("shop_slot_id", "")).strip_edges().to_lower(),
+				"slot_label": String(offer.get("shop_slot_label", "")).strip_edges(),
+				"offer_id": _resolve_shop_offer_id(offer),
+				"label": String(offer.get("label", "")).strip_edges(),
+				"reward_kind": String(offer.get("reward_kind", "")).strip_edges().to_lower(),
+				"cost_type": String(offer.get("cost_type", "")).strip_edges().to_lower(),
+				"cost_value": int(offer.get("cost_value", 0)),
+				"locked": bool(offer.get("shop_locked", false)),
+				"lockable": bool(offer.get("shop_lockable", true)),
+				"rare_slot": bool(offer.get("shop_slot_rare", false)),
+				"rarity": String(offer.get("shop_rarity", "")).strip_edges().to_lower(),
+				"tags": _normalize_shop_tag_array(offer.get("tags", offer.get("shop_tags", []))),
+				"route_resources": _normalize_route_resource_spec(offer.get("route_resources", {}))
+			})
+	var actions_variant: Variant = session.get("actions", [])
+	return {
+		"room_id": String(session.get("room_id", "")).strip_edges(),
+		"inventory_id": String(session.get("inventory_id", "")).strip_edges().to_lower(),
+		"theme_id": String(session.get("theme_id", "")).strip_edges().to_lower(),
+		"room_tags": _normalize_shop_tag_array(session.get("room_tags", [])),
+		"feedback_tags": _normalize_shop_tag_array(session.get("feedback_tags", [])),
+		"day_feedback_ids": _normalize_shop_tag_array(session.get("day_feedback_ids", [])),
+		"base_price_xp": int(session.get("base_price_xp", 0)),
+		"refresh_cost_xp": int(session.get("refresh_cost_xp", 0)),
+		"refresh_count": int(session.get("refresh_count", 0)),
+		"purchased_offer_ids": _normalize_shop_tag_array(session.get("purchased_offer_ids", [])),
+		"slots": offers_snapshot,
+		"actions": actions_variant.duplicate(true) if actions_variant is Array else []
+	}
+
+
+func _get_current_shop_session() -> Dictionary:
+	if not _is_shop_room(_current_room):
+		return {}
+	var room_id := String(_current_room.room_id).strip_edges()
+	if room_id.is_empty():
+		return {}
+	var session_variant: Variant = _shop_sessions_by_room_id.get(room_id, {})
+	return session_variant if session_variant is Dictionary else {}
+
+
+func _resolve_shop_theme_id(room_state: RoomState) -> String:
+	if room_state == null:
+		return ""
+	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
+	var theme_id := String(metadata.get("theme_id", "")).strip_edges().to_lower()
+	if not theme_id.is_empty():
+		return theme_id
+	var floor_state = _get_current_floor()
+	if floor_state == null:
+		return ""
+	var template_id := String(floor_state.template_id).strip_edges().to_lower()
+	if template_id.begins_with("harbor_rift"):
+		return "harbor_rift"
+	if template_id.begins_with("sunken_exchange"):
+		return "sunken_exchange"
+	return template_id
+
+
+func _get_shop_refresh_cost(session: Dictionary) -> int:
+	var base_cost := maxi(0, int(session.get("refresh_cost_xp", 0)))
+	var step_cost := maxi(0, int(session.get("refresh_cost_step_xp", 0)))
+	var cap_cost := maxi(base_cost, int(session.get("refresh_cost_cap_xp", base_cost)))
+	return mini(cap_cost, base_cost + int(session.get("refresh_count", 0)) * step_cost)
+
+
+func _shop_session_has_refreshable_slots(session: Dictionary) -> bool:
+	var inventory := _room_reward_picker.get_shop_inventory(String(session.get("inventory_id", "")).strip_edges().to_lower())
+	var inventory_slot_count := int((inventory.get("slots", []) as Array).size())
+	var offers_variant: Variant = session.get("offers", [])
+	if not (offers_variant is Array):
+		return inventory_slot_count > 0
+	var offers: Array = offers_variant
+	if offers.size() < inventory_slot_count:
+		return true
+	for offer_variant in offers:
+		if not (offer_variant is Dictionary):
+			continue
+		if not bool((offer_variant as Dictionary).get("shop_locked", false)):
+			return true
+	return false
+
+
+func _is_shrine_room(room_state: RoomState) -> bool:
+	if room_state == null or not (room_state.metadata is Dictionary):
+		return false
+	return String((room_state.metadata as Dictionary).get("special_room_kind", "")).strip_edges().to_lower() == "shrine"
+
+
+func _is_shop_room(room_state: RoomState) -> bool:
+	if room_state == null or not (room_state.metadata is Dictionary):
+		return false
+	return String((room_state.metadata as Dictionary).get("special_room_kind", "")).strip_edges().to_lower() == "shop"
+
+
+func _is_shrine_reward_context() -> bool:
+	return String(_pending_reward_context.get("interaction_kind", "")).strip_edges().to_lower() == "shrine"
+
+
+func _is_shop_reward_context() -> bool:
+	return String(_pending_reward_context.get("interaction_kind", "")).strip_edges().to_lower() == "shop"
+
+
+func _build_shop_seed_for_session(session: Dictionary) -> int:
+	return maxi(1, abs(hash("%s|%s|%d" % [
+		int(_active_request.get("seed", 0)),
+		String(session.get("room_id", "")),
+		int(session.get("refresh_count", 0))
+	])))
+
+
+func _resolve_shop_offer_id(offer: Dictionary) -> String:
+	return String(offer.get("shop_entry_id", offer.get("modifier_id", offer.get("id", "")))).strip_edges().to_lower()
+
+
+func _normalize_shop_tag_array(value: Variant) -> Array[String]:
+	var rows: Array[String] = []
+	if not (value is Array):
+		return rows
+	var source_rows: Array = value
+	for row_variant in source_rows:
+		var normalized := String(row_variant).strip_edges().to_lower()
+		if normalized.is_empty() or rows.has(normalized):
+			continue
+		rows.append(normalized)
+	return rows
+
+
+func _count_shop_actions(action_id: String) -> int:
+	var normalized_action := action_id.strip_edges().to_lower()
+	var total := 0
+	for action_variant in _shop_action_log:
+		if not (action_variant is Dictionary):
+			continue
+		if String((action_variant as Dictionary).get("action", "")).strip_edges().to_lower() == normalized_action:
+			total += 1
+	return total
+
+
+func _count_shrine_actions(action_id: String) -> int:
+	var normalized_action := action_id.strip_edges().to_lower()
+	var total := 0
+	for action_variant in _shrine_action_log:
+		if not (action_variant is Dictionary):
+			continue
+		if String((action_variant as Dictionary).get("action", "")).strip_edges().to_lower() == normalized_action:
+			total += 1
+	return total
 
 
 func _pick_unique_offer_ids(pool: Array, seed_value: int, count: int) -> Array[String]:
@@ -2864,6 +3925,8 @@ func _filter_available_modifier_ids(pool: Array) -> Array:
 func _is_offer_affordable(offer: Dictionary) -> bool:
 	var player := _get_player()
 	if player == null or not is_instance_valid(player):
+		return false
+	if not bool(_can_apply_route_resource_spec(_normalize_route_resource_spec(offer.get("route_resources", {}))).get("ok", true)):
 		return false
 	var cost_type := String(offer.get("cost_type", "")).strip_edges().to_lower()
 	var cost_value := maxi(0, int(offer.get("cost_value", 0)))
@@ -2909,6 +3972,28 @@ func _apply_interaction_cost(offer: Dictionary) -> Dictionary:
 			if player.has_method("emit_stats_changed"):
 				player.call("emit_stats_changed")
 			return {"paid": true, "note": _tr("night.run.note.interaction_paid_noise", {"value": cost_value})}
+		"curse":
+			var curse_event := _run_modifier_state.add_curse(
+				cost_value,
+				_build_reward_context(),
+				"interaction_cost",
+				{
+					"offer_id": String(offer.get("id", offer.get("modifier_id", ""))).strip_edges().to_lower(),
+					"direction_id": String(offer.get("shrine_direction_id", "")).strip_edges().to_lower(),
+					"label": String(offer.get("label", "")).strip_edges()
+				}
+			)
+			_sync_route_resource_curse()
+			_record_route_resource_action("curse", cost_value, "interaction_cost", {
+				"room_id": _current_room.room_id if _current_room != null else "",
+				"offer_id": String(offer.get("offer_id", offer.get("id", ""))).strip_edges().to_lower(),
+				"label": String(offer.get("label", "")).strip_edges()
+			})
+			return {
+				"paid": true,
+				"note": _tr("night.run.note.interaction_paid_curse", {"value": cost_value}),
+				"curse_event": curse_event
+			}
 		"hp_or_noise":
 			var current_hp := float(player.get("hp"))
 			var max_hp := maxf(1.0, float(player.get("max_hp")))
@@ -2933,13 +4018,26 @@ func _build_room_interaction_snapshot() -> Array[Dictionary]:
 			continue
 		if interaction_node.has_method("get_snapshot"):
 			snapshots.append(interaction_node.call("get_snapshot"))
+	var objective_snapshots := _objective_runtime_controller.get_interaction_snapshots()
+	for snapshot in objective_snapshots:
+		snapshots.append(snapshot)
 	return snapshots
+
+
+func _get_focused_interaction_snapshot() -> Dictionary:
+	var interaction_node := _find_room_interaction_by_id(_focused_room_interaction_id)
+	if interaction_node != null and is_instance_valid(interaction_node) and interaction_node.has_method("get_snapshot"):
+		var snapshot_variant: Variant = interaction_node.call("get_snapshot")
+		if snapshot_variant is Dictionary:
+			return (snapshot_variant as Dictionary).duplicate(true)
+	var objective_snapshot := _objective_runtime_controller.get_focused_interaction_snapshot()
+	return objective_snapshot if objective_snapshot is Dictionary else {}
 
 
 func _interaction_prompt_for_kind(kind: String, label: String) -> String:
 	var normalized_kind := kind.strip_edges().to_lower()
 	var key := "night.interaction.prompt.%s" % normalized_kind
-	if normalized_kind != "shrine" and normalized_kind != "shop":
+	if normalized_kind != "shrine" and normalized_kind != "shop" and normalized_kind != "breach":
 		key = "night.interaction.prompt.generic"
 	return _tr(key, {"value": label})
 
@@ -2947,6 +4045,8 @@ func _interaction_prompt_for_kind(kind: String, label: String) -> String:
 func _interaction_panel_title_for_kind(kind: String) -> String:
 	var normalized_kind := kind.strip_edges().to_lower()
 	match normalized_kind:
+		"breach":
+			return _tr("night.interaction.panel_title.breach")
 		"shrine":
 			return _tr("night.interaction.panel_title.shrine")
 		"shop":
@@ -2957,6 +4057,8 @@ func _interaction_panel_title_for_kind(kind: String) -> String:
 func _interaction_panel_hint_for_kind(kind: String) -> String:
 	var normalized_kind := kind.strip_edges().to_lower()
 	match normalized_kind:
+		"breach":
+			return _tr("night.interaction.panel_hint.breach")
 		"shrine":
 			return _tr("night.interaction.panel_hint.shrine")
 		"shop":
@@ -2973,6 +4075,8 @@ func _interaction_cost_label(kind: String, value: int) -> String:
 			return _tr("night.interaction.cost.hp", {"value": value})
 		"noise":
 			return _tr("night.interaction.cost.noise", {"value": value})
+		"curse":
+			return _tr("night.interaction.cost.curse", {"value": value})
 		"xp":
 			return _tr("night.interaction.cost.xp", {"value": value})
 		"hp_or_noise":
@@ -2980,7 +4084,7 @@ func _interaction_cost_label(kind: String, value: int) -> String:
 	return ""
 
 
-func _resolve_room_interaction_local_position(room_state: RoomState, interaction_kind: String) -> Vector2:
+func _resolve_room_interaction_local_position(room_state: RoomState, interaction_kind: String, payload: Dictionary = {}, interaction_index: int = 0) -> Vector2:
 	if _active_room_node == null or not is_instance_valid(_active_room_node):
 		return Vector2.ZERO
 	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
@@ -2989,7 +4093,10 @@ func _resolve_room_interaction_local_position(room_state: RoomState, interaction
 		ROOM_INTERACTION_OFFSETS["generic"]
 	))
 	offset += _coerce_vector2(metadata.get("interaction_offset", Vector2.ZERO))
-	var marker_name := String(metadata.get("interaction_marker", "Center")).strip_edges()
+	offset += _coerce_vector2(payload.get("interaction_offset", Vector2.ZERO))
+	if interaction_index > 0 and not payload.has("interaction_offset"):
+		offset += Vector2(42.0 * float(interaction_index), 0.0)
+	var marker_name := String(payload.get("interaction_marker", metadata.get("interaction_marker", "Center"))).strip_edges()
 	var spawn_points := _active_room_node.get_node_or_null("SpawnPoints")
 	var marker := _find_named_child(spawn_points, marker_name)
 	if marker == null:
@@ -3041,6 +4148,10 @@ func _refresh_extraction_panel() -> void:
 		_current_room,
 		_has_pending_room_rewards()
 	)
+	if _run_state == STATE_ROOM_LOCKED and not bool(_extraction_snapshot.get("available", false)):
+		var objective_status := _resolve_objective_status_text()
+		if not objective_status.is_empty():
+			_extraction_snapshot["subtitle"] = objective_status
 	extraction_panel.visible = true
 	if extraction_title_label != null:
 		extraction_title_label.text = String(_extraction_snapshot.get("title", _tr("night.extraction.title")))
@@ -3084,6 +4195,358 @@ func _on_boss_defeated(boss_id: String) -> void:
 		_extraction_controller.record_boss_bonus(bonus_payload)
 	_last_room_note = _tr("night.run.note.boss_down_reward")
 	_update_ui()
+
+
+func _apply_floor_route_resource_defaults(floor_state) -> void:
+	if floor_state == null:
+		return
+	var defaults := _normalize_route_resource_counts(floor_state.route_resource_defaults)
+	if _route_resources.is_empty():
+		_route_resources = defaults.duplicate(true)
+	else:
+		for kind_variant in defaults.keys():
+			var kind := String(kind_variant).strip_edges().to_lower()
+			_route_resources[kind] = maxi(int(_route_resources.get(kind, 0)), int(defaults.get(kind_variant, 0)))
+	if _route_resource_start_state.is_empty():
+		var day_feedback := _get_day_feedback_payload()
+		var start_route_resources := _normalize_route_resource_counts(day_feedback.get("start_route_resources", {}))
+		if not start_route_resources.is_empty():
+			_grant_route_resources(start_route_resources, "day_feedback", {
+				"label": "starter_feedback",
+				"feedback_ids": _normalize_shop_tag_array(day_feedback.get("unlocked_ids", []))
+			})
+	_sync_route_resource_curse()
+	if _route_resource_start_state.is_empty():
+		_route_resource_start_state = _snapshot_route_resources()
+
+
+func _get_day_feedback_payload() -> Dictionary:
+	return _normalize_day_feedback_payload(_active_request.get("day_feedback", {}))
+
+
+func _normalize_day_feedback_payload(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var source: Dictionary = value
+	return {
+		"unlocked_ids": _normalize_shop_tag_array(source.get("unlocked_ids", [])),
+		"start_route_resources": _normalize_route_resource_counts(source.get("start_route_resources", {})),
+		"shop_feedback_tags": _normalize_shop_tag_array(source.get("shop_feedback_tags", [])),
+		"shop_refresh_discount_xp": maxi(0, int(source.get("shop_refresh_discount_xp", 0)))
+	}
+
+
+func _snapshot_route_resources() -> Dictionary:
+	_sync_route_resource_curse()
+	var snapshot: Dictionary = {}
+	for kind in ["key", "contract", "curse"]:
+		var amount := maxi(0, int(_route_resources.get(kind, 0)))
+		if amount <= 0:
+			continue
+		snapshot[kind] = amount
+	return snapshot
+
+
+func _sync_route_resource_curse() -> void:
+	if _run_modifier_state == null or not _run_modifier_state.has_method("get_curse_level"):
+		return
+	var curse_level := maxi(0, int(_run_modifier_state.call("get_curse_level")))
+	if curse_level <= 0:
+		_route_resources.erase("curse")
+	else:
+		_route_resources["curse"] = curse_level
+
+
+func _normalize_route_resource_counts(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var normalized: Dictionary = {}
+	var source: Dictionary = value
+	for key_variant in source.keys():
+		var key := String(key_variant).strip_edges().to_lower()
+		var amount := maxi(0, int(source.get(key_variant, 0)))
+		if not ["key", "curse", "contract"].has(key) or amount <= 0:
+			continue
+		normalized[key] = amount
+	return normalized
+
+
+func _normalize_route_resource_spec(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var normalized: Dictionary = {}
+	var source: Dictionary = value
+	for section_id in ["grant", "cost", "require"]:
+		var section := _normalize_route_resource_counts(source.get(section_id, {}))
+		if not section.is_empty():
+			normalized[section_id] = section
+	return normalized
+
+
+func _can_apply_route_resource_spec(value: Variant) -> Dictionary:
+	var spec := _normalize_route_resource_spec(value)
+	if spec.is_empty():
+		return {"ok": true}
+	var require_counts := _normalize_route_resource_counts(spec.get("require", {}))
+	var cost_counts := _normalize_route_resource_counts(spec.get("cost", {}))
+	var checked: Array[String] = []
+	for source_counts in [require_counts, cost_counts]:
+		for kind_variant in source_counts.keys():
+			var kind := String(kind_variant).strip_edges().to_lower()
+			if kind.is_empty() or checked.has(kind):
+				continue
+			checked.append(kind)
+			var current := int(_snapshot_route_resources().get(kind, 0))
+			var needed := maxi(
+				int(require_counts.get(kind, 0)),
+				int(cost_counts.get(kind, 0))
+			)
+			if current >= needed:
+				continue
+			return {
+				"ok": false,
+				"kind": kind,
+				"needed": needed,
+				"current": current,
+				"note": _tr("night.run.note.route_resource_missing", {
+					"value": _build_route_resource_amount_label(kind, needed)
+				})
+			}
+	return {"ok": true}
+
+
+func _apply_route_resource_spec(value: Variant, source_label: String, payload: Dictionary = {}, apply_grants: bool = true, apply_costs: bool = true, apply_requirements: bool = true) -> bool:
+	var spec := _normalize_route_resource_spec(value)
+	if spec.is_empty():
+		return true
+	var affordability := _can_apply_route_resource_spec({
+		"require": spec.get("require", {}) if apply_requirements else {},
+		"cost": spec.get("cost", {}) if apply_costs else {}
+	})
+	if not bool(affordability.get("ok", true)):
+		return false
+	var cost_counts := _normalize_route_resource_counts(spec.get("cost", {})) if apply_costs else {}
+	if not cost_counts.is_empty() and not _spend_route_resources(cost_counts, source_label, payload):
+		return false
+	if apply_grants:
+		_grant_route_resources(_normalize_route_resource_counts(spec.get("grant", {})), source_label, payload)
+	return true
+
+
+func _grant_route_resources(counts: Dictionary, source_label: String, payload: Dictionary = {}) -> void:
+	var normalized := _normalize_route_resource_counts(counts)
+	if normalized.is_empty():
+		return
+	var changed := false
+	for kind_variant in normalized.keys():
+		var kind := String(kind_variant).strip_edges().to_lower()
+		var amount := maxi(0, int(normalized.get(kind_variant, 0)))
+		if amount <= 0:
+			continue
+		if kind == "curse":
+			var curse_event := _run_modifier_state.add_curse(amount, _build_reward_context(), source_label, payload)
+			_sync_route_resource_curse()
+			if curse_event.is_empty():
+				continue
+		else:
+			_route_resources[kind] = maxi(0, int(_route_resources.get(kind, 0))) + amount
+		changed = true
+		_record_route_resource_action(kind, amount, source_label, payload)
+	if changed:
+		_refresh_hidden_room_reveals("route_resource")
+
+
+func _spend_route_resources(counts: Dictionary, source_label: String, payload: Dictionary = {}, allow_partial: bool = false) -> bool:
+	var normalized := _normalize_route_resource_counts(counts)
+	if normalized.is_empty():
+		return true
+	if not allow_partial:
+		var affordability := _can_apply_route_resource_spec({"cost": normalized})
+		if not bool(affordability.get("ok", true)):
+			return false
+	var changed := false
+	for kind_variant in normalized.keys():
+		var kind := String(kind_variant).strip_edges().to_lower()
+		var amount := maxi(0, int(normalized.get(kind_variant, 0)))
+		if amount <= 0:
+			continue
+		if kind == "curse":
+			var curse_removed := _run_modifier_state.remove_curse(amount, _build_reward_context(), source_label, payload)
+			_sync_route_resource_curse()
+			var spent_curse := maxi(0, -int(curse_removed.get("amount", 0)))
+			if spent_curse <= 0:
+				continue
+			changed = true
+			_record_route_resource_action(kind, -spent_curse, source_label, payload)
+			continue
+		var current := maxi(0, int(_route_resources.get(kind, 0)))
+		var spend_amount := mini(current, amount) if allow_partial else amount
+		if spend_amount <= 0:
+			continue
+		var remaining := maxi(0, current - spend_amount)
+		if remaining <= 0:
+			_route_resources.erase(kind)
+		else:
+			_route_resources[kind] = remaining
+		changed = true
+		_record_route_resource_action(kind, -spend_amount, source_label, payload)
+	if changed:
+		_refresh_hidden_room_reveals("route_resource")
+	return true
+
+
+func _record_peak_room_clear(room_state: RoomState) -> void:
+	if room_state == null:
+		return
+	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
+	var peak_room_kind := String(metadata.get("peak_room_kind", "")).strip_edges().to_lower()
+	if peak_room_kind.is_empty():
+		return
+	for entry_variant in _peak_room_log:
+		if not (entry_variant is Dictionary):
+			continue
+		if String((entry_variant as Dictionary).get("room_id", "")).strip_edges().to_lower() == room_state.room_id.to_lower():
+			return
+	var floor_state = _get_current_floor()
+	var encounter_snapshot := _encounter_director.describe_room(floor_state, room_state)
+	_peak_room_log.append({
+		"room_id": room_state.room_id,
+		"label": room_state.label,
+		"peak_room_kind": peak_room_kind,
+		"room_type_id": room_state.room_type_id,
+		"encounter_id": String(encounter_snapshot.get("encounter_id", "")),
+		"encounter_category": String(encounter_snapshot.get("encounter_category", "")),
+		"reward_table_id": String(encounter_snapshot.get("reward_table_id", "")),
+		"floor_index": _current_floor_index + 1,
+		"floor_template_id": floor_state.template_id if floor_state != null else ""
+	})
+
+
+func _record_objective_material_source(room_state: RoomState) -> void:
+	if room_state == null:
+		return
+	var metadata: Dictionary = room_state.metadata if room_state.metadata is Dictionary else {}
+	var room_tags := _normalize_shop_tag_array(metadata.get("room_tags", []))
+	if not room_tags.has("objective"):
+		return
+	for entry_variant in _objective_material_log:
+		if not (entry_variant is Dictionary):
+			continue
+		if String((entry_variant as Dictionary).get("room_id", "")).strip_edges().to_lower() == room_state.room_id.to_lower():
+			return
+	var floor_state = _get_current_floor()
+	var success_bonus_variant: Variant = _current_room_payload.get("success_bonus", {})
+	var success_bonus: Dictionary = success_bonus_variant if success_bonus_variant is Dictionary else {}
+	_objective_material_log.append({
+		"room_id": room_state.room_id,
+		"room_label": room_state.label,
+		"objective_id": String(_current_room_payload.get("objective_id", "kill_all")).strip_edges().to_lower(),
+		"objective_label": String(_current_room_payload.get("objective_label", room_state.label)).strip_edges(),
+		"encounter_id": String(_current_room_payload.get("encounter_id", room_state.encounter_id)).strip_edges().to_lower(),
+		"room_tags": room_tags.duplicate(),
+		"preview_reward_material": String(metadata.get("preview_reward_material", "")).strip_edges().to_lower(),
+		"source_materials": _normalize_material_bundle(success_bonus.get("carryover_materials", {})),
+		"floor_index": _current_floor_index + 1,
+		"floor_template_id": floor_state.template_id if floor_state != null else ""
+	})
+
+
+func _record_route_resource_action(kind: String, delta: int, source_label: String, payload: Dictionary = {}) -> void:
+	if delta == 0:
+		return
+	var action := payload.duplicate(true)
+	action["kind"] = kind.strip_edges().to_lower()
+	action["delta"] = delta
+	action["count"] = maxi(0, int(_route_resources.get(action["kind"], 0)))
+	action["source"] = source_label.strip_edges().to_lower()
+	action["room_id"] = String(action.get("room_id", _current_room.room_id if _current_room != null else "")).strip_edges()
+	action["index"] = _route_resource_action_log.size()
+	_route_resource_action_log.append(action)
+
+
+func _normalize_material_bundle(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var normalized: Dictionary = {}
+	for material_id_variant in (value as Dictionary).keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		var amount := maxi(0, int((value as Dictionary).get(material_id_variant, 0)))
+		if material_id.is_empty() or amount <= 0:
+			continue
+		normalized[material_id] = amount
+	return normalized
+
+
+func _build_route_resource_flow_summary() -> Dictionary:
+	var start_state := _route_resource_start_state.duplicate(true)
+	var end_state := _snapshot_route_resources()
+	var gained: Dictionary = {}
+	var spent: Dictionary = {}
+	for action_variant in _route_resource_action_log:
+		if not (action_variant is Dictionary):
+			continue
+		var action: Dictionary = action_variant
+		var kind := String(action.get("kind", "")).strip_edges().to_lower()
+		var delta := int(action.get("delta", 0))
+		if kind.is_empty() or delta == 0:
+			continue
+		if delta > 0:
+			gained[kind] = maxi(0, int(gained.get(kind, 0))) + delta
+		else:
+			spent[kind] = maxi(0, int(spent.get(kind, 0))) + abs(delta)
+	var net: Dictionary = {}
+	for kind in ["key", "contract", "curse"]:
+		var start_amount := int(start_state.get(kind, 0))
+		var end_amount := int(end_state.get(kind, 0))
+		if start_amount == 0 and end_amount == 0 and int(gained.get(kind, 0)) == 0 and int(spent.get(kind, 0)) == 0:
+			continue
+		net[kind] = end_amount - start_amount
+	return {
+		"start": start_state,
+		"end": end_state,
+		"gained": gained,
+		"spent": spent,
+		"net": net
+	}
+
+
+func _build_route_resource_spec_label(spec: Dictionary) -> String:
+	var normalized := _normalize_route_resource_spec(spec)
+	if normalized.is_empty():
+		return ""
+	var rows: Array[String] = []
+	var require_counts := _normalize_route_resource_counts(normalized.get("require", {}))
+	var cost_counts := _normalize_route_resource_counts(normalized.get("cost", {}))
+	var grant_counts := _normalize_route_resource_counts(normalized.get("grant", {}))
+	var requirement_rows: Array[String] = []
+	for kind_variant in require_counts.keys():
+		var kind := String(kind_variant).strip_edges().to_lower()
+		var required := maxi(int(require_counts.get(kind_variant, 0)), int(cost_counts.get(kind, 0)))
+		if required <= 0:
+			continue
+		requirement_rows.append(_build_route_resource_amount_label(kind, required))
+	if not requirement_rows.is_empty():
+		rows.append(_tr("night.route_resource.require", {"value": " / ".join(requirement_rows)}))
+	var cost_rows: Array[String] = []
+	for kind_variant in cost_counts.keys():
+		var kind := String(kind_variant).strip_edges().to_lower()
+		cost_rows.append(_build_route_resource_amount_label(kind, int(cost_counts.get(kind_variant, 0))))
+	if not cost_rows.is_empty():
+		rows.append(_tr("night.route_resource.cost", {"value": ", ".join(cost_rows)}))
+	var grant_rows: Array[String] = []
+	for kind_variant in grant_counts.keys():
+		var kind := String(kind_variant).strip_edges().to_lower()
+		grant_rows.append(_build_route_resource_amount_label(kind, int(grant_counts.get(kind_variant, 0))))
+	if not grant_rows.is_empty():
+		rows.append(_tr("night.route_resource.gain", {"value": ", ".join(grant_rows)}))
+	return "\n".join(rows)
+
+
+func _build_route_resource_amount_label(kind: String, amount: int) -> String:
+	return _tr("night.route_resource.amount", {
+		"value": amount,
+		"kind": _tr("night.route_resource.kind.%s" % kind.strip_edges().to_lower())
+	})
 
 
 func _tr(key: String, args: Dictionary = {}) -> String:

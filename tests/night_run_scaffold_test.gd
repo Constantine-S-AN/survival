@@ -52,6 +52,11 @@ func _run() -> void:
 		"night run snapshot reports encounter schema contract v1"
 	)
 	_assert_equal(
+		int((schema_contracts.get("objective", {}) as Dictionary).get("contract_version", 0)),
+		1,
+		"night run snapshot reports objective schema contract v1"
+	)
+	_assert_equal(
 		int((schema_contracts.get("floor", {}) as Dictionary).get("contract_version", 0)),
 		1,
 		"night run snapshot reports floor schema contract v1"
@@ -62,8 +67,13 @@ func _run() -> void:
 		"night run snapshot reports reward schema contract v1"
 	)
 	_assert_equal(int((schema_warnings.get("encounter", []) as Array).size()), 0, "encounter schema loads without warnings")
+	_assert_equal(int((schema_warnings.get("objective", []) as Array).size()), 0, "objective schema loads without warnings")
 	_assert_equal(int((schema_warnings.get("floor", []) as Array).size()), 0, "floor schema loads without warnings")
 	_assert_equal(int((schema_warnings.get("reward", []) as Array).size()), 0, "reward schema loads without warnings")
+	var objective_contract_variant: Variant = schema_contracts.get("objective", {})
+	var objective_contract: Dictionary = objective_contract_variant if objective_contract_variant is Dictionary else {}
+	_assert_true((objective_contract.get("objective_fields", []) as Array).has("objective_props"), "night run snapshot exposes canonical objective_props field in the frozen objective contract")
+	_assert_equal(String((objective_contract.get("defaults", {}) as Dictionary).get("objective_id", "")), "kill_all", "night run snapshot reports kill_all as the default legacy objective id")
 	_assert_equal(int(room_payload.get("schema_contract_version", 0)), 1, "room payload carries the frozen encounter schema contract version")
 	_assert_true(room_payload.has("telegraph_ui"), "room payload exposes canonical telegraph_ui field even when unused")
 	_assert_true(room_payload.has("runtime_flags"), "room payload exposes canonical runtime_flags field even when unused")
@@ -384,6 +394,10 @@ func _run_generator_validation_tests() -> void:
 			"id": "fallback_template",
 			"start_room_id": "camp",
 			"goal_room_id": "boss_end",
+			"map_layout": {
+				"grid_spacing": [1500, 1000],
+				"corridor_width": 128
+			},
 			"rooms": [
 				{
 					"id": "camp",
@@ -438,6 +452,8 @@ func _run_generator_validation_tests() -> void:
 	_assert_equal(String(floor_state.template_id), "fallback_template", "room graph generator falls through to the next valid template")
 	_assert_equal(String(floor_state.start_room_id), "camp", "invalid floor start falls back to the first valid room")
 	_assert_equal(String(floor_state.goal_room_id), "boss_end", "invalid floor goal falls back to a reachable terminal room")
+	_assert_equal(floor_state.map_grid_spacing, Vector2(1500.0, 1000.0), "floor rows without map_layout inherit the template spatial grid spacing")
+	_assert_equal(floor_state.map_corridor_width, 128.0, "floor rows without map_layout inherit the template corridor width")
 	var route_room = floor_state.get_room("route")
 	_assert_true(route_room != null, "validated floor keeps the reachable combat room")
 	if route_room != null:
@@ -445,15 +461,57 @@ func _run_generator_validation_tests() -> void:
 			not route_room.connections.has("missing_room"),
 			"validated floor strips broken room connections before the run starts"
 		)
+	var override_floor_rows: Array = [
+		{
+			"id": "override_floor",
+			"template_id": "fallback_template",
+			"map_layout": {
+				"corridor_width": 144
+			}
+		}
+	]
+	var override_floors: Array = generator.call("build_floors_from_data", room_types, room_templates, override_floor_rows, 0)
+	_assert_equal(int(override_floors.size()), 1, "room graph generator keeps a valid floor when only part of map_layout is overridden")
+	if not override_floors.is_empty():
+		var override_floor_state = override_floors[0]
+		_assert_equal(override_floor_state.map_grid_spacing, Vector2(1500.0, 1000.0), "partial floor map_layout overrides preserve template grid spacing")
+		_assert_equal(override_floor_state.map_corridor_width, 144.0, "partial floor map_layout overrides replace only the authored floor layout fields")
 	var encounter_schema: Dictionary = encounter_director.call("get_schema_contract")
 	_assert_equal(int(encounter_schema.get("contract_version", 0)), 1, "encounter director publishes schema contract v1")
 	_assert_true((encounter_schema.get("encounter_fields", []) as Array).has("telegraph_ui"), "encounter schema exposes telegraph_ui as a canonical field")
 	_assert_true((encounter_schema.get("encounter_fields", []) as Array).has("runtime_flags"), "encounter schema exposes runtime_flags as a canonical field")
+	_assert_true((encounter_schema.get("objective_fields", []) as Array).has("objective_id"), "encounter schema freezes the objective-facing fields alongside combat metadata")
+	_assert_equal(String((encounter_schema.get("compatibility", {}) as Dictionary).get("missing_objective_label", "")), "encounter_label", "encounter schema publishes the legacy objective-label compatibility rule")
+	var objective_schema: Dictionary = encounter_director.call("get_objective_schema_contract")
+	_assert_equal(int(objective_schema.get("contract_version", 0)), 1, "encounter director also publishes a dedicated objective schema contract")
+	_assert_true((objective_schema.get("objective_fields", []) as Array).has("waves"), "objective schema exposes canonical wave fields for objective rooms")
+	_assert_equal(String((objective_schema.get("defaults", {}) as Dictionary).get("objective_id", "")), "kill_all", "objective schema publishes kill_all as the legacy default objective id")
+	_assert_equal(float((objective_schema.get("wave_defaults", {}) as Dictionary).get("at_sec", -1.0)), 0.0, "objective schema publishes timer-wave defaults")
 	_assert_equal(int((encounter_director.call("get_schema_warnings") as Array).size()), 0, "live encounter data validates against the frozen schema")
 	var legacy_encounter: Dictionary = encounter_director.call("get_encounter_definition", "reef_patrol")
 	_assert_equal(String(legacy_encounter.get("objective_id", "")), "kill_all", "legacy encounters inherit kill_all objective id by default")
 	_assert_equal(String(legacy_encounter.get("clear_mode", "")), "kill_all", "legacy encounters inherit kill_all clear mode by default")
 	_assert_true(legacy_encounter.has("telegraph_ui"), "legacy encounters are normalized with telegraph_ui field")
+	_assert_true(legacy_encounter.has("runtime_flags"), "legacy encounters are normalized with runtime_flags field")
+	var floor_schema: Dictionary = generator.call("get_schema_contract")
+	_assert_equal(int(floor_schema.get("contract_version", 0)), 1, "room graph generator publishes schema contract v1")
+	_assert_true((floor_schema.get("room_fields", []) as Array).has("metadata"), "floor schema freezes template room metadata as a canonical field")
+	_assert_true((floor_schema.get("floor_fields", []) as Array).has("route_resource_defaults"), "floor schema freezes route resource defaults on floors")
+	_assert_true((floor_schema.get("template_fields", []) as Array).has("route_resource_defaults"), "floor schema freezes route resource defaults on templates")
+	_assert_true((floor_schema.get("room_fields", []) as Array).has("route_resources"), "floor schema freezes room-level route resource requirements")
+	_assert_true((floor_schema.get("map_layout_fields", []) as Array).has("corridor_width"), "floor schema freezes corridor width in map layout metadata")
+	_assert_equal(
+		String((floor_schema.get("compatibility", {}) as Dictionary).get("missing_map_layout", "")),
+		"inherit_template_or_engine_defaults",
+		"floor schema publishes the missing-map-layout compatibility strategy"
+	)
+	var template_defaults_variant: Variant = floor_schema.get("template_defaults", {})
+	var template_defaults: Dictionary = template_defaults_variant if template_defaults_variant is Dictionary else {}
+	var template_map_layout_variant: Variant = template_defaults.get("map_layout", {})
+	var template_map_layout: Dictionary = template_map_layout_variant if template_map_layout_variant is Dictionary else {}
+	_assert_equal(_coerce_vector2(template_map_layout.get("grid_spacing", Vector2.ZERO)), Vector2(1180.0, 860.0), "floor schema publishes default template grid spacing")
+	_assert_equal(float(template_map_layout.get("corridor_width", 0.0)), 96.0, "floor schema publishes default template corridor width")
+	_assert_true((template_defaults.get("route_resource_defaults", {}) as Dictionary).is_empty(), "floor schema publishes empty route-resource defaults when templates omit them")
 	var objective_encounter: Dictionary = encounter_director.call("get_encounter_definition", "relay_holdout")
 	_assert_equal(String(objective_encounter.get("objective_id", "")), "hold_zone", "objective encounters keep their authored objective id")
 	_assert_equal(int((objective_encounter.get("waves", []) as Array).size()), 2, "objective encounters preserve authored wave rows through normalization")
@@ -468,13 +526,76 @@ func _run_generator_validation_tests() -> void:
 	_assert_true(int(second_theme_floors.size()) >= 1, "room graph generator can roll the second floor theme from a deterministic seed")
 	if not second_theme_floors.is_empty():
 		_assert_equal(String(second_theme_floors[0].template_id), "sunken_exchange_v2_route_b", "seeded floor build can select the second floor theme")
+	var objective_pack_a_floors: Array = generator.call("build_floors", 9004)
+	_assert_true(int(objective_pack_a_floors.size()) >= 1, "room graph generator can roll the objective-pack route A from a deterministic seed")
+	if not objective_pack_a_floors.is_empty():
+		_assert_equal(String(objective_pack_a_floors[0].template_id), "harbor_rift_v3_objective_pack_a", "seeded floor build can select the route-a objective pack template")
+		var payload_peak_room = objective_pack_a_floors[0].get_room("payload_span")
+		_assert_true(payload_peak_room != null, "route-a objective pack keeps the fixed payload-span peak room")
+		if payload_peak_room != null:
+			_assert_equal(String(payload_peak_room.metadata.get("peak_room_kind", "")), "miniboss", "route-a objective pack marks payload span as the fixed miniboss room")
+	var objective_pack_b_floors: Array = generator.call("build_floors", 9005)
+	_assert_true(int(objective_pack_b_floors.size()) >= 1, "room graph generator can roll the objective-pack route B from a deterministic seed")
+	if not objective_pack_b_floors.is_empty():
+		_assert_equal(String(objective_pack_b_floors[0].template_id), "sunken_exchange_v3_objective_pack_b", "seeded floor build can select the route-b objective pack template")
+		var pursuit_peak_room = objective_pack_b_floors[0].get_room("pursuit_lane")
+		_assert_true(pursuit_peak_room != null, "route-b objective pack keeps the fixed pursuit-lane hunter room")
+		if pursuit_peak_room != null:
+			_assert_equal(String(pursuit_peak_room.metadata.get("peak_room_kind", "")), "hunter", "route-b objective pack marks pursuit lane as the fixed hunter room")
+	var replay_route_a_floors: Array = generator.call("build_floors", 9000)
+	_assert_true(int(replay_route_a_floors.size()) >= 1, "room graph generator can roll the v2 replay route from a deterministic seed")
+	if not replay_route_a_floors.is_empty():
+		_assert_equal(String(replay_route_a_floors[0].template_id), "harbor_rift_v2_route_a", "seeded floor build can select the route-a replay template")
+		_assert_equal(int((replay_route_a_floors[0].route_resource_defaults as Dictionary).get("key", 0)), 1, "route-a replay template exposes its default key resource")
+		_assert_equal(int((replay_route_a_floors[0].route_resource_defaults as Dictionary).get("contract", 0)), 1, "route-a replay template exposes its default contract resource")
+		var hidden_room = replay_route_a_floors[0].get_room("smuggler_cut")
+		_assert_true(hidden_room != null, "route-a replay template keeps the hidden smuggler room")
+		if hidden_room != null:
+			_assert_equal(int(((hidden_room.route_resources.get("cost", {}) as Dictionary).get("key", 0))), 1, "hidden smuggler room consumes one key on entry")
+			_assert_equal(int(((hidden_room.route_resources.get("grant", {}) as Dictionary).get("contract", 0))), 1, "hidden smuggler room grants one contract on clear")
+			_assert_equal(String((hidden_room.metadata.get("hidden_reveal", {}) as Dictionary).get("type", "")), "clear_source", "route-a replay template freezes the clear-source hidden reveal metadata")
+		var breached_hidden_room = replay_route_a_floors[0].get_room("brine_cache")
+		_assert_true(breached_hidden_room != null, "route-a replay template keeps the breach-wall hidden cache")
+		if breached_hidden_room != null:
+			_assert_equal(String((breached_hidden_room.metadata.get("hidden_reveal", {}) as Dictionary).get("type", "")), "breach_wall", "route-a replay template freezes the breach-wall hidden reveal metadata")
+		var replay_peak_room = replay_route_a_floors[0].get_room("pressure_lock")
+		_assert_true(replay_peak_room != null, "route-a replay template keeps the fixed pressure-lock peak room")
+		if replay_peak_room != null:
+			_assert_equal(String(replay_peak_room.metadata.get("peak_room_kind", "")), "miniboss", "route-a replay template marks pressure lock as the fixed miniboss room")
 	var forced_theme_floors: Array = generator.call("build_floors", 9000, {"floor_template_id": "sunken_exchange_v2_route_b"})
 	_assert_true(int(forced_theme_floors.size()) >= 1, "room graph generator accepts an explicit floor-template override")
 	if not forced_theme_floors.is_empty():
 		_assert_equal(String(forced_theme_floors[0].template_id), "sunken_exchange_v2_route_b", "explicit floor-template override forces the second theme")
+		_assert_equal(forced_theme_floors[0].map_grid_spacing, Vector2(1240.0, 920.0), "live floor builds inherit template-authored map grid spacing when the floor row omits map_layout")
+		_assert_equal(forced_theme_floors[0].map_corridor_width, 112.0, "live floor builds inherit template-authored corridor width when the floor row omits map_layout")
+		var conditional_hidden_room = forced_theme_floors[0].get_room("contraband_lockup")
+		_assert_true(conditional_hidden_room != null, "second theme keeps the condition-reveal hidden lockup")
+		if conditional_hidden_room != null:
+			_assert_equal(String((conditional_hidden_room.metadata.get("hidden_reveal", {}) as Dictionary).get("type", "")), "condition", "second theme freezes the conditional hidden-reveal metadata")
+		var forced_peak_room = forced_theme_floors[0].get_room("customs_gate")
+		_assert_true(forced_peak_room != null, "second theme keeps the fixed customs-gate peak room")
+		if forced_peak_room != null:
+			_assert_equal(String(forced_peak_room.metadata.get("peak_room_kind", "")), "miniboss", "second theme marks customs gate as the fixed miniboss room")
 	var reward_schema: Dictionary = reward_picker.call("get_schema_contract")
 	_assert_equal(int(reward_schema.get("contract_version", 0)), 1, "reward picker publishes schema contract v1")
 	_assert_true((reward_schema.get("table_fields", []) as Array).has("reward_groups"), "reward schema exposes grouped reward tables as a canonical field")
+	_assert_true((reward_schema.get("bundle_fields", []) as Array).has("route_resources"), "reward schema freezes route-resource bundle metadata")
+	_assert_true((reward_schema.get("shrine_direction_fields", []) as Array).has("route_resources"), "reward schema freezes route-resource shrine metadata")
+	_assert_true((reward_schema.get("table_slot_fields", []) as Array).has("offer_type"), "reward schema freezes slot offer_type for legacy slot-based tables")
+	_assert_true((reward_schema.get("reward_group_fields", []) as Array).has("entries"), "reward schema freezes grouped reward entry lists")
+	_assert_true((reward_schema.get("shop_inventory_fields", []) as Array).has("refresh_cost_cap_xp"), "reward schema exposes canonical shop inventory refresh-cost fields")
+	_assert_true((reward_schema.get("shop_slot_fields", []) as Array).has("rare_slot"), "reward schema exposes rare-slot shop metadata as a canonical field")
+	_assert_true((reward_schema.get("shop_entry_fields", []) as Array).has("build_tag_weights"), "reward schema exposes build-tag weighted shop entries as a canonical field")
+	var reward_defaults: Dictionary = reward_schema.get("defaults", {})
+	_assert_equal(int((reward_defaults.get("table", {}) as Dictionary).get("draws", 0)), 3, "reward schema publishes the default grouped-table draw count")
+	_assert_equal(int((reward_defaults.get("shop_inventory", {}) as Dictionary).get("refresh_cost_xp", 0)), 18, "reward schema publishes the default shop refresh cost")
+	_assert_equal(String((reward_defaults.get("shop_slot", {}) as Dictionary).get("rarity", "")), "standard", "reward schema publishes the default shop slot rarity")
+	_assert_true((reward_schema.get("supported_route_resource_types", []) as Array).has("contract"), "reward schema publishes supported route-resource kinds")
+	_assert_equal(
+		String((reward_schema.get("compatibility", {}) as Dictionary).get("legacy_rolls_field_alias", "")),
+		"draws",
+		"reward schema publishes the legacy rolls->draws compatibility rule"
+	)
 	_assert_equal(int((reward_picker.call("get_schema_warnings") as Array).size()), 0, "reward tables validate against the frozen schema")
 	var standard_v2_table: Dictionary = reward_picker.call("get_reward_table", "combat_standard_v2")
 	_assert_equal(int(standard_v2_table.get("draws", 0)), 3, "v2 reward tables normalize draw count")
@@ -483,6 +604,16 @@ func _run_generator_validation_tests() -> void:
 	_assert_equal(int((standard_v1_table.get("slots", []) as Array).size()), 3, "legacy reward tables normalize slot-based rewards")
 	var v2_bundle: Dictionary = reward_picker.call("get_bundle_definition", "salvage_drift_pack")
 	_assert_equal(String(v2_bundle.get("reward_kind", "")), "materials", "v2 bundle definitions preserve reward kind")
+	var route_bundle: Dictionary = reward_picker.call("get_bundle_definition", "route_key_cache")
+	_assert_equal(String(route_bundle.get("reward_kind", "")), "route", "route bundle definitions preserve route-resource reward kind")
+	_assert_equal(int(((route_bundle.get("route_resources", {}) as Dictionary).get("grant", {}) as Dictionary).get("key", 0)), 1, "route key bundle preserves its granted key payload")
+	var shop_inventory: Dictionary = reward_picker.call("get_shop_inventory", "night_market_tier_2")
+	_assert_equal(int(shop_inventory.get("refresh_cost_xp", 0)), 24, "live shop inventories preserve authored refresh-cost metadata")
+	_assert_true(_shop_inventory_has_rare_slot(shop_inventory), "live shop inventories preserve rare-slot metadata through normalization")
+	var shrine_pool: Dictionary = reward_picker.call("get_shrine_pool", "undertow_altar_pool")
+	var shrine_directions: Array = shrine_pool.get("directions", [])
+	var return_direction := _find_shrine_direction(shrine_directions, "return")
+	_assert_equal(int(((return_direction.get("route_resources", {}) as Dictionary).get("cost", {}) as Dictionary).get("contract", 0)), 1, "return-lane shrine metadata preserves its contract cost")
 
 
 func _bootstrap_script_mode_singletons() -> void:
@@ -616,6 +747,29 @@ func _reward_choices_are_localized(snapshot: Dictionary) -> bool:
 		if not summary.is_empty() and not _contains_cjk(summary):
 			return false
 	return true
+
+
+func _shop_inventory_has_rare_slot(inventory: Dictionary) -> bool:
+	var slots: Array = inventory.get("slots", [])
+	for slot_variant in slots:
+		if not (slot_variant is Dictionary):
+			continue
+		if bool((slot_variant as Dictionary).get("rare_slot", false)):
+			return true
+	return false
+
+
+func _find_shrine_direction(directions_variant: Variant, direction_id: String) -> Dictionary:
+	if not (directions_variant is Array):
+		return {}
+	var normalized_direction_id := direction_id.strip_edges().to_lower()
+	for direction_variant in directions_variant as Array:
+		if not (direction_variant is Dictionary):
+			continue
+		var direction: Dictionary = direction_variant
+		if String(direction.get("id", "")).strip_edges().to_lower() == normalized_direction_id:
+			return direction
+	return {}
 
 
 func _contains_cjk(text: String) -> bool:

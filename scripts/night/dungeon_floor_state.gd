@@ -9,6 +9,7 @@ var start_room_id: String = ""
 var goal_room_id: String = ""
 var map_grid_spacing: Vector2 = Vector2(1180.0, 860.0)
 var map_corridor_width: float = 96.0
+var route_resource_defaults: Dictionary = {}
 var floor_mutator_id: String = ""
 var floor_mutator: Dictionary = {}
 var room_order: Array[String] = []
@@ -105,6 +106,7 @@ func to_dictionary() -> Dictionary:
 		"goal_room_id": goal_room_id,
 		"map_grid_spacing": map_grid_spacing,
 		"map_corridor_width": map_corridor_width,
+		"route_resource_defaults": route_resource_defaults.duplicate(true),
 		"floor_mutator_id": floor_mutator_id,
 		"floor_mutator": floor_mutator.duplicate(true),
 		"rooms": serialized_rooms,

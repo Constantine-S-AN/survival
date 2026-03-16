@@ -103,15 +103,15 @@ theme_type_variation = &"BodyMutedLabel"
 text = "Night dock sealed"
 
 [node name="ActionsColumn" type="VBoxContainer" parent="."]
-custom_minimum_size = Vector2(420, 0)
+custom_minimum_size = Vector2(476, 0)
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -444.0
+offset_left = -500.0
 offset_top = 24.0
 offset_right = -24.0
-offset_bottom = 396.0
+offset_bottom = 432.0
 grow_horizontal = 0
 theme_override_constants/separation = 10
 
@@ -134,7 +134,7 @@ theme_type_variation = &"SecondaryButton"
 
 [node name="GuidePanel" type="Panel" parent="ActionsColumn"]
 visible = false
-custom_minimum_size = Vector2(0, 238)
+custom_minimum_size = Vector2(0, 286)
 layout_mode = 2
 theme_type_variation = &"OverlayPanel"
 
@@ -163,6 +163,7 @@ text = "Guide"
 [node name="GuideBody" type="Label" parent="ActionsColumn/GuidePanel/Margin/VBox"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 autowrap_mode = 3
 theme_type_variation = &"BodyMutedLabel"
 text = ""

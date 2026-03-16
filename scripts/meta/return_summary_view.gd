@@ -86,16 +86,43 @@ func _apply_summary() -> void:
 		"kills": int(_summary.get("kills", 0)),
 		"seed": int(_summary.get("seed", 0))
 	})
-	rewards_label.text = _t("meta.summary.tonight", {
+	var rewards_text := _t("meta.summary.tonight", {
 		"value": String(_summary.get("loot_text", _t("meta.common.none"))),
 		"bonus": String(_summary.get("night_bonus_text", _t("meta.common.none")))
 	})
+	var relic_text := _build_relic_text()
+	if not relic_text.is_empty() and relic_text != _t("meta.common.none"):
+		rewards_text = "%s\n\n%s" % [
+			rewards_text,
+			_t("meta.summary.relic_card", {"value": relic_text})
+		]
+	rewards_label.text = rewards_text
 	if carryover_label != null:
+		var carryover_text := _build_carryover_text()
+		var material_use_text := _build_material_use_text()
+		if not material_use_text.is_empty() and material_use_text != _t("meta.common.none"):
+			carryover_text = "%s\n\n%s" % [
+				carryover_text,
+				_t("meta.summary.source_use_card", {"value": material_use_text})
+			]
+		var route_resource_text := _build_route_resource_text()
+		if not route_resource_text.is_empty() and route_resource_text != _t("meta.common.none"):
+			carryover_text = "%s\n\n%s" % [
+				carryover_text,
+				_t("meta.summary.route_resource_card", {"value": route_resource_text})
+			]
 		carryover_label.text = _t("meta.summary.carryover_card", {
-			"value": _build_carryover_text()
+			"value": carryover_text
 		})
 	var unlocks_text := String(_summary.get("unlock_text", _t("meta.common.none")))
-	unlocks_label.text = _t("meta.summary.unlocks_card", {"value": unlocks_text})
+	var unlocks_card_text := _t("meta.summary.unlocks_card", {"value": unlocks_text})
+	var night_feedback_text := _build_night_feedback_text()
+	if not night_feedback_text.is_empty() and night_feedback_text != _t("meta.common.none"):
+		unlocks_card_text = "%s\n\n%s" % [
+			unlocks_card_text,
+			_t("meta.summary.night_feedback_card", {"value": night_feedback_text})
+		]
+	unlocks_label.text = unlocks_card_text
 	progress_label.text = _t("meta.summary.progress_card", {
 		"value": String(_summary.get("unlock_progress_text", _t("meta.common.none")))
 	})
@@ -292,6 +319,22 @@ func _build_carryover_short_text() -> String:
 		"route": route_label,
 		"count": secured_count
 	})
+
+
+func _build_route_resource_text() -> String:
+	return String(_summary.get("route_resource_text", _t("meta.common.none")))
+
+
+func _build_material_use_text() -> String:
+	return String(_summary.get("material_use_text", _t("meta.common.none")))
+
+
+func _build_night_feedback_text() -> String:
+	return String(_summary.get("night_feedback_text", _t("meta.common.none")))
+
+
+func _build_relic_text() -> String:
+	return String(_summary.get("relic_text", _t("meta.common.none")))
 
 
 func _raw_summary() -> Dictionary:

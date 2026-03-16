@@ -10,7 +10,9 @@
         "harbor_rift_v2_route_a",
         "branching_intro_channels",
         "branching_intro_pillars",
-        "sunken_exchange_v2_route_b"
+        "sunken_exchange_v2_route_b",
+        "harbor_rift_v3_objective_pack_a",
+        "sunken_exchange_v3_objective_pack_b"
       ],
       "start_room_id": "camp",
       "goal_room_id": "apex_guardian"

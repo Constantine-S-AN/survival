@@ -6,6 +6,7 @@ class_name NightRoomInteractable
 @export var label: String = "Interact"
 @export var prompt_text: String = ""
 @export var radius: float = 76.0
+@export var target_room_id: String = ""
 
 @onready var halo_visual: Polygon2D = $Halo
 @onready var core_visual: Polygon2D = $Core
@@ -39,6 +40,7 @@ func configure_from_payload(payload: Dictionary) -> void:
 	label = String(payload.get("label", label)).strip_edges()
 	prompt_text = String(payload.get("prompt_text", prompt_text)).strip_edges()
 	radius = maxf(24.0, float(payload.get("radius", radius)))
+	target_room_id = String(payload.get("target_room_id", target_room_id)).strip_edges().to_lower()
 	_apply_style()
 
 
@@ -57,6 +59,7 @@ func get_snapshot() -> Dictionary:
 		"label": label,
 		"prompt_text": prompt_text,
 		"radius": radius,
+		"target_room_id": target_room_id,
 		"focused": _focused,
 		"position": global_position
 	}
@@ -65,10 +68,18 @@ func get_snapshot() -> Dictionary:
 func _apply_style() -> void:
 	var accent := Color(0.72, 0.84, 0.96, 0.92)
 	match interaction_kind:
+		"hack":
+			accent = Color(0.40, 0.96, 0.86, 0.96)
+		"reroute":
+			accent = Color(1.0, 0.82, 0.42, 0.96)
+		"cache":
+			accent = Color(0.94, 0.42, 0.58, 0.96)
 		"shrine":
 			accent = Color(1.0, 0.76, 0.44, 0.96)
 		"shop":
 			accent = Color(0.52, 0.90, 1.0, 0.96)
+		"breach":
+			accent = Color(1.0, 0.62, 0.34, 0.96)
 	if halo_visual != null:
 		halo_visual.color = Color(accent.r, accent.g, accent.b, 0.12)
 		halo_visual.polygon = _build_circle(radius * 0.92, 18)

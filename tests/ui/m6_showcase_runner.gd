@@ -15,6 +15,7 @@ const SUMMARY_TRIGGER_GAP_SECONDS := 8.0
 const FORCE_SUMMARY_ENV := "M6_FORCE_SUMMARY"
 const FORCE_SUMMARY_CONFIRM_ENV := "M6_FORCE_SUMMARY_KILL"
 
+var _game: Node = null
 var _start_usec: int = 0
 var _showcase_seconds: float = DEFAULT_SHOWCASE_SECONDS
 var _summary_trigger_seconds: float = DEFAULT_SHOWCASE_SECONDS - SUMMARY_TRIGGER_GAP_SECONDS
@@ -23,7 +24,8 @@ var _force_summary_capture: bool = false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	call_deferred("_run")
+	await get_tree().process_frame
+	await _run()
 
 
 func _run() -> void:
@@ -33,29 +35,29 @@ func _run() -> void:
 	_summary_trigger_seconds = _resolve_summary_trigger_seconds(_showcase_seconds)
 	_force_summary_capture = _resolve_force_summary_capture()
 	var lines: Array[String] = []
-	var game := GAME_ROOT_SCENE.instantiate()
-	add_child(game)
+	_game = GAME_ROOT_SCENE.instantiate()
+	add_child(_game)
 
 	await _wait_frames(6)
 	_capture(SHOT_MENU)
 	lines.append("captured_menu=true")
 
-	var menu := game.get_node_or_null("UI/Root/MainMenuPanel")
+	var menu := _game.get_node_or_null("UI/Root/MainMenuPanel")
 	if menu != null and menu.has_method("focus_button_by_id"):
 		menu.call("focus_button_by_id", "quit")
 		await _wait_frames(3)
 		_capture(SHOT_FOCUS)
 		lines.append("captured_focus=true")
 
-	game.call("_on_main_menu_start_requested")
-	if not await _wait_for_state(game, String(game.get("STATE_CHARACTER_SELECT")), 2.4):
-		_fail(lines, "failed to enter run setup")
+	_game.call("_on_main_menu_start_requested")
+	if not await _wait_for_state(_game, String(_game.get("STATE_CHARACTER_SELECT")), 2.4):
+		await _fail(lines, "failed to enter run setup")
 		return
 
 	await _wait_frames(8)
-	var run_setup := game.get_node_or_null("UI/Root/RunSetup")
+	var run_setup := _game.get_node_or_null("UI/Root/RunSetup")
 	if run_setup == null:
-		_fail(lines, "run setup panel missing")
+		await _fail(lines, "run setup panel missing")
 		return
 	run_setup.call("debug_select_character", "diver")
 	run_setup.call("debug_select_map", "map_trench_lab")
@@ -76,55 +78,55 @@ func _run() -> void:
 			"meta_currency": float(preview.get("meta_currency_mult", 1.0))
 		}
 	}
-	game.call("_on_run_setup_start_requested", run_config)
-	if not await _wait_for_state(game, String(game.get("STATE_PLAYING")), 2.8):
-		_fail(lines, "failed to enter playing state")
+	_game.call("_on_run_setup_start_requested", run_config)
+	if not await _wait_for_state(_game, String(_game.get("STATE_PLAYING")), 2.8):
+		await _fail(lines, "failed to enter playing state")
 		return
 
 	await _wait_frames(14)
 	_capture(SHOT_HUD)
 	lines.append("captured_hud=true")
 
-	var player := game.get_node_or_null("World/Player")
+	var player := _game.get_node_or_null("World/Player")
 	if player == null:
-		_fail(lines, "player missing")
+		await _fail(lines, "player missing")
 		return
 	_trigger_single_level_up(player)
-	if not await _wait_for_state(game, String(game.get("STATE_LEVEL_UP")), 2.6):
-		_fail(lines, "level up panel missing")
+	if not await _wait_for_state(_game, String(_game.get("STATE_LEVEL_UP")), 2.6):
+		await _fail(lines, "level up panel missing")
 		return
 
 	await _wait_frames(6)
 	_capture(SHOT_UPGRADE)
 	lines.append("captured_upgrade=true")
 
-	var upgrade_panel := game.get_node_or_null("UI/Root/UpgradeSelect")
+	var upgrade_panel := _game.get_node_or_null("UI/Root/UpgradeSelect")
 	if upgrade_panel != null:
 		upgrade_panel.call("debug_focus_index", 1)
 		await _wait_frames(4)
 		_capture(SHOT_FOCUS)
 		upgrade_panel.call("debug_select_index", 0)
 
-	if not await _wait_for_state(game, String(game.get("STATE_PLAYING")), 2.6):
-		_fail(lines, "failed to return to playing after upgrade")
+	if not await _wait_for_state(_game, String(_game.get("STATE_PLAYING")), 2.6):
+		await _fail(lines, "failed to return to playing after upgrade")
 		return
 
 	lines.append("force_summary_capture=%s" % str(_force_summary_capture))
 	if _force_summary_capture:
-		player = game.get_node_or_null("World/Player")
+		player = _game.get_node_or_null("World/Player")
 		if player != null:
 			# Keep the showcase alive until the planned trigger without debug HP inflation.
 			player.set("invuln_remaining", maxf(float(player.get("invuln_remaining")), _summary_trigger_seconds + 1.0))
 		lines.append("summary_trigger_target_sec=%.2f" % _summary_trigger_seconds)
-		if not await _wait_until_seconds_guarding_state(game, _summary_trigger_seconds):
-			_fail(lines, "summary entered before trigger second")
+		if not await _wait_until_seconds_guarding_state(_game, _summary_trigger_seconds):
+			await _fail(lines, "summary entered before trigger second")
 			return
 		if player != null and player.has_method("take_damage"):
 			player.set("invuln_remaining", 0.0)
 			var lethal_damage := maxf(1.0, float(player.get("hp")) + 1.0)
 			player.call("take_damage", lethal_damage)
-		if not await _wait_for_state(game, String(game.get("STATE_GAME_OVER")), 3.0):
-			_fail(lines, "failed to enter summary state")
+		if not await _wait_for_state(_game, String(_game.get("STATE_GAME_OVER")), 3.0):
+			await _fail(lines, "failed to enter summary state")
 			return
 		lines.append("summary_entered_at_sec=%.2f" % _elapsed_seconds())
 		await _wait_frames(8)
@@ -137,10 +139,7 @@ func _run() -> void:
 	lines.append("m6 showcase: PASS")
 	_write_log(lines)
 	print("m6 showcase: PASS")
-	game.queue_free()
-	await _wait_frames(2)
-	_cleanup_profile_isolation()
-	get_tree().quit(0)
+	await _shutdown(0)
 
 
 func _wait_for_state(game: Node, expected: String, timeout_seconds: float) -> bool:
@@ -206,7 +205,15 @@ func _resolve_force_summary_capture() -> bool:
 
 
 func _capture(path: String) -> void:
-	var image := get_viewport().get_texture().get_image()
+	if not _can_capture_viewport():
+		return
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	var viewport_texture := viewport.get_texture()
+	if viewport_texture == null:
+		return
+	var image := viewport_texture.get_image()
 	if image == null:
 		return
 	var abs_path := ProjectSettings.globalize_path(path)
@@ -229,10 +236,30 @@ func _fail(lines: Array[String], reason: String) -> void:
 	lines.append("m6 showcase: FAIL - %s" % reason)
 	_write_log(lines)
 	push_error(reason)
-	for child in get_children():
-		child.queue_free()
+	await _shutdown(1)
+
+
+func _can_capture_viewport() -> bool:
+	return DisplayServer.get_name().strip_edges().to_lower() != "headless"
+
+
+func _await_stable_frames(count: int = 3) -> void:
+	for _i in range(maxi(1, count)):
+		await get_tree().physics_frame
+		await get_tree().process_frame
+
+
+func _shutdown(exit_code: int) -> void:
+	if _game != null and is_instance_valid(_game):
+		if _game.has_method("stop_session"):
+			_game.call("stop_session")
+		await _await_stable_frames(2)
+		_game.queue_free()
+		await _await_stable_frames(3)
+	_game = null
 	_cleanup_profile_isolation()
-	get_tree().quit(1)
+	await _await_stable_frames(1)
+	get_tree().quit(exit_code)
 
 
 func _write_log(lines: Array[String]) -> void:

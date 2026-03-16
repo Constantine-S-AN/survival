@@ -61,6 +61,15 @@ const WAVE_SCHEMA_FIELDS: Array[String] = [
 	"until_objective_complete",
 	"enemies"
 ]
+const OBJECTIVE_SCHEMA_FIELDS: Array[String] = [
+	"clear_mode",
+	"objective_id",
+	"objective_label",
+	"objective_label_zh",
+	"time_limit_sec",
+	"waves",
+	"objective_props"
+]
 const OBJECTIVE_PROP_SCHEMA_FIELDS: Array[String] = [
 	"prop_id",
 	"marker",
@@ -69,6 +78,59 @@ const OBJECTIVE_PROP_SCHEMA_FIELDS: Array[String] = [
 	"label",
 	"label_zh"
 ]
+const ENCOUNTER_DEFAULTS := {
+	"category": "standard",
+	"reward_table_id": "combat_<category>",
+	"difficulty": 1,
+	"spawn_set_id": "",
+	"clear_mode": "kill_all",
+	"objective_id": "kill_all",
+	"objective_label": "encounter_label",
+	"time_limit_sec": 0.0,
+	"waves": [],
+	"objective_props": [],
+	"room_mutators": [],
+	"success_bonus": {},
+	"fail_penalty": {},
+	"telegraph_ui": {},
+	"runtime_flags": {},
+	"tags": []
+}
+const OBJECTIVE_DEFAULTS := {
+	"clear_mode": "kill_all",
+	"objective_id": "kill_all",
+	"objective_label": "encounter_label",
+	"time_limit_sec": 0.0,
+	"waves": [],
+	"objective_props": []
+}
+const WAVE_DEFAULTS := {
+	"trigger": "on_timer",
+	"spawn_set_id": "",
+	"at_sec": 0.0,
+	"every_sec": 0.0,
+	"at_count": 0,
+	"until_objective_complete": false,
+	"enemies": []
+}
+const OBJECTIVE_PROP_DEFAULTS := {
+	"marker": "",
+	"radius": 0.0,
+	"hp": 0,
+	"label": "",
+	"label_zh": ""
+}
+const COMPATIBILITY_RULES := {
+	"missing_schema_contract_version": "warn_and_normalize",
+	"unsupported_category": "standard",
+	"unsupported_clear_mode": "kill_all",
+	"missing_reward_table_id": "combat_<category>",
+	"missing_objective_id": "kill_all",
+	"missing_objective_label": "encounter_label",
+	"missing_telegraph_ui": {},
+	"missing_runtime_flags": {},
+	"missing_tags": []
+}
 
 var _encounters_by_id: Dictionary = {}
 var _spawn_sets_by_id: Dictionary = {}
@@ -164,6 +226,7 @@ func build_room_payload(floor_state, room_state, room_node: Node2D) -> Dictionar
 	payload["enemies"] = _resolve_enemy_specs(room_node, encounter, room_state)
 	payload["waves"] = _resolve_wave_enemy_specs(room_node, payload.get("waves", []), room_state)
 	payload["objective_props"] = _resolve_objective_prop_positions(room_node, payload.get("objective_props", []))
+	payload["fail_penalty"] = _resolve_fail_penalty_payload(room_node, payload.get("fail_penalty", {}), room_state)
 	return payload
 
 
@@ -171,11 +234,31 @@ func get_schema_contract() -> Dictionary:
 	return {
 		"contract_version": SCHEMA_CONTRACT_VERSION,
 		"encounter_fields": ENCOUNTER_SCHEMA_FIELDS.duplicate(),
+		"objective_fields": OBJECTIVE_SCHEMA_FIELDS.duplicate(),
 		"wave_fields": WAVE_SCHEMA_FIELDS.duplicate(),
 		"objective_prop_fields": OBJECTIVE_PROP_SCHEMA_FIELDS.duplicate(),
 		"supported_categories": SUPPORTED_CATEGORIES.keys(),
 		"supported_clear_modes": SUPPORTED_CLEAR_MODES.keys(),
-		"supported_wave_triggers": SUPPORTED_WAVE_TRIGGERS.keys()
+		"supported_wave_triggers": SUPPORTED_WAVE_TRIGGERS.keys(),
+		"defaults": ENCOUNTER_DEFAULTS.duplicate(true),
+		"objective_defaults": OBJECTIVE_DEFAULTS.duplicate(true),
+		"wave_defaults": WAVE_DEFAULTS.duplicate(true),
+		"objective_prop_defaults": OBJECTIVE_PROP_DEFAULTS.duplicate(true),
+		"compatibility": COMPATIBILITY_RULES.duplicate(true)
+	}
+
+
+func get_objective_schema_contract() -> Dictionary:
+	return {
+		"contract_version": SCHEMA_CONTRACT_VERSION,
+		"objective_fields": OBJECTIVE_SCHEMA_FIELDS.duplicate(),
+		"objective_prop_fields": OBJECTIVE_PROP_SCHEMA_FIELDS.duplicate(),
+		"supported_clear_modes": SUPPORTED_CLEAR_MODES.keys(),
+		"supported_wave_triggers": SUPPORTED_WAVE_TRIGGERS.keys(),
+		"defaults": OBJECTIVE_DEFAULTS.duplicate(true),
+		"wave_defaults": WAVE_DEFAULTS.duplicate(true),
+		"objective_prop_defaults": OBJECTIVE_PROP_DEFAULTS.duplicate(true),
+		"compatibility": COMPATIBILITY_RULES.duplicate(true)
 	}
 
 
@@ -411,8 +494,26 @@ func _resolve_objective_prop_positions(room_node: Node2D, props_variant: Variant
 		if position == Vector2.ZERO and room_node != null:
 			position = room_node.global_position
 		prop["position"] = position
+		var prop_id := String(prop.get("prop_id", "")).strip_edges().to_lower()
+		var display_name_fallback := String(prop.get("label", prop.get("display_name", prop_id.capitalize()))).strip_edges()
+		prop["display_name"] = _localized_field(prop_id, "label", display_name_fallback, prop)
 		resolved.append(prop)
 	return resolved
+
+
+func _resolve_fail_penalty_payload(room_node: Node2D, fail_penalty_variant: Variant, room_state) -> Dictionary:
+	if not (fail_penalty_variant is Dictionary):
+		return {}
+	var fail_penalty: Dictionary = (fail_penalty_variant as Dictionary).duplicate(true)
+	var spawn_set_id := String(fail_penalty.get("spawn_set_id", "")).strip_edges().to_lower()
+	if spawn_set_id.is_empty():
+		return fail_penalty
+	var spawn_set_variant: Variant = _spawn_sets_by_id.get(spawn_set_id, {})
+	if not (spawn_set_variant is Dictionary):
+		return fail_penalty
+	var enemies_variant: Variant = (spawn_set_variant as Dictionary).get("enemies", [])
+	fail_penalty["enemies"] = _build_enemy_payloads(room_node, enemies_variant, room_state)
+	return fail_penalty
 
 
 func _normalize_wave_rows(value: Variant) -> Array[Dictionary]:

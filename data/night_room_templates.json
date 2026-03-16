@@ -298,6 +298,10 @@
         "grid_spacing": [1220, 900],
         "corridor_width": 108
       },
+      "route_resource_defaults": {
+        "key": 1,
+        "contract": 1
+      },
       "mutator_pool": [
         "mutator_tide_pressure",
         "mutator_salvage_surge",
@@ -409,10 +413,11 @@
             "xp_amount": 18
           },
           "metadata": {
+            "theme_id": "harbor_rift",
             "special_room_kind": "shop",
             "shop_inventory_id": "night_market_tier_1",
             "shop_price_xp": 36,
-            "room_tags": ["shop", "utility"]
+            "room_tags": ["shop", "utility", "harbor"]
           }
         },
         {
@@ -456,10 +461,52 @@
             "xp_pickups": 8,
             "xp_amount": 20
           },
+          "route_resources": {
+            "require": {
+              "key": 1
+            },
+            "cost": {
+              "key": 1
+            },
+            "grant": {
+              "contract": 1
+            }
+          },
           "metadata": {
             "room_tags": ["treasure", "secret"],
+            "hidden_reveal": {
+              "type": "clear_source",
+              "source_room_id": "swarm_nest"
+            },
             "carryover_materials": {
               "blueprint_fragment": 1
+            }
+          }
+        },
+        {
+          "id": "brine_cache",
+          "room_type_id": "treasure",
+          "label": "Brine Cache",
+          "label_zh": "盐潮暗库",
+          "scene": "res://scenes/night/rooms/SupplyCacheRoom.tscn",
+          "map_position": [4, 1],
+          "map_size": [920, 560],
+          "reward": {
+            "kind": "treasure",
+            "xp_pickups": 7,
+            "xp_amount": 18
+          },
+          "metadata": {
+            "room_tags": ["treasure", "secret", "breach"],
+            "hidden_reveal": {
+              "type": "breach_wall",
+              "source_room_id": "echo_bazaar",
+              "interaction_marker": "East",
+              "interaction_offset": [18, -18]
+            },
+            "carryover_materials": {
+              "reef_salt": 1,
+              "lumen_resin": 1
             }
           }
         },
@@ -478,10 +525,11 @@
             "xp_amount": 20
           },
           "metadata": {
+            "theme_id": "harbor_rift",
             "special_room_kind": "shop",
             "shop_inventory_id": "night_market_tier_2",
             "shop_price_xp": 48,
-            "room_tags": ["shop", "high_value"]
+            "room_tags": ["shop", "high_value", "harbor"]
           }
         },
         {
@@ -518,6 +566,7 @@
           "map_position": [5, 0],
           "map_size": [1240, 780],
           "metadata": {
+            "peak_room_kind": "miniboss",
             "room_tags": ["challenge", "combat"],
             "challenge_preview_zh": "房间禁止治疗，电击地板激活",
             "preview_reward_material": "challenge_seal"
@@ -581,6 +630,11 @@
           "hidden": true
         },
         {
+          "from": "echo_bazaar",
+          "to": "brine_cache",
+          "hidden": true
+        },
+        {
           "from": "swarm_nest",
           "to": "undertow_altar"
         },
@@ -601,6 +655,10 @@
           "to": "pressure_lock"
         },
         {
+          "from": "brine_cache",
+          "to": "pressure_lock"
+        },
+        {
           "from": "pressure_lock",
           "to": "apex_guardian"
         }
@@ -615,6 +673,10 @@
       "map_layout": {
         "grid_spacing": [1240, 920],
         "corridor_width": 112
+      },
+      "route_resource_defaults": {
+        "key": 1,
+        "contract": 1
       },
       "mutator_pool": [
         "mutator_salt_thickening",
@@ -883,9 +945,27 @@
             "xp_pickups": 8,
             "xp_amount": 20
           },
+          "route_resources": {
+            "require": {
+              "key": 1
+            },
+            "cost": {
+              "key": 1
+            },
+            "grant": {
+              "contract": 1
+            }
+          },
           "metadata": {
             "theme_id": "sunken_exchange",
             "room_tags": ["treasure", "secret", "contraband"],
+            "hidden_reveal": {
+              "type": "condition",
+              "source_room_id": "rust_market",
+              "condition": {
+                "room_cleared": "salt_vault"
+              }
+            },
             "carryover_materials": {
               "glow_kelp": 1,
               "reef_salt": 1
@@ -950,6 +1030,7 @@
           "map_size": [1240, 780],
           "metadata": {
             "theme_id": "sunken_exchange",
+            "peak_room_kind": "miniboss",
             "room_tags": ["challenge", "checkpoint"],
             "challenge_preview_zh": "旧闸门回路异常增压",
             "preview_reward_material": "challenge_seal"
@@ -1018,16 +1099,16 @@
         },
         {
           "from": "barnacle_hive",
-          "to": "contraband_lockup",
-          "hidden": true
-        },
-        {
-          "from": "barnacle_hive",
           "to": "relay_oracle"
         },
         {
           "from": "barnacle_hive",
           "to": "customs_gate"
+        },
+        {
+          "from": "rust_market",
+          "to": "contraband_lockup",
+          "hidden": true
         },
         {
           "from": "rust_market",
@@ -1043,6 +1124,230 @@
         },
         {
           "from": "customs_gate",
+          "to": "apex_guardian"
+        }
+      ]
+    },
+    {
+      "id": "harbor_rift_v3_objective_pack_a",
+      "label": "Harbor Rift Objective Pack A",
+      "label_zh": "港湾裂隙目标包 A",
+      "start_room_id": "camp",
+      "goal_room_id": "apex_guardian",
+      "map_layout": {
+        "grid_spacing": [1180, 860],
+        "corridor_width": 96
+      },
+      "route_resource_defaults": {
+        "key": 1,
+        "contract": 1
+      },
+      "mutator_pool": [
+        "mutator_tide_pressure",
+        "mutator_black_current"
+      ],
+      "encounters": {
+        "escort_convoy_push": {
+          "reward_table_id": "combat_objective_v2"
+        },
+        "payload_hack_breach": {
+          "reward_table_id": "combat_challenge_v2"
+        },
+        "survive_timer_overload": {
+          "reward_table_id": "combat_challenge_v2"
+        }
+      },
+      "rooms": [
+        {
+          "id": "camp",
+          "room_type_id": "rest",
+          "label": "Harbor Refuge",
+          "label_zh": "港湾庇护所",
+          "scene": "res://scenes/night/rooms/HarborRefugeRoom.tscn",
+          "map_position": [0, 0],
+          "map_size": [940, 620],
+          "reward": {
+            "kind": "rest",
+            "heal_pct": 0.24,
+            "noise_delta": -10.0
+          },
+          "metadata": {
+            "theme_id": "harbor_rift",
+            "room_tags": ["start", "safe"],
+            "preview_text_zh": "沿护航航道推进"
+          }
+        },
+        {
+          "id": "convoy_slip",
+          "room_type_id": "combat",
+          "label": "Convoy Slip",
+          "label_zh": "护航滑道",
+          "encounter_id": "escort_convoy_push",
+          "scene": "res://scenes/night/rooms/ReefChannelRoom.tscn",
+          "map_position": [1, 0],
+          "map_size": [1120, 720],
+          "metadata": {
+            "theme_id": "harbor_rift",
+            "room_tags": ["objective", "escort"],
+            "preview_reward_material": "lumen_resin"
+          }
+        },
+        {
+          "id": "payload_span",
+          "room_type_id": "combat",
+          "label": "Payload Span",
+          "label_zh": "载荷廊桥",
+          "encounter_id": "payload_hack_breach",
+          "scene": "res://scenes/night/rooms/OmenShrineRoom.tscn",
+          "map_position": [2, 0],
+          "map_size": [1040, 660],
+          "metadata": {
+            "theme_id": "harbor_rift",
+            "peak_room_kind": "miniboss",
+            "room_tags": ["objective", "hack"],
+            "preview_reward_material": "coil_fragment"
+          }
+        },
+        {
+          "id": "apex_guardian",
+          "room_type_id": "combat",
+          "label": "Flood Lock",
+          "label_zh": "潮闸锁室",
+          "encounter_id": "survive_timer_overload",
+          "scene": "res://scenes/night/rooms/UndertowForgeRoom.tscn",
+          "map_position": [3, 0],
+          "map_size": [1240, 780],
+          "is_goal": true,
+          "metadata": {
+            "theme_id": "harbor_rift",
+            "room_tags": ["objective", "survive", "finale"],
+            "preview_reward_material": "challenge_seal"
+          }
+        }
+      ],
+      "connections": [
+        {
+          "from": "camp",
+          "to": "convoy_slip"
+        },
+        {
+          "from": "convoy_slip",
+          "to": "payload_span"
+        },
+        {
+          "from": "payload_span",
+          "to": "apex_guardian"
+        }
+      ]
+    },
+    {
+      "id": "sunken_exchange_v3_objective_pack_b",
+      "label": "Sunken Exchange Objective Pack B",
+      "label_zh": "沉埠裂隙目标包 B",
+      "start_room_id": "camp",
+      "goal_room_id": "apex_guardian",
+      "map_layout": {
+        "grid_spacing": [1240, 920],
+        "corridor_width": 112
+      },
+      "route_resource_defaults": {
+        "key": 1,
+        "contract": 1
+      },
+      "mutator_pool": [
+        "mutator_relay_static",
+        "mutator_contraband_current"
+      ],
+      "encounters": {
+        "elite_hunt_pursuit": {
+          "reward_table_id": "combat_challenge_v2"
+        },
+        "power_reroute_grid": {
+          "reward_table_id": "combat_objective_v2"
+        },
+        "cursed_cache_unseal": {
+          "reward_table_id": "combat_elite_v2"
+        }
+      },
+      "rooms": [
+        {
+          "id": "camp",
+          "room_type_id": "rest",
+          "label": "Harbor Refuge",
+          "label_zh": "港湾庇护所",
+          "scene": "res://scenes/night/rooms/HarborRefugeRoom.tscn",
+          "map_position": [0, 0],
+          "map_size": [940, 620],
+          "reward": {
+            "kind": "rest",
+            "heal_pct": 0.22,
+            "noise_delta": -12.0
+          },
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["start", "market"],
+            "preview_text_zh": "沿沉埠电缆区下潜"
+          }
+        },
+        {
+          "id": "pursuit_lane",
+          "room_type_id": "combat",
+          "label": "Pursuit Lane",
+          "label_zh": "追猎航道",
+          "encounter_id": "elite_hunt_pursuit",
+          "scene": "res://scenes/night/rooms/ReefChannelRoom.tscn",
+          "map_position": [1, 0],
+          "map_size": [1120, 720],
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "peak_room_kind": "hunter",
+            "room_tags": ["objective", "elite"],
+            "preview_reward_material": "moon_spore"
+          }
+        },
+        {
+          "id": "relay_switchyard",
+          "room_type_id": "combat",
+          "label": "Relay Switchyard",
+          "label_zh": "中继调度场",
+          "encounter_id": "power_reroute_grid",
+          "scene": "res://scenes/night/rooms/ReefPillarRoom.tscn",
+          "map_position": [2, 0],
+          "map_size": [1160, 760],
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["objective", "relay"],
+            "preview_reward_material": "glow_kelp"
+          }
+        },
+        {
+          "id": "apex_guardian",
+          "room_type_id": "combat",
+          "label": "Cursed Cache Vault",
+          "label_zh": "诅咒缓存库",
+          "encounter_id": "cursed_cache_unseal",
+          "scene": "res://scenes/night/rooms/SwarmNestRoom.tscn",
+          "map_position": [3, 0],
+          "map_size": [1180, 760],
+          "is_goal": true,
+          "metadata": {
+            "theme_id": "sunken_exchange",
+            "room_tags": ["objective", "curse", "finale"],
+            "preview_reward_material": "blueprint_fragment"
+          }
+        }
+      ],
+      "connections": [
+        {
+          "from": "camp",
+          "to": "pursuit_lane"
+        },
+        {
+          "from": "pursuit_lane",
+          "to": "relay_switchyard"
+        },
+        {
+          "from": "relay_switchyard",
           "to": "apex_guardian"
         }
       ]

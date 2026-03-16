@@ -42,6 +42,46 @@
 			"usage_tags": ["farm", "unlock"]
 		},
 		{
+			"id": "lumen_resin",
+			"name": "Lumen Resin",
+			"name_zh": "流明树脂",
+			"description": "A convoy-grade resin pull used to annotate support routes and steady escort planning.",
+			"description_zh": "一种护航级树脂样本，常被用来标记支援路线并稳定护送规划。",
+			"category": "unlock_tokens",
+			"night_only": true,
+			"usage_tags": ["route_tag", "support"]
+		},
+		{
+			"id": "coil_fragment",
+			"name": "Coil Fragment",
+			"name_zh": "线圈碎片",
+			"description": "Recovered relay hardware that points toward better market stock and cleaner loadout tuning.",
+			"description_zh": "从中继设备上拆下的线圈碎片，常用来锁定更好的市场货池和更干净的武装调校。",
+			"category": "unlock_tokens",
+			"night_only": true,
+			"usage_tags": ["route_tag", "market"]
+		},
+		{
+			"id": "challenge_seal",
+			"name": "Challenge Seal",
+			"name_zh": "挑战印记",
+			"description": "A stamped proof that a high-risk room was held, often traded into sharper route leverage.",
+			"description_zh": "高风险房间被稳住后留下的印记，常被兑换成更强的路线筹码。",
+			"category": "unlock_tokens",
+			"night_only": true,
+			"usage_tags": ["route_tag", "risk"]
+		},
+		{
+			"id": "blueprint_fragment",
+			"name": "Blueprint Fragment",
+			"name_zh": "蓝图片段",
+			"description": "A rougher route-found fragment that still folds into kitchen and market unlock work.",
+			"description_zh": "从路线深处捞出的粗糙蓝图片段，依然能并入厨房和市场相关的解锁研究。",
+			"category": "unlock_tokens",
+			"night_only": true,
+			"usage_tags": ["unlock", "market"]
+		},
+		{
 			"id": "kitchen_blueprint_fragment",
 			"name": "Kitchen Blueprint Fragment",
 			"name_zh": "厨房蓝图片段",

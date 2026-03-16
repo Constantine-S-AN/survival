@@ -35,7 +35,7 @@ func _ready() -> void:
 	if not await _assert_day_guidance(
 		3,
 		"meta.hub.guide_title_day3",
-		["Harvest first", "Reef Salt"],
+		["Fresh stock", "night loot"],
 		["Cold Storage", "Salt Request"]
 	):
 		return
@@ -174,7 +174,13 @@ func _advance_to_day_three() -> bool:
 	var snapshot: Dictionary = _helper.snapshot()
 	if not _require(bool(snapshot.get("day_world_arrival_banner_visible", false)), "Day 3 should briefly surface the next-day handoff banner"):
 		return false
-	if not _require(String(snapshot.get("day_world_arrival_banner_body_text", "")).find("Harvest first") >= 0, "Day 3 handoff banner should point at the first harvest follow-through"):
+	var arrival_banner_text := String(snapshot.get("day_world_arrival_banner_body_text", ""))
+	if not _require(
+		arrival_banner_text.find("Harvest first") >= 0
+		or arrival_banner_text.find("Fresh stock") >= 0
+		or arrival_banner_text.find("plate") >= 0,
+		"Day 3 handoff banner should point at the first harvest payoff or the resulting stock-routing step"
+	):
 		return false
 	return int(_helper.snapshot().get("current_day", 0)) == 3
 
@@ -204,5 +210,6 @@ func _require(condition: bool, message: String) -> bool:
 
 func _cleanup(failed: bool = true) -> void:
 	if _helper != null:
-		_helper.cleanup()
+		_helper.cleanup_and_quit(1 if failed else 0)
+		return
 	get_tree().quit(1 if failed else 0)

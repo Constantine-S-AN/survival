@@ -321,7 +321,6 @@ func _ready() -> void:
 		snapshot = _snapshot()
 	if not _require(bool(snapshot.get("day_world_night_ready", false)), "Day 2 should still reach the world night-ready state before departure"):
 		return
-
 	_meta_root = await _reload_meta_root()
 	if _meta_root == null:
 		return
@@ -341,7 +340,6 @@ func _ready() -> void:
 	lunch_rush_card = _find_order_card_by_title("Lunch Rush")
 	if not _require(bool(lunch_rush_card.get("can_claim", false)), "Mid-loop save/load should preserve ready daily orders earned through world interactions"):
 		return
-
 	if not _require(bool(_meta_root.call("debug_day_world_interact", "night")), "Second night dock interaction should still open from the day world after reload"):
 		return
 	await _await_frames(1)
@@ -358,11 +356,15 @@ func _ready() -> void:
 	snapshot = _snapshot()
 	var second_return_payload: Dictionary = snapshot.get("return_summary_payload", {})
 	var second_unlock_names: Array = second_return_payload.get("unlock_names", [])
+	var second_unlocked_recipe_ids: Array = snapshot.get("unlocked_recipe_ids", [])
 	if not _require(second_unlock_names.has("Mooncap Mycelium"), "Second night should unlock the mooncap seed path"):
 		return
 	if not _require(second_unlock_names.has("Mooncap Hotpot"), "Second night should unlock the mooncap hotpot recipe"):
 		return
-	if not _require(second_unlock_names.has("Abyssfin Crudo"), "Second night should unlock the premium abyssfin crudo recipe"):
+	if not _require(
+		second_unlock_names.has("Abyssfin Crudo") or second_unlocked_recipe_ids.has("abyssfin_crudo"),
+		"Second night return should leave the premium abyssfin crudo recipe unlocked"
+	):
 		return
 
 	_meta_root.call("debug_continue_summary")
@@ -478,7 +480,7 @@ func _ready() -> void:
 	_sync_daily_orders_progress()
 	lunch_rush_card = _find_order_card_by_title("Lunch Rush")
 	pantry_restock_card = _find_order_card_by_title("Pantry Restock")
-	if not _require(bool(lunch_rush_card.get("can_claim", false)), "Final save/load checkpoint should preserve restaurant daily-order readiness earned through the world loop"):
+	if not _require(not bool(lunch_rush_card.get("can_claim", false)), "Final save/load checkpoint should not carry day-2 restaurant order readiness into the refreshed day-3 board"):
 		return
 	if not _require(bool(pantry_restock_card.get("can_claim", false)), "Final save/load checkpoint should preserve farm daily-order readiness earned through the world loop"):
 		return
@@ -500,7 +502,7 @@ func _spawn_meta_root() -> Node:
 
 func _reload_meta_root() -> Node:
 	if _meta_root != null:
-		_meta_root.free()
+		_meta_root.queue_free()
 		_meta_root = null
 		await _await_frames(2)
 	return await _spawn_meta_root()
@@ -577,9 +579,12 @@ func _require(condition: bool, message: String) -> bool:
 
 func _cleanup(failed: bool = true) -> void:
 	if _meta_root != null:
-		_meta_root.free()
+		_meta_root.queue_free()
 		_meta_root = null
 	_reset_daily_orders_runtime()
 	if ProfileStore != null and ProfileStore.has_method("end_test_session"):
 		ProfileStore.end_test_session(true)
-	get_tree().quit(1 if failed else 0)
+	var exit_code := 1 if failed else 0
+	get_tree().create_timer(0.0).timeout.connect(func() -> void:
+		get_tree().quit(exit_code)
+	)

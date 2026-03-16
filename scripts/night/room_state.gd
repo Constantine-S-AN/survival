@@ -38,6 +38,7 @@ var map_size: Vector2 = Vector2(1040.0, 700.0)
 var minimap_color: Color = Color(0.44, 0.76, 0.92, 1.0)
 var exit_color: Color = Color(0.44, 0.76, 0.92, 1.0)
 var reward_data: Dictionary = {}
+var route_resources: Dictionary = {}
 var metadata: Dictionary = {}
 
 
@@ -72,10 +73,15 @@ static func from_dictionary(room_data: Dictionary, type_data: Dictionary, target
 	state.exit_color = _coerce_color(type_data.get("exit_color", "#70d3ff"), state.minimap_color)
 	var reward_variant: Variant = room_data.get("reward", type_data.get("reward", {}))
 	state.reward_data = reward_variant.duplicate(true) if reward_variant is Dictionary else {}
+	state.route_resources = _normalize_route_resource_spec(room_data.get("route_resources", {}))
 	var metadata_variant: Variant = room_data.get("metadata", {})
 	state.metadata = metadata_variant.duplicate(true) if metadata_variant is Dictionary else {}
 	if state.metadata.is_empty():
 		state.metadata = {}
+	if state.route_resources.is_empty():
+		state.route_resources = _normalize_route_resource_spec(state.metadata.get("route_resources", {}))
+	elif not state.route_resources.is_empty():
+		state.metadata["route_resources"] = state.route_resources.duplicate(true)
 	state.metadata["map_position"] = state.map_position
 	state.metadata["map_size"] = state.map_size
 	state.metadata["room_type_id"] = state.room_type_id
@@ -104,6 +110,7 @@ func duplicate_state() -> RoomState:
 	copy.minimap_color = minimap_color
 	copy.exit_color = exit_color
 	copy.reward_data = reward_data.duplicate(true)
+	copy.route_resources = route_resources.duplicate(true)
 	copy.metadata = metadata.duplicate(true)
 	return copy
 
@@ -151,6 +158,7 @@ func to_dictionary() -> Dictionary:
 		"minimap_color": minimap_color,
 		"exit_color": exit_color,
 		"reward_data": reward_data.duplicate(true),
+		"route_resources": route_resources.duplicate(true),
 		"metadata": metadata.duplicate(true)
 	}
 
@@ -181,6 +189,27 @@ static func _default_map_size_for_type(room_type_id: String) -> Vector2:
 	if DEFAULT_MAP_SIZES.has(normalized):
 		return DEFAULT_MAP_SIZES[normalized]
 	return DEFAULT_MAP_SIZES[TYPE_COMBAT]
+
+
+static func _normalize_route_resource_spec(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var source: Dictionary = value
+	var normalized: Dictionary = {}
+	for section_id in ["grant", "cost", "require"]:
+		var section_variant: Variant = source.get(section_id, {})
+		if not (section_variant is Dictionary):
+			continue
+		var section: Dictionary = {}
+		for kind_variant in (section_variant as Dictionary).keys():
+			var kind := String(kind_variant).strip_edges().to_lower()
+			var amount := maxi(0, int((section_variant as Dictionary).get(kind_variant, 0)))
+			if not ["key", "curse", "contract"].has(kind) or amount <= 0:
+				continue
+			section[kind] = amount
+		if not section.is_empty():
+			normalized[section_id] = section
+	return normalized
 
 
 static func _localized_field(entry_id: String, field: String, fallback: String, source: Dictionary = {}) -> String:

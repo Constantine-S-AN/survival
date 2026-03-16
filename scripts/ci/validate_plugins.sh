@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-GODOT_BIN="${GODOT_BIN:-godot}"
+source "${ROOT_DIR}/scripts/lib/godot_env.sh"
+GODOT_BIN="$(resolve_godot_bin "${GODOT_BIN:-}")"
 
 required_files=(
 	"addons/gd-plug/plug.gd"

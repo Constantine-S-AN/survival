@@ -4,6 +4,7 @@ class_name InventoryState
 var materials: Dictionary = {}
 var unlocked_seeds: Array[String] = []
 var unlocked_recipes: Array[String] = []
+var night_feedback_unlocks: Array[String] = []
 
 
 static func from_dict(source: Dictionary):
@@ -17,6 +18,7 @@ static func from_dict(source: Dictionary):
 			inventory.materials[material_id] = maxi(0, int((materials_variant as Dictionary).get(material_key_variant, 0)))
 	inventory.unlocked_seeds = _normalize_string_array(source.get("unlocked_seeds", []))
 	inventory.unlocked_recipes = _normalize_string_array(source.get("unlocked_recipes", []))
+	inventory.night_feedback_unlocks = _normalize_string_array(source.get("night_feedback_unlocks", []))
 	return inventory
 
 
@@ -24,7 +26,8 @@ func to_dict() -> Dictionary:
 	return {
 		"materials": materials.duplicate(true),
 		"unlocked_seeds": unlocked_seeds.duplicate(),
-		"unlocked_recipes": unlocked_recipes.duplicate()
+		"unlocked_recipes": unlocked_recipes.duplicate(),
+		"night_feedback_unlocks": night_feedback_unlocks.duplicate()
 	}
 
 
@@ -73,6 +76,18 @@ func unlock_recipe(recipe_id: String) -> bool:
 	if key.is_empty() or unlocked_recipes.has(key):
 		return false
 	unlocked_recipes.append(key)
+	return true
+
+
+func has_night_feedback(feedback_id: String) -> bool:
+	return night_feedback_unlocks.has(feedback_id.strip_edges().to_lower())
+
+
+func unlock_night_feedback(feedback_id: String) -> bool:
+	var key := feedback_id.strip_edges().to_lower()
+	if key.is_empty() or night_feedback_unlocks.has(key):
+		return false
+	night_feedback_unlocks.append(key)
 	return true
 
 

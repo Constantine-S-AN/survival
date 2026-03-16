@@ -7,57 +7,63 @@ const SHOT_TIER := "res://tmp/logs/t5_hud_tier_pulse.png"
 const SHOT_LOW_HP := "res://tmp/logs/t5_hud_low_hp.png"
 const SESSION_TAG := "t5_hud_runner"
 
+var _game: Node = null
+
 
 func _ready() -> void:
-	call_deferred("_run")
+	await get_tree().process_frame
+	await _run()
 
 
 func _run() -> void:
 	_setup_profile_isolation(SESSION_TAG)
 	var lines: Array[String] = []
-	var game := GAME_ROOT_SCENE.instantiate()
-	add_child(game)
+	_game = GAME_ROOT_SCENE.instantiate()
+	add_child(_game)
 	await _wait_frames(3)
 
-	game.call("_start_run", "diver", "map_trench_lab", [])
+	_game.call("_start_run", "diver", "map_trench_lab", [])
 	await get_tree().create_timer(0.8).timeout
 
-	var ui := game.get_node_or_null("UI")
+	var ui := _game.get_node_or_null("UI")
 	if ui == null:
-		_fail(lines, "UI node not found")
+		await _fail(lines, "UI node not found")
 		return
 	var run_hud := ui.get_node_or_null("Root/RunHUD")
 	if run_hud == null:
-		_fail(lines, "RunHUD node not found")
+		await _fail(lines, "RunHUD node not found")
 		return
 
-	game.call("_refresh_hud")
-	await _wait_draw()
+	_game.call("_refresh_hud")
+	if _can_capture_viewport():
+		await _wait_draw()
 	_capture(SHOT_OVERVIEW)
 	var snap_before: Dictionary = run_hud.call("get_debug_snapshot")
 	lines.append("snapshot_before=%s" % JSON.stringify(snap_before))
 
-	var player := game.get_node_or_null("World/Player")
+	var player := _game.get_node_or_null("World/Player")
 	if player == null:
-		_fail(lines, "World/Player not found")
+		await _fail(lines, "World/Player not found")
 		return
 
 	player.call("set_noise_value", 8.0)
-	game.call("_refresh_hud")
+	_game.call("_refresh_hud")
 	await get_tree().create_timer(0.12).timeout
 	player.call("set_noise_value", 72.0)
-	game.call("_refresh_hud")
+	_game.call("_refresh_hud")
 	await get_tree().create_timer(0.18).timeout
-	await _wait_draw()
+	if _can_capture_viewport():
+		await _wait_draw()
 	_capture(SHOT_TIER)
 	var snap_tier: Dictionary = run_hud.call("get_debug_snapshot")
 	lines.append("snapshot_tier=%s" % JSON.stringify(snap_tier))
 
 	var max_hp := float(player.get("max_hp"))
 	player.set("hp", maxf(1.0, max_hp * 0.18))
-	game.call("_refresh_hud")
+	_game.call("_refresh_hud")
 	await get_tree().create_timer(0.18).timeout
-	await _wait_draw()
+	if _can_capture_viewport():
+		await _wait_draw()
 	_capture(SHOT_LOW_HP)
 	var snap_low: Dictionary = run_hud.call("get_debug_snapshot")
 	lines.append("snapshot_low=%s" % JSON.stringify(snap_low))
@@ -68,25 +74,23 @@ func _run() -> void:
 	lines.append("low_hp_ok=%s" % str(low_hp_ok))
 
 	if not tier_changed:
-		_fail(lines, "Noise tier did not change")
+		await _fail(lines, "Noise tier did not change")
 		return
 	if not low_hp_ok:
-		_fail(lines, "Low HP feedback state not reached")
+		await _fail(lines, "Low HP feedback state not reached")
 		return
 
 	lines.append("t5 hud runner: PASS")
 	_write_log(lines)
 	print("t5 hud runner: PASS")
-	_cleanup_profile_isolation()
-	get_tree().quit(0)
+	await _shutdown(0)
 
 
 func _fail(lines: Array[String], reason: String) -> void:
 	lines.append("t5 hud runner: FAIL - %s" % reason)
 	_write_log(lines)
 	push_error(reason)
-	_cleanup_profile_isolation()
-	get_tree().quit(1)
+	await _shutdown(1)
 
 
 func _write_log(lines: Array[String]) -> void:
@@ -101,7 +105,15 @@ func _write_log(lines: Array[String]) -> void:
 
 
 func _capture(path: String) -> void:
-	var image := get_viewport().get_texture().get_image()
+	if not _can_capture_viewport():
+		return
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	var viewport_texture := viewport.get_texture()
+	if viewport_texture == null:
+		return
+	var image := viewport_texture.get_image()
 	if image == null:
 		return
 	var abs_path := ProjectSettings.globalize_path(path)
@@ -113,9 +125,32 @@ func _wait_draw() -> void:
 	await RenderingServer.frame_post_draw
 
 
+func _can_capture_viewport() -> bool:
+	return DisplayServer.get_name().strip_edges().to_lower() != "headless"
+
+
 func _wait_frames(count: int) -> void:
 	for _i in range(maxi(1, count)):
 		await get_tree().process_frame
+
+
+func _await_stable_frames(count: int = 3) -> void:
+	for _i in range(maxi(1, count)):
+		await get_tree().physics_frame
+		await get_tree().process_frame
+
+
+func _shutdown(exit_code: int) -> void:
+	if _game != null and is_instance_valid(_game):
+		if _game.has_method("stop_session"):
+			_game.call("stop_session")
+		await _await_stable_frames(2)
+		_game.queue_free()
+		await _await_stable_frames(3)
+	_game = null
+	_cleanup_profile_isolation()
+	await _await_stable_frames(1)
+	get_tree().quit(exit_code)
 
 
 func _setup_profile_isolation(tag: String) -> void:

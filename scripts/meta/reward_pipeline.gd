@@ -22,7 +22,8 @@ func resolve_night_return(summary: Dictionary, day_state: Variant, economy: Vari
 			"new_unlocks": [],
 			"unlock_progress": [],
 			"consumed_unlock_materials": {},
-			"penalty": _build_penalty_payload({}, day_state)
+			"penalty": _build_penalty_payload({}, day_state),
+			"objective_material_rows": []
 		}
 
 	var session := _normalize_session(summary)
@@ -33,6 +34,8 @@ func resolve_night_return(summary: Dictionary, day_state: Variant, economy: Vari
 
 	var reward_result := _collect_rewards(loot_table, session)
 	var carryover_result := _collect_dungeon_carryover(summary, session)
+	var route_resource_flow := _normalize_route_resource_flow(summary.get("dungeon_route_resource_flow", {}))
+	var objective_material_rows := _normalize_objective_material_rows(summary.get("dungeon_objective_materials", []))
 	_merge_material_bundles(reward_result, carryover_result)
 	var material_rewards: Dictionary = reward_result.get("material_rewards", {})
 	for material_id_variant in material_rewards.keys():
@@ -47,6 +50,8 @@ func resolve_night_return(summary: Dictionary, day_state: Variant, economy: Vari
 	var penalty := _build_penalty_payload(loot_table.get("penalty", {}), day_state)
 	if day_state != null and day_state.has_method("set_pending_next_day_stamina_penalty"):
 		day_state.call("set_pending_next_day_stamina_penalty", int(penalty.get("stamina_loss", 0)))
+	if economy != null and economy.has_method("record_route_resource_flow"):
+		economy.call("record_route_resource_flow", route_resource_flow)
 
 	return {
 		"session": session.duplicate(true),
@@ -59,7 +64,10 @@ func resolve_night_return(summary: Dictionary, day_state: Variant, economy: Vari
 		"unlock_progress": unlock_result.get("unlock_progress", []),
 		"consumed_unlock_materials": unlock_result.get("consumed_unlock_materials", {}),
 		"penalty": penalty,
-		"carryover_rows": carryover_result.get("carryover_rows", [])
+		"carryover_rows": carryover_result.get("carryover_rows", []),
+		"objective_material_rows": objective_material_rows,
+		"route_resource_flow": route_resource_flow,
+		"route_resource_text": _build_route_resource_flow_text(route_resource_flow)
 	}
 
 
@@ -259,6 +267,96 @@ func _normalize_carryover_rows(value: Variant) -> Array[Dictionary]:
 			continue
 		rows.append((row_variant as Dictionary).duplicate(true))
 	return rows
+
+
+func _normalize_objective_material_rows(value: Variant) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if not (value is Array):
+		return rows
+	for row_variant in (value as Array):
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		rows.append({
+			"room_id": String(row.get("room_id", "")).strip_edges().to_lower(),
+			"room_label": String(row.get("room_label", "")).strip_edges(),
+			"objective_id": String(row.get("objective_id", "")).strip_edges().to_lower(),
+			"objective_label": String(row.get("objective_label", "")).strip_edges(),
+			"encounter_id": String(row.get("encounter_id", "")).strip_edges().to_lower(),
+			"room_tags": _normalize_string_array(row.get("room_tags", [])),
+			"preview_reward_material": String(row.get("preview_reward_material", "")).strip_edges().to_lower(),
+			"source_materials": _normalize_material_bundle(row.get("source_materials", {})),
+			"floor_index": maxi(0, int(row.get("floor_index", 0))),
+			"floor_template_id": String(row.get("floor_template_id", "")).strip_edges().to_lower()
+		})
+	return rows
+
+
+func _normalize_route_resource_flow(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var source: Dictionary = value
+	return {
+		"start": _normalize_int_dictionary(source.get("start", {})),
+		"end": _normalize_int_dictionary(source.get("end", {})),
+		"gained": _normalize_int_dictionary(source.get("gained", {})),
+		"spent": _normalize_int_dictionary(source.get("spent", {})),
+		"net": _normalize_int_dictionary(source.get("net", {}))
+	}
+
+
+func _build_route_resource_flow_text(flow: Dictionary) -> String:
+	if flow.is_empty():
+		return _t("meta.common.none")
+	var lines: Array[String] = []
+	var gained: Dictionary = flow.get("gained", {})
+	var spent: Dictionary = flow.get("spent", {})
+	var end_state: Dictionary = flow.get("end", {})
+	for kind in ["key", "contract", "curse"]:
+		var gain_amount := int(gained.get(kind, 0))
+		var spend_amount := int(spent.get(kind, 0))
+		var end_amount := int(end_state.get(kind, 0))
+		if gain_amount == 0 and spend_amount == 0 and end_amount == 0:
+			continue
+		lines.append(_t("meta.summary.route_resource_line", {
+			"kind": _t("meta.summary.route_resource.kind.%s" % kind),
+			"gain": gain_amount,
+			"spend": spend_amount,
+			"end": end_amount
+		}))
+	if lines.is_empty():
+		return _t("meta.common.none")
+	return "\n".join(lines)
+
+
+func _normalize_int_dictionary(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var normalized: Dictionary = {}
+	for key_variant in (value as Dictionary).keys():
+		var key := String(key_variant).strip_edges().to_lower()
+		if key.is_empty():
+			continue
+		normalized[key] = int((value as Dictionary).get(key_variant, 0))
+	return normalized
+
+
+func _normalize_string_array(value: Variant) -> Array[String]:
+	var rows: Array[String] = []
+	if not (value is Array):
+		return rows
+	for row_variant in (value as Array):
+		var text := String(row_variant).strip_edges().to_lower()
+		if text.is_empty() or rows.has(text):
+			continue
+		rows.append(text)
+	return rows
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	if Localization == null or not Localization.has_method("t"):
+		return key
+	return String(Localization.call("t", key, args))
 
 
 func _apply_unlocks(inventory: Variant, reward_bundle: Dictionary) -> Dictionary:

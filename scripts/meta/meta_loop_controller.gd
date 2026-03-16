@@ -52,6 +52,30 @@ const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause/PauseMenu.tscn")
 const MATERIAL_DISPLAY_NAMES: Dictionary = {
 	"scrap": "Scrap"
 }
+const NIGHT_FEEDBACK_ORDER: Array[String] = [
+	"mycelium_broker",
+	"raw_bar_buyer"
+]
+const NIGHT_FEEDBACK_DEFS: Dictionary = {
+	"mycelium_broker": {
+		"source_target_type": "seed",
+		"source_target_id": "mooncap_seed",
+		"name_key": "meta.feedback.mycelium_broker.name",
+		"effect_key": "meta.feedback.mycelium_broker.effect",
+		"start_route_resources": {"contract": 1},
+		"shop_feedback_tags": [],
+		"shop_refresh_discount_xp": 0
+	},
+	"raw_bar_buyer": {
+		"source_target_type": "recipe",
+		"source_target_id": "abyssfin_crudo",
+		"name_key": "meta.feedback.raw_bar_buyer.name",
+		"effect_key": "meta.feedback.raw_bar_buyer.effect",
+		"start_route_resources": {},
+		"shop_feedback_tags": ["rare", "exchange", "relic"],
+		"shop_refresh_discount_xp": 6
+	}
+}
 
 @export_enum("world", "legacy") var default_daytime_shell: String = DAYTIME_SHELL_WORLD
 
@@ -84,6 +108,7 @@ var _pause_menu: Control = null
 var _meta_pause_visible: bool = false
 var _daytime_shell_mode: String = DAYTIME_SHELL_WORLD
 var _last_launch_seed: int = 0
+var _debug_next_night_request_overrides: Dictionary = {}
 
 
 func _ready() -> void:
@@ -732,8 +757,14 @@ func _launch_night() -> bool:
 		"character_id": character_id,
 		"map_id": map_id,
 		"contract_ids": ProfileStore.get_selected_contract_ids(),
+		"day_feedback": _build_night_feedback_payload(),
 		"seed": _next_runtime_seed()
 	}
+	if not _debug_next_night_request_overrides.is_empty():
+		for key_variant in _debug_next_night_request_overrides.keys():
+			request[String(key_variant)] = _debug_next_night_request_overrides[key_variant]
+		_last_launch_seed = maxi(_last_launch_seed, int(request.get("seed", 0)))
+		_debug_next_night_request_overrides.clear()
 	_pending_night_session = _build_pending_night_session(request)
 	_pending_return_summary.clear()
 	_day_hub_status_text = ""
@@ -1069,17 +1100,10 @@ func _buy_shop_upgrade(upgrade_id: String) -> bool:
 
 
 func _open_restaurant_service() -> bool:
-	if _restaurant_service_completed_today():
-		_restaurant_status_text = _t("meta.restaurant.status_closed_today")
-		_refresh_views()
-		return false
-	if not _day_state.can_spend_action_budget(RESTAURANT_SERVICE_ACTION_COST):
-		_restaurant_status_text = _t("meta.restaurant.status_need_time")
-		_refresh_views()
-		return false
 	var selected_menu_ids: Array[String] = _normalize_string_id_array(_restaurant_state.get("selected_menu_recipe_ids", []))
-	if selected_menu_ids.is_empty():
-		_restaurant_status_text = _t("meta.restaurant.status_need_menu")
+	var service_gate := _build_restaurant_service_gate(selected_menu_ids)
+	if not bool(service_gate.get("can_open", false)):
+		_restaurant_status_text = _build_restaurant_service_status_text(service_gate)
 		_refresh_views()
 		return false
 	var recipe_lookup := _get_recipe_lookup()
@@ -1175,11 +1199,23 @@ func _apply_night_rewards(summary: Dictionary) -> Dictionary:
 		if unlock_names.has(unlock_name):
 			continue
 		unlock_names.append(unlock_name)
+	_sync_night_feedback_unlocks()
+	var material_use_rows := _build_material_use_rows(
+		reward_result.get("objective_material_rows", []),
+		material_bundle
+	)
+	var night_feedback_rows := _build_night_feedback_rows()
+	if _economy != null:
+		if _economy.has_method("record_material_use_rows"):
+			_economy.call("record_material_use_rows", material_use_rows)
+		if _economy.has_method("record_night_feedback_rows"):
+			_economy.call("record_night_feedback_rows", night_feedback_rows)
 
 	var penalty_variant: Variant = reward_result.get("penalty", {})
 	var penalty: Dictionary = penalty_variant if penalty_variant is Dictionary else {}
 	var unlock_progress_variant: Variant = reward_result.get("unlock_progress", [])
 	var unlock_progress: Array = unlock_progress_variant if unlock_progress_variant is Array else []
+	var relic_rows := _extract_relic_summary_rows(summary.get("dungeon_run_relics", []))
 	var return_payload := {
 		"current_day": _day_state.current_day,
 		"next_day": _day_state.current_day + 1,
@@ -1198,8 +1234,16 @@ func _apply_night_rewards(summary: Dictionary) -> Dictionary:
 		"unlock_text": ", ".join(unlock_names) if not unlock_names.is_empty() else _t("meta.common.none"),
 		"unlock_progress": unlock_progress.duplicate(true),
 		"unlock_progress_text": _build_unlock_progress_text(unlock_progress),
+		"material_use_rows": material_use_rows.duplicate(true),
+		"material_use_text": _build_material_use_text(material_use_rows),
+		"night_feedback_rows": night_feedback_rows.duplicate(true),
+		"night_feedback_text": _build_night_feedback_text(night_feedback_rows),
 		"penalty": penalty.duplicate(true),
 		"penalty_text": _build_penalty_text(penalty),
+		"relic_rows": relic_rows.duplicate(true),
+		"relic_text": _build_relic_summary_text(relic_rows),
+		"route_resource_flow": (reward_result.get("route_resource_flow", {}) as Dictionary).duplicate(true) if reward_result.get("route_resource_flow", {}) is Dictionary else {},
+		"route_resource_text": String(reward_result.get("route_resource_text", _t("meta.common.none"))),
 		"raw_summary": summary.duplicate(true)
 	}
 	return_payload["arrival_text"] = _build_return_arrival_text(return_payload)
@@ -1249,20 +1293,135 @@ func _build_day_hub_model() -> Dictionary:
 	}
 
 
+func _normalize_day_feedback_payload(source_variant: Variant) -> Dictionary:
+	if not (source_variant is Dictionary):
+		return {}
+	var source: Dictionary = source_variant
+	return {
+		"unlocked_ids": _normalize_string_id_array(source.get("unlocked_ids", [])),
+		"start_route_resources": _normalize_material_bundle(source.get("start_route_resources", {})),
+		"shop_feedback_tags": _normalize_string_id_array(source.get("shop_feedback_tags", [])),
+		"shop_refresh_discount_xp": maxi(0, int(source.get("shop_refresh_discount_xp", 0)))
+	}
+
+
+func _sync_night_feedback_unlocks() -> void:
+	if _inventory == null:
+		return
+	for feedback_id in NIGHT_FEEDBACK_ORDER:
+		var feedback_def_variant: Variant = NIGHT_FEEDBACK_DEFS.get(feedback_id, {})
+		if not (feedback_def_variant is Dictionary):
+			continue
+		if _inventory.has_night_feedback(feedback_id):
+			continue
+		if not _is_night_feedback_condition_met(feedback_def_variant as Dictionary):
+			continue
+		_inventory.unlock_night_feedback(feedback_id)
+
+
+func _is_night_feedback_condition_met(feedback_def: Dictionary) -> bool:
+	var source_target_type := String(feedback_def.get("source_target_type", "")).strip_edges().to_lower()
+	var source_target_id := String(feedback_def.get("source_target_id", "")).strip_edges().to_lower()
+	if source_target_type.is_empty() or source_target_id.is_empty():
+		return false
+	match source_target_type:
+		"seed":
+			return _inventory.has_seed(source_target_id)
+		"recipe":
+			return _inventory.has_recipe(source_target_id)
+		_:
+			return false
+
+
+func _build_night_feedback_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if _inventory == null:
+		return rows
+	_sync_night_feedback_unlocks()
+	for feedback_id in NIGHT_FEEDBACK_ORDER:
+		if not _inventory.has_night_feedback(feedback_id):
+			continue
+		var row := _build_night_feedback_row(feedback_id)
+		if row.is_empty():
+			continue
+		rows.append(row)
+	return rows
+
+
+func _build_night_feedback_row(feedback_id: String) -> Dictionary:
+	var normalized_id := feedback_id.strip_edges().to_lower()
+	var feedback_def_variant: Variant = NIGHT_FEEDBACK_DEFS.get(normalized_id, {})
+	if not (feedback_def_variant is Dictionary):
+		return {}
+	var feedback_def: Dictionary = feedback_def_variant
+	var source_target_type := String(feedback_def.get("source_target_type", "")).strip_edges().to_lower()
+	var source_target_id := String(feedback_def.get("source_target_id", "")).strip_edges().to_lower()
+	return {
+		"id": normalized_id,
+		"name": _t(String(feedback_def.get("name_key", normalized_id))),
+		"effect": _t(String(feedback_def.get("effect_key", normalized_id))),
+		"source_target_type": source_target_type,
+		"source_target_id": source_target_id,
+		"source_name": _resolve_meta_target_name(source_target_type, source_target_id)
+	}
+
+
+func _build_night_feedback_payload() -> Dictionary:
+	var payload := {
+		"unlocked_ids": [],
+		"start_route_resources": {},
+		"shop_feedback_tags": [],
+		"shop_refresh_discount_xp": 0
+	}
+	if _inventory == null:
+		return payload
+	_sync_night_feedback_unlocks()
+	var start_route_resources: Dictionary = {}
+	var shop_feedback_tags: Array[String] = []
+	var shop_refresh_discount_xp := 0
+	var unlocked_ids: Array[String] = []
+	for feedback_id in NIGHT_FEEDBACK_ORDER:
+		if not _inventory.has_night_feedback(feedback_id):
+			continue
+		var feedback_def_variant: Variant = NIGHT_FEEDBACK_DEFS.get(feedback_id, {})
+		if not (feedback_def_variant is Dictionary):
+			continue
+		var feedback_def: Dictionary = feedback_def_variant
+		unlocked_ids.append(feedback_id)
+		_merge_material_bundle_counts(start_route_resources, feedback_def.get("start_route_resources", {}))
+		for tag in _normalize_string_id_array(feedback_def.get("shop_feedback_tags", [])):
+			if not shop_feedback_tags.has(tag):
+				shop_feedback_tags.append(tag)
+		shop_refresh_discount_xp += maxi(0, int(feedback_def.get("shop_refresh_discount_xp", 0)))
+	payload["unlocked_ids"] = unlocked_ids
+	payload["start_route_resources"] = start_route_resources
+	payload["shop_feedback_tags"] = shop_feedback_tags
+	payload["shop_refresh_discount_xp"] = shop_refresh_discount_xp
+	return payload
+
+
 func _normalize_pending_night_session(source_variant: Variant) -> Dictionary:
 	if not (source_variant is Dictionary):
 		return {}
 	var source: Dictionary = source_variant
 	if source.is_empty():
 		return {}
-	return {
+	var normalized := {
 		"day": maxi(1, int(source.get("day", _day_state.current_day))),
 		"character_id": String(source.get("character_id", "")).strip_edges(),
 		"map_id": String(source.get("map_id", DataRegistry.get_default_map_id())).strip_edges(),
 		"contract_ids": _normalize_string_id_array(source.get("contract_ids", [])),
+		"day_feedback": _normalize_day_feedback_payload(source.get("day_feedback", {})),
 		"seed": maxi(0, int(source.get("seed", 0))),
 		"session_duration_sec": maxf(0.0, float(source.get("session_duration_sec", 0.0)))
 	}
+	var floor_template_id := String(source.get("floor_template_id", "")).strip_edges()
+	if not floor_template_id.is_empty():
+		normalized["floor_template_id"] = floor_template_id
+	var overrides_variant: Variant = source.get("floor_template_overrides", {})
+	if overrides_variant is Dictionary and not (overrides_variant as Dictionary).is_empty():
+		normalized["floor_template_overrides"] = (overrides_variant as Dictionary).duplicate(true)
+	return normalized
 
 
 func _build_pending_night_session(request: Dictionary) -> Dictionary:
@@ -1277,6 +1436,7 @@ func _build_interrupted_night_return_payload() -> Dictionary:
 			"character_id": ProfileStore.get_selected_character_id(DataRegistry.get_default_character_id()) if ProfileStore != null else DataRegistry.get_default_character_id(),
 			"map_id": ProfileStore.get_selected_map_id(DataRegistry.get_default_map_id()) if ProfileStore != null else DataRegistry.get_default_map_id(),
 			"contract_ids": ProfileStore.get_selected_contract_ids() if ProfileStore != null else [],
+			"day_feedback": _build_night_feedback_payload(),
 			"seed": 0,
 			"session_duration_sec": 0.0
 		})
@@ -1322,6 +1482,10 @@ func _build_interrupted_night_return_payload() -> Dictionary:
 		"unlock_text": _t("meta.common.none"),
 		"unlock_progress": [],
 		"unlock_progress_text": _t("meta.common.none"),
+		"material_use_rows": [],
+		"material_use_text": _t("meta.common.none"),
+		"night_feedback_rows": _build_night_feedback_rows(),
+		"night_feedback_text": _build_night_feedback_text(_build_night_feedback_rows()),
 		"penalty": penalty.duplicate(true),
 		"penalty_text": _build_penalty_text(penalty),
 		"raw_summary": interrupted_summary
@@ -1561,6 +1725,7 @@ func _build_restaurant_model() -> Dictionary:
 	)
 	var last_service_summary := _get_last_restaurant_service_summary()
 	var bridge_info := _build_restaurant_bridge_info()
+	var service_gate := _build_restaurant_service_gate(selected_menu_ids)
 	return {
 		"current_day": _day_state.current_day,
 		"phase": _day_state.current_phase,
@@ -1582,8 +1747,10 @@ func _build_restaurant_model() -> Dictionary:
 		}),
 		"menu_hint_tooltip": _t("meta.restaurant.menu_hint_tooltip"),
 		"service_button_text": _build_restaurant_service_button_text(),
-		"service_button_tooltip": _t("meta.restaurant.service_tooltip", {"value": RESTAURANT_SERVICE_ACTION_COST}),
-		"service_button_enabled": _can_open_restaurant_service(),
+		"service_button_tooltip": _build_restaurant_service_button_tooltip(service_gate),
+		"service_button_enabled": bool(service_gate.get("can_open", false)),
+		"service_summary_text": _build_restaurant_service_summary_text(service_gate),
+		"service_status_text": _build_restaurant_service_status_text(service_gate),
 		"clear_button_enabled": not selected_menu_ids.is_empty(),
 		"last_service_day": int(_restaurant_state.get("last_service_day", 0)),
 		"last_service_summary": last_service_summary.duplicate(true),
@@ -1808,45 +1975,33 @@ func _build_first_session_guide_config(current_day: int) -> Dictionary:
 	var lines: Array[String] = []
 	var focus_zone := ""
 	var ready_orders := _get_ready_daily_order_count()
-	var planted_plot_count := _count_planted_plots()
 	var waterable_plot_count := _count_waterable_plots()
 	var harvestable_plot_count := _count_harvestable_plots()
-	var menu_planned := _has_restaurant_menu_plan()
 	var service_completed := _restaurant_service_completed_today()
+	var selected_menu_ids := _normalize_string_id_array(_restaurant_state.get("selected_menu_recipe_ids", []))
+	var restaurant_service_gate := _build_restaurant_service_gate(selected_menu_ids)
 
 	if ready_orders > 0:
 		focus_zone = "orders"
 		_append_guide_line(lines, _t("meta.hub.guide_focus_orders_ready", {"value": ready_orders}))
-	elif _day_state.can_launch_night():
-		focus_zone = "dock"
-		_append_guide_line(lines, _t("meta.hub.guide_focus_night_ready"))
 	else:
 		match current_day:
 			1:
-				if planted_plot_count < 2:
-					focus_zone = "farm"
-					_append_guide_line(lines, _t("meta.hub.guide_focus_day1_farm"))
-				elif not menu_planned:
-					focus_zone = "restaurant"
-					_append_guide_line(lines, _t("meta.hub.guide_focus_day1_menu"))
-				elif not service_completed:
-					focus_zone = "restaurant"
-					if _can_open_restaurant_service():
-						_append_guide_line(lines, _t("meta.hub.guide_focus_day1_service"))
-					else:
-						_append_guide_line(lines, _t("meta.hub.guide_focus_stock_check"))
-				else:
-					focus_zone = "dock"
-					_append_guide_line(lines, _t("meta.hub.guide_focus_day1_dock"))
+				var day1_config := _build_day1_guide_config(restaurant_service_gate, service_completed)
+				focus_zone = String(day1_config.get("focus_zone", ""))
+				_append_guide_lines(lines, day1_config.get("lines", []))
 			2:
-				if waterable_plot_count > 0:
+				if _day_state.can_launch_night():
+					focus_zone = "dock"
+					_append_guide_line(lines, _t("meta.hub.guide_focus_night_ready"))
+				elif waterable_plot_count > 0:
 					focus_zone = "farm"
 					_append_guide_line(lines, _t("meta.hub.guide_focus_day2_water"))
 				elif not service_completed:
 					focus_zone = "restaurant"
-					if menu_planned and _can_open_restaurant_service():
+					if bool(restaurant_service_gate.get("menu_ready", false)) and bool(restaurant_service_gate.get("can_open", false)):
 						_append_guide_line(lines, _t("meta.hub.guide_focus_day2_service"))
-					elif menu_planned:
+					elif bool(restaurant_service_gate.get("menu_ready", false)):
 						_append_guide_line(lines, _t("meta.hub.guide_focus_stock_check"))
 					else:
 						_append_guide_line(lines, _t("meta.hub.guide_focus_day2_menu", {"value": RESTAURANT_SERVICE_ACTION_COST}))
@@ -1854,20 +2009,27 @@ func _build_first_session_guide_config(current_day: int) -> Dictionary:
 					focus_zone = "shop"
 					_append_guide_line(lines, _t("meta.hub.guide_focus_day2_shop"))
 			3:
-				if harvestable_plot_count > 0:
+				if _day_state.can_launch_night():
+					focus_zone = "dock"
+					_append_guide_line(lines, _t("meta.hub.guide_focus_night_ready"))
+				elif harvestable_plot_count > 0:
 					focus_zone = "farm"
 					_append_guide_line(lines, _t("meta.hub.guide_focus_day3_harvest"))
 				elif not service_completed:
 					focus_zone = "restaurant"
-					if menu_planned and _can_open_restaurant_service():
+					if bool(restaurant_service_gate.get("menu_ready", false)) and bool(restaurant_service_gate.get("can_open", false)):
 						_append_guide_line(lines, _t("meta.hub.guide_focus_day3_service"))
-					elif menu_planned:
+					elif bool(restaurant_service_gate.get("menu_ready", false)):
 						_append_guide_line(lines, _t("meta.hub.guide_focus_stock_check"))
 					else:
 						_append_guide_line(lines, _t("meta.hub.guide_focus_day3_menu"))
 				else:
 					focus_zone = "shop"
 					_append_guide_line(lines, _t("meta.hub.guide_focus_day3_route"))
+			_:
+				if _day_state.can_launch_night():
+					focus_zone = "dock"
+					_append_guide_line(lines, _t("meta.hub.guide_focus_night_ready"))
 
 	_append_guide_line(lines, _build_first_session_support_line(current_day))
 	var order_footer := _build_first_session_order_footer(2, ready_orders)
@@ -1901,6 +2063,56 @@ func _append_guide_line(lines: Array[String], text: String) -> void:
 	if normalized_text.is_empty() or lines.has(normalized_text):
 		return
 	lines.append(normalized_text)
+
+
+func _append_guide_lines(lines: Array[String], source_variant: Variant) -> void:
+	if not (source_variant is Array):
+		return
+	for line_variant in source_variant:
+		_append_guide_line(lines, String(line_variant))
+
+
+func _build_day1_guide_config(restaurant_service_gate: Dictionary, service_completed: bool) -> Dictionary:
+	var lines: Array[String] = []
+	var focus_zone := ""
+	var planted_plot_count := _count_planted_plots()
+	var has_time := bool(restaurant_service_gate.get("has_time", false))
+	var actions_remaining := int(restaurant_service_gate.get("actions_remaining", _day_state.action_budget))
+	if service_completed:
+		focus_zone = "dock"
+		_append_guide_line(lines, _t("meta.hub.guide_focus_day1_dock"))
+	elif planted_plot_count >= 2:
+		focus_zone = "dock"
+		_append_guide_line(lines, _t("meta.hub.guide_focus_day1_dock_farm"))
+	elif bool(restaurant_service_gate.get("menu_ready", false)):
+		if bool(restaurant_service_gate.get("can_open", false)):
+			focus_zone = "restaurant"
+			_append_guide_line(lines, _t("meta.hub.guide_focus_day1_service"))
+		elif has_time:
+			focus_zone = "restaurant"
+			_append_guide_line(lines, _t("meta.hub.guide_focus_stock_check"))
+		else:
+			focus_zone = "dock"
+			_append_guide_line(lines, _t("meta.hub.guide_focus_day1_dock_time", {
+				"current": actions_remaining,
+				"required": RESTAURANT_SERVICE_ACTION_COST
+			}))
+	elif planted_plot_count <= 0:
+		focus_zone = "orders"
+		_append_guide_line(lines, _t("meta.hub.guide_focus_day1_choice"))
+	elif has_time:
+		focus_zone = "restaurant"
+		_append_guide_line(lines, _t("meta.hub.guide_focus_day1_menu"))
+	else:
+		focus_zone = "dock"
+		_append_guide_line(lines, _t("meta.hub.guide_focus_day1_dock_time", {
+			"current": actions_remaining,
+			"required": RESTAURANT_SERVICE_ACTION_COST
+		}))
+	return {
+		"focus_zone": focus_zone,
+		"lines": lines
+	}
 
 
 func _count_planted_plots() -> int:
@@ -2151,21 +2363,128 @@ func _build_restaurant_service_button_text() -> String:
 
 
 func _can_open_restaurant_service() -> bool:
-	if _restaurant_service_completed_today():
-		return false
-	if not _day_state.can_spend_action_budget(RESTAURANT_SERVICE_ACTION_COST):
-		return false
 	var selected_menu_ids: Array[String] = _normalize_string_id_array(_restaurant_state.get("selected_menu_recipe_ids", []))
-	if selected_menu_ids.is_empty():
-		return false
+	return bool(_build_restaurant_service_gate(selected_menu_ids).get("can_open", false))
+
+
+func _build_restaurant_service_gate(selected_menu_ids: Array[String]) -> Dictionary:
 	var recipe_lookup := _get_recipe_lookup()
+	var supported_recipe_names: Array[String] = []
+	var blocked_recipe_names: Array[String] = []
+	var menu_recipe_names: Array[String] = []
 	var total_servings := 0
 	for recipe_id in selected_menu_ids:
 		var recipe_variant: Variant = recipe_lookup.get(recipe_id, {})
-		if not (recipe_variant is Dictionary):
+		var recipe_name := _display_recipe_name(recipe_id)
+		var craftable_servings := 0
+		if recipe_variant is Dictionary:
+			var recipe := recipe_variant as Dictionary
+			recipe_name = String(recipe.get("name", recipe_name))
+			craftable_servings = MenuPlannerClass.max_servings(recipe, _inventory.materials)
+		menu_recipe_names.append(recipe_name)
+		total_servings += craftable_servings
+		if craftable_servings > 0:
+			supported_recipe_names.append(recipe_name)
+		else:
+			blocked_recipe_names.append(recipe_name)
+	var completed_today := _restaurant_service_completed_today()
+	var menu_ready := not selected_menu_ids.is_empty()
+	var has_time := _day_state.can_spend_action_budget(RESTAURANT_SERVICE_ACTION_COST)
+	var stock_ready := total_servings > 0
+	var reason := "ready"
+	if completed_today:
+		reason = "closed_today"
+	elif not menu_ready:
+		reason = "need_menu"
+	elif not has_time:
+		reason = "need_time"
+	elif not stock_ready:
+		reason = "need_stock"
+	return {
+		"action_cost": RESTAURANT_SERVICE_ACTION_COST,
+		"actions_missing": maxi(0, RESTAURANT_SERVICE_ACTION_COST - _day_state.action_budget),
+		"actions_remaining": _day_state.action_budget,
+		"blocked_recipe_names": blocked_recipe_names,
+		"can_open": reason == "ready",
+		"completed_today": completed_today,
+		"has_time": has_time,
+		"menu_ready": menu_ready,
+		"menu_recipe_names": menu_recipe_names,
+		"night_ready": _day_state.can_launch_night(),
+		"reason": reason,
+		"stock_ready": stock_ready,
+		"supported_recipe_names": supported_recipe_names,
+		"total_servings": total_servings
+	}
+
+
+func _build_restaurant_service_summary_text(service_gate: Dictionary) -> String:
+	var lines: Array[String] = []
+	var menu_recipe_names := _string_array_from_variant(service_gate.get("menu_recipe_names", []))
+	if bool(service_gate.get("menu_ready", false)):
+		lines.append(_t("meta.restaurant.service_summary_menu_ready", {"value": ", ".join(menu_recipe_names)}))
+	else:
+		lines.append(_t("meta.restaurant.service_summary_menu_empty"))
+	var supported_recipe_names := _string_array_from_variant(service_gate.get("supported_recipe_names", []))
+	var blocked_recipe_names := _string_array_from_variant(service_gate.get("blocked_recipe_names", []))
+	if not supported_recipe_names.is_empty():
+		lines.append(_t("meta.restaurant.service_summary_pantry_ready", {"value": ", ".join(supported_recipe_names)}))
+	elif bool(service_gate.get("menu_ready", false)):
+		lines.append(_t("meta.restaurant.service_summary_pantry_missing", {
+			"value": ", ".join(blocked_recipe_names if not blocked_recipe_names.is_empty() else menu_recipe_names)
+		}))
+	var action_args := {
+		"current": int(service_gate.get("actions_remaining", 0)),
+		"required": int(service_gate.get("action_cost", RESTAURANT_SERVICE_ACTION_COST)),
+		"missing": int(service_gate.get("actions_missing", 0))
+	}
+	if bool(service_gate.get("has_time", false)):
+		lines.append(_t("meta.restaurant.service_summary_actions_ready", action_args))
+	elif bool(service_gate.get("night_ready", false)):
+		lines.append(_t("meta.restaurant.service_summary_actions_missing_evening", action_args))
+	else:
+		lines.append(_t("meta.restaurant.service_summary_actions_missing", action_args))
+	return "\n".join(lines)
+
+
+func _build_restaurant_service_status_text(service_gate: Dictionary) -> String:
+	var reason := String(service_gate.get("reason", "ready"))
+	var action_args := {
+		"current": int(service_gate.get("actions_remaining", 0)),
+		"required": int(service_gate.get("action_cost", RESTAURANT_SERVICE_ACTION_COST)),
+		"missing": int(service_gate.get("actions_missing", 0))
+	}
+	match reason:
+		"closed_today":
+			return _t("meta.restaurant.status_closed_today")
+		"need_menu":
+			return _t("meta.restaurant.status_need_menu")
+		"need_time":
+			return _t("meta.restaurant.service_status_need_time_evening", action_args) if bool(service_gate.get("night_ready", false)) else _t("meta.restaurant.service_status_need_time_detail", action_args)
+		"need_stock":
+			return _t("meta.restaurant.service_status_need_stock_detail", {
+				"value": ", ".join(_string_array_from_variant(service_gate.get("menu_recipe_names", [])))
+			})
+		_:
+			return _t("meta.restaurant.service_status_ready", {"value": RESTAURANT_SERVICE_ACTION_COST})
+
+
+func _build_restaurant_service_button_tooltip(service_gate: Dictionary) -> String:
+	if bool(service_gate.get("can_open", false)):
+		return _t("meta.restaurant.service_tooltip", {"value": RESTAURANT_SERVICE_ACTION_COST})
+	return _build_restaurant_service_status_text(service_gate)
+
+
+func _string_array_from_variant(source_variant: Variant) -> Array[String]:
+	var output: Array[String] = []
+	if not (source_variant is Array):
+		return output
+	for item_variant in source_variant:
+		var text := String(item_variant).strip_edges()
+		if text.is_empty():
 			continue
-		total_servings += MenuPlannerClass.max_servings(recipe_variant as Dictionary, _inventory.materials)
-	return total_servings > 0
+		output.append(text)
+	return output
 
 
 func _get_last_restaurant_service_summary() -> Dictionary:
@@ -2322,6 +2641,15 @@ func _build_day_hub_bridge_info() -> Dictionary:
 			"value": int(mooncap_crop.get("sell_value", 0)),
 			"uses": mooncap_use_text
 		}))
+	if summary_lines.size() < 3:
+		for feedback_variant in _economy.last_night_feedback_rows:
+			if summary_lines.size() >= 3 or not (feedback_variant is Dictionary):
+				break
+			var feedback: Dictionary = feedback_variant
+			summary_lines.append(_t("meta.bridge.feedback_ready", {
+				"name": String(feedback.get("name", _t("meta.common.none"))),
+				"effect": String(feedback.get("effect", _t("meta.common.none")))
+			}))
 	if summary_lines.is_empty():
 		summary_lines.append(_t("meta.bridge.summary_none"))
 	return {
@@ -2611,18 +2939,77 @@ func _build_stock_line_for_material(material_id: String, amount: int) -> String:
 
 func _collect_use_names_for_material(material_id: String) -> Array[String]:
 	var normalized_id := material_id.strip_edges().to_lower()
-	var uses := _collect_recipe_names_for_material(normalized_id)
+	var uses: Array[String] = []
+	for expanded_id in _expand_material_use_ids(normalized_id):
+		_append_unique_use_names(uses, _collect_recipe_names_for_material(expanded_id))
 	for row in _build_current_unlock_rows():
 		var requirements: Dictionary = row.get("requirements", {})
 		if not (requirements is Dictionary):
 			continue
-		if not requirements.has(normalized_id):
+		var matches_requirement := false
+		for expanded_id in _expand_material_use_ids(normalized_id):
+			if requirements.has(expanded_id):
+				matches_requirement = true
+				break
+		if not matches_requirement:
 			continue
 		var unlock_use := _t("meta.bridge.use_unlock", {
 			"name": String(row.get("target_name", _t("meta.common.none")))
 		})
 		if not uses.has(unlock_use):
 			uses.append(unlock_use)
+	_append_unique_use_names(uses, _collect_feedback_use_names_for_material(normalized_id))
+	return uses
+
+
+func _expand_material_use_ids(material_id: String) -> Array[String]:
+	var output: Array[String] = []
+	var normalized_id := material_id.strip_edges().to_lower()
+	if normalized_id.is_empty():
+		return output
+	output.append(normalized_id)
+	if normalized_id == "blueprint_fragment" and not output.has("kitchen_blueprint_fragment"):
+		output.append("kitchen_blueprint_fragment")
+	return output
+
+
+func _append_unique_use_names(target: Array[String], values: Array[String]) -> void:
+	for value in values:
+		var text := value.strip_edges()
+		if text.is_empty() or target.has(text):
+			continue
+		target.append(text)
+
+
+func _collect_feedback_use_names_for_material(material_id: String) -> Array[String]:
+	var uses: Array[String] = []
+	var normalized_ids := _expand_material_use_ids(material_id)
+	for feedback_id in NIGHT_FEEDBACK_ORDER:
+		var feedback_def_variant: Variant = NIGHT_FEEDBACK_DEFS.get(feedback_id, {})
+		if not (feedback_def_variant is Dictionary):
+			continue
+		var feedback_def: Dictionary = feedback_def_variant
+		var source_target_type := String(feedback_def.get("source_target_type", "")).strip_edges().to_lower()
+		var source_target_id := String(feedback_def.get("source_target_id", "")).strip_edges().to_lower()
+		for unlock_material_id in _get_unlock_material_ids_for_target(source_target_type, source_target_id):
+			if not normalized_ids.has(unlock_material_id):
+				continue
+			var feedback_use := _t("meta.bridge.use_feedback", {
+				"name": _t(String(feedback_def.get("name_key", feedback_id)))
+			})
+			if not uses.has(feedback_use):
+				uses.append(feedback_use)
+			break
+	match material_id.strip_edges().to_lower():
+		"lumen_resin":
+			if not uses.has(_t("meta.bridge.use_material.lumen_resin")):
+				uses.append(_t("meta.bridge.use_material.lumen_resin"))
+		"coil_fragment":
+			if not uses.has(_t("meta.bridge.use_material.coil_fragment")):
+				uses.append(_t("meta.bridge.use_material.coil_fragment"))
+		"challenge_seal":
+			if not uses.has(_t("meta.bridge.use_material.challenge_seal")):
+				uses.append(_t("meta.bridge.use_material.challenge_seal"))
 	return uses
 
 
@@ -2657,6 +3044,104 @@ func _recipe_requires_material(recipe: Dictionary, material_id: String) -> bool:
 	if synergy_variant is Dictionary and String((synergy_variant as Dictionary).get("material_id", "")).strip_edges().to_lower() == normalized_id:
 		return true
 	return false
+
+
+func _build_material_use_rows(objective_rows_variant: Variant, material_bundle: Dictionary) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var covered_material_ids: Array[String] = []
+	if objective_rows_variant is Array:
+		for row_variant in (objective_rows_variant as Array):
+			if not (row_variant is Dictionary):
+				continue
+			var row: Dictionary = row_variant
+			var source_materials := _normalize_material_bundle(row.get("source_materials", {}))
+			var preview_material_id := String(row.get("preview_reward_material", "")).strip_edges().to_lower()
+			if source_materials.is_empty() and not preview_material_id.is_empty():
+				source_materials[preview_material_id] = maxi(1, int(material_bundle.get(preview_material_id, 1)))
+			var use_names: Array[String] = []
+			for material_id_variant in source_materials.keys():
+				var material_id := String(material_id_variant).strip_edges().to_lower()
+				if material_id.is_empty():
+					continue
+				if not covered_material_ids.has(material_id):
+					covered_material_ids.append(material_id)
+				_append_unique_use_names(use_names, _collect_use_names_for_material(material_id))
+			if not preview_material_id.is_empty() and not covered_material_ids.has(preview_material_id):
+				covered_material_ids.append(preview_material_id)
+				_append_unique_use_names(use_names, _collect_use_names_for_material(preview_material_id))
+			rows.append({
+				"source": _build_material_use_source_text(row, source_materials, preview_material_id),
+				"uses": use_names if not use_names.is_empty() else [_t("meta.summary.source_use_none")]
+			})
+	for material_id_variant in material_bundle.keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		var amount := int(material_bundle.get(material_id_variant, 0))
+		if material_id.is_empty() or amount <= 0 or covered_material_ids.has(material_id):
+			continue
+		var use_names := _collect_use_names_for_material(material_id)
+		if use_names.is_empty():
+			continue
+		rows.append({
+			"source": _t("meta.summary.source_use_stock", {
+				"name": _display_material_name(material_id),
+				"amount": amount
+			}),
+			"uses": use_names
+		})
+	return rows
+
+
+func _build_material_use_source_text(row: Dictionary, source_materials: Dictionary, preview_material_id: String) -> String:
+	var room_label := String(row.get("room_label", row.get("objective_label", _t("meta.common.none")))).strip_edges()
+	var source_bundle := source_materials.duplicate(true)
+	if not preview_material_id.is_empty() and not source_bundle.has(preview_material_id):
+		source_bundle[preview_material_id] = 1
+	var material_text := _build_material_bundle_text(source_bundle)
+	return _t("meta.summary.source_use_source", {
+		"room": room_label,
+		"materials": material_text
+	})
+
+
+func _build_material_use_text(rows_variant: Variant) -> String:
+	if not (rows_variant is Array) or (rows_variant as Array).is_empty():
+		return _t("meta.common.none")
+	var lines: Array[String] = []
+	for row_variant in (rows_variant as Array):
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		var uses_variant: Variant = row.get("uses", [])
+		var use_text := _t("meta.summary.source_use_none")
+		if uses_variant is Array and not (uses_variant as Array).is_empty():
+			var parts: Array[String] = []
+			for use_variant in (uses_variant as Array):
+				var text := String(use_variant).strip_edges()
+				if text.is_empty() or parts.has(text):
+					continue
+				parts.append(text)
+			if not parts.is_empty():
+				use_text = ", ".join(parts)
+		lines.append(_t("meta.summary.source_use_line", {
+			"source": String(row.get("source", _t("meta.common.none"))),
+			"use": use_text
+		}))
+	return "\n".join(lines) if not lines.is_empty() else _t("meta.common.none")
+
+
+func _build_night_feedback_text(rows_variant: Variant) -> String:
+	if not (rows_variant is Array) or (rows_variant as Array).is_empty():
+		return _t("meta.common.none")
+	var lines: Array[String] = []
+	for row_variant in (rows_variant as Array):
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		lines.append(_t("meta.summary.night_feedback_line", {
+			"name": String(row.get("name", _t("meta.common.none"))),
+			"effect": String(row.get("effect", _t("meta.common.none")))
+		}))
+	return "\n".join(lines) if not lines.is_empty() else _t("meta.common.none")
 
 
 func _get_night_recipe_rows() -> Array[Dictionary]:
@@ -2743,6 +3228,16 @@ func _normalize_material_bundle(value: Variant) -> Dictionary:
 	return output
 
 
+func _merge_material_bundle_counts(target: Dictionary, source_variant: Variant) -> void:
+	var source := _normalize_material_bundle(source_variant)
+	for material_id_variant in source.keys():
+		var material_id := String(material_id_variant).strip_edges().to_lower()
+		var amount := int(source.get(material_id_variant, 0))
+		if material_id.is_empty() or amount <= 0:
+			continue
+		target[material_id] = maxi(0, int(target.get(material_id, 0))) + amount
+
+
 func _current_requirement_progress(requirements: Dictionary) -> int:
 	var total := 0
 	for material_id_variant in requirements.keys():
@@ -2818,6 +3313,47 @@ func _build_loot_summary_text(gold_reward: int, loot_categories: Array) -> Strin
 			"category": _t("meta.summary.category.%s" % category_id),
 			"value": item_text
 		}))
+	return "\n".join(lines)
+
+
+func _extract_relic_summary_rows(value: Variant) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if not (value is Array):
+		return rows
+	for row_variant in (value as Array):
+		if not (row_variant is Dictionary):
+			continue
+		var row: Dictionary = row_variant
+		var label := String(row.get("label", "")).strip_edges()
+		if label.is_empty():
+			continue
+		rows.append({
+			"id": String(row.get("id", "")).strip_edges().to_lower(),
+			"label": label,
+			"summary": String(row.get("summary", row.get("description", ""))).strip_edges(),
+			"relic_rarity": String(row.get("relic_rarity", row.get("offer_rarity", "rare"))).strip_edges().to_lower()
+		})
+	return rows
+
+
+func _build_relic_summary_text(rows_variant: Variant) -> String:
+	var relic_rows := _extract_relic_summary_rows(rows_variant)
+	if relic_rows.is_empty():
+		return _t("meta.common.none")
+	var lines: Array[String] = []
+	for row in relic_rows:
+		var rarity_id := String(row.get("relic_rarity", "rare")).strip_edges().to_lower()
+		var rarity_key := "meta.summary.relic.rarity.%s" % rarity_id
+		var rarity_label := _t(rarity_key)
+		if rarity_label == rarity_key:
+			rarity_label = rarity_id.capitalize()
+		lines.append(_t("meta.summary.relic_line", {
+			"rarity": rarity_label,
+			"name": String(row.get("label", "")).strip_edges(),
+			"effect": String(row.get("summary", _t("meta.common.none"))).strip_edges()
+		}))
+	if lines.is_empty():
+		return _t("meta.common.none")
 	return "\n".join(lines)
 
 
@@ -3306,6 +3842,22 @@ func debug_launch_night() -> bool:
 	return _launch_night()
 
 
+func debug_set_next_night_request_overrides(request_overrides: Dictionary = {}) -> bool:
+	_debug_next_night_request_overrides = {}
+	if request_overrides.is_empty():
+		return true
+	var seed := maxi(0, int(request_overrides.get("seed", 0)))
+	if seed > 0:
+		_debug_next_night_request_overrides["seed"] = seed
+	var floor_template_id := String(request_overrides.get("floor_template_id", "")).strip_edges()
+	if not floor_template_id.is_empty():
+		_debug_next_night_request_overrides["floor_template_id"] = floor_template_id
+	var overrides_variant: Variant = request_overrides.get("floor_template_overrides", {})
+	if overrides_variant is Dictionary and not (overrides_variant as Dictionary).is_empty():
+		_debug_next_night_request_overrides["floor_template_overrides"] = (overrides_variant as Dictionary).duplicate(true)
+	return true
+
+
 func debug_complete_active_night(summary_override: Dictionary = {}) -> void:
 	if night_combat_root != null and night_combat_root.has_method("debug_complete_session"):
 		night_combat_root.call("debug_complete_session", summary_override)
@@ -3358,11 +3910,12 @@ func debug_get_snapshot() -> Dictionary:
 			"watered_day": int(crop_state.get("watered_day", 0)),
 			"harvestable": _crop_is_harvestable(crop_state)
 		})
+	var tree := get_tree()
 	return {
 		"current_screen": _current_state,
 		"daytime_shell_mode": _daytime_shell_mode,
 		"meta_pause_visible": _meta_pause_visible,
-		"tree_paused": get_tree().paused,
+		"tree_paused": tree != null and tree.paused,
 		"current_day": _day_state.current_day,
 		"phase": _day_state.current_phase,
 			"gold": _economy.gold,
@@ -3377,8 +3930,12 @@ func debug_get_snapshot() -> Dictionary:
 		"inventory_materials": _inventory.materials.duplicate(true),
 		"unlocked_seed_ids": _inventory.unlocked_seeds.duplicate(),
 		"unlocked_recipe_ids": _inventory.unlocked_recipes.duplicate(),
+		"night_feedback_unlock_ids": _inventory.night_feedback_unlocks.duplicate(),
+		"night_feedback_payload": _build_night_feedback_payload(),
 		"seed_summary": _build_unlocked_seed_summary(),
 		"recipe_summary": _build_unlocked_recipe_summary(),
+		"last_material_use_rows": _economy.last_material_use_rows.duplicate(true),
+		"last_night_feedback_rows": _economy.last_night_feedback_rows.duplicate(true),
 		"day_hub_status_text": String(day_hub_model.get("status_text", "")),
 		"day_hub_guide_title": String(day_hub_model.get("guide_title", "")),
 		"day_hub_guide_text": String(day_hub_model.get("guide_text", "")),
@@ -3439,6 +3996,7 @@ func debug_get_snapshot() -> Dictionary:
 		"day_world_selected_farm_tool_label": String(day_world_snapshot.get("selected_farm_tool_label", "")),
 		"pending_summary": not _pending_return_summary.is_empty(),
 		"return_summary_payload": _pending_return_summary.duplicate(true),
+		"pending_night_feedback": _normalize_day_feedback_payload(_pending_night_session.get("day_feedback", {})),
 		"night_active": night_combat_root.is_session_active() if night_combat_root != null else false,
 		"night_session_day": int(night_combat_snapshot.get("day", 0)),
 		"night_session_duration_sec": float(night_combat_snapshot.get("session_duration_sec", 0.0)),

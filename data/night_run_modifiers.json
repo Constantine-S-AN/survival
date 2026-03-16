@@ -230,6 +230,8 @@
       "label": "Tide Burst",
       "label_zh": "潮爆祷文",
       "category": "blessing",
+      "build_direction": "pressure",
+      "tags": ["pressure", "tempo", "volley", "damage"],
       "description": "A shrine surge that speeds up skills and follow-up volleys.",
       "description_zh": "神像带来的潮汐过载，让技能与后续压制更快衔接。",
       "summary": "+8% attack speed, -6% dash cooldown",
@@ -250,6 +252,8 @@
       "label": "Anchor Spark",
       "label_zh": "锚火祷文",
       "category": "blessing",
+      "build_direction": "silence",
+      "tags": ["silence", "precision", "mobility", "quiet"],
       "description": "Keeps you mobile while preserving low-noise tempo.",
       "description_zh": "让你在移动中保持压制，并强化低噪节奏。",
       "summary": "+24 move speed, +8% low-noise attack speed",
@@ -270,6 +274,8 @@
       "label": "Shell Guard",
       "label_zh": "壳卫祷文",
       "category": "blessing",
+      "build_direction": "silence",
+      "tags": ["silence", "sustain", "regen", "defense"],
       "description": "A safer blessing that smooths rough rooms and sustain checks.",
       "description_zh": "偏保守的祝福，帮助你顶过高压房和续航考验。",
       "summary": "+10 max HP, +0.8 regen",
@@ -290,6 +296,8 @@
       "label": "Hunter Gull",
       "label_zh": "猎潮鸥祷文",
       "category": "blessing",
+      "build_direction": "pressure",
+      "tags": ["pressure", "reveal", "precision", "execute"],
       "description": "Turns marked or revealed targets into cleaner finishers.",
       "description_zh": "让被标记或显形的目标更容易被你快速收掉。",
       "summary": "+16% damage to revealed targets, +12 move speed",
@@ -310,6 +318,8 @@
       "label": "Broker Surge",
       "label_zh": "经纪潮汐",
       "category": "blessing",
+      "build_direction": "return",
+      "tags": ["return", "economy", "drop", "meta"],
       "description": "An economy shrine that makes the rest of the route pay better.",
       "description_zh": "偏经营向的祝福，让剩余路线更值钱。",
       "summary": "DROP x1.10, META x1.12 this run",
@@ -324,6 +334,8 @@
       "label": "Lowtide Omen",
       "label_zh": "低潮征兆",
       "category": "blessing",
+      "build_direction": "pressure",
+      "tags": ["pressure", "overload", "high_noise", "tempo", "damage"],
       "description": "A dangerous blessing that shines when the run gets noisy.",
       "description_zh": "偏冒险的祝福，局势越吵越能发挥价值。",
       "summary": "+18% high-noise damage, +28 move speed",
@@ -344,6 +356,8 @@
       "label": "Choir of Silence",
       "label_zh": "静潮合唱",
       "category": "blessing",
+      "build_direction": "silence",
+      "tags": ["silence", "low_noise", "precision", "quiet"],
       "description": "Rewards clean pacing by strengthening your quiet-state damage windows.",
       "description_zh": "奖励干净的节奏控制，强化你的低压输出窗口。",
       "summary": "+14% low-noise damage, +10% low-noise speed",
@@ -360,10 +374,90 @@
       ]
     },
     {
+      "id": "blessing_redline_howl",
+      "label": "Redline Howl",
+      "label_zh": "红线咆哮",
+      "category": "blessing",
+      "build_direction": "pressure",
+      "tags": ["pressure", "overload", "high_noise", "tempo", "noise"],
+      "description": "A shrine-grade overclock that only really pays out once the room gets loud.",
+      "description_zh": "一条偏过载的祝福线，房间越吵，收益窗口越明显。",
+      "summary": "+16% high-noise speed, +14% high-noise damage, +10% noise gain",
+      "summary_zh": "高噪攻速 +16%，高噪伤害 +14%，噪声获取 +10%",
+      "effects": [
+        {
+          "stat": "high_noise_attack_speed_mult",
+          "add": 0.16
+        },
+        {
+          "stat": "high_noise_damage_mult",
+          "add": 0.14
+        },
+        {
+          "stat": "noise_generation_mult",
+          "add": 0.10
+        }
+      ]
+    },
+    {
+      "id": "blessing_riptide_step",
+      "label": "Riptide Step",
+      "label_zh": "急潮步祷文",
+      "category": "blessing",
+      "build_direction": "mobility",
+      "tags": ["mobility", "dash", "skirmish", "position", "quiet"],
+      "description": "Turns repositioning into a real build lane instead of just an escape habit.",
+      "description_zh": "把走位和冲刺从保命动作，抬成一条真正的构筑路线。",
+      "summary": "+34 move speed, -10% dash cooldown, -18% dash noise",
+      "summary_zh": "+34 移速，冲刺冷却 -10%，冲刺噪声 -18%",
+      "effects": [
+        {
+          "stat": "move_speed_bonus",
+          "add": 34.0
+        },
+        {
+          "stat": "dash_cooldown_reduction",
+          "add": 0.10
+        },
+        {
+          "stat": "dash_noise_mult",
+          "add": -0.18
+        }
+      ]
+    },
+    {
+      "id": "blessing_dockyard_creed",
+      "label": "Dockyard Creed",
+      "label_zh": "船坞信条",
+      "category": "blessing",
+      "build_direction": "summon",
+      "tags": ["summon", "device", "orbit", "guard", "support"],
+      "description": "A rigging creed that makes drones and deployed tools feel like a real frontline.",
+      "description_zh": "让无人机和部署装置不再只是陪衬，而是能撑起正面节奏。",
+      "summary": "+1 summon cap, summon hits refund 0.9 noise, summon guard DR +14%",
+      "summary_zh": "+1 召唤上限，召唤命中返还 0.9 噪声，召唤护卫减伤 +14%",
+      "effects": [
+        {
+          "stat": "summon_cap_bonus",
+          "add": 1
+        },
+        {
+          "stat": "summon_hit_noise_refund",
+          "add": 0.9
+        },
+        {
+          "stat": "summon_guard_damage_reduction",
+          "add": 0.14
+        }
+      ]
+    },
+    {
       "id": "blessing_harbor_light",
       "label": "Harbor Light",
       "label_zh": "归航灯祷文",
       "category": "blessing",
+      "build_direction": "return",
+      "tags": ["return", "sustain", "meta", "economy"],
       "description": "A return-focused blessing that nudges both survivability and extraction value.",
       "description_zh": "偏返航收益的祝福，同时补一点续航。",
       "summary": "+0.4 regen, XP x1.10, META x1.20",
@@ -384,6 +478,8 @@
       "label": "Ricochet Rifling",
       "label_zh": "跳弹膛线",
       "category": "weapon_trait",
+      "build_direction": "silence",
+      "tags": ["precision", "pierce", "control", "lane"],
       "description": "Extends the weapon's lane control with cleaner punch-through.",
       "description_zh": "强化当前武器的火线穿透和通道压制能力。",
       "summary": "Active weapon +10% range, +1 pierce",
@@ -412,6 +508,8 @@
       "label": "Chilled Chamber",
       "label_zh": "寒膛",
       "category": "weapon_trait",
+      "build_direction": "silence",
+      "tags": ["reveal", "precision", "control", "quiet"],
       "description": "Improves precision follow-up by extending reveal windows and travel speed.",
       "description_zh": "通过更快弹速和更长显形时间，提升当前武器的追击手感。",
       "summary": "Active weapon +10% projectile speed, +0.35 reveal",
@@ -440,6 +538,8 @@
       "label": "Harpoon Spool",
       "label_zh": "鱼叉卷轴",
       "category": "weapon_trait",
+      "build_direction": "pressure",
+      "tags": ["pressure", "precision", "crit", "harbor"],
       "description": "Sharpens the active weapon into a heavier single-target finisher.",
       "description_zh": "把当前武器修成更偏单点收割的形态。",
       "summary": "Active weapon +12% projectile speed, +0.20 crit multi",
@@ -468,6 +568,8 @@
       "label": "Overcrank Burst",
       "label_zh": "超频首发",
       "category": "weapon_trait",
+      "build_direction": "pressure",
+      "tags": ["pressure", "burst", "overload", "high_noise", "tempo"],
       "description": "Pushes the weapon into a hotter, faster room-entry cadence.",
       "description_zh": "让当前武器在进房时更快更猛，但也更吵。",
       "summary": "Active weapon +22% fire rate, +0.30 noise",
@@ -496,6 +598,8 @@
       "label": "Split Core",
       "label_zh": "裂核",
       "category": "weapon_trait",
+      "build_direction": "pressure",
+      "tags": ["pressure", "volley", "damage", "rare"],
       "description": "Adds another projectile while preserving respectable base damage.",
       "description_zh": "为当前武器额外塞进一发投射物，同时保留不错的基础输出。",
       "summary": "Active weapon +1 projectile, +8% damage",
@@ -520,10 +624,122 @@
       ]
     },
     {
+      "id": "trait_glass_current",
+      "label": "Glass Current",
+      "label_zh": "玻潮膛线",
+      "category": "weapon_trait",
+      "build_direction": "silence",
+      "tags": ["silence", "precision", "quiet", "crit", "reveal"],
+      "description": "Reworks the active weapon into a colder, quieter finisher line.",
+      "description_zh": "把当前武器修成更冷、更静、更适合收尾的精确形态。",
+      "summary": "Active weapon -12% noise, +6% crit, +0.40 reveal",
+      "summary_zh": "当前武器噪声 -12%，暴击 +6%，显形时长 +0.40",
+      "effects": [
+        {
+          "stat": "weapon_noise_mult",
+          "add": -0.12,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_crit_chance_add",
+          "add": 0.06,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_reveal_bonus_add",
+          "add": 0.40,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trait_breakwater_slide",
+      "label": "Breakwater Slide",
+      "label_zh": "防波滑切",
+      "category": "weapon_trait",
+      "build_direction": "mobility",
+      "tags": ["mobility", "dash", "skirmish", "tempo", "position"],
+      "description": "Keeps the active weapon live while you chain movement and short-angle entries.",
+      "description_zh": "让当前武器在连续走位和短角度进出里持续保持手感。",
+      "summary": "Active weapon +16% fire rate, +12% projectile speed, -6% dash cooldown",
+      "summary_zh": "当前武器射速 +16%，弹速 +12%，冲刺冷却 -6%",
+      "effects": [
+        {
+          "stat": "weapon_attack_rate_mult",
+          "add": 0.16,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "weapon_projectile_speed_mult",
+          "add": 0.12,
+          "target": {
+            "type": "weapon_id",
+            "value": "$active_weapon"
+          }
+        },
+        {
+          "stat": "dash_cooldown_reduction",
+          "add": 0.06
+        }
+      ]
+    },
+    {
+      "id": "trait_relay_forge",
+      "label": "Relay Forge",
+      "label_zh": "中继锻架",
+      "category": "weapon_trait",
+      "build_direction": "summon",
+      "tags": ["summon", "device", "trap", "orbit", "support"],
+      "description": "Upgrades drones and deployables into a single support lane instead of split gimmicks.",
+      "description_zh": "把无人机和部署装置并成一条真正能滚起来的支援路线。",
+      "summary": "Summon weapons +1 cap, +12% damage; trap weapons +14% AoE",
+      "summary_zh": "召唤武器上限 +1、伤害 +12%；陷阱武器范围 +14%",
+      "effects": [
+        {
+          "stat": "weapon_summon_cap_bonus",
+          "add": 1,
+          "target": {
+            "type": "tag",
+            "value": "summon"
+          }
+        },
+        {
+          "stat": "weapon_damage_mult",
+          "add": 0.12,
+          "target": {
+            "type": "tag",
+            "value": "summon"
+          }
+        },
+        {
+          "stat": "weapon_aoe_radius_mult",
+          "add": 0.14,
+          "target": {
+            "type": "tag",
+            "value": "trap"
+          }
+        }
+      ]
+    },
+    {
       "id": "trait_mining_tip",
       "label": "Mining Tip",
       "label_zh": "采掘尖头",
       "category": "weapon_trait",
+      "build_direction": "pressure",
+      "tags": ["damage", "pierce", "objective", "pressure"],
       "description": "A reliable trait for breaking through dense enemy lines and room objectives.",
       "description_zh": "偏稳定的目标房词条，适合打穿密集敌群和房间核心。",
       "summary": "Active weapon +12% damage, +1 pierce",
@@ -552,6 +768,8 @@
       "label": "Salt Edge",
       "label_zh": "盐锋",
       "category": "weapon_trait",
+      "build_direction": "pressure",
+      "tags": ["damage", "crit", "elite", "pressure"],
       "description": "A cleaner elite-killer rework for the weapon you are already leaning on.",
       "description_zh": "把你当前依赖的武器进一步打磨成精英斩杀工具。",
       "summary": "Active weapon +18% damage, +4% crit",
@@ -580,6 +798,8 @@
       "label": "Sonar Fins",
       "label_zh": "声纳鳍片",
       "category": "weapon_trait",
+      "build_direction": "silence",
+      "tags": ["reveal", "damage", "precision", "silence"],
       "description": "Leans into reveal-driven damage windows for cleaner snowballing.",
       "description_zh": "进一步强化显形后的追击伤害，滚雪球会更明显。",
       "summary": "Active weapon +0.75 reveal, +8% damage",
@@ -608,6 +828,8 @@
       "label": "Scavenger Feed",
       "label_zh": "拾荒供弹",
       "category": "weapon_trait",
+      "build_direction": "return",
+      "tags": ["return", "economy", "quiet", "tempo"],
       "description": "Shaves noise a little while letting the weapon cycle faster.",
       "description_zh": "略微降低噪声，同时让当前武器转得更快。",
       "summary": "Active weapon +10% fire rate, -8% noise",
@@ -636,6 +858,8 @@
       "label": "Conductive Chain",
       "label_zh": "导电串联",
       "category": "weapon_trait",
+      "build_direction": "pressure",
+      "tags": ["pressure", "aoe", "volley", "rare"],
       "description": "A high-end trait that adds both splash presence and a denser volley.",
       "description_zh": "高阶词条，让当前武器同时获得更厚的弹幕和更强的覆盖。",
       "summary": "Active weapon +1 projectile, +12% AoE radius",
@@ -658,6 +882,156 @@
           }
         }
       ]
+    },
+    {
+      "id": "relic_tide_lens",
+      "label": "Tide Lens",
+      "label_zh": "潮镜遗物",
+      "category": "relic",
+      "relic_rarity": "rare",
+      "unique": true,
+      "build_direction": "pressure",
+      "conflict_groups": ["apex_core"],
+      "tags": ["pressure", "overload", "high_noise", "tempo", "relic"],
+      "description": "A relic focus that pushes the run into a sharper, louder apex.",
+      "description_zh": "这件遗物会把整场夜跑推向更锋利、更凶猛的顶点。",
+      "summary": "+18% high-noise damage, +16% high-noise speed, +8% damage",
+      "summary_zh": "高噪伤害 +18%，高噪攻速 +16%，伤害 +8%",
+      "effects": [
+        {
+          "stat": "high_noise_damage_mult",
+          "add": 0.18
+        },
+        {
+          "stat": "high_noise_attack_speed_mult",
+          "add": 0.16
+        },
+        {
+          "stat": "damage_mult",
+          "add": 0.08
+        }
+      ]
+    },
+    {
+      "id": "relic_hush_compass",
+      "label": "Hush Compass",
+      "label_zh": "静潮罗盘",
+      "category": "relic",
+      "relic_rarity": "rare",
+      "unique": true,
+      "build_direction": "silence",
+      "conflict_groups": ["apex_core"],
+      "tags": ["silence", "precision", "quiet", "relic"],
+      "description": "A relic navigator that trades brute force for cleaner low-noise control.",
+      "description_zh": "这件遗物更偏向低噪掌控，用干净节奏替代纯粹蛮力。",
+      "summary": "+24 move speed, +16% low-noise damage, -12% noise gain",
+      "summary_zh": "+24 移速，低噪伤害 +16%，噪声获取 -12%",
+      "effects": [
+        {
+          "stat": "move_speed_bonus",
+          "add": 24.0
+        },
+        {
+          "stat": "low_noise_damage_mult",
+          "add": 0.16
+        },
+        {
+          "stat": "noise_generation_mult",
+          "add": -0.12
+        }
+      ]
+    },
+    {
+      "id": "relic_riptide_gyro",
+      "label": "Riptide Gyro",
+      "label_zh": "急潮陀仪",
+      "category": "relic",
+      "relic_rarity": "rare",
+      "unique": true,
+      "build_direction": "mobility",
+      "conflict_groups": ["apex_core"],
+      "tags": ["mobility", "dash", "skirmish", "position", "relic"],
+      "description": "A contraband gyro that turns movement routing into a full skirmish engine.",
+      "description_zh": "这件走私陀仪会把走位路线直接推成一整套拉扯引擎。",
+      "summary": "+46 move speed, -18% dash cooldown, kills refund 0.08 attack CD",
+      "summary_zh": "+46 移速，冲刺冷却 -18%，击杀返还 0.08 攻击冷却",
+      "effects": [
+        {
+          "stat": "move_speed_bonus",
+          "add": 46.0
+        },
+        {
+          "stat": "dash_cooldown_reduction",
+          "add": 0.18
+        },
+        {
+          "stat": "kill_attack_cd_refund",
+          "add": 0.08
+        }
+      ]
+    },
+    {
+      "id": "relic_ballast_array",
+      "label": "Ballast Array",
+      "label_zh": "压载阵列",
+      "category": "relic",
+      "relic_rarity": "rare",
+      "unique": true,
+      "build_direction": "summon",
+      "conflict_groups": ["apex_core"],
+      "tags": ["summon", "device", "trap", "orbit", "relic"],
+      "description": "An illicit ballast rack that lets drones and rigged tools carry a room together.",
+      "description_zh": "这套非法压载架会让无人机和部署装置真正一起扛房间。",
+      "summary": "+1 summon cap, +20% orbit radius, summon hits refund 1.2 noise",
+      "summary_zh": "+1 召唤上限，轨道半径 +20%，召唤命中返还 1.2 噪声",
+      "effects": [
+        {
+          "stat": "summon_cap_bonus",
+          "add": 1
+        },
+        {
+          "stat": "summon_orbit_radius_mult",
+          "add": 0.20
+        },
+        {
+          "stat": "summon_hit_noise_refund",
+          "add": 1.2
+        },
+        {
+          "stat": "weapon_damage_mult",
+          "add": 0.14,
+          "target": {
+            "type": "tag",
+            "value": "summon"
+          }
+        },
+        {
+          "stat": "weapon_aoe_radius_mult",
+          "add": 0.12,
+          "target": {
+            "type": "tag",
+            "value": "trap"
+          }
+        }
+      ]
+    },
+    {
+      "id": "relic_black_ledger",
+      "label": "Black Ledger",
+      "label_zh": "黑潮账册",
+      "category": "relic",
+      "relic_rarity": "legendary",
+      "unique": true,
+      "build_direction": "return",
+      "tags": ["return", "economy", "meta", "relic"],
+      "description": "A contraband relic ledger that turns secure clears into a much richer payout curve.",
+      "description_zh": "这本走私遗物账册会把已经稳住的清房收益进一步放大。",
+      "summary": "DROP x1.18, META x1.28",
+      "summary_zh": "掉落 x1.18，元货币 x1.28",
+      "reward_multipliers": {
+        "drop": 1.18,
+        "meta_currency": 1.28
+      }
     },
     {
       "id": "mutator_tide_pressure",

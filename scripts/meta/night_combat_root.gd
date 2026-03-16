@@ -46,7 +46,8 @@ func debug_get_snapshot() -> Dictionary:
 	var snapshot := {
 		"active": is_session_active(),
 		"day": int(_active_request.get("day", 0)),
-		"session_duration_sec": float(_active_request.get("session_duration_sec", 0.0))
+		"session_duration_sec": float(_active_request.get("session_duration_sec", 0.0)),
+		"day_feedback": _active_request.get("day_feedback", {}).duplicate(true) if _active_request.get("day_feedback", {}) is Dictionary else {}
 	}
 	if _game_root != null and is_instance_valid(_game_root) and _game_root.has_method("debug_get_snapshot"):
 		snapshot["night_run"] = _game_root.call("debug_get_snapshot")
@@ -145,6 +146,11 @@ func debug_complete_session(summary_override: Dictionary = {}) -> void:
 		"exit_reason": exit_reason,
 		"abandoned": exit_reason == "abandoned"
 	}
+	for key_variant in summary_override.keys():
+		var key := String(key_variant)
+		if payload.has(key):
+			continue
+		payload[key] = summary_override[key_variant]
 	_emit_session_completed(payload)
 
 

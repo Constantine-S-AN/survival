@@ -32,10 +32,23 @@ position = Vector2(792, 540)
 position = Vector2(792, 540)
 script = ExtResource("2")
 
+[node name="LocatorShadow" type="Polygon2D" parent="DayPlayer"]
+z_index = -1
+position = Vector2(0, 38)
+color = Color(0.03, 0.04, 0.06, 0.24)
+polygon = PackedVector2Array(-18, 0, -12, -2, 0, -3, 12, -2, 18, 0, 12, 2, 0, 3, -12, 2)
+
+[node name="LocatorGlow" type="Polygon2D" parent="DayPlayer"]
+z_index = -1
+position = Vector2(0, 36)
+color = Color(0.56, 0.88, 0.95, 0.07)
+polygon = PackedVector2Array(-13, 0, -9, -2, 0, -3, 9, -2, 13, 0, 9, 2, 0, 3, -9, 2)
+
 [node name="Sprite2D" type="Sprite2D" parent="DayPlayer"]
 texture = ExtResource("5")
 texture_filter = 0
-scale = Vector2(1.45, 1.45)
+position = Vector2(0, 4)
+scale = Vector2(1.72, 1.72)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="DayPlayer"]
 shape = SubResource("1")
@@ -48,7 +61,7 @@ shape = SubResource("2")
 [node name="Camera2D" type="Camera2D" parent="DayPlayer"]
 position_smoothing_enabled = true
 position_smoothing_speed = 7.0
-zoom = Vector2(0.98, 0.98)
+zoom = Vector2(1.05, 1.05)
 
 [node name="HUDLayer" type="CanvasLayer" parent="."]
 layer = 4

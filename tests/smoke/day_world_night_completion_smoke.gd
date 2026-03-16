@@ -1,6 +1,8 @@
 extends Node
 
 const HelperClass := preload("res://tests/smoke/world_save_load_smoke_helper.gd")
+const ROUTE_A_REPLAY_SEED := 9000
+const ROUTE_A_TEMPLATE_ID := "harbor_rift_v2_route_a"
 
 var _helper = null
 
@@ -16,7 +18,10 @@ func _ready() -> void:
 		return
 	if not _require(await _helper.open_night_departure(), "Night completion smoke should open the dock departure confirmation"):
 		return
-	if not _require(await _helper.confirm_night_departure(), "Night completion smoke should launch the real NightRun"):
+	if not _require(await _helper.confirm_night_departure({
+		"seed": ROUTE_A_REPLAY_SEED,
+		"floor_template_id": ROUTE_A_TEMPLATE_ID
+	}), "Night completion smoke should launch the real NightRun"):
 		return
 	if not _require(not (await _helper.wait_for_night_room("camp")).is_empty(), "Night completion smoke should boot into the deterministic start room"):
 		return
@@ -64,5 +69,6 @@ func _require(condition: bool, message: String) -> bool:
 
 func _cleanup(failed: bool = true) -> void:
 	if _helper != null:
-		_helper.cleanup()
+		_helper.cleanup_and_quit(1 if failed else 0)
+		return
 	get_tree().quit(1 if failed else 0)

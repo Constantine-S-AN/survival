@@ -17,6 +17,7 @@ const FLOOR_SCHEMA_FIELDS: Array[String] = [
 	"start_room_id",
 	"goal_room_id",
 	"map_layout",
+	"route_resource_defaults",
 	"encounters",
 	"room_overrides",
 	"extra_connections",
@@ -30,6 +31,7 @@ const TEMPLATE_SCHEMA_FIELDS: Array[String] = [
 	"start_room_id",
 	"goal_room_id",
 	"map_layout",
+	"route_resource_defaults",
 	"encounters",
 	"rooms",
 	"connections",
@@ -41,11 +43,64 @@ const TEMPLATE_ROOM_REQUIRED_FIELDS: Array[String] = [
 	"room_type_id",
 	"scene"
 ]
+const ROOM_SCHEMA_FIELDS: Array[String] = [
+	"id",
+	"room_type_id",
+	"scene",
+	"label",
+	"label_zh",
+	"encounter_id",
+	"map_position",
+	"map_size",
+	"reward",
+	"route_resources",
+	"metadata",
+	"is_goal"
+]
 const CONNECTION_SCHEMA_FIELDS: Array[String] = [
 	"from",
 	"to",
 	"hidden"
 ]
+const MAP_LAYOUT_SCHEMA_FIELDS: Array[String] = [
+	"grid_spacing",
+	"corridor_width"
+]
+const FLOOR_DEFAULTS := {
+	"template_id": "",
+	"template_ids": [],
+	"start_room_id": "",
+	"goal_room_id": "",
+	"map_layout": {},
+	"route_resource_defaults": {},
+	"encounters": {},
+	"room_overrides": {},
+	"extra_connections": [],
+	"mutator_id": "",
+	"mutator_pool": []
+}
+const TEMPLATE_DEFAULTS := {
+	"start_room_id": "",
+	"goal_room_id": "",
+	"map_layout": {
+		"grid_spacing": Vector2(1180.0, 860.0),
+		"corridor_width": 96.0
+	},
+	"route_resource_defaults": {},
+	"encounters": {},
+	"rooms": [],
+	"connections": [],
+	"mutator_id": "",
+	"mutator_pool": []
+}
+const COMPATIBILITY_RULES := {
+	"missing_floor_schema_contract_version": "warn_and_normalize",
+	"missing_template_schema_contract_version": "warn_and_normalize",
+	"missing_map_layout": "inherit_template_or_engine_defaults",
+	"missing_start_room_id": "inherit_template_or_first_valid_room",
+	"missing_goal_room_id": "inherit_template_or_reachable_terminal_room",
+	"missing_mutator_id": "pick_from_floor_or_template_mutator_pool"
+}
 
 var _schema_warnings: Array[String] = []
 
@@ -100,7 +155,12 @@ func get_schema_contract() -> Dictionary:
 		"floor_fields": FLOOR_SCHEMA_FIELDS.duplicate(),
 		"template_fields": TEMPLATE_SCHEMA_FIELDS.duplicate(),
 		"room_required_fields": TEMPLATE_ROOM_REQUIRED_FIELDS.duplicate(),
-		"connection_fields": CONNECTION_SCHEMA_FIELDS.duplicate()
+		"room_fields": ROOM_SCHEMA_FIELDS.duplicate(),
+		"connection_fields": CONNECTION_SCHEMA_FIELDS.duplicate(),
+		"map_layout_fields": MAP_LAYOUT_SCHEMA_FIELDS.duplicate(),
+		"floor_defaults": FLOOR_DEFAULTS.duplicate(true),
+		"template_defaults": TEMPLATE_DEFAULTS.duplicate(true),
+		"compatibility": COMPATIBILITY_RULES.duplicate(true)
 	}
 
 
@@ -224,13 +284,23 @@ func _build_floor_state(
 	if goal_room_id.is_empty():
 		goal_room_id = String(template.get("goal_room_id", "")).strip_edges()
 	floor_state.goal_room_id = goal_room_id
-	var map_layout_variant: Variant = floor_row.get("map_layout", {})
-	if not (map_layout_variant is Dictionary) or (map_layout_variant as Dictionary).is_empty():
-		map_layout_variant = template.get("map_layout", {})
-	var map_layout: Dictionary = map_layout_variant if map_layout_variant is Dictionary else {}
 	var default_grid_spacing := floor_state.map_grid_spacing
+	var template_map_layout_variant: Variant = template.get("map_layout", {})
+	var template_map_layout: Dictionary = template_map_layout_variant if template_map_layout_variant is Dictionary else {}
+	var floor_map_layout_variant: Variant = floor_row.get("map_layout", {})
+	var floor_map_layout: Dictionary = floor_map_layout_variant if floor_map_layout_variant is Dictionary else {}
+	var merged_map_layout := template_map_layout.duplicate(true)
+	for key_variant in floor_map_layout.keys():
+		merged_map_layout[key_variant] = floor_map_layout[key_variant]
+	var map_layout := _normalize_map_layout(merged_map_layout, default_grid_spacing, floor_state.map_corridor_width)
 	floor_state.map_grid_spacing = _coerce_vector2(map_layout.get("grid_spacing", default_grid_spacing), default_grid_spacing)
 	floor_state.map_corridor_width = maxf(48.0, float(map_layout.get("corridor_width", floor_state.map_corridor_width)))
+	var template_route_defaults := _normalize_route_resource_counts(template.get("route_resource_defaults", {}))
+	var floor_route_defaults := _normalize_route_resource_counts(floor_row.get("route_resource_defaults", {}))
+	var route_resource_defaults := template_route_defaults.duplicate(true)
+	for key_variant in floor_route_defaults.keys():
+		route_resource_defaults[String(key_variant)] = floor_route_defaults[key_variant]
+	floor_state.route_resource_defaults = route_resource_defaults
 	var encounters_variant: Variant = floor_row.get("encounters", {})
 	if not (encounters_variant is Dictionary) or (encounters_variant as Dictionary).is_empty():
 		encounters_variant = template.get("encounters", {})
@@ -580,7 +650,8 @@ func _normalize_floor_row(row: Dictionary, row_index: int) -> Dictionary:
 		"template_ids": template_ids,
 		"start_room_id": String(row.get("start_room_id", "")).strip_edges(),
 		"goal_room_id": String(row.get("goal_room_id", "")).strip_edges(),
-		"map_layout": _normalize_map_layout(row.get("map_layout", {}), Vector2(1180.0, 860.0), 96.0),
+		"map_layout": _normalize_optional_map_layout(row.get("map_layout", null)),
+		"route_resource_defaults": _normalize_route_resource_counts(row.get("route_resource_defaults", {})),
 		"encounters": _normalize_dictionary_map(row.get("encounters", {})),
 		"room_overrides": _normalize_dictionary_map(row.get("room_overrides", {})),
 		"extra_connections": _normalize_connection_rows(row.get("extra_connections", []), "night_floor_rules:%d" % row_index),
@@ -602,6 +673,7 @@ func _normalize_template_row(row: Dictionary, row_index: int) -> Dictionary:
 		"start_room_id": String(row.get("start_room_id", "")).strip_edges(),
 		"goal_room_id": String(row.get("goal_room_id", "")).strip_edges(),
 		"map_layout": _normalize_map_layout(row.get("map_layout", {}), Vector2(1180.0, 860.0), 96.0),
+		"route_resource_defaults": _normalize_route_resource_counts(row.get("route_resource_defaults", {})),
 		"encounters": _normalize_dictionary_map(row.get("encounters", {})),
 		"rooms": _normalize_template_rooms(row.get("rooms", []), "night_room_templates:%d" % row_index),
 		"connections": _normalize_connection_rows(row.get("connections", []), "night_room_templates:%d" % row_index),
@@ -633,6 +705,7 @@ func _normalize_template_rooms(value: Variant, owner_label: String) -> Array:
 		room["room_type_id"] = String(room.get("room_type_id", room.get("type", ""))).strip_edges().to_lower()
 		room["scene"] = String(room.get("scene", "")).strip_edges()
 		room["encounter_id"] = String(room.get("encounter_id", "")).strip_edges().to_lower()
+		room["route_resources"] = RoomStateClass._normalize_route_resource_spec(room.get("route_resources", {}))
 		if String(room.get("room_type_id", "")).strip_edges().is_empty():
 			_record_schema_warning("[%s:room:%d] room '%s' missing room_type_id" % [owner_label, row_index, room_id])
 		rows.append(room)
@@ -679,6 +752,20 @@ func _normalize_map_layout(value: Variant, default_grid_spacing: Vector2, defaul
 	}
 
 
+func _normalize_optional_map_layout(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var source: Dictionary = value
+	if source.is_empty():
+		return {}
+	var normalized: Dictionary = {}
+	if source.has("grid_spacing"):
+		normalized["grid_spacing"] = _coerce_vector2(source.get("grid_spacing", Vector2(1180.0, 860.0)), Vector2(1180.0, 860.0))
+	if source.has("corridor_width"):
+		normalized["corridor_width"] = maxf(48.0, float(source.get("corridor_width", 96.0)))
+	return normalized
+
+
 func _normalize_dictionary_map(value: Variant) -> Dictionary:
 	if not (value is Dictionary):
 		return {}
@@ -690,6 +777,20 @@ func _normalize_dictionary_map(value: Variant) -> Dictionary:
 			continue
 		var row_variant: Variant = source.get(key_variant, {})
 		normalized[key] = row_variant.duplicate(true) if row_variant is Dictionary else {}
+	return normalized
+
+
+func _normalize_route_resource_counts(value: Variant) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var normalized: Dictionary = {}
+	var source: Dictionary = value
+	for key_variant in source.keys():
+		var key := String(key_variant).strip_edges().to_lower()
+		var amount := maxi(0, int(source.get(key_variant, 0)))
+		if not ["key", "curse", "contract"].has(key) or amount <= 0:
+			continue
+		normalized[key] = amount
 	return normalized
 
 

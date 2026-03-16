@@ -7,92 +7,97 @@ const SHOT_RETRY := "res://tmp/logs/t7_summary_retry_focus.png"
 const SHOT_PROGRESS := "res://tmp/logs/t7_summary_progress.png"
 const SESSION_TAG := "t7_summary_runner"
 
+var _game: Node = null
+
 
 func _ready() -> void:
-	call_deferred("_run")
+	await get_tree().process_frame
+	await _run()
 
 
 func _run() -> void:
 	_setup_profile_isolation(SESSION_TAG)
 	var lines: Array[String] = []
-	var game := GAME_ROOT_SCENE.instantiate()
-	add_child(game)
+	_game = GAME_ROOT_SCENE.instantiate()
+	add_child(_game)
 	await _wait_frames(3)
 
-	if String(game.get("run_state")) != String(game.get("STATE_MENU")):
-		_fail(lines, "expected initial menu state")
+	if String(_game.get("run_state")) != String(_game.get("STATE_MENU")):
+		await _fail(lines, "expected initial menu state")
 		return
 	lines.append("initial_state=menu")
 
-	game.call("_on_run_setup_start_requested", {
+	_game.call("_on_run_setup_start_requested", {
 		"character_id": "diver",
 		"map_id": "map_trench_lab",
 		"contract_ids": ["contract_loud_world"]
 	})
 
-	var entered_run := await _wait_for_state(game, String(game.get("STATE_PLAYING")), 4.0)
+	var entered_run := await _wait_for_state(_game, String(_game.get("STATE_PLAYING")), 4.0)
 	if not entered_run:
-		_fail(lines, "failed to enter run")
+		await _fail(lines, "failed to enter run")
 		return
 	lines.append("entered_state=playing")
-	var summary_before_death := game.get_node_or_null("UI/Root/RunSummary")
+	var summary_before_death := _game.get_node_or_null("UI/Root/RunSummary")
 	if summary_before_death != null and bool(summary_before_death.visible):
-		_fail(lines, "RunSummary should stay hidden while playing")
+		await _fail(lines, "RunSummary should stay hidden while playing")
 		return
 
-	var player := game.get_node_or_null("World/Player")
+	var player := _game.get_node_or_null("World/Player")
 	if player == null:
-		_fail(lines, "missing player")
+		await _fail(lines, "missing player")
 		return
 	player.call("apply_upgrade", "u_sonar_scope_matrix")
-	game.call("_refresh_hud")
+	_game.call("_refresh_hud")
 	await get_tree().create_timer(0.12).timeout
 
 	var lethal_damage := maxf(1.0, float(player.get("hp")) + 1.0)
 	player.call("take_damage", lethal_damage)
-	var entered_summary := await _wait_for_state(game, String(game.get("STATE_GAME_OVER")), 2.4)
+	var entered_summary := await _wait_for_state(_game, String(_game.get("STATE_GAME_OVER")), 2.4)
 	if not entered_summary:
-		_fail(lines, "failed to enter summary state")
+		await _fail(lines, "failed to enter summary state")
 		return
 
-	var summary := game.get_node_or_null("UI/Root/RunSummary")
+	var summary := _game.get_node_or_null("UI/Root/RunSummary")
 	if summary == null:
-		_fail(lines, "RunSummary panel missing")
+		await _fail(lines, "RunSummary panel missing")
 		return
 	if not bool(summary.visible):
-		_fail(lines, "RunSummary panel not visible")
+		await _fail(lines, "RunSummary panel not visible")
 		return
 
 	var snapshot: Dictionary = summary.call("debug_get_snapshot")
 	lines.append("summary_snapshot=%s" % JSON.stringify(snapshot))
 	if int(snapshot.get("rendered_key_fields", 0)) < 5:
-		_fail(lines, "summary rendered fields below threshold")
+		await _fail(lines, "summary rendered fields below threshold")
 		return
 
-	await _wait_draw()
+	if _can_capture_viewport():
+		await _wait_draw()
 	_capture(SHOT_OVERVIEW)
 
 	summary.call("debug_focus_retry")
 	await get_tree().process_frame
-	await _wait_draw()
+	if _can_capture_viewport():
+		await _wait_draw()
 	_capture(SHOT_RETRY)
 
 	summary.call("debug_pulse_progress")
 	await get_tree().create_timer(0.15).timeout
-	await _wait_draw()
+	if _can_capture_viewport():
+		await _wait_draw()
 	_capture(SHOT_PROGRESS)
 
 	summary.call("debug_press_retry")
-	var retry_ok := await _wait_for_state(game, String(game.get("STATE_PLAYING")), 4.0)
+	var retry_ok := await _wait_for_state(_game, String(_game.get("STATE_PLAYING")), 4.0)
 	if not retry_ok:
-		_fail(lines, "retry did not start a new run")
+		await _fail(lines, "retry did not start a new run")
 		return
 	lines.append("retry_state=playing")
 	lines.append("t7 summary flow: PASS")
 	_write_log(lines)
 	print("t7 summary flow: PASS")
-	_cleanup_profile_isolation()
-	get_tree().quit(0)
+	await _shutdown(0)
 
 
 func _wait_for_state(game: Node, target_state: String, timeout_sec: float) -> bool:
@@ -109,8 +114,7 @@ func _fail(lines: Array[String], reason: String) -> void:
 	lines.append("t7 summary flow: FAIL - %s" % reason)
 	_write_log(lines)
 	push_error(reason)
-	_cleanup_profile_isolation()
-	get_tree().quit(1)
+	await _shutdown(1)
 
 
 func _write_log(lines: Array[String]) -> void:
@@ -124,7 +128,15 @@ func _write_log(lines: Array[String]) -> void:
 
 
 func _capture(path: String) -> void:
-	var image := get_viewport().get_texture().get_image()
+	if not _can_capture_viewport():
+		return
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	var viewport_texture := viewport.get_texture()
+	if viewport_texture == null:
+		return
+	var image := viewport_texture.get_image()
 	if image == null:
 		return
 	var abs_path := ProjectSettings.globalize_path(path)
@@ -136,9 +148,32 @@ func _wait_draw() -> void:
 	await RenderingServer.frame_post_draw
 
 
+func _can_capture_viewport() -> bool:
+	return DisplayServer.get_name().strip_edges().to_lower() != "headless"
+
+
 func _wait_frames(count: int) -> void:
 	for _i in range(maxi(1, count)):
 		await get_tree().process_frame
+
+
+func _await_stable_frames(count: int = 3) -> void:
+	for _i in range(maxi(1, count)):
+		await get_tree().physics_frame
+		await get_tree().process_frame
+
+
+func _shutdown(exit_code: int) -> void:
+	if _game != null and is_instance_valid(_game):
+		if _game.has_method("stop_session"):
+			_game.call("stop_session")
+		await _await_stable_frames(2)
+		_game.queue_free()
+		await _await_stable_frames(3)
+	_game = null
+	_cleanup_profile_isolation()
+	await _await_stable_frames(1)
+	get_tree().quit(exit_code)
 
 
 func _setup_profile_isolation(tag: String) -> void:

@@ -2,13 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-GODOT_BIN="${GODOT_BIN:-godot}"
+source "${ROOT_DIR}/scripts/lib/godot_env.sh"
+GODOT_BIN="$(resolve_godot_bin "${GODOT_BIN:-}")"
 KEEP_GD_PLUG_CACHE="${KEEP_GD_PLUG_CACHE:-0}"
-
-if ! command -v "${GODOT_BIN}" >/dev/null 2>&1; then
-	echo "[plugins] missing Godot binary: ${GODOT_BIN}" >&2
-	exit 127
-fi
 
 echo "[plugins] syncing vendored addons via gd-plug"
 set +e

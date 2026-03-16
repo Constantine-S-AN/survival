@@ -140,9 +140,14 @@ func _apply_hud_model() -> void:
 	farm_tool_body_label.text = String(_hud_model.get("hotbar_selected_text", _t("meta.farm.tool_none")))
 	farm_tool_hint_label.text = String(_hud_model.get("hotbar_hint", _t("meta.day_hud.hotbar_hint")))
 	farm_tool_panel.visible = bool(_hud_model.get("farm_tool_visible", false))
+	var prompt_text := _compact_prompt_text(String(_hud_model.get("prompt_text", _t("meta.world.prompt_idle"))))
+	prompt_label.text = prompt_text
+	hint_label.text = String(_hud_model.get("move_hint", _t("meta.world.move_hint")))
+	var prompt_visible := bool(_hud_model.get("prompt_visible", true))
+	var has_prompt_text := not prompt_text.strip_edges().is_empty()
 	var guide_title := String(_hud_model.get("guide_title", "")).strip_edges()
 	var guide_text := String(_hud_model.get("guide_text", "")).strip_edges()
-	var guide_display_text := _compact_guide_text(guide_text)
+	var guide_display_text := _compact_guide_text(guide_text, prompt_visible and has_prompt_text)
 	guide_panel.visible = not guide_title.is_empty() or not guide_display_text.is_empty()
 	guide_title_label.text = guide_title
 	guide_body_label.text = guide_display_text
@@ -151,11 +156,6 @@ func _apply_hud_model() -> void:
 	guide_panel.tooltip_text = guide_text
 	guide_title_label.tooltip_text = guide_text
 	guide_body_label.tooltip_text = guide_text
-	var prompt_text := _compact_prompt_text(String(_hud_model.get("prompt_text", _t("meta.world.prompt_idle"))))
-	prompt_label.text = prompt_text
-	hint_label.text = String(_hud_model.get("move_hint", _t("meta.world.move_hint")))
-	var prompt_visible := bool(_hud_model.get("prompt_visible", true))
-	var has_prompt_text := not prompt_text.strip_edges().is_empty()
 	prompt_panel.visible = prompt_visible and (has_prompt_text or not hint_label.text.strip_edges().is_empty())
 	hint_label.visible = prompt_panel.visible and not hint_label.text.strip_edges().is_empty() and not has_prompt_text
 	guide_panel.visible = guide_panel.visible and not (prompt_panel.visible and has_prompt_text)
@@ -171,11 +171,11 @@ func _apply_hud_model() -> void:
 	)
 
 
-func _compact_guide_text(text: String) -> String:
+func _compact_guide_text(text: String, drop_first_line: bool = false) -> String:
 	var source := text.strip_edges()
 	if source.is_empty():
 		return ""
-	var compact_lines: Array[String] = []
+	var source_lines: Array[String] = []
 	for line_variant in source.split("\n", false):
 		var line := String(line_variant).strip_edges()
 		if line.is_empty():
@@ -184,10 +184,17 @@ func _compact_guide_text(text: String) -> String:
 			line = "• %s" % line.substr(2).strip_edges()
 		elif line.begins_with("-"):
 			line = "• %s" % line.substr(1).strip_edges()
-		compact_lines.append(_trim_panel_line(line, 34))
+		source_lines.append(line)
+	if source_lines.is_empty():
+		return ""
+	if drop_first_line and source_lines.size() > 1:
+		source_lines = source_lines.slice(1)
+	var compact_lines: Array[String] = []
+	for line in source_lines:
+		compact_lines.append(_trim_panel_line(line, 78))
 		if compact_lines.size() >= 3:
 			break
-	if compact_lines.size() < source.split("\n", false).size():
+	if compact_lines.size() < source_lines.size():
 		compact_lines.append("...")
 	return "\n".join(compact_lines)
 
@@ -295,8 +302,8 @@ func _apply_visual_theme(phase: String, night_ready: bool) -> void:
 	farm_tool_title_label.add_theme_font_size_override("font_size", 16)
 	farm_tool_body_label.add_theme_font_size_override("font_size", 14)
 	farm_tool_hint_label.add_theme_font_size_override("font_size", 12)
-	guide_title_label.add_theme_font_size_override("font_size", 16)
-	guide_body_label.add_theme_font_size_override("font_size", 13)
+	guide_title_label.add_theme_font_size_override("font_size", 17)
+	guide_body_label.add_theme_font_size_override("font_size", 14)
 	prompt_label.add_theme_font_size_override("font_size", 16)
 	hint_label.add_theme_font_size_override("font_size", 12)
 	orders_button.add_theme_font_override("font", HUD_FONT)

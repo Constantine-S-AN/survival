@@ -134,5 +134,6 @@ func _require(condition: bool, message: String) -> bool:
 
 func _cleanup(failed: bool = true) -> void:
 	if _helper != null:
-		_helper.cleanup()
+		_helper.cleanup_and_quit(1 if failed else 0)
+		return
 	get_tree().quit(1 if failed else 0)

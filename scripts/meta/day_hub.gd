@@ -119,7 +119,7 @@ func _apply_view_model() -> void:
 	menu_button.text = _t("meta.hub.menu")
 	var guide_title := String(_view_model.get("guide_title", "")).strip_edges()
 	var guide_text := String(_view_model.get("guide_text", "")).strip_edges()
-	var guide_display_text := _compact_multiline_text(guide_text, 3, 40)
+	var guide_display_text := _compact_multiline_text(guide_text, 4, 58)
 	guide_panel.visible = not guide_title.is_empty() or not guide_display_text.is_empty()
 	guide_title_label.text = guide_title
 	guide_title_label.visible = not guide_title.is_empty()

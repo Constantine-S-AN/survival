@@ -2,8 +2,9 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$ROOT_DIR/scripts/lib/godot_env.sh"
 TARGET_BRANCH="${PLAY_LATEST_BRANCH:-main}"
-GODOT_BIN="${GODOT_BIN:-godot}"
+GODOT_BIN="${GODOT_BIN:-}"
 START_SCENE="${PLAY_LATEST_SCENE:-res://scenes/meta/MetaLoopRoot.tscn}"
 UPDATE_ENABLED=1
 ALLOW_DIRTY=0
@@ -73,11 +74,7 @@ if ! command -v git >/dev/null 2>&1; then
   exit 127
 fi
 
-if ! command -v "$GODOT_BIN" >/dev/null 2>&1; then
-  echo "[play_latest] Godot executable not found: $GODOT_BIN" >&2
-  echo "[play_latest] set GODOT_BIN=/path/to/godot or pass --godot /path/to/godot" >&2
-  exit 127
-fi
+GODOT_BIN="$(resolve_godot_bin "$GODOT_BIN")"
 
 cd "$ROOT_DIR"
 
